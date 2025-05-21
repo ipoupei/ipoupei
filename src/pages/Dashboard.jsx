@@ -6,22 +6,22 @@ import './Dashboard.css';
 
 
 // Componentes
-import DonutChartCategoria from '../components/DonutChartCategoria';
-import CalendarioFinanceiro from '../components/CalendarioFinanceiro';
-import ProjecaoSaldoGraph from '../components/ProjecaoSaldoGraph';
-import DetalhesDoDiaModal from '../components/DetalhesDoDiaModal';
+import DonutChartCategoria from '../Components/DonutChartCategoria';
+import CalendarioFinanceiro from '../Components/CalendarioFinanceiro';
+import ProjecaoSaldoGraph from '../Components/ProjecaoSaldoGraph';
+import DetalhesDoDiaModal from '../Components/DetalhesDoDiaModal';
 
 // Hooks e utilitários
 import useDashboardData from '../hooks/useDashboardData';
 import { formatCurrency } from '../utils/formatCurrency';
 
 // Modais
-import ContasModal from '../components/ContasModal';
-import DespesasModal from '../components/DespesasModal';
-import ReceitasModal from '../components/ReceitasModal';
-import DespesasCartaoModal from '../components/DespesasCartaoModal';
-import CategoriasModal from '../components/CategoriasModal';
-import CartoesModal from '../components/CartoesModal';
+import ContasModal from '../Components/ContasModal';
+import DespesasModal from '../Components/DespesasModal';
+import ReceitasModal from '../Components/ReceitasModal';
+import DespesasCartaoModal from '../Components/DespesasCartaoModal';
+import CategoriasModal from '../Components/CategoriasModal';
+import CartoesModal from '../Components/CartoesModal';
 
 /**
  * Dashboard principal da aplicação de finanças pessoais
