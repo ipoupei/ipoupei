@@ -349,3 +349,21 @@ const DespesasFixasEtapa = ({ data, onUpdateData, onNext }) => {
         >
           Continuar
         </button>
+        
+        {totalDespesasFixas === 0 && (
+          <p className="mt-2 text-sm text-amber-600">
+            Informe pelo menos uma despesa fixa para continuar.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+DespesasFixasEtapa.propTypes = {
+  data: PropTypes.object,
+  onUpdateData: PropTypes.func.isRequired,
+  onNext: PropTypes.func.isRequired
+};
+
+export default DespesasFixasEtapa;

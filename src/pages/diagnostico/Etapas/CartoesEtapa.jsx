@@ -498,4 +498,399 @@ const CartoesEtapa = ({ data, onUpdateData, onNext }) => {
                                   >
                                     <Trash2 size={14} />
                                   </button>
-                                
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-gray-500 text-sm text-center py-4">
+                        Nenhum parcelamento cadastrado para este cartão
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      
+      {/* Formulário para adicionar/editar cartão */}
+      {formVisible ? (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-5 mb-6">
+          <h3 className="text-lg font-medium text-gray-800 mb-4">
+            {editingIndex !== null ? 'Editar Cartão' : 'Novo Cartão'}
+          </h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Nome do Cartão */}
+            <div className="md:col-span-2">
+              <label htmlFor="nome" className="block text-sm font-medium text-gray-700 mb-1">
+                Nome do Cartão *
+              </label>
+              <input
+                type="text"
+                id="nome"
+                name="nome"
+                value={formData.nome}
+                onChange={handleChange}
+                placeholder="Ex: Nubank, Itaú Visa, Bradesco Elo"
+                className={`block w-full rounded-md ${
+                  formErrors.nome 
+                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                    : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                }`}
+              />
+              {formErrors.nome && (
+                <p className="mt-1 text-sm text-red-600">{formErrors.nome}</p>
+              )}
+            </div>
+            
+            {/* Bandeira */}
+            <div>
+              <label htmlFor="bandeira" className="block text-sm font-medium text-gray-700 mb-1">
+                Bandeira *
+              </label>
+              <select
+                id="bandeira"
+                name="bandeira"
+                value={formData.bandeira}
+                onChange={handleChange}
+                className={`block w-full rounded-md ${
+                  formErrors.bandeira 
+                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                    : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                }`}
+              >
+                {bandeiraOptions.map(bandeira => (
+                  <option key={bandeira.id} value={bandeira.id}>
+                    {bandeira.nome}
+                  </option>
+                ))}
+              </select>
+              {formErrors.bandeira && (
+                <p className="mt-1 text-sm text-red-600">{formErrors.bandeira}</p>
+              )}
+            </div>
+            
+            {/* Limite do Cartão */}
+            <div>
+              <label htmlFor="limite" className="block text-sm font-medium text-gray-700 mb-1">
+                Limite do Cartão
+              </label>
+              <InputMoney
+                id="limite"
+                name="limite"
+                value={formData.limite}
+                onChange={(value) => handleMoneyChange('limite', value)}
+                placeholder="R$ 0,00"
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '0.625rem 0.75rem',
+                  fontSize: '0.875rem',
+                  borderRadius: '0.375rem',
+                  border: formErrors.limite ? '1px solid #ef4444' : '1px solid #d1d5db'
+                }}
+              />
+              {formErrors.limite && (
+                <p className="mt-1 text-sm text-red-600">{formErrors.limite}</p>
+              )}
+            </div>
+            
+            {/* Fatura Atual */}
+            <div>
+              <label htmlFor="faturaAtual" className="block text-sm font-medium text-gray-700 mb-1">
+                Fatura Atual
+                <div className="relative group inline-block ml-1">
+                  <HelpCircle size={14} className="text-gray-400 cursor-help" />
+                  <div className="absolute left-0 w-48 p-2 bg-white rounded-md shadow-lg border border-gray-200 text-xs text-gray-600 hidden group-hover:block z-10">
+                    Valor atual da fatura que ainda não foi paga
+                  </div>
+                </div>
+              </label>
+              <InputMoney
+                id="faturaAtual"
+                name="faturaAtual"
+                value={formData.faturaAtual}
+                onChange={(value) => handleMoneyChange('faturaAtual', value)}
+                placeholder="R$ 0,00"
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '0.625rem 0.75rem',
+                  fontSize: '0.875rem',
+                  borderRadius: '0.375rem',
+                  border: formErrors.faturaAtual ? '1px solid #ef4444' : '1px solid #d1d5db'
+                }}
+              />
+              {formErrors.faturaAtual && (
+                <p className="mt-1 text-sm text-red-600">{formErrors.faturaAtual}</p>
+              )}
+            </div>
+            
+            {/* Dia do Fechamento */}
+            <div>
+              <label htmlFor="diaFechamento" className="block text-sm font-medium text-gray-700 mb-1">
+                Dia do Fechamento
+              </label>
+              <input
+                type="number"
+                id="diaFechamento"
+                name="diaFechamento"
+                value={formData.diaFechamento}
+                onChange={handleChange}
+                min="1"
+                max="31"
+                className={`block w-full rounded-md ${
+                  formErrors.diaFechamento 
+                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                    : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                }`}
+              />
+              {formErrors.diaFechamento && (
+                <p className="mt-1 text-sm text-red-600">{formErrors.diaFechamento}</p>
+              )}
+            </div>
+            
+            {/* Dia do Vencimento */}
+            <div>
+              <label htmlFor="diaVencimento" className="block text-sm font-medium text-gray-700 mb-1">
+                Dia do Vencimento
+              </label>
+              <input
+                type="number"
+                id="diaVencimento"
+                name="diaVencimento"
+                value={formData.diaVencimento}
+                onChange={handleChange}
+                min="1"
+                max="31"
+                className={`block w-full rounded-md ${
+                  formErrors.diaVencimento 
+                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                    : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                }`}
+              />
+              {formErrors.diaVencimento && (
+                <p className="mt-1 text-sm text-red-600">{formErrors.diaVencimento}</p>
+              )}
+            </div>
+          </div>
+          
+          {/* Botões de Ação */}
+          <div className="flex space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={resetCartaoForm}
+              className="px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleAddOrUpdateCartao}
+              className="px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+            >
+              {editingIndex !== null ? 'Atualizar' : 'Adicionar'} Cartão
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setFormVisible(true)}
+          className="flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+        >
+          <Plus size={16} className="mr-2" />
+          Adicionar Novo Cartão
+        </button>
+      )}
+      
+      {/* Formulário para adicionar/editar parcelamento */}
+      {parcelamentoFormVisible && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-5 mb-6">
+          <h3 className="text-lg font-medium text-gray-800 mb-4">
+            {editingParcelamentoIndex !== null ? 'Editar Parcelamento' : 'Novo Parcelamento'}
+            {cartaoParcelamentoIndex !== null && (
+              <span className="text-sm text-gray-600 block">
+                Cartão: {cartoes[cartaoParcelamentoIndex]?.nome}
+              </span>
+            )}
+          </h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Descrição do Parcelamento */}
+            <div className="md:col-span-2">
+              <label htmlFor="descricaoParcelamento" className="block text-sm font-medium text-gray-700 mb-1">
+                Descrição do Parcelamento *
+              </label>
+              <input
+                type="text"
+                id="descricaoParcelamento"
+                name="descricao"
+                value={parcelamentoFormData.descricao}
+                onChange={handleParcelamentoChange}
+                placeholder="Ex: Notebook Dell, Geladeira, Móveis da sala"
+                className={`block w-full rounded-md ${
+                  parcelamentoFormErrors.descricao 
+                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                    : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                }`}
+              />
+              {parcelamentoFormErrors.descricao && (
+                <p className="mt-1 text-sm text-red-600">{parcelamentoFormErrors.descricao}</p>
+              )}
+            </div>
+            
+            {/* Valor da Parcela */}
+            <div>
+              <label htmlFor="valorParcelaParcelamento" className="block text-sm font-medium text-gray-700 mb-1">
+                Valor da Parcela *
+              </label>
+              <InputMoney
+                id="valorParcelaParcelamento"
+                name="valorParcela"
+                value={parcelamentoFormData.valorParcela}
+                onChange={handleParcelamentoMoneyChange}
+                placeholder="R$ 0,00"
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '0.625rem 0.75rem',
+                  fontSize: '0.875rem',
+                  borderRadius: '0.375rem',
+                  border: parcelamentoFormErrors.valorParcela ? '1px solid #ef4444' : '1px solid #d1d5db'
+                }}
+              />
+              {parcelamentoFormErrors.valorParcela && (
+                <p className="mt-1 text-sm text-red-600">{parcelamentoFormErrors.valorParcela}</p>
+              )}
+            </div>
+            
+            {/* Parcelas Restantes */}
+            <div>
+              <label htmlFor="parcelasRestantesParcelamento" className="block text-sm font-medium text-gray-700 mb-1">
+                Parcelas Restantes *
+              </label>
+              <input
+                type="number"
+                id="parcelasRestantesParcelamento"
+                name="parcelasRestantes"
+                value={parcelamentoFormData.parcelasRestantes}
+                onChange={handleParcelasRestantesChange}
+                min="1"
+                className={`block w-full rounded-md ${
+                  parcelamentoFormErrors.parcelasRestantes 
+                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                    : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                }`}
+              />
+              {parcelamentoFormErrors.parcelasRestantes && (
+                <p className="mt-1 text-sm text-red-600">{parcelamentoFormErrors.parcelasRestantes}</p>
+              )}
+            </div>
+            
+            {/* Total de Parcelas */}
+            <div>
+              <label htmlFor="totalParcelasParcelamento" className="block text-sm font-medium text-gray-700 mb-1">
+                Total de Parcelas *
+              </label>
+              <input
+                type="number"
+                id="totalParcelasParcelamento"
+                name="totalParcelas"
+                value={parcelamentoFormData.totalParcelas}
+                onChange={handleParcelamentoChange}
+                min="1"
+                className={`block w-full rounded-md ${
+                  parcelamentoFormErrors.totalParcelas 
+                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                    : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                }`}
+              />
+              {parcelamentoFormErrors.totalParcelas && (
+                <p className="mt-1 text-sm text-red-600">{parcelamentoFormErrors.totalParcelas}</p>
+              )}
+            </div>
+          </div>
+          
+          {/* Botões de Ação */}
+          <div className="flex space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={resetParcelamentoForm}
+              className="px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleAddOrUpdateParcelamento}
+              className="px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+            >
+              {editingParcelamentoIndex !== null ? 'Atualizar' : 'Adicionar'} Parcelamento
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Resumo de cartões e parcelamentos */}
+      {temCartaoOuParcelamento && (
+        <div className="bg-purple-50 p-4 rounded-lg">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <Info className="h-5 w-5 text-purple-400" aria-hidden="true" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-purple-700">
+                Você tem <strong>{cartoes.length}</strong> cartão(ões) cadastrado(s) com fatura atual de{' '}
+                <strong>{formatCurrency(totalFatura)}</strong>
+                {totalParcelasFuturas > 0 && (
+                  <> e <strong>{formatCurrency(totalParcelasFuturas)}</strong> em parcelamentos futuros</>
+                )}.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Informação sobre pular etapa */}
+      {!temCartaoOuParcelamento && (
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <DollarSign className="h-5 w-5 text-blue-400" aria-hidden="true" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-blue-700">
+                Se você não possui cartões de crédito ou não tem parcelamentos ativos, 
+                pode prosseguir para a próxima etapa.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Controles da etapa */}
+      <div className="pt-4">
+        <button
+          onClick={handleContinue}
+          className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+        >
+          Continuar
+        </button>
+      </div>
+    </div>
+  );
+};
+
+CartoesEtapa.propTypes = {
+  data: PropTypes.object,
+  onUpdateData: PropTypes.func.isRequired,
+  onNext: PropTypes.func.isRequired
+};
+
+export default CartoesEtapa;
