@@ -145,42 +145,38 @@ const DiagnosticoForm = ({ onSubmit, onCancel, initialData = {} }) => {
   const isLastStep = currentStep === steps.length - 1;
 
   return (
-    <div className="space-y-6 pb-10 relative">
+    <div style={{ maxWidth: '800px', margin: '0 auto' }}>
       {/* Barra de progresso */}
-      <div className="sticky top-0 z-10 bg-white pt-4 pb-6">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-gray-700">
+      <div className="progress-container">
+        <div className="progress-info">
+          <span className="progress-step">
             Etapa {currentStep + 1} de {steps.length}
           </span>
-          <span className="text-sm text-gray-500">
+          <span className="progress-percentage">
             {Math.round(((currentStep + (completedSteps.includes(currentStep) ? 1 : 0)) / steps.length) * 100)}% concluído
           </span>
         </div>
         
-        <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+        <div className="progress-bar">
           <div 
-            className="h-full bg-blue-500 rounded-full transition-all duration-500"
+            className="progress-fill"
             style={{ width: `${((currentStep + (completedSteps.includes(currentStep) ? 1 : 0)) / steps.length) * 100}%` }}
           ></div>
         </div>
         
         {/* Navegação entre etapas */}
-        <div className="flex items-center gap-2 mt-4 overflow-x-auto pb-2 scrollbar-hide">
+        <div className="step-navigation">
           {steps.map((step, index) => (
             <button
               key={step.id}
               onClick={() => handleGoToStep(index)}
               disabled={!completedSteps.includes(index) && index !== 0 && index > Math.max(...completedSteps, 0) + 1}
-              className={`px-3 py-1 text-xs rounded-full whitespace-nowrap transition-colors ${
+              className={`step-nav-button ${
                 index === currentStep
-                  ? 'bg-blue-100 text-blue-700 font-medium'
+                  ? 'current'
                   : completedSteps.includes(index)
-                  ? 'bg-green-50 text-green-700 font-medium'
-                  : 'bg-gray-100 text-gray-500'
-              } ${
-                !completedSteps.includes(index) && index !== 0 && index > Math.max(...completedSteps, 0) + 1
-                  ? 'opacity-50 cursor-not-allowed'
-                  : 'hover:bg-opacity-80'
+                  ? 'completed'
+                  : 'inactive'
               }`}
             >
               {step.title}
@@ -190,7 +186,7 @@ const DiagnosticoForm = ({ onSubmit, onCancel, initialData = {} }) => {
       </div>
       
       {/* Componente da etapa atual */}
-      <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+      <div className="diagnostico-card">
         <CurrentStepComponent 
           data={formData}
           onUpdateData={handleUpdateFormData}
@@ -199,27 +195,27 @@ const DiagnosticoForm = ({ onSubmit, onCancel, initialData = {} }) => {
       </div>
       
       {/* Botões de navegação e controle */}
-      <div className="flex justify-between pt-4">
-        <div>
+      <div className="navigation-controls">
+        <div className="nav-left">
           {currentStep > 0 && (
             <button
               type="button"
               onClick={handlePrevStep}
-              className="flex items-center px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              className="btn btn-secondary"
             >
-              <ChevronLeft size={16} className="mr-1" />
+              <ChevronLeft size={16} />
               Anterior
             </button>
           )}
         </div>
         
-        <div className="flex gap-3">
+        <div className="nav-right">
           {/* Botão para pular etapa (exceto a última) */}
           {!isLastStep && (
             <button
               type="button"
               onClick={handleSkipStep}
-              className="text-gray-500 hover:text-gray-700 text-sm font-medium"
+              className="skip-button"
             >
               Pular esta etapa
             </button>
@@ -229,21 +225,17 @@ const DiagnosticoForm = ({ onSubmit, onCancel, initialData = {} }) => {
           <button
             type="button"
             onClick={handleNextStep}
-            className={`flex items-center px-4 py-2 rounded-lg text-white transition-colors ${
-              isLastStep 
-                ? 'bg-green-600 hover:bg-green-700' 
-                : 'bg-blue-600 hover:bg-blue-700'
-            }`}
+            className={`btn ${isLastStep ? 'btn-success' : 'btn-primary'}`}
           >
             {isLastStep ? (
               <>
-                <Save size={16} className="mr-1" />
+                <Save size={16} />
                 Finalizar diagnóstico
               </>
             ) : (
               <>
                 Próximo
-                <ChevronRight size={16} className="ml-1" />
+                <ChevronRight size={16} />
               </>
             )}
           </button>

@@ -4,6 +4,8 @@ import DiagnosticoRouter from './pages/diagnostico/DiagnosticoRouter';
 import './App.css';
 import { testarLeituraContas, verificarAutenticacao } from './lib/supabaseClient';
 import { supabase } from './lib/supabaseClient';
+import './index.css'; // ou './globals.css' dependendo de como chamou
+
 
 /**
  * Componente principal da aplicação

@@ -4,8 +4,8 @@ import JornadaSelection from './JornadaSelection';
 import DiagnosticoForm from './DiagnosticoForm';
 import DiagnosticoSummary from './DiagnosticoSummary';
 import useDiagnostico from '../../hooks/useDiagnostico';
-import PageContainer from '../../Components/layout/PageContainer';
 import { X } from 'lucide-react';
+import './Diagnostico.css';
 
 /**
  * Componente principal que gerencia o fluxo do diagnóstico financeiro
@@ -84,6 +84,20 @@ const DiagnosticoRouter = ({
     }
   };
 
+  // Renderiza o loading state
+  if (loading) {
+    return (
+      <div className="diagnostico-wrapper">
+        <div className="diagnostico-container">
+          <div className="loading-container">
+            <div className="loading-spinner"></div>
+            <p className="loading-text">Processando seu diagnóstico...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Renderiza o componente correto com base no estágio atual
   const renderStage = () => {
     switch (stage) {
@@ -119,71 +133,69 @@ const DiagnosticoRouter = ({
     }
   };
 
-  // Determina o título baseado no contexto
-  const getTitle = () => {
-    if (isFirstTime) {
-      return stage === 'jornada' 
-        ? 'Bem-vindo ao iPoupei!' 
-        : 'Diagnóstico Financeiro';
-    }
-    return 'Diagnóstico Financeiro';
-  };
-
-  // Determina o subtítulo baseado no contexto
-  const getSubtitle = () => {
-    if (isFirstTime && stage === 'jornada') {
-      return 'Vamos começar organizando sua vida financeira. Escolha como deseja usar o iPoupei.';
-    }
-    return 'Vamos entender sua situação atual para te ajudar melhor';
-  };
-
   return (
-    <PageContainer
-      title={getTitle()}
-      subtitle={getSubtitle()}
-      actions={
-        stage !== 'jornada' ? (
-          <button 
-            onClick={handleCancelarDiagnostico}
-            className="p-2 rounded-full text-gray-500 hover:bg-gray-100"
-            aria-label="Cancelar diagnóstico"
-          >
-            <X size={20} />
-          </button>
-        ) : null
-      }
-      contentClassName="max-w-3xl mx-auto"
-    >
-      {/* Banner especial para primeira vez */}
-      {isFirstTime && stage === 'jornada' && (
-        <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
-          <div className="text-center">
-            <h2 className="text-xl font-bold text-blue-900 mb-2">
-              🎉 Seja bem-vindo ao iPoupei!
-            </h2>
-            <p className="text-blue-700">
-              Estamos muito felizes em ter você aqui. Vamos começar sua jornada financeira da melhor forma possível.
-            </p>
+    <div className="diagnostico-wrapper">
+      <div className="diagnostico-container">
+        {/* Header */}
+        <div className="diagnostico-header">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h1 className="diagnostico-title">
+                {isFirstTime && stage === 'jornada' ? 'Bem-vindo ao iPoupei!' : 'Diagnóstico Financeiro'}
+              </h1>
+              <p className="diagnostico-subtitle">
+                {isFirstTime && stage === 'jornada' 
+                  ? 'Vamos começar organizando sua vida financeira. Escolha como deseja usar o iPoupei.'
+                  : 'Vamos entender sua situação atual para te ajudar melhor'
+                }
+              </p>
+            </div>
+            {stage !== 'jornada' && (
+              <button 
+                onClick={handleCancelarDiagnostico}
+                className="btn btn-secondary"
+                style={{ 
+                  background: 'rgba(255,255,255,0.2)', 
+                  color: 'white', 
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  padding: '0.5rem'
+                }}
+                aria-label="Cancelar diagnóstico"
+              >
+                <X size={20} />
+              </button>
+            )}
           </div>
         </div>
-      )}
 
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg">
-          <p className="font-medium">Erro ao processar diagnóstico</p>
-          <p className="text-sm">{error}</p>
+        {/* Banner especial para primeira vez */}
+        {isFirstTime && stage === 'jornada' && (
+          <div className="info-box success" style={{ margin: '1.5rem 2rem' }}>
+            <div className="info-icon">🎉</div>
+            <div className="info-content">
+              <h4>Seja bem-vindo ao iPoupei!</h4>
+              <p>Estamos muito felizes em ter você aqui. Vamos começar sua jornada financeira da melhor forma possível.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Error display */}
+        {error && (
+          <div className="info-box error" style={{ margin: '1.5rem 2rem' }}>
+            <div className="info-icon">⚠️</div>
+            <div className="info-content">
+              <h4>Erro ao processar diagnóstico</h4>
+              <p>{error}</p>
+            </div>
+          </div>
+        )}
+        
+        {/* Content */}
+        <div className="diagnostico-content">
+          {renderStage()}
         </div>
-      )}
-      
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-          <p className="mt-4 text-gray-600">Processando...</p>
-        </div>
-      ) : (
-        renderStage()
-      )}
-    </PageContainer>
+      </div>
+    </div>
   );
 };
 

@@ -86,180 +86,162 @@ const PercepcaoEtapa = ({ data, onUpdateData, onNext }) => {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center mb-6">
-        <div className="p-2 rounded-full bg-indigo-100 text-indigo-600 mr-3">
+    <div>
+      <div className="diagnostico-card-header">
+        <div className="diagnostico-icon" style={{ backgroundColor: '#eef2ff', color: '#4f46e5' }}>
           <Brain size={24} />
         </div>
-        <h2 className="text-xl font-bold text-gray-800">Sua Percepção Financeira</h2>
+        <h2 className="diagnostico-card-title">Sua Percepção Financeira</h2>
       </div>
       
-      <p className="text-gray-600 mb-6">
+      <p className="diagnostico-card-description">
         Antes de falarmos sobre números, queremos entender como você se sente em relação às suas finanças.
         Suas respostas nos ajudarão a personalizar sua experiência e plano de ação.
       </p>
       
       {/* Pergunta 1: Sentimento */}
-      <div className="mb-6">
-        <h3 className="text-lg font-medium text-gray-800 mb-3">
+      <div className="form-section">
+        <h3 className="form-section-title">
           Quando você pensa nas suas finanças hoje, você se sente:
         </h3>
-        <div className="space-y-3">
+        <div className="radio-group">
           {sentimentoOptions.map((option) => (
             <label
               key={option.value}
-              className={`block p-4 border rounded-lg cursor-pointer transition-colors ${
-                localData.sentimento === option.value
-                  ? 'bg-indigo-50 border-indigo-300'
-                  : 'border-gray-200 hover:bg-gray-50'
-              }`}
+              className={`radio-option ${localData.sentimento === option.value ? 'selected' : ''}`}
             >
-              <div className="flex items-center">
-                <input
-                  type="radio"
-                  name="sentimento"
-                  value={option.value}
-                  checked={localData.sentimento === option.value}
-                  onChange={() => handleRadioChange('sentimento', option.value)}
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-                />
-                <span className="ml-3 text-gray-700">{option.label}</span>
-              </div>
+              <input
+                type="radio"
+                name="sentimento"
+                value={option.value}
+                checked={localData.sentimento === option.value}
+                onChange={() => handleRadioChange('sentimento', option.value)}
+              />
+              <span className="radio-option-label">{option.label}</span>
             </label>
           ))}
         </div>
       </div>
       
       {/* Pergunta 2: Percepção de Controle */}
-      <div className="mb-6">
-        <h3 className="text-lg font-medium text-gray-800 mb-3">
+      <div className="form-section">
+        <h3 className="form-section-title">
           Sua percepção sobre sua situação financeira hoje:
         </h3>
-        <div className="space-y-3">
+        <div className="radio-group">
           {percepcaoControleOptions.map((option) => (
             <label
               key={option.value}
-              className={`block p-4 border rounded-lg cursor-pointer transition-colors ${
-                localData.percepcaoControle === option.value
-                  ? 'bg-indigo-50 border-indigo-300'
-                  : 'border-gray-200 hover:bg-gray-50'
-              }`}
+              className={`radio-option ${localData.percepcaoControle === option.value ? 'selected' : ''}`}
             >
-              <div className="flex items-center">
-                <input
-                  type="radio"
-                  name="percepcaoControle"
-                  value={option.value}
-                  checked={localData.percepcaoControle === option.value}
-                  onChange={() => handleRadioChange('percepcaoControle', option.value)}
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-                />
-                <span className="ml-3 text-gray-700">{option.label}</span>
-              </div>
+              <input
+                type="radio"
+                name="percepcaoControle"
+                value={option.value}
+                checked={localData.percepcaoControle === option.value}
+                onChange={() => handleRadioChange('percepcaoControle', option.value)}
+              />
+              <span className="radio-option-label">{option.label}</span>
             </label>
           ))}
         </div>
       </div>
       
       {/* Pergunta 3: Percepção de Gastos */}
-      <div className="mb-6">
-        <h3 className="text-lg font-medium text-gray-800 mb-3">
+      <div className="form-section">
+        <h3 className="form-section-title">
           Atualmente, você sente que:
         </h3>
-        <div className="space-y-3">
+        <div className="radio-group">
           {percepcaoGastosOptions.map((option) => (
             <label
               key={option.value}
-              className={`block p-4 border rounded-lg cursor-pointer transition-colors ${
-                localData.percepcaoGastos === option.value
-                  ? 'bg-indigo-50 border-indigo-300'
-                  : 'border-gray-200 hover:bg-gray-50'
-              }`}
+              className={`radio-option ${localData.percepcaoGastos === option.value ? 'selected' : ''}`}
             >
-              <div className="flex items-center">
-                <input
-                  type="radio"
-                  name="percepcaoGastos"
-                  value={option.value}
-                  checked={localData.percepcaoGastos === option.value}
-                  onChange={() => handleRadioChange('percepcaoGastos', option.value)}
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-                />
-                <span className="ml-3 text-gray-700">{option.label}</span>
-              </div>
+              <input
+                type="radio"
+                name="percepcaoGastos"
+                value={option.value}
+                checked={localData.percepcaoGastos === option.value}
+                onChange={() => handleRadioChange('percepcaoGastos', option.value)}
+              />
+              <span className="radio-option-label">{option.label}</span>
             </label>
           ))}
         </div>
       </div>
       
       {/* Pergunta 4: Disciplina */}
-      <div className="mb-6">
-        <h3 className="text-lg font-medium text-gray-800 mb-3">
+      <div className="form-section">
+        <h3 className="form-section-title">
           Sobre sua disciplina financeira, você se considera:
         </h3>
-        <div className="space-y-3">
+        <div className="radio-group">
           {disciplinaOptions.map((option) => (
             <label
               key={option.value}
-              className={`block p-4 border rounded-lg cursor-pointer transition-colors ${
-                localData.disciplina === option.value
-                  ? 'bg-indigo-50 border-indigo-300'
-                  : 'border-gray-200 hover:bg-gray-50'
-              }`}
+              className={`radio-option ${localData.disciplina === option.value ? 'selected' : ''}`}
             >
-              <div className="flex items-center">
-                <input
-                  type="radio"
-                  name="disciplina"
-                  value={option.value}
-                  checked={localData.disciplina === option.value}
-                  onChange={() => handleRadioChange('disciplina', option.value)}
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-                />
-                <span className="ml-3 text-gray-700">{option.label}</span>
-              </div>
+              <input
+                type="radio"
+                name="disciplina"
+                value={option.value}
+                checked={localData.disciplina === option.value}
+                onChange={() => handleRadioChange('disciplina', option.value)}
+              />
+              <span className="radio-option-label">{option.label}</span>
             </label>
           ))}
         </div>
       </div>
       
       {/* Pergunta 5: Relação com Dinheiro */}
-      <div className="mb-6">
-        <h3 className="text-lg font-medium text-gray-800 mb-3">
+      <div className="form-section">
+        <h3 className="form-section-title">
           Sua relação com dinheiro, em uma palavra, seria:
         </h3>
-        <input
-          type="text"
-          name="relacaoDinheiro"
-          value={localData.relacaoDinheiro}
-          onChange={handleTextChange}
-          placeholder="Ex: Complicada, Tranquila, Desafiadora..."
-          className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-          maxLength={20}
-        />
-        <p className="mt-2 text-sm text-gray-500">
-          {localData.relacaoDinheiro.length}/20 caracteres
-        </p>
+        <div className="form-group">
+          <input
+            type="text"
+            name="relacaoDinheiro"
+            value={localData.relacaoDinheiro}
+            onChange={handleTextChange}
+            placeholder="Ex: Complicada, Tranquila, Desafiadora..."
+            className="form-input"
+            maxLength={20}
+            style={{ fontSize: '1.125rem', padding: '1rem' }}
+          />
+          <p style={{ 
+            marginTop: '0.5rem', 
+            fontSize: '0.875rem', 
+            color: '#6b7280',
+            textAlign: 'right'
+          }}>
+            {localData.relacaoDinheiro.length}/20 caracteres
+          </p>
+        </div>
       </div>
       
       {/* Controles da etapa */}
-      <div className="pt-4">
+      <div style={{ paddingTop: '2rem', textAlign: 'center' }}>
         <button
           onClick={handleSubmit}
-          className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-            isComplete()
-              ? 'bg-blue-600 hover:bg-blue-700 text-white'
-              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-          }`}
+          className={`btn ${isComplete() ? 'btn-primary' : 'btn-disabled'}`}
           disabled={!isComplete()}
+          style={{ padding: '1rem 2rem', fontSize: '1rem' }}
         >
           Continuar
         </button>
         
         {!isComplete() && (
-          <p className="mt-2 text-sm text-amber-600">
-            Por favor, responda todas as perguntas para continuar.
-          </p>
+          <div className="info-box warning" style={{ marginTop: '1rem' }}>
+            <div className="info-icon">⚠️</div>
+            <div className="info-content">
+              <p style={{ margin: 0 }}>
+                Por favor, responda todas as perguntas para continuar.
+              </p>
+            </div>
+          </div>
         )}
       </div>
     </div>

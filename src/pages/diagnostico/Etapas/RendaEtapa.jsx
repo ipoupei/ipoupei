@@ -90,111 +90,103 @@ const RendaEtapa = ({ data, onUpdateData, onNext }) => {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center mb-6">
-        <div className="p-2 rounded-full bg-green-100 text-green-600 mr-3">
+    <div>
+      <div className="diagnostico-card-header">
+        <div className="diagnostico-icon" style={{ backgroundColor: '#f0fdf4', color: '#16a34a' }}>
           <DollarSign size={24} />
         </div>
-        <h2 className="text-xl font-bold text-gray-800">Sua Renda Mensal</h2>
+        <h2 className="diagnostico-card-title">Sua Renda Mensal</h2>
       </div>
       
-      <p className="text-gray-600 mb-6">
+      <p className="diagnostico-card-description">
         Agora vamos entender seus números, para que possamos cruzar isso com sua percepção 
         e gerar um plano totalmente personalizado.
       </p>
       
       {/* Campo de Renda Mensal */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <label htmlFor="rendaMensal" className="block text-lg font-medium text-gray-800">
+      <div className="form-section">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 className="form-section-title" style={{ marginBottom: 0 }}>
             Qual sua renda mensal líquida total?
-          </label>
-          <div className="relative group">
-            <HelpCircle size={16} className="text-gray-400 cursor-help" />
-            <div className="absolute right-0 w-64 p-2 bg-white rounded-md shadow-lg border border-gray-200 text-sm text-gray-600 hidden group-hover:block z-10">
-              Considere o valor que efetivamente "cai na sua conta" após descontos como impostos e contribuições.
-            </div>
+          </h3>
+          <div style={{ position: 'relative', display: 'inline-block' }}>
+            <HelpCircle 
+              size={16} 
+              style={{ color: '#9ca3af', cursor: 'help' }}
+              title="Considere o valor que efetivamente 'cai na sua conta' após descontos como impostos e contribuições."
+            />
           </div>
         </div>
         
-        <InputMoney
-          id="rendaMensal"
-          name="rendaMensal"
-          value={localData.rendaMensal}
-          onChange={handleMoneyChange}
-          placeholder="R$ 0,00"
-          style={{
-            display: 'block',
-            width: '100%',
-            padding: '0.625rem 0.75rem',
-            fontSize: '1rem',
-            borderRadius: '0.375rem',
-            border: errors.rendaMensal ? '1px solid #ef4444' : '1px solid #d1d5db',
-            boxShadow: 'none',
-            outline: 'none'
-          }}
-        />
+        <div className="money-input-container">
+          <InputMoney
+            id="rendaMensal"
+            name="rendaMensal"
+            value={localData.rendaMensal}
+            onChange={handleMoneyChange}
+            placeholder="R$ 0,00"
+            className={`money-input ${errors.rendaMensal ? 'error' : ''}`}
+          />
+        </div>
         
         {errors.rendaMensal && (
-          <p className="mt-2 text-sm text-red-600">{errors.rendaMensal}</p>
+          <div className="form-error">
+            <span>⚠️</span>
+            {errors.rendaMensal}
+          </div>
         )}
       </div>
       
       {/* Tipo de Renda */}
-      <div className="mb-6">
-        <h3 className="text-lg font-medium text-gray-800 mb-3">
+      <div className="form-section">
+        <h3 className="form-section-title">
           Sua renda é:
         </h3>
-        <div className="space-y-3">
+        <div className="radio-group">
           {tipoRendaOptions.map((option) => (
             <label
               key={option.value}
-              className={`block p-4 border rounded-lg cursor-pointer transition-colors ${
-                localData.tipoRenda === option.value
-                  ? 'bg-green-50 border-green-300'
-                  : 'border-gray-200 hover:bg-gray-50'
-              }`}
+              className={`radio-option ${localData.tipoRenda === option.value ? 'selected' : ''}`}
             >
-              <div className="flex items-center">
-                <input
-                  type="radio"
-                  name="tipoRenda"
-                  value={option.value}
-                  checked={localData.tipoRenda === option.value}
-                  onChange={() => handleRadioChange('tipoRenda', option.value)}
-                  className="h-4 w-4 text-green-600 focus:ring-green-500"
-                />
-                <span className="ml-3 text-gray-700">{option.label}</span>
-              </div>
+              <input
+                type="radio"
+                name="tipoRenda"
+                value={option.value}
+                checked={localData.tipoRenda === option.value}
+                onChange={() => handleRadioChange('tipoRenda', option.value)}
+              />
+              <span className="radio-option-label">{option.label}</span>
             </label>
           ))}
         </div>
         
         {errors.tipoRenda && (
-          <p className="mt-2 text-sm text-red-600">{errors.tipoRenda}</p>
+          <div className="form-error">
+            <span>⚠️</span>
+            {errors.tipoRenda}
+          </div>
         )}
       </div>
       
       {/* Nota informativa */}
-      <div className="bg-blue-50 p-4 rounded-lg mb-6">
-        <div className="flex">
-          <div className="flex-shrink-0">
-            <HelpCircle className="h-5 w-5 text-blue-400" aria-hidden="true" />
-          </div>
-          <div className="ml-3">
-            <p className="text-sm text-blue-700">
-              Essa informação será utilizada apenas para cálculos e análises financeiras. 
-              Seus dados são protegidos e nunca serão compartilhados com terceiros.
-            </p>
-          </div>
+      <div className="info-box info">
+        <div className="info-icon">
+          <HelpCircle size={20} />
+        </div>
+        <div className="info-content">
+          <p style={{ margin: 0 }}>
+            Essa informação será utilizada apenas para cálculos e análises financeiras. 
+            Seus dados são protegidos e nunca serão compartilhados com terceiros.
+          </p>
         </div>
       </div>
       
       {/* Controles da etapa */}
-      <div className="pt-4">
+      <div style={{ paddingTop: '2rem', textAlign: 'center' }}>
         <button
           onClick={handleSubmit}
-          className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+          className="btn btn-primary"
+          style={{ padding: '1rem 2rem', fontSize: '1rem' }}
         >
           Continuar
         </button>
