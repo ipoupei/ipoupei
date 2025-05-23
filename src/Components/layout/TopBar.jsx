@@ -1,5 +1,6 @@
 // src/components/layout/TopBar.jsx
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import { 
   Landmark, 
@@ -10,11 +11,14 @@ import {
   Menu,
   User,
   Settings,
-  LogOut
+  LogOut,
+  ChevronDown
 } from 'lucide-react';
+import useAuth from '../../hooks/useAuth';
 
 /**
  * Componente de barra de topo com ações rápidas e navegação
+ * Atualizado com menu de perfil de usuário
  * 
  * @example
  * <TopBar 
@@ -26,11 +30,15 @@ import {
 const TopBar = ({
   title = 'Finanças Pessoais',
   onToggleSidebar = null,
-  user = null,
   showQuickActions = true,
   className = '',
   ...props
 }) => {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
+  
   // Define ações rápidas padrão - podem ser personalizadas/estendidas
   const quickActions = [
     {
@@ -76,6 +84,30 @@ const TopBar = ({
       onClick: () => {}
     }
   ];
+  
+  // Fechar menu quando clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setUserMenuOpen(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+  
+  // Função para fazer logout
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      navigate('/login');
+    } catch (err) {
+      console.error('Erro ao fazer logout:', err);
+    }
+  };
 
   return (
     <header className={`bg-white shadow-sm z-10 ${className}`} {...props}>
@@ -98,23 +130,56 @@ const TopBar = ({
           
           {/* Direita: Perfil de usuário */}
           {user && (
-            <div className="relative">
+            <div className="relative" ref={userMenuRef}>
               <div className="flex items-center">
                 <div className="hidden md:block">
-                  <p className="text-sm font-medium text-gray-700">{user.name}</p>
+                  <p className="text-sm font-medium text-gray-700">
+                    {user.user_metadata?.nome || user.email}
+                  </p>
                 </div>
                 
                 <div className="ml-3 relative">
-                  <div>
-                    <button 
-                      className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200"
-                      aria-label="Menu de usuário"
-                    >
-                      <User size={16} />
-                    </button>
-                  </div>
+                  <button 
+                    className="flex items-center justify-center space-x-2 rounded-full bg-gray-100 p-1 pr-3 text-gray-600 hover:bg-gray-200"
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    aria-label="Menu de usuário"
+                  >
+                    <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-medium">
+                      {user.user_metadata?.nome 
+                        ? user.user_metadata.nome.charAt(0).toUpperCase() 
+                        : user.email.charAt(0).toUpperCase()}
+                    </div>
+                    <ChevronDown size={16} className={`transform transition-transform duration-200 ${userMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
                   
-                  {/* Menu de usuário (pode ser implementado com estado) */}
+                  {/* Menu de usuário */}
+                  {userMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 ring-1 ring-black ring-opacity-5">
+                      <Link
+                        to="/profile"
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                        <User size={16} className="mr-2" />
+                        Meu Perfil
+                      </Link>
+                      <Link
+                        to="/settings"
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                        <Settings size={16} className="mr-2" />
+                        Configurações
+                      </Link>
+                      <button
+                        className="flex items-center w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                        onClick={handleLogout}
+                      >
+                        <LogOut size={16} className="mr-2" />
+                        Sair
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -146,10 +211,6 @@ const TopBar = ({
 TopBar.propTypes = {
   title: PropTypes.string,
   onToggleSidebar: PropTypes.func,
-  user: PropTypes.shape({
-    name: PropTypes.string.isRequired,
-    // Outros dados do usuário podem ser adicionados conforme necessário
-  }),
   showQuickActions: PropTypes.bool,
   className: PropTypes.string
 };

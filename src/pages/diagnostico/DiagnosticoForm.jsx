@@ -91,14 +91,6 @@ const DiagnosticoForm = ({ onSubmit, onCancel, initialData = {} }) => {
     }
   };
 
-DiagnosticoForm.propTypes = {
-  onSubmit: PropTypes.func.isRequired,
-  onCancel: PropTypes.func.isRequired,
-  initialData: PropTypes.object
-};
-
-export default DiagnosticoForm;
-
   // Navegação para a próxima etapa
   const handleNextStep = () => {
     // Marca a etapa atual como concluída, se ainda não estiver
@@ -127,7 +119,7 @@ export default DiagnosticoForm;
   // Navegação para uma etapa específica
   const handleGoToStep = (stepIndex) => {
     // Só permite navegar para etapas já concluídas ou a próxima etapa
-    if (completedSteps.includes(stepIndex) || stepIndex === 0 || stepIndex <= Math.max(...completedSteps) + 1) {
+    if (completedSteps.includes(stepIndex) || stepIndex === 0 || stepIndex <= Math.max(...completedSteps, 0) + 1) {
       setCurrentStep(stepIndex);
       window.scrollTo(0, 0);
     }
@@ -259,3 +251,12 @@ export default DiagnosticoForm;
       </div>
     </div>
   );
+};
+
+DiagnosticoForm.propTypes = {
+  onSubmit: PropTypes.func.isRequired,
+  onCancel: PropTypes.func.isRequired,
+  initialData: PropTypes.object
+};
+
+export default DiagnosticoForm;

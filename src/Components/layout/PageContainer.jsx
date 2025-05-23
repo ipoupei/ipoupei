@@ -1,25 +1,12 @@
-// src/components/layout/PageContainer.jsx
 import React from 'react';
 import PropTypes from 'prop-types';
 
-/**
- * Componente envoltório para páginas com padronização de layout
- * 
- * @example
- * <PageContainer 
- *   title="Dashboard" 
- *   subtitle="Resumo de Maio 2025"
- *   actions={<Button>Nova transação</Button>}
- * >
- *   {/* Conteúdo da página */}
- * </PageContainer>
- */
 const PageContainer = ({
   children,
-  title = null,
-  subtitle = null,
-  actions = null,
-  breadcrumbs = null,
+  title,
+  subtitle,
+  actions,
+  breadcrumbs,
   maxWidth = '7xl',
   className = '',
   contentClassName = '',
@@ -29,10 +16,8 @@ const PageContainer = ({
   
   return (
     <main className={containerClasses} {...props}>
-      {/* Cabeçalho da página */}
       {(title || subtitle || actions || breadcrumbs) && (
         <div className="mb-6">
-          {/* Breadcrumbs */}
           {breadcrumbs && (
             <div className="mb-2">{breadcrumbs}</div>
           )}
@@ -54,7 +39,6 @@ const PageContainer = ({
         </div>
       )}
       
-      {/* Conteúdo da página */}
       <div className={contentClassName}>
         {children}
       </div>

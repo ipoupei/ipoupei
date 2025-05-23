@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { Bank, Plus, Trash2, Edit2, Wallet, DollarSign } from 'lucide-react';
+import { Landmark, Plus, Trash2, Edit2, Wallet, DollarSign } from 'lucide-react';
 import InputMoney from '../../../Components/ui/InputMoney';
 import { formatCurrency } from '../../../utils/formatCurrency';
 
@@ -151,7 +151,7 @@ const ContasEtapa = ({ data, onUpdateData, onNext }) => {
     <div className="space-y-6">
       <div className="flex items-center mb-6">
         <div className="p-2 rounded-full bg-blue-100 text-blue-600 mr-3">
-          <Bank size={24} />
+          <Landmark size={24} />
         </div>
         <h2 className="text-xl font-bold text-gray-800">Suas Contas Bancárias</h2>
       </div>
@@ -192,7 +192,7 @@ const ContasEtapa = ({ data, onUpdateData, onNext }) => {
                     {conta.tipo === 'dinheiro' ? (
                       <Wallet size={18} />
                     ) : (
-                      <Bank size={18} />
+                      <Landmark size={18} />
                     )}
                   </div>
                   <div>

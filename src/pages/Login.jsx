@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
 import '../styles/Login.css';
-import logo from '../assets/logo.png'; // Importe o logo do seu app (crie ou use um placeholder)
+import logo from '../assets/logo.png';
+import { AlertCircle, Eye, EyeOff, Mail, Lock, User, LogIn, ArrowRight } from 'lucide-react';
 
 /**
  * Página de Login, Registro e Recuperação de Senha
- * Interface unificada para autenticação de usuários
+ * Interface unificada e aprimorada para autenticação de usuários
  */
 const Login = () => {
   // Estados para controlar as operações de login
@@ -18,6 +19,9 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   // Hooks para navegação e autenticação
   const navigate = useNavigate();
@@ -118,6 +122,16 @@ const Login = () => {
     }
   };
 
+  // Toggle para mostrar/ocultar senha
+  const toggleShowPassword = () => {
+    setShowPassword(!showPassword);
+  };
+
+  // Toggle para mostrar/ocultar confirmação de senha
+  const toggleShowConfirmPassword = () => {
+    setShowConfirmPassword(!showConfirmPassword);
+  };
+
   return (
     <div className="login-container">
       <div className="login-card">
@@ -127,39 +141,72 @@ const Login = () => {
           <p className="login-subtitle">Controle financeiro simplificado</p>
         </div>
         
+        {/* Título dinâmico baseado no modo */}
+        <h2 className="login-mode-title">
+          {mode === 'login' ? 'Entre na sua conta' : 
+           mode === 'register' ? 'Crie sua conta' : 
+           'Recupere sua senha'}
+        </h2>
+        
         {/* Mensagens de erro e sucesso */}
-        {error && <div className="login-error-message">{error}</div>}
-        {success && <div className="login-success-message">{success}</div>}
+        {error && (
+          <div className="login-error-message">
+            <AlertCircle size={16} className="alert-icon" />
+            <span>{error}</span>
+          </div>
+        )}
+        
+        {success && (
+          <div className="login-success-message">
+            <span>{success}</span>
+          </div>
+        )}
         
         {/* Formulário de login/registro/recuperação */}
         <form onSubmit={handleSubmit} className="login-form">
-          {/* Campos comuns a todos os modos */}
+          {/* Campo de Email */}
           <div className="form-group">
             <label htmlFor="email">Email</label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="email@exemplo.com"
-              required
-              disabled={loading}
-            />
+            <div className="input-container">
+              <Mail size={18} className="input-icon" />
+              <input
+                type="email"
+                id="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="seu.email@exemplo.com"
+                required
+                disabled={loading}
+                className="input-with-icon"
+              />
+            </div>
           </div>
           
           {/* Senha (apenas para login e registro) */}
           {mode !== 'recovery' && (
             <div className="form-group">
               <label htmlFor="password">Senha</label>
-              <input
-                type="password"
-                id="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Sua senha"
-                required
-                disabled={loading}
-              />
+              <div className="input-container">
+                <Lock size={18} className="input-icon" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  id="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Sua senha"
+                  required
+                  disabled={loading}
+                  className="input-with-icon"
+                />
+                <button 
+                  type="button"
+                  className="password-toggle"
+                  onClick={toggleShowPassword}
+                  tabIndex="-1"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
           )}
           
@@ -168,30 +215,73 @@ const Login = () => {
             <>
               <div className="form-group">
                 <label htmlFor="confirmPassword">Confirme a senha</label>
-                <input
-                  type="password"
-                  id="confirmPassword"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirme sua senha"
-                  required
-                  disabled={loading}
-                />
+                <div className="input-container">
+                  <Lock size={18} className="input-icon" />
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    id="confirmPassword"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirme sua senha"
+                    required
+                    disabled={loading}
+                    className="input-with-icon"
+                  />
+                  <button 
+                    type="button"
+                    className="password-toggle"
+                    onClick={toggleShowConfirmPassword}
+                    tabIndex="-1"
+                  >
+                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
               
               <div className="form-group">
                 <label htmlFor="nome">Nome completo</label>
-                <input
-                  type="text"
-                  id="nome"
-                  value={nome}
-                  onChange={(e) => setNome(e.target.value)}
-                  placeholder="Seu nome completo"
-                  required
-                  disabled={loading}
-                />
+                <div className="input-container">
+                  <User size={18} className="input-icon" />
+                  <input
+                    type="text"
+                    id="nome"
+                    value={nome}
+                    onChange={(e) => setNome(e.target.value)}
+                    placeholder="Seu nome completo"
+                    required
+                    disabled={loading}
+                    className="input-with-icon"
+                  />
+                </div>
               </div>
             </>
+          )}
+          
+          {/* Opção "Lembrar de mim" para login */}
+          {mode === 'login' && (
+            <div className="form-footer">
+              <div className="checkbox-container">
+                <input
+                  type="checkbox"
+                  id="rememberMe"
+                  checked={rememberMe}
+                  onChange={() => setRememberMe(!rememberMe)}
+                  disabled={loading}
+                />
+                <label htmlFor="rememberMe" className="checkbox-label">
+                  Lembrar de mim
+                </label>
+              </div>
+              
+              <button 
+                type="button" 
+                className="text-button"
+                onClick={() => setMode('recovery')}
+                disabled={loading}
+              >
+                Esqueceu a senha?
+              </button>
+            </div>
           )}
           
           {/* Botão de submissão (adaptado ao modo) */}
@@ -201,9 +291,11 @@ const Login = () => {
             disabled={loading}
           >
             {loading ? 'Processando...' : (
-              mode === 'login' ? 'Entrar' : 
-              mode === 'register' ? 'Criar conta' : 
-              'Recuperar senha'
+              <>
+                {mode === 'login' && <><LogIn size={18} /> Entrar</>}
+                {mode === 'register' && <><User size={18} /> Criar conta</>}
+                {mode === 'recovery' && <><ArrowRight size={18} /> Recuperar senha</>}
+              </>
             )}
           </button>
         </form>
@@ -211,29 +303,17 @@ const Login = () => {
         {/* Links para alternar entre modos */}
         <div className="login-mode-links">
           {mode === 'login' && (
-            <>
-              <p>
-                Não tem uma conta?{' '}
-                <button 
-                  type="button" 
-                  className="text-button"
-                  onClick={() => setMode('register')}
-                  disabled={loading}
-                >
-                  Registre-se
-                </button>
-              </p>
-              <p>
-                <button 
-                  type="button" 
-                  className="text-button"
-                  onClick={() => setMode('recovery')}
-                  disabled={loading}
-                >
-                  Esqueceu a senha?
-                </button>
-              </p>
-            </>
+            <p>
+              Não tem uma conta?{' '}
+              <button 
+                type="button" 
+                className="text-button text-button-highlight"
+                onClick={() => setMode('register')}
+                disabled={loading}
+              >
+                Registre-se
+              </button>
+            </p>
           )}
           
           {mode === 'register' && (
@@ -241,7 +321,7 @@ const Login = () => {
               Já tem uma conta?{' '}
               <button 
                 type="button" 
-                className="text-button"
+                className="text-button text-button-highlight"
                 onClick={() => setMode('login')}
                 disabled={loading}
               >
@@ -254,7 +334,7 @@ const Login = () => {
             <p>
               <button 
                 type="button" 
-                className="text-button"
+                className="text-button text-button-highlight"
                 onClick={() => setMode('login')}
                 disabled={loading}
               >

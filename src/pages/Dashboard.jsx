@@ -147,6 +147,10 @@ const Dashboard = () => {
       case 'categorias':
         setShowCategoriasModal(true);
         break;
+      case 'diagnostico':
+        // Redireciona para o diagnóstico financeiro
+        window.location.href = '/diagnostico';
+        break;
       // Outros casos serão implementados conforme necessário
       default:
         // Por padrão, apenas loga a ação
@@ -237,12 +241,22 @@ const Dashboard = () => {
           </button>
         </div>
         
-        {/* Barra de ações rápidas - redesenhada em uma linha com textos atualizados */}
+        {/* Barra de ações rápidas - redesenhada em uma linha com textos atualizados + botão diagnóstico */}
         <div className="actions-bar-container">
           <div className="actions-bar">
             <div className="actions-gradient-left"></div>
             
             <div className="actions-scroll">
+              {/* Botão de Diagnóstico - Primeiro da lista para dar destaque */}
+              <button 
+                className="action-button blue"
+                onClick={() => handleActionButton('diagnostico')}
+                title="Fazer diagnóstico financeiro completo"
+              >
+                <span>🎯</span>
+                <span>Diagnóstico</span>
+              </button>
+              
               <button 
                 className="action-button primary"
                 onClick={() => handleActionButton('minhas-contas')}
@@ -269,14 +283,7 @@ const Dashboard = () => {
                 <span>➕</span>
                 <span>Receita</span>
               </button>
-              <button 
-                className="action-button blue"
-                onClick={() => navigate('/diagnostico')}
-                title="Fazer diagnóstico financeiro completo"
-              >
-                <span>🎯</span>
-                <span>Diagnóstico</span>
-              </button>
+              
               <button 
                 className="action-button red"
                 onClick={() => handleActionButton('lancar-despesas')}
