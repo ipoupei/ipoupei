@@ -30,6 +30,21 @@ import CartoesModal from '../Components/CartoesModal';
 const Dashboard = () => {
   // Hooks
   const { data, loading, error } = useDashboardData();
+
+// DEBUG: Verificar dados do hook
+console.log('🏠 Dashboard - Estado do useDashboardData:', {
+  data,
+  loading,
+  error,
+  hasData: !!data
+});
+
+// Mostrar dados reais no console
+if (data) {
+  console.log('📊 Dados reais do dashboard:', data);
+}
+
+
   // const { user, signOut } = useAuth(); // Descomente quando tiver useAuth configurado
   
   // Estado local para a data atual e selecionada
@@ -449,188 +464,210 @@ const Dashboard = () => {
           </div>
         </div>
         
-        {/* Cards de resumo em grid */}
-        <div className="cards-grid">
-          {/* Card de Saldo */}
-          <div 
-            className={`summary-card card-green ${flippedCards.saldo ? 'flipped' : ''}`}
-            onClick={() => handleCardFlip('saldo')}
-            title={flippedCards.saldo ? "Clique para voltar" : "Clique para ver detalhamento"}
-          >
-            <div className="card-inner">
-              <div className="card-front">
-                <div className="card-header">
-                  <h3 className="card-title">Saldo</h3>
-                </div>
-                
-                <div className="card-value-section">
-                  <div className="card-label">Atual</div>
-                  <div className="card-value">
-                    {formatCurrency(data?.saldo?.atual || 117624.00)}
-                  </div>
-                </div>
-                
-                <div className="card-value-section">
-                  <div className="card-label">Previsto</div>
-                  <div className="card-value-sm">
-                    {formatCurrency(data?.saldo?.previsto || 456.65)}
-                  </div>
-                </div>
-              </div>
-              
-              <div className="card-back">
-                <div className="card-detail-total">
-                  <span>Total:</span>
-                  <span>{formatCurrency(calcularTotal(detalhamentoCards.saldo))}</span>
-                </div>
-                
-                <div className="card-details">
-                  {detalhamentoCards.saldo.map((conta, index) => (
-                    <div key={index} className="detail-item">
-                      <span className="detail-name">{conta.nome}</span>
-                      <span className="detail-value">{formatCurrency(conta.valor)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Card de Receitas */}
-          <div 
-            className={`summary-card card-blue ${flippedCards.receitas ? 'flipped' : ''}`}
-            onClick={() => handleCardFlip('receitas')}
-            title={flippedCards.receitas ? "Clique para voltar" : "Clique para ver detalhamento"}
-          >
-            <div className="card-inner">
-              <div className="card-front">
-                <div className="card-header">
-                  <h3 className="card-title">Receitas</h3>
-                </div>
-                
-                <div className="card-value-section">
-                  <div className="card-label">Atual</div>
-                  <div className="card-value">
-                    {formatCurrency(data?.receitas?.atual || 456.32)}
-                  </div>
-                </div>
-                
-                <div className="card-value-section">
-                  <div className="card-label">Previsto</div>
-                  <div className="card-value-sm">
-                    {formatCurrency(data?.receitas?.previsto || 456.65)}
-                  </div>
-                </div>
-              </div>
-              
-              <div className="card-back">
-                <div className="card-detail-total">
-                  <span>Total:</span>
-                  <span>{formatCurrency(calcularTotal(detalhamentoCards.receitas))}</span>
-                </div>
-                
-                <div className="card-details">
-                  {detalhamentoCards.receitas.map((receita, index) => (
-                    <div key={index} className="detail-item">
-                      <span className="detail-name">{receita.nome}</span>
-                      <span className="detail-value">{formatCurrency(receita.valor)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Card de Despesas */}
-          <div 
-            className={`summary-card card-amber ${flippedCards.despesas ? 'flipped' : ''}`}
-            onClick={() => handleCardFlip('despesas')}
-            title={flippedCards.despesas ? "Clique para voltar" : "Clique para ver detalhamento"}
-          >
-            <div className="card-inner">
-              <div className="card-front">
-                <div className="card-header">
-                  <h3 className="card-title">Despesas</h3>
-                </div>
-                
-                <div className="card-value-section">
-                  <div className="card-label">Atual</div>
-                  <div className="card-value">
-                    {formatCurrency(data?.despesas?.atual || 456.32)}
-                  </div>
-                </div>
-                
-                <div className="card-value-section">
-                  <div className="card-label">Previsto</div>
-                  <div className="card-value-sm">
-                    {formatCurrency(data?.despesas?.previsto || 456.65)}
-                  </div>
-                </div>
-              </div>
-              
-              <div className="card-back">
-                <div className="card-detail-total">
-                  <span>Total:</span>
-                  <span>{formatCurrency(calcularTotal(detalhamentoCards.despesas))}</span>
-                </div>
-                
-                <div className="card-details">
-                  {detalhamentoCards.despesas.map((despesa, index) => (
-                    <div key={index} className="detail-item">
-                      <span className="detail-name">{despesa.nome}</span>
-                      <span className="detail-value">{formatCurrency(despesa.valor)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Card de Cartão de Crédito */}
-          <div 
-            className={`summary-card card-purple ${flippedCards.cartaoCredito ? 'flipped' : ''}`}
-            onClick={() => handleCardFlip('cartaoCredito')}
-            title={flippedCards.cartaoCredito ? "Clique para voltar" : "Clique para ver detalhamento"}
-          >
-            <div className="card-inner">
-              <div className="card-front">
-                <div className="card-header">
-                  <h3 className="card-title">Cartão de crédito</h3>
-                </div>
-                
-                <div className="card-value-section">
-                  <div className="card-label">Atual</div>
-                  <div className="card-value">
-                    {formatCurrency(data?.cartaoCredito?.atual || 456.32)}
-                  </div>
-                </div>
-                
-                <div className="card-value-section">
-                  <div className="card-label">Previsto</div>
-                  <div className="card-value-sm">
-                    {formatCurrency(data?.cartaoCredito?.previsto || 456.65)}
-                  </div>
-                </div>
-              </div>
-              
-              <div className="card-back">
-                <div className="card-detail-total">
-                  <span>Total:</span>
-                  <span>{formatCurrency(calcularTotal(detalhamentoCards.cartaoCredito))}</span>
-                </div>
-                
-                <div className="card-details">
-                  {detalhamentoCards.cartaoCredito.map((cartao, index) => (
-                    <div key={index} className="detail-item">
-                      <span className="detail-name">{cartao.nome}</span>
-                      <span className="detail-value">{formatCurrency(cartao.valor)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+
+<div className="cards-grid">
+  {/* Card de Saldo */}
+  <div 
+    className={`summary-card card-green ${flippedCards.saldo ? 'flipped' : ''}`}
+    onClick={() => handleCardFlip('saldo')}
+    title={flippedCards.saldo ? "Clique para voltar" : "Clique para ver detalhamento"}
+  >
+    <div className="card-inner">
+      <div className="card-front">
+        <div className="card-header">
+          <h3 className="card-title">Saldo</h3>
+        </div>
+        
+        <div className="card-value-section">
+          <div className="card-label">Atual</div>
+          <div className="card-value">
+            {loading ? 'Carregando...' : formatCurrency(data?.saldo?.atual || 0)}
           </div>
         </div>
+        
+        <div className="card-value-section">
+          <div className="card-label">Previsto</div>
+          <div className="card-value-sm">
+            {loading ? '...' : formatCurrency(data?.saldo?.previsto || 0)}
+          </div>
+        </div>
+      </div>
+      
+      <div className="card-back">
+        <div className="card-detail-total">
+          <span>Total:</span>
+          <span>{data?.resumo ? formatCurrency(data.resumo.saldoLiquido || 0) : 'R$ 0,00'}</span>
+        </div>
+        
+        <div className="card-details">
+          <div className="detail-item">
+            <span className="detail-name">Contas</span>
+            <span className="detail-value">{data?.resumo ? formatCurrency(data.saldo?.atual || 0) : 'R$ 0,00'}</span>
+          </div>
+          <div className="detail-item">
+            <span className="detail-name">Total Contas</span>
+            <span className="detail-value">{data?.resumo?.totalContas || 0}</span>
+          </div>
+          <div className="detail-item">
+            <span className="detail-name">Total Cartões</span>
+            <span className="detail-value">{data?.resumo?.totalCartoes || 0}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  {/* Card de Receitas */}
+  <div 
+    className={`summary-card card-blue ${flippedCards.receitas ? 'flipped' : ''}`}
+    onClick={() => handleCardFlip('receitas')}
+    title={flippedCards.receitas ? "Clique para voltar" : "Clique para ver detalhamento"}
+  >
+    <div className="card-inner">
+      <div className="card-front">
+        <div className="card-header">
+          <h3 className="card-title">Receitas</h3>
+        </div>
+        
+        <div className="card-value-section">
+          <div className="card-label">Atual</div>
+          <div className="card-value">
+            {loading ? 'Carregando...' : formatCurrency(data?.receitas?.atual || 0)}
+          </div>
+        </div>
+        
+        <div className="card-value-section">
+          <div className="card-label">Previsto</div>
+          <div className="card-value-sm">
+            {loading ? '...' : formatCurrency(data?.receitas?.previsto || 0)}
+          </div>
+        </div>
+      </div>
+      
+      <div className="card-back">
+        <div className="card-detail-total">
+          <span>Total:</span>
+          <span>{formatCurrency(data?.receitas?.atual || 0)}</span>
+        </div>
+        
+        <div className="card-details">
+          {data?.receitas?.categorias?.map((receita, index) => (
+            <div key={index} className="detail-item">
+              <span className="detail-name">{receita.nome}</span>
+              <span className="detail-value">{formatCurrency(receita.valor)}</span>
+            </div>
+          )) || (
+            <div className="detail-item">
+              <span className="detail-name">Nenhuma receita</span>
+              <span className="detail-value">R$ 0,00</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  {/* Card de Despesas */}
+  <div 
+    className={`summary-card card-amber ${flippedCards.despesas ? 'flipped' : ''}`}
+    onClick={() => handleCardFlip('despesas')}
+    title={flippedCards.despesas ? "Clique para voltar" : "Clique para ver detalhamento"}
+  >
+    <div className="card-inner">
+      <div className="card-front">
+        <div className="card-header">
+          <h3 className="card-title">Despesas</h3>
+        </div>
+        
+        <div className="card-value-section">
+          <div className="card-label">Atual</div>
+          <div className="card-value">
+            {loading ? 'Carregando...' : formatCurrency(data?.despesas?.atual || 0)}
+          </div>
+        </div>
+        
+        <div className="card-value-section">
+          <div className="card-label">Previsto</div>
+          <div className="card-value-sm">
+            {loading ? '...' : formatCurrency(data?.despesas?.previsto || 0)}
+          </div>
+        </div>
+      </div>
+      
+      <div className="card-back">
+        <div className="card-detail-total">
+          <span>Total:</span>
+          <span>{formatCurrency(data?.despesas?.atual || 0)}</span>
+        </div>
+        
+        <div className="card-details">
+          {data?.despesas?.categorias?.map((despesa, index) => (
+            <div key={index} className="detail-item">
+              <span className="detail-name">{despesa.nome}</span>
+              <span className="detail-value">{formatCurrency(despesa.valor)}</span>
+            </div>
+          )) || (
+            <div className="detail-item">
+              <span className="detail-name">Nenhuma despesa</span>
+              <span className="detail-value">R$ 0,00</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  {/* Card de Cartão de Crédito */}
+  <div 
+    className={`summary-card card-purple ${flippedCards.cartaoCredito ? 'flipped' : ''}`}
+    onClick={() => handleCardFlip('cartaoCredito')}
+    title={flippedCards.cartaoCredito ? "Clique para voltar" : "Clique para ver detalhamento"}
+  >
+    <div className="card-inner">
+      <div className="card-front">
+        <div className="card-header">
+          <h3 className="card-title">Cartão de crédito</h3>
+        </div>
+        
+        <div className="card-value-section">
+          <div className="card-label">Atual</div>
+          <div className="card-value">
+            {loading ? 'Carregando...' : formatCurrency(data?.cartaoCredito?.atual || 0)}
+          </div>
+        </div>
+        
+        <div className="card-value-section">
+          <div className="card-label">Previsto</div>
+          <div className="card-value-sm">
+            {loading ? '...' : formatCurrency(data?.cartaoCredito?.previsto || 0)}
+          </div>
+        </div>
+      </div>
+      
+      <div className="card-back">
+        <div className="card-detail-total">
+          <span>Total:</span>
+          <span>{formatCurrency(data?.cartaoCredito?.atual || 0)}</span>
+        </div>
+        
+        <div className="card-details">
+          <div className="detail-item">
+            <span className="detail-name">Limite Total</span>
+            <span className="detail-value">{data?.resumo ? formatCurrency((data.resumo.totalCartoes || 0) * 1000) : 'R$ 0,00'}</span>
+          </div>
+          <div className="detail-item">
+            <span className="detail-name">Usado</span>
+            <span className="detail-value">{formatCurrency(data?.cartaoCredito?.atual || 0)}</span>
+          </div>
+          <div className="detail-item">
+            <span className="detail-name">Disponível</span>
+            <span className="detail-value">{data?.resumo ? formatCurrency(((data.resumo.totalCartoes || 0) * 1000) - (data?.cartaoCredito?.atual || 0)) : 'R$ 0,00'}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
         
         {/* Seção de gráficos de categorias com Donut Charts */}
         <div className="charts-grid">

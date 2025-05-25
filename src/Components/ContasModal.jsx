@@ -2,28 +2,30 @@ import React, { useState } from 'react';
 import BasicModal from './BasicModal';
 import InputMoney from './ui/InputMoney';
 import { formatCurrency } from '../utils/formatCurrency';
+import useContas from '../hooks/useContas';
 
 /**
  * Modal para gerenciar contas bancárias
- * Atualizado para permitir saldos negativos e melhorar a usabilidade
+ * VERSÃO CORRIGIDA - Integrado com hook useContas real
  */
 const ContasModal = ({ isOpen, onClose }) => {
+  // Hook real de contas
+  const { contas, loading, error, addConta, deleteConta } = useContas();
+  
   // Estados do modal
-  const [contas, setContas] = useState([
-    { id: '1', nome: 'Itaú', saldo: 1200.00 },
-    { id: '2', nome: 'Bradesco', saldo: 760.10 },
-    { id: '3', nome: 'Inter', saldo: 4550.00 }
-  ]);
   const [showForm, setShowForm] = useState(false);
   const [feedback, setFeedback] = useState({ visible: false, message: '', type: '' });
   const [formData, setFormData] = useState({ nome: '', saldo: 0 });
   const [formError, setFormError] = useState('');
 
+  // Log para debug
+  console.log('🏦 ContasModal - Estado:', { totalContas: contas.length, loading, error });
+
   // Calcula o total em contas
   const totalEmContas = contas.reduce((total, conta) => total + (conta.saldo || 0), 0);
 
-  // Adiciona nova conta
-  const handleSaveConta = (e) => {
+  // Adiciona nova conta usando o hook real
+  const handleSaveConta = async (e) => {
     e.preventDefault();
     
     // Validação básica
@@ -32,50 +34,102 @@ const ContasModal = ({ isOpen, onClose }) => {
       return;
     }
     
-    // Criar nova conta
-    const novaConta = {
-      id: `conta_${Date.now()}`,
-      nome: formData.nome.trim(),
-      saldo: formData.saldo
-    };
+    console.log('💾 Salvando conta:', formData);
     
-    // Adicionar à lista
-    setContas([...contas, novaConta]);
-    
-    // Reset do formulário
-    setFormData({ nome: '', saldo: 0 });
-    setFormError('');
-    setShowForm(false);
-    
-    // Feedback
-    setFeedback({
-      visible: true,
-      message: 'Conta adicionada com sucesso!',
-      type: 'success'
-    });
-    
-    // Esconder feedback depois de 3 segundos
-    setTimeout(() => {
-      setFeedback({ visible: false, message: '', type: '' });
-    }, 3000);
-  };
-
-  // Exclui uma conta
-  const handleDeleteConta = (id) => {
-    if (window.confirm('Tem certeza que deseja excluir esta conta?')) {
-      setContas(contas.filter(conta => conta.id !== id));
+    try {
+      // Usar o hook real para adicionar
+      const result = await addConta({
+        nome: formData.nome.trim(),
+        tipo: 'corrente', // Tipo padrão
+        banco: '',
+        saldo: formData.saldo || 0,
+        cor: '#3B82F6' // Cor padrão
+      });
       
+      console.log('✅ Resultado da criação:', result);
+      
+      if (result.success) {
+        // Reset do formulário
+        setFormData({ nome: '', saldo: 0 });
+        setFormError('');
+        setShowForm(false);
+        
+        // Feedback de sucesso
+        setFeedback({
+          visible: true,
+          message: 'Conta adicionada com sucesso!',
+          type: 'success'
+        });
+        
+        // Esconder feedback depois de 3 segundos
+        setTimeout(() => {
+          setFeedback({ visible: false, message: '', type: '' });
+        }, 3000);
+      } else {
+        throw new Error(result.error || 'Erro ao criar conta');
+      }
+    } catch (err) {
+      console.error('❌ Erro ao salvar conta:', err);
       setFeedback({
         visible: true,
-        message: 'Conta excluída com sucesso!',
-        type: 'success'
+        message: `Erro ao criar conta: ${err.message}`,
+        type: 'error'
       });
       
       setTimeout(() => {
         setFeedback({ visible: false, message: '', type: '' });
-      }, 3000);
+      }, 5000);
     }
   };
+
+  // Exclui uma conta usando o hook real
+  const handleDeleteConta = async (conta) => {
+    if (window.confirm(`Tem certeza que deseja excluir a conta "${conta.nome}"?`)) {
+      console.log('🗑️ Excluindo conta:', conta.id);
+      
+      try {
+        const result = await deleteConta(conta.id);
+        
+        console.log('✅ Resultado da exclusão:', result);
+        
+        if (result.success) {
+          setFeedback({
+            visible: true,
+            message: 'Conta excluída com sucesso!',
+            type: 'success'
+          });
+          
+          setTimeout(() => {
+            setFeedback({ visible: false, message: '', type: '' });
+          }, 3000);
+        } else {
+          throw new Error(result.error || 'Erro ao excluir conta');
+        }
+      } catch (err) {
+        console.error('❌ Erro ao excluir conta:', err);
+        setFeedback({
+          visible: true,
+          message: `Erro ao excluir conta: ${err.message}`,
+          type: 'error'
+        });
+        
+        setTimeout(() => {
+          setFeedback({ visible: false, message: '', type: '' });
+        }, 5000);
+      }
+    }
+  };
+
+  // Se está carregando
+  if (loading) {
+    return (
+      <BasicModal isOpen={isOpen} onClose={onClose} title="Gerenciar contas">
+        <div style={{ textAlign: 'center', padding: '40px' }}>
+          <div>🔄 Carregando contas...</div>
+        </div>
+      </BasicModal>
+    );
+  }
 
   // Conteúdo principal do modal
   const modalContent = (
@@ -130,6 +184,24 @@ const ContasModal = ({ isOpen, onClose }) => {
           }}
         >
           {feedback.message}
+        </div>
+      )}
+
+      {/* Erro geral do hook */}
+      {error && (
+        <div
+          style={{
+            padding: '10px 12px',
+            marginBottom: '16px',
+            borderRadius: '4px',
+            backgroundColor: '#fff5f5',
+            color: '#c53030',
+            border: '1px solid #feb2b2',
+            width: '100%',
+            boxSizing: 'border-box'
+          }}
+        >
+          ❌ {error}
         </div>
       )}
 
@@ -247,17 +319,18 @@ const ContasModal = ({ isOpen, onClose }) => {
               </button>
               <button
                 type="submit"
+                disabled={loading}
                 style={{
                   padding: '6px 12px',
-                  backgroundColor: '#3182ce',
+                  backgroundColor: loading ? '#a0aec0' : '#3182ce',
                   color: 'white',
                   border: 'none',
                   borderRadius: '4px',
-                  cursor: 'pointer',
+                  cursor: loading ? 'not-allowed' : 'pointer',
                   fontSize: '14px'
                 }}
               >
-                Salvar
+                {loading ? 'Salvando...' : 'Salvar'}
               </button>
             </div>
           </form>
@@ -275,75 +348,96 @@ const ContasModal = ({ isOpen, onClose }) => {
               boxSizing: 'border-box'
             }}
           >
-            {contas.map(conta => (
-              <div
-                key={conta.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '10px 12px',
-                  borderBottom: '1px solid #edf2f7',
-                  backgroundColor: 'white'
-                }}
-              >
+            {contas.length === 0 ? (
+              <div style={{
+                padding: '20px',
+                textAlign: 'center',
+                color: '#718096',
+                backgroundColor: 'white'
+              }}>
+                📝 Nenhuma conta cadastrada ainda.
+                <br />
+                <small>Clique em "Criar nova conta" para começar!</small>
+              </div>
+            ) : (
+              contas.map(conta => (
                 <div
+                  key={conta.id}
                   style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '50%',
-                    backgroundColor: '#ebf5ff',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    marginRight: '10px',
-                    fontSize: '16px'
+                    padding: '10px 12px',
+                    borderBottom: '1px solid #edf2f7',
+                    backgroundColor: 'white'
                   }}
                 >
-                  🏦
-                </div>
-                
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 500, fontSize: '14px' }}>{conta.nome}</div>
-                  <div style={{ 
-                    fontSize: '13px', 
-                    color: conta.saldo >= 0 ? '#3182ce' : '#e53e3e' 
-                  }}>
-                    {formatCurrency(conta.saldo)}
+                  <div
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '50%',
+                      backgroundColor: conta.cor || '#ebf5ff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginRight: '10px',
+                      fontSize: '16px'
+                    }}
+                  >
+                    🏦
                   </div>
+                  
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 500, fontSize: '14px' }}>
+                      {conta.nome}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#718096' }}>
+                      {conta.tipo} {conta.banco && `- ${conta.banco}`}
+                    </div>
+                    <div style={{ 
+                      fontSize: '13px', 
+                      color: conta.saldo >= 0 ? '#3182ce' : '#e53e3e',
+                      fontWeight: 500
+                    }}>
+                      {formatCurrency(conta.saldo)}
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={() => handleDeleteConta(conta)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: '#e53e3e',
+                      padding: '6px',
+                      borderRadius: '4px',
+                      fontSize: '14px'
+                    }}
+                    title="Excluir conta"
+                  >
+                    🗑️
+                  </button>
                 </div>
-                
-                <button
-                  onClick={() => handleDeleteConta(conta.id)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: '#e53e3e',
-                    padding: '6px',
-                    borderRadius: '4px',
-                    fontSize: '14px'
-                  }}
-                >
-                  🗑️
-                </button>
-              </div>
-            ))}
+              ))
+            )}
           </div>
           
           {/* Botão para adicionar conta */}
           <button
             onClick={() => setShowForm(true)}
+            disabled={loading}
             style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               width: '100%',
               padding: '8px',
-              backgroundColor: '#3182ce',
+              backgroundColor: loading ? '#a0aec0' : '#3182ce',
               color: 'white',
               border: 'none',
               borderRadius: '4px',
-              cursor: 'pointer',
+              cursor: loading ? 'not-allowed' : 'pointer',
               marginBottom: '16px',
               fontWeight: 500,
               fontSize: '14px',

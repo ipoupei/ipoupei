@@ -3,7 +3,7 @@ import AuthContext from '../context/AuthContext';
 
 /**
  * Hook personalizado para usar o contexto de autenticação
- * Versão simplificada que usa o contexto
+ * Versão atualizada com Supabase integrado
  */
 const useAuth = () => {
   const context = useContext(AuthContext);

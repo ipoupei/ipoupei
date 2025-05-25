@@ -6,6 +6,14 @@ import './CategoriasModal.css';
 /**
  * Modal para gerenciamento de categorias e subcategorias
  */
+
+// Botão temporário para criar categorias padrão
+const criarCategoriasPadrao = async () => {
+  // Código para criar categorias
+  console.log('Criando categorias padrão...');
+};
+
+
 const CategoriasModal = ({ isOpen, onClose }) => {
   // Obter dados das categorias do hook existente
   const { 

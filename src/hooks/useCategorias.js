@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import useAuth from './useAuth';
 
 /**
  * Hook personalizado para gerenciar categorias (receitas e despesas)
- * Conectado ao Supabase para operações CRUD reais
- * 
- * @returns {Object} - Objeto com dados e funções de manipulação de categorias
+ * Versão final integrada com Supabase
  */
 const useCategorias = () => {
   // Estado para armazenar as categorias
@@ -15,32 +14,45 @@ const useCategorias = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Busca todas as categorias e subcategorias
+  // Hook de autenticação
+  const { user, isAuthenticated } = useAuth();
+
+  // Busca todas as categorias e subcategorias do usuário logado
   const fetchCategorias = useCallback(async () => {
+    if (!isAuthenticated || !user) {
+      setCategorias([]);
+      setLoading(false);
+      return { success: false, error: 'Usuário não autenticado' };
+    }
+
     try {
       setLoading(true);
       setError(null);
       
-      // Busca as categorias principais
+      // Busca as categorias principais do usuário
       const { data: dataCategoria, error: errorCategoria } = await supabase
         .from('categorias')
         .select('*')
+        .eq('usuario_id', user.id)
+        .eq('ativo', true)
         .order('ordem', { ascending: true });
       
       if (errorCategoria) throw errorCategoria;
       
-      // Agora busca todas as subcategorias
+      // Busca todas as subcategorias do usuário
       const { data: dataSubcategorias, error: errorSubcategorias } = await supabase
         .from('subcategorias')
         .select('*')
+        .eq('usuario_id', user.id)
+        .eq('ativo', true)
         .order('nome', { ascending: true });
       
       if (errorSubcategorias) throw errorSubcategorias;
       
       // Combina os dados e organiza as subcategorias sob suas categorias pai
-      const categoriasCombinadas = dataCategoria.map(categoria => {
+      const categoriasCombinadas = (dataCategoria || []).map(categoria => {
         // Filtra as subcategorias que pertencem a esta categoria
-        const subcategoriasDestaCat = dataSubcategorias
+        const subcategoriasDestaCat = (dataSubcategorias || [])
           .filter(subcategoria => subcategoria.categoria_id === categoria.id);
         
         // Retorna a categoria com suas subcategorias
@@ -54,20 +66,30 @@ const useCategorias = () => {
       return { success: true, data: categoriasCombinadas };
     } catch (err) {
       console.error('Erro ao buscar categorias:', err);
-      setError('Não foi possível carregar suas categorias. Por favor, tente novamente.');
+      const errorMessage = 'Não foi possível carregar suas categorias. Tente novamente.';
+      setError(errorMessage);
       return { success: false, error: err.message };
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAuthenticated, user]);
 
-  // Carrega as categorias ao inicializar o hook
+  // Carrega as categorias quando o usuário muda ou componente monta
   useEffect(() => {
-    fetchCategorias();
-  }, [fetchCategorias]);
+    if (isAuthenticated && user) {
+      fetchCategorias();
+    } else {
+      setCategorias([]);
+      setLoading(false);
+    }
+  }, [fetchCategorias, isAuthenticated, user]);
 
   // Adiciona uma nova categoria
   const addCategoria = useCallback(async (novaCategoria) => {
+    if (!isAuthenticated || !user) {
+      return { success: false, error: 'Usuário não autenticado' };
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -75,12 +97,14 @@ const useCategorias = () => {
       // Prepara os dados para inserção
       const dadosCategoria = {
         ...novaCategoria,
+        usuario_id: user.id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        // A ordem será a última + 1
-        ordem: categorias.length > 0 
-          ? Math.max(...categorias.map(c => c.ordem || 0)) + 1 
-          : 1
+        ativo: true,
+        // A ordem será a última + 1 para o tipo específico
+        ordem: categorias
+          .filter(c => c.tipo === novaCategoria.tipo)
+          .reduce((max, c) => Math.max(max, c.ordem || 0), 0) + 1
       };
       
       // Chama a API para adicionar a categoria
@@ -105,62 +129,20 @@ const useCategorias = () => {
       }
     } catch (err) {
       console.error('Erro ao adicionar categoria:', err);
-      setError('Não foi possível adicionar a categoria. Por favor, tente novamente.');
+      const errorMessage = 'Não foi possível adicionar a categoria. Tente novamente.';
+      setError(errorMessage);
       return { success: false, error: err.message };
     } finally {
       setLoading(false);
     }
-  }, [categorias]);
-
-  // Adiciona uma subcategoria
-  const addSubcategoria = useCallback(async (categoriaId, novaSubcategoria) => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Prepara os dados para inserção
-      const dadosSubcategoria = {
-        ...novaSubcategoria,
-        categoria_id: categoriaId,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      
-      // Chama a API para adicionar a subcategoria
-      const { data, error } = await supabase
-        .from('subcategorias')
-        .insert([dadosSubcategoria])
-        .select();
-      
-      if (error) throw error;
-      
-      // Atualiza o estado local
-      if (data && data.length > 0) {
-        setCategorias(prev => prev.map(categoria => {
-          if (categoria.id === categoriaId) {
-            return {
-              ...categoria,
-              subcategorias: [...categoria.subcategorias, data[0]]
-            };
-          }
-          return categoria;
-        }));
-        
-        return { success: true, data: data[0] };
-      } else {
-        throw new Error('Erro ao adicionar subcategoria: dados não retornados');
-      }
-    } catch (err) {
-      console.error('Erro ao adicionar subcategoria:', err);
-      setError('Não foi possível adicionar a subcategoria. Por favor, tente novamente.');
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  }, [categorias, isAuthenticated, user]);
 
   // Atualiza uma categoria
   const updateCategoria = useCallback(async (categoriaId, dadosAtualizados) => {
+    if (!isAuthenticated || !user) {
+      return { success: false, error: 'Usuário não autenticado' };
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -171,11 +153,18 @@ const useCategorias = () => {
         updated_at: new Date().toISOString()
       };
       
+      // Remove campos que não devem ser atualizados
+      delete dadosCategoria.id;
+      delete dadosCategoria.usuario_id;
+      delete dadosCategoria.created_at;
+      delete dadosCategoria.subcategorias;
+      
       // Chama a API para atualizar a categoria
       const { data, error } = await supabase
         .from('categorias')
         .update(dadosCategoria)
         .eq('id', categoriaId)
+        .eq('usuario_id', user.id)
         .select();
       
       if (error) throw error;
@@ -198,136 +187,109 @@ const useCategorias = () => {
       }
     } catch (err) {
       console.error('Erro ao atualizar categoria:', err);
-      setError('Não foi possível atualizar a categoria. Por favor, tente novamente.');
+      const errorMessage = 'Não foi possível atualizar a categoria. Tente novamente.';
+      setError(errorMessage);
       return { success: false, error: err.message };
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  // Atualiza uma subcategoria
-  const updateSubcategoria = useCallback(async (categoriaId, subcategoriaId, dadosAtualizados) => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Prepara os dados para atualização
-      const dadosSubcategoria = {
-        ...dadosAtualizados,
-        updated_at: new Date().toISOString()
-      };
-      
-      // Chama a API para atualizar a subcategoria
-      const { data, error } = await supabase
-        .from('subcategorias')
-        .update(dadosSubcategoria)
-        .eq('id', subcategoriaId)
-        .select();
-      
-      if (error) throw error;
-      
-      // Atualiza o estado local
-      if (data && data.length > 0) {
-        setCategorias(prev => prev.map(categoria => {
-          if (categoria.id === categoriaId) {
-            return {
-              ...categoria,
-              subcategorias: categoria.subcategorias.map(subcategoria => 
-                subcategoria.id === subcategoriaId ? data[0] : subcategoria
-              )
-            };
-          }
-          return categoria;
-        }));
-        
-        return { success: true, data: data[0] };
-      } else {
-        throw new Error('Erro ao atualizar subcategoria: dados não retornados');
-      }
-    } catch (err) {
-      console.error('Erro ao atualizar subcategoria:', err);
-      setError('Não foi possível atualizar a subcategoria. Por favor, tente novamente.');
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  }, [isAuthenticated, user]);
 
   // Exclui uma categoria
   const deleteCategoria = useCallback(async (categoriaId) => {
+    if (!isAuthenticated || !user) {
+      return { success: false, error: 'Usuário não autenticado' };
+    }
+
     try {
       setLoading(true);
       setError(null);
       
-      // Verifica se a categoria tem subcategorias
-      const categoria = categorias.find(cat => cat.id === categoriaId);
+      // Verifica se a categoria tem transações associadas
+      const { data: transacoes, error: errorTransacoes } = await supabase
+        .from('transacoes')
+        .select('id')
+        .eq('categoria_id', categoriaId)
+        .eq('usuario_id', user.id)
+        .limit(1);
       
-      if (categoria && categoria.subcategorias.length > 0) {
-        // Primeiro exclui todas as subcategorias
+      if (errorTransacoes) throw errorTransacoes;
+      
+      // Se tem transações, apenas desativa; senão, exclui fisicamente
+      if (transacoes && transacoes.length > 0) {
+        // Desativa categoria
+        const { error: errorUpdate } = await supabase
+          .from('categorias')
+          .update({ ativo: false, updated_at: new Date().toISOString() })
+          .eq('id', categoriaId)
+          .eq('usuario_id', user.id);
+        
+        if (errorUpdate) throw errorUpdate;
+        
+        // Desativa subcategorias
+        const { error: errorSubcategorias } = await supabase
+          .from('subcategorias')
+          .update({ ativo: false, updated_at: new Date().toISOString() })
+          .eq('categoria_id', categoriaId)
+          .eq('usuario_id', user.id);
+        
+        if (errorSubcategorias) throw errorSubcategorias;
+      } else {
+        // Exclui subcategorias fisicamente
         const { error: errorSubcategorias } = await supabase
           .from('subcategorias')
           .delete()
-          .eq('categoria_id', categoriaId);
+          .eq('categoria_id', categoriaId)
+          .eq('usuario_id', user.id);
         
         if (errorSubcategorias) throw errorSubcategorias;
+        
+        // Exclui categoria fisicamente
+        const { error } = await supabase
+          .from('categorias')
+          .delete()
+          .eq('id', categoriaId)
+          .eq('usuario_id', user.id);
+        
+        if (error) throw error;
       }
-      
-      // Depois exclui a categoria
-      const { error } = await supabase
-        .from('categorias')
-        .delete()
-        .eq('id', categoriaId);
-      
-      if (error) throw error;
       
       // Atualiza o estado local
       setCategorias(prev => prev.filter(categoria => categoria.id !== categoriaId));
       return { success: true };
     } catch (err) {
       console.error('Erro ao excluir categoria:', err);
-      setError('Não foi possível excluir a categoria. Por favor, tente novamente.');
+      const errorMessage = 'Não foi possível excluir a categoria. Tente novamente.';
+      setError(errorMessage);
       return { success: false, error: err.message };
     } finally {
       setLoading(false);
     }
+  }, [isAuthenticated, user]);
+
+  // Função auxiliar para buscar categorias por tipo
+  const getCategoriasPorTipo = useCallback((tipo) => {
+    return categorias.filter(categoria => categoria.tipo === tipo);
   }, [categorias]);
 
-  // Exclui uma subcategoria
-  const deleteSubcategoria = useCallback(async (categoriaId, subcategoriaId) => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Chama a API para excluir a subcategoria
-      const { error } = await supabase
-        .from('subcategorias')
-        .delete()
-        .eq('id', subcategoriaId);
-      
-      if (error) throw error;
-      
-      // Atualiza o estado local
-      setCategorias(prev => prev.map(categoria => {
-        if (categoria.id === categoriaId) {
-          return {
-            ...categoria,
-            subcategorias: categoria.subcategorias.filter(
-              subcategoria => subcategoria.id !== subcategoriaId
-            )
-          };
-        }
-        return categoria;
-      }));
-      
-      return { success: true };
-    } catch (err) {
-      console.error('Erro ao excluir subcategoria:', err);
-      setError('Não foi possível excluir a subcategoria. Por favor, tente novamente.');
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
+  // Função auxiliar para buscar categoria por ID
+  const getCategoriaById = useCallback((id) => {
+    return categorias.find(categoria => categoria.id === id);
+  }, [categorias]);
+
+  // Expor para debug apenas em desenvolvimento
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      window.categoriasDebug = {
+        categorias,
+        updateCategoria,
+        deleteCategoria,
+        addCategoria,
+        loading,
+        error
+      };
     }
-  }, []);
+  }, [categorias, updateCategoria, deleteCategoria, addCategoria, loading, error]);
 
   // Retorna os dados e funções
   return {
@@ -336,11 +298,15 @@ const useCategorias = () => {
     error,
     fetchCategorias,
     addCategoria,
-    addSubcategoria,
     updateCategoria,
-    updateSubcategoria,
     deleteCategoria,
-    deleteSubcategoria
+    getCategoriasPorTipo,
+    getCategoriaById,
+    // Dados derivados úteis
+    categoriasReceita: getCategoriasPorTipo('receita'),
+    categoriasDespesa: getCategoriasPorTipo('despesa'),
+    totalCategorias: categorias.length,
+    isAuthenticated
   };
 };
 

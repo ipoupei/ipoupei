@@ -1,225 +1,428 @@
-// src/context/AuthContext.js - Versão Mockada para Desenvolvimento
+// src/context/AuthContext.js - Versão Real com Supabase
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '../lib/supabaseClient';
 
 // Contexto de autenticação
 const AuthContext = createContext();
 
 /**
- * Provider de autenticação mockado para desenvolvimento
- * Permite login sem Supabase configurado
+ * Provider de autenticação integrado com Supabase
+ * Suporta SSO (Google, GitHub) e autenticação tradicional
  */
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [session, setSession] = useState(null);
 
-  // Verificar se há um usuário autenticado ao carregar a aplicação
+  // Verificar sessão atual e configurar listener
   useEffect(() => {
-    const checkSession = () => {
-      try {
-        // Verifica se há um token no localStorage (simulação)
-        const token = localStorage.getItem('mock_auth_token');
-        const userData = localStorage.getItem('mock_user_data');
-        
-        if (token && userData) {
-          // Simula que existe um usuário autenticado
-          setUser(JSON.parse(userData));
-        } else {
-          setUser(null);
-        }
+    let mounted = true;
 
-        setLoading(false);
+    const getInitialSession = async () => {
+      try {
+        // Obter sessão atual
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Erro ao obter sessão:', error);
+          setError('Erro ao verificar autenticação');
+        } else if (mounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+        }
       } catch (err) {
-        console.error('Erro ao verificar autenticação:', err);
-        setError('Falha ao verificar autenticação');
-        setUser(null);
-        setLoading(false);
+        console.error('Erro inesperado ao verificar sessão:', err);
+        if (mounted) {
+          setError('Erro inesperado ao verificar autenticação');
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
-    // Simula um pequeno delay de carregamento
-    setTimeout(checkSession, 500);
+    getInitialSession();
+
+    // Configurar listener para mudanças de autenticação
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event, session?.user?.email);
+      
+      if (mounted) {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+        
+        // Criar ou atualizar perfil do usuário quando necessário
+        if (event === 'SIGNED_IN' && session?.user) {
+          await ensureUserProfile(session.user);
+        }
+      }
+    });
+
+    // Cleanup
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  // Função de login mockada
-  const signIn = async ({ email, password }) => {
-    setLoading(true);
-    setError(null);
-
+  // Função para garantir que o perfil do usuário existe
+  const ensureUserProfile = async (user) => {
     try {
-      // Simula delay de rede
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Credenciais mockadas para desenvolvimento
-      const validCredentials = [
-        { email: 'usuario@exemplo.com', password: 'senha123' },
-        { email: 'admin@ipoupei.com', password: '123456' },
-        { email: 'teste@teste.com', password: 'teste123' }
-      ];
-      
-      const isValid = validCredentials.some(cred => 
-        cred.email === email && cred.password === password
-      );
-      
-      if (isValid) {
-        // Login bem-sucedido
-        const userData = {
-          id: 'mock-user-123',
-          email: email,
-          user_metadata: {
-            nome: email === 'admin@ipoupei.com' ? 'Administrador' : 'Usuário Teste'
-          },
-          created_at: new Date().toISOString()
+      // Verificar se perfil já existe
+      const { data: existingProfile, error: fetchError } = await supabase
+        .from('perfil_usuario')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error('Erro ao buscar perfil:', fetchError);
+        return;
+      }
+
+      // Se perfil não existe, criar um novo
+      if (!existingProfile) {
+        const profileData = {
+          id: user.id,
+          nome: user.user_metadata?.full_name || 
+                user.user_metadata?.name || 
+                user.email?.split('@')[0] || 
+                'Usuário',
+          email: user.email,
+          avatar_url: user.user_metadata?.avatar_url || null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         };
-        
-        setUser(userData);
-        
-        // Salva no localStorage para persistir
-        localStorage.setItem('mock_auth_token', 'mock-token-123');
-        localStorage.setItem('mock_user_data', JSON.stringify(userData));
-        
-        setLoading(false);
-        return { success: true, user: userData };
-      } else {
-        // Credenciais inválidas
-        setError('Email ou senha inválidos');
-        setLoading(false);
-        return { success: false, error: 'Email ou senha inválidos' };
+
+        const { error: insertError } = await supabase
+          .from('perfil_usuario')
+          .insert([profileData]);
+
+        if (insertError) {
+          console.error('Erro ao criar perfil:', insertError);
+        } else {
+          console.log('Perfil criado com sucesso para:', user.email);
+          
+          // Criar categorias padrão para o novo usuário
+          await createDefaultCategories(user.id);
+        }
       }
     } catch (err) {
-      console.error('Erro ao fazer login:', err);
-      setError(err.message || 'Falha ao fazer login');
-      setLoading(false);
-      return { success: false, error: err.message || 'Falha ao fazer login' };
+      console.error('Erro ao garantir perfil do usuário:', err);
     }
   };
 
-  // Função de cadastro mockada
-  const signUp = async ({ email, password, nome }) => {
-    setLoading(true);
-    setError(null);
-
+  // Função para criar categorias padrão
+  const createDefaultCategories = async (userId) => {
     try {
-      // Simula delay de rede
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Simula cadastro bem-sucedido
-      const userData = {
-        id: `mock-user-${Date.now()}`,
-        email,
-        user_metadata: {
-          nome
-        },
-        created_at: new Date().toISOString()
-      };
-      
-      setUser(userData);
-      
-      // Salva no localStorage
-      localStorage.setItem('mock_auth_token', `mock-token-${Date.now()}`);
-      localStorage.setItem('mock_user_data', JSON.stringify(userData));
-      
-      setLoading(false);
-      return { success: true, user: userData };
+      const defaultCategories = [
+        // Categorias de Receita
+        { nome: 'Salário', tipo: 'receita', cor: '#10B981', icone: 'briefcase', ordem: 1 },
+        { nome: 'Freelance', tipo: 'receita', cor: '#3B82F6', icone: 'laptop', ordem: 2 },
+        { nome: 'Investimentos', tipo: 'receita', cor: '#8B5CF6', icone: 'trending-up', ordem: 3 },
+        { nome: 'Outros', tipo: 'receita', cor: '#6B7280', icone: 'plus', ordem: 4 },
+        
+        // Categorias de Despesa
+        { nome: 'Alimentação', tipo: 'despesa', cor: '#EF4444', icone: 'utensils', ordem: 1 },
+        { nome: 'Transporte', tipo: 'despesa', cor: '#F59E0B', icone: 'car', ordem: 2 },
+        { nome: 'Moradia', tipo: 'despesa', cor: '#06B6D4', icone: 'home', ordem: 3 },
+        { nome: 'Saúde', tipo: 'despesa', cor: '#EC4899', icone: 'heart', ordem: 4 },
+        { nome: 'Educação', tipo: 'despesa', cor: '#8B5CF6', icone: 'graduation-cap', ordem: 5 },
+        { nome: 'Lazer', tipo: 'despesa', cor: '#F97316', icone: 'gamepad-2', ordem: 6 },
+        { nome: 'Compras', tipo: 'despesa', cor: '#84CC16', icone: 'shopping-bag', ordem: 7 },
+        { nome: 'Contas', tipo: 'despesa', cor: '#64748B', icone: 'receipt', ordem: 8 }
+      ];
+
+      const categoriasComUsuario = defaultCategories.map(cat => ({
+        ...cat,
+        usuario_id: userId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }));
+
+      const { error } = await supabase
+        .from('categorias')
+        .insert(categoriasComUsuario);
+
+      if (error) {
+        console.error('Erro ao criar categorias padrão:', error);
+      } else {
+        console.log('Categorias padrão criadas com sucesso');
+      }
     } catch (err) {
-      console.error('Erro ao criar conta:', err);
-      setError(err.message || 'Falha ao criar conta');
-      setLoading(false);
-      return { success: false, error: err.message || 'Falha ao criar conta' };
+      console.error('Erro ao criar categorias padrão:', err);
     }
   };
 
-  // Função de logout mockada
+  // Função de login tradicional
+  const signIn = async ({ email, password }) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return { success: true, user: data.user, session: data.session };
+    } catch (err) {
+      console.error('Erro no login:', err);
+      const errorMessage = getAuthErrorMessage(err);
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Função de registro
+  const signUp = async ({ email, password, nome }) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: {
+            full_name: nome.trim(),
+            nome: nome.trim()
+          }
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      // Se o usuário foi criado mas precisa confirmar email
+      if (data.user && !data.session) {
+        return {
+          success: true,
+          user: data.user,
+          needsConfirmation: true,
+          message: 'Verifique seu email para confirmar a conta'
+        };
+      }
+
+      return { success: true, user: data.user, session: data.session };
+    } catch (err) {
+      console.error('Erro no registro:', err);
+      const errorMessage = getAuthErrorMessage(err);
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Função de logout
   const signOut = async () => {
     try {
-      // Remove dados do localStorage
-      localStorage.removeItem('mock_auth_token');
-      localStorage.removeItem('mock_user_data');
-      setUser(null);
+      setLoading(true);
+      const { error } = await supabase.auth.signOut();
       
+      if (error) {
+        throw error;
+      }
+
       return { success: true };
     } catch (err) {
-      console.error('Erro ao fazer logout:', err);
-      return { success: false, error: 'Falha ao fazer logout' };
+      console.error('Erro no logout:', err);
+      const errorMessage = 'Erro ao fazer logout';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Função para recuperação de senha mockada
+  // Função para recuperação de senha
   const resetPassword = async (email) => {
-    setLoading(true);
-    setError(null);
-    
     try {
-      // Simula delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log('Mock: Email de recuperação enviado para:', email);
-      
-      setLoading(false);
+      setLoading(true);
+      setError(null);
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`
+      });
+
+      if (error) {
+        throw error;
+      }
+
       return { success: true };
     } catch (err) {
-      console.error('Erro ao solicitar recuperação de senha:', err);
-      setError(err.message || 'Falha ao solicitar recuperação de senha');
+      console.error('Erro na recuperação de senha:', err);
+      const errorMessage = getAuthErrorMessage(err);
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
       setLoading(false);
-      return { success: false, error: err.message };
     }
   };
 
-  // Função para atualizar senha mockada
+  // Função para atualizar senha
   const updatePassword = async (newPassword) => {
-    setLoading(true);
-    setError(null);
-    
     try {
-      // Simula delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log('Mock: Senha atualizada com sucesso');
-      
-      setLoading(false);
+      setLoading(true);
+      setError(null);
+
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        throw error;
+      }
+
       return { success: true };
     } catch (err) {
       console.error('Erro ao atualizar senha:', err);
-      setError(err.message || 'Falha ao atualizar senha');
+      const errorMessage = getAuthErrorMessage(err);
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
       setLoading(false);
-      return { success: false, error: err.message };
     }
   };
 
-  // Função para atualizar perfil mockada
+  // Função para atualizar perfil
   const updateProfile = async (userData) => {
-    setLoading(true);
-    setError(null);
-
     try {
-      // Simula delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Atualiza o usuário mockado
-      const updatedUser = {
-        ...user,
-        user_metadata: {
-          ...user.user_metadata,
-          ...userData
-        }
-      };
-      
-      setUser(updatedUser);
-      localStorage.setItem('mock_user_data', JSON.stringify(updatedUser));
-      
-      setLoading(false);
-      return { success: true, user: updatedUser };
+      setLoading(true);
+      setError(null);
+
+      // Atualizar dados de autenticação se necessário
+      const authUpdates = {};
+      if (userData.email && userData.email !== user?.email) {
+        authUpdates.email = userData.email;
+      }
+
+      if (Object.keys(authUpdates).length > 0) {
+        const { error: authError } = await supabase.auth.updateUser(authUpdates);
+        if (authError) throw authError;
+      }
+
+      // Atualizar perfil na tabela personalizada
+      const { data, error } = await supabase
+        .from('perfil_usuario')
+        .update({
+          ...userData,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return { success: true, profile: data };
     } catch (err) {
       console.error('Erro ao atualizar perfil:', err);
-      setError(err.message || 'Falha ao atualizar perfil');
+      const errorMessage = getAuthErrorMessage(err);
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
       setLoading(false);
-      return { success: false, error: err.message || 'Falha ao atualizar perfil' };
+    }
+  };
+
+  // Login com Google
+  const signInWithGoogle = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return { success: true };
+    } catch (err) {
+      console.error('Erro no login com Google:', err);
+      const errorMessage = getAuthErrorMessage(err);
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Login com GitHub
+  const signInWithGitHub = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'github',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return { success: true };
+    } catch (err) {
+      console.error('Erro no login com GitHub:', err);
+      const errorMessage = getAuthErrorMessage(err);
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Função auxiliar para tratar mensagens de erro
+  const getAuthErrorMessage = (error) => {
+    switch (error.message || error.code) {
+      case 'Invalid login credentials':
+        return 'Email ou senha incorretos';
+      case 'Email not confirmed':
+        return 'Confirme seu email antes de fazer login';
+      case 'User already registered':
+        return 'Este email já está cadastrado';
+      case 'Weak password':
+        return 'A senha deve ter pelo menos 6 caracteres';
+      case 'Invalid email':
+        return 'Email inválido';
+      case 'Signup disabled':
+        return 'Cadastro desabilitado temporariamente';
+      case 'Email rate limit exceeded':
+        return 'Muitas tentativas. Tente novamente mais tarde';
+      default:
+        return error.message || 'Erro desconhecido';
     }
   };
 
   // Valores expostos pelo contexto
   const value = {
     user,
+    session,
     loading,
     error,
     signIn,
@@ -228,7 +431,10 @@ export const AuthProvider = ({ children }) => {
     resetPassword,
     updatePassword,
     updateProfile,
-    isAuthenticated: !!user
+    signInWithGoogle,
+    signInWithGitHub,
+    isAuthenticated: !!user,
+    setError // Para limpar erros manualmente
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

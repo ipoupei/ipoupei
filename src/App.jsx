@@ -3,10 +3,12 @@ import AppRoutes from './routes/AppRoutes';
 import './App.css';
 import { testarLeituraContas, verificarAutenticacao } from './lib/supabaseClient';
 import './index.css';
+import { AuthProvider } from './context/AuthContext';
+import DebugAuth from './components/DebugAuth';
 
 /**
  * Componente principal da aplicação
- * Integrado com sistema de rotas do React Router
+ * Integrado com sistema de rotas do React Router e AuthProvider
  */
 function App() {
   // Estado para informações de teste
@@ -25,13 +27,13 @@ function App() {
     if (!authResult.isAuthenticated) {
       setTesteConexao({
         executado: true,
-        resultado: false,
-        mensagem: "Modo demo ativo - funcionando sem autenticação para demonstração."
+        resultado: true, // Mudando para true pois é normal não estar autenticado inicialmente
+        mensagem: "Supabase conectado - pronto para autenticação."
       });
       return;
     }
     
-    // Testa a leitura de contas
+    // Testa a leitura de contas se autenticado
     const testResult = await testarLeituraContas();
     
     if (testResult.success) {
@@ -62,7 +64,7 @@ function App() {
   }, []);
 
   return (
-    <>
+    <AuthProvider>
       {/* Componente de teste de conexão - apenas em desenvolvimento */}
       {import.meta.env.DEV && testeConexao.executado && (
         <div 
@@ -101,7 +103,11 @@ function App() {
       
       {/* Sistema de rotas */}
       <AppRoutes />
-    </>
+      
+      {/* Componente de debug - apenas em desenvolvimento */}
+      <DebugAuth />
+      
+    </AuthProvider>
   );
 }
 

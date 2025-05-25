@@ -1,12 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import '../styles/Login.css';
-import { AlertCircle, Eye, EyeOff, Mail, Lock, User, LogIn, ArrowRight } from 'lucide-react';
+import { 
+  AlertCircle, 
+  Eye, 
+  EyeOff, 
+  Mail, 
+  Lock, 
+  User, 
+  LogIn, 
+  ArrowRight,
+  CheckCircle,
+  Chrome,
+  Github
+} from 'lucide-react';
 
 /**
- * Página de Login com modo de desenvolvimento/debug
- * Versão temporária para desenvolvimento sem Supabase
+ * Página de Login com SSO (Google, GitHub) e autenticação tradicional
+ * Integrada com Supabase
  */
 const Login = () => {
   // Estados para controlar as operações de login
@@ -24,24 +36,46 @@ const Login = () => {
 
   // Hooks para navegação e autenticação
   const navigate = useNavigate();
-  const { signIn, signUp, isAuthenticated, resetPassword } = useAuth();
+  const [searchParams] = useSearchParams();
+  const { 
+    signIn, 
+    signUp, 
+    resetPassword,
+    signInWithGoogle,
+    signInWithGitHub,
+    isAuthenticated, 
+    loading: authLoading,
+    error: authError,
+    setError: setAuthError
+  } = useAuth();
 
   // Redireciona se já estiver autenticado
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/dashboard');
+      const redirectTo = searchParams.get('redirectTo') || '/dashboard';
+      navigate(redirectTo);
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, searchParams]);
+
+  // Gerencia erros do contexto de autenticação
+  useEffect(() => {
+    if (authError) {
+      setError(authError);
+    }
+  }, [authError]);
 
   // Limpa mensagens ao mudar de modo
   useEffect(() => {
     setError('');
     setSuccess('');
-  }, [mode]);
+    if (setAuthError) {
+      setAuthError(null);
+    }
+  }, [mode, setAuthError]);
 
   // Função para preencher credenciais de teste rapidamente
   const fillTestCredentials = () => {
-    setEmail('usuario@exemplo.com');
+    setEmail('teste@exemplo.com');
     setPassword('senha123');
   };
 
@@ -90,7 +124,7 @@ const Login = () => {
     try {
       // Login
       if (mode === 'login') {
-        console.log('Tentando login com:', { email, password });
+        console.log('Tentando login com Supabase:', { email });
         
         const result = await signIn({ email, password });
         console.log('Resultado do login:', result);
@@ -109,8 +143,15 @@ const Login = () => {
           throw new Error(result.error || 'Falha ao criar conta.');
         }
         
-        setSuccess('Conta criada com sucesso!');
-        // Após criar conta, já está logado
+        if (result.needsConfirmation) {
+          setSuccess(
+            'Conta criada com sucesso! Verifique seu email para confirmar sua conta antes de fazer login.'
+          );
+          setMode('login');
+        } else {
+          setSuccess('Conta criada e login realizado com sucesso!');
+          // Navegação é feita pelo useEffect
+        }
       }
       // Recuperação de senha
       else if (mode === 'recovery') {
@@ -130,6 +171,42 @@ const Login = () => {
     }
   };
 
+  // Handler para login com Google
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      const result = await signInWithGoogle();
+      if (!result.success) {
+        throw new Error(result.error || 'Falha no login com Google');
+      }
+      // O redirecionamento é feito automaticamente pelo Supabase
+    } catch (err) {
+      console.error('Erro no login com Google:', err);
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
+  // Handler para login com GitHub
+  const handleGitHubLogin = async () => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      const result = await signInWithGitHub();
+      if (!result.success) {
+        throw new Error(result.error || 'Falha no login com GitHub');
+      }
+      // O redirecionamento é feito automaticamente pelo Supabase
+    } catch (err) {
+      console.error('Erro no login com GitHub:', err);
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
   // Toggle para mostrar/ocultar senha
   const toggleShowPassword = () => {
     setShowPassword(!showPassword);
@@ -140,6 +217,9 @@ const Login = () => {
     setShowConfirmPassword(!showConfirmPassword);
   };
 
+  // Estados de carregamento
+  const isLoading = loading || authLoading;
+
   return (
     <div className="login-container">
       <div className="login-card">
@@ -149,33 +229,18 @@ const Login = () => {
         </div>
         
         {/* Botão de teste para desenvolvimento */}
-        <div style={{ 
-          marginBottom: '1rem', 
-          padding: '0.5rem', 
-          backgroundColor: '#f0f9ff', 
-          border: '1px solid #0ea5e9', 
-          borderRadius: '0.5rem',
-          textAlign: 'center'
-        }}>
-          <p style={{ fontSize: '0.75rem', color: '#0369a1', margin: '0 0 0.5rem 0' }}>
-            🚀 Modo Desenvolvimento
-          </p>
-          <button
-            type="button"
-            onClick={fillTestCredentials}
-            style={{
-              fontSize: '0.75rem',
-              padding: '0.25rem 0.5rem',
-              backgroundColor: '#0ea5e9',
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.25rem',
-              cursor: 'pointer'
-            }}
-          >
-            Preencher Credenciais de Teste
-          </button>
-        </div>
+        {import.meta.env.DEV && (
+          <div className="development-notice">
+            <p>🚀 Modo Desenvolvimento</p>
+            <button
+              type="button"
+              onClick={fillTestCredentials}
+              className="test-credentials-btn"
+            >
+              Preencher Credenciais de Teste
+            </button>
+          </div>
+        )}
         
         {/* Título dinâmico baseado no modo */}
         <h2 className="login-mode-title">
@@ -194,7 +259,39 @@ const Login = () => {
         
         {success && (
           <div className="login-success-message">
+            <CheckCircle size={16} className="success-icon" />
             <span>{success}</span>
+          </div>
+        )}
+
+        {/* Botões de SSO - apenas para login */}
+        {mode === 'login' && (
+          <div className="sso-section">
+            <div className="sso-buttons">
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                disabled={isLoading}
+                className="sso-button google-button"
+              >
+                <Chrome size={18} />
+                <span>Continuar com Google</span>
+              </button>
+              
+              <button
+                type="button"
+                onClick={handleGitHubLogin}
+                disabled={isLoading}
+                className="sso-button github-button"
+              >
+                <Github size={18} />
+                <span>Continuar com GitHub</span>
+              </button>
+            </div>
+            
+            <div className="divider">
+              <span>ou</span>
+            </div>
           </div>
         )}
         
@@ -212,7 +309,7 @@ const Login = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="seu.email@exemplo.com"
                 required
-                disabled={loading}
+                disabled={isLoading}
                 className="input-with-icon"
               />
             </div>
@@ -231,7 +328,7 @@ const Login = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Sua senha"
                   required
-                  disabled={loading}
+                  disabled={isLoading}
                   className="input-with-icon"
                 />
                 <button 
@@ -239,6 +336,7 @@ const Login = () => {
                   className="password-toggle"
                   onClick={toggleShowPassword}
                   tabIndex="-1"
+                  disabled={isLoading}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -260,7 +358,7 @@ const Login = () => {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Confirme sua senha"
                     required
-                    disabled={loading}
+                    disabled={isLoading}
                     className="input-with-icon"
                   />
                   <button 
@@ -268,6 +366,7 @@ const Login = () => {
                     className="password-toggle"
                     onClick={toggleShowConfirmPassword}
                     tabIndex="-1"
+                    disabled={isLoading}
                   >
                     {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
@@ -285,7 +384,7 @@ const Login = () => {
                     onChange={(e) => setNome(e.target.value)}
                     placeholder="Seu nome completo"
                     required
-                    disabled={loading}
+                    disabled={isLoading}
                     className="input-with-icon"
                   />
                 </div>
@@ -302,7 +401,7 @@ const Login = () => {
                   id="rememberMe"
                   checked={rememberMe}
                   onChange={() => setRememberMe(!rememberMe)}
-                  disabled={loading}
+                  disabled={isLoading}
                 />
                 <label htmlFor="rememberMe" className="checkbox-label">
                   Lembrar de mim
@@ -313,7 +412,7 @@ const Login = () => {
                 type="button" 
                 className="text-button"
                 onClick={() => setMode('recovery')}
-                disabled={loading}
+                disabled={isLoading}
               >
                 Esqueceu a senha?
               </button>
@@ -324,9 +423,9 @@ const Login = () => {
           <button 
             type="submit" 
             className="login-button" 
-            disabled={loading}
+            disabled={isLoading}
           >
-            {loading ? 'Processando...' : (
+            {isLoading ? 'Processando...' : (
               <>
                 {mode === 'login' && <><LogIn size={18} /> Entrar</>}
                 {mode === 'register' && <><User size={18} /> Criar conta</>}
@@ -345,7 +444,7 @@ const Login = () => {
                 type="button" 
                 className="text-button text-button-highlight"
                 onClick={() => setMode('register')}
-                disabled={loading}
+                disabled={isLoading}
               >
                 Registre-se
               </button>
@@ -359,7 +458,7 @@ const Login = () => {
                 type="button" 
                 className="text-button text-button-highlight"
                 onClick={() => setMode('login')}
-                disabled={loading}
+                disabled={isLoading}
               >
                 Fazer login
               </button>
@@ -372,7 +471,7 @@ const Login = () => {
                 type="button" 
                 className="text-button text-button-highlight"
                 onClick={() => setMode('login')}
-                disabled={loading}
+                disabled={isLoading}
               >
                 Voltar para login
               </button>
@@ -381,20 +480,14 @@ const Login = () => {
         </div>
         
         {/* Informações de desenvolvimento */}
-        <div style={{ 
-          marginTop: '1rem', 
-          padding: '0.5rem', 
-          backgroundColor: '#fef3c7', 
-          border: '1px solid #f59e0b', 
-          borderRadius: '0.5rem',
-          fontSize: '0.75rem',
-          color: '#92400e'
-        }}>
-          <strong>Credenciais de Teste:</strong><br/>
-          📧 usuario@exemplo.com | 🔑 senha123<br/>
-          📧 admin@ipoupei.com | 🔑 123456<br/>
-          📧 teste@teste.com | 🔑 teste123
-        </div>
+        {import.meta.env.DEV && (
+          <div className="development-info">
+            <strong>Credenciais de Teste:</strong><br/>
+            📧 teste@exemplo.com | 🔑 senha123<br/>
+            📧 admin@ipoupei.com | 🔑 123456<br/>
+            📧 usuario@teste.com | 🔑 teste123
+          </div>
+        )}
       </div>
       
       <footer className="login-footer">
