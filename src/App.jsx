@@ -4,11 +4,11 @@ import DiagnosticoRouter from './pages/diagnostico/DiagnosticoRouter';
 import './App.css';
 import { testarLeituraContas, verificarAutenticacao } from './lib/supabaseClient';
 import { supabase } from './lib/supabaseClient';
-import './index.css'; // ou './globals.css' dependendo de como chamou
-
+import './index.css';
+import './pages/diagnostico/Diagnostico.css';
 
 /**
- * Componente principal da aplicação
+ * Componente principal da aplicação - Versão simplificada
  * Gerencia a navegação entre Dashboard e Diagnóstico baseado no perfil do usuário
  */
 function App() {

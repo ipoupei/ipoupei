@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { format, subMonths, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar, ChevronLeft, ChevronRight, CreditCard, BarChart2, PieChart } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Plus, User, Settings, LogOut, ChevronDown } from 'lucide-react';
 import './Dashboard.css';
-
 
 // Componentes
 import DonutChartCategoria from '../Components/DonutChartCategoria';
@@ -13,6 +12,7 @@ import DetalhesDoDiaModal from '../Components/DetalhesDoDiaModal';
 
 // Hooks e utilitários
 import useDashboardData from '../hooks/useDashboardData';
+import useAuth from '../hooks/useAuth';
 import { formatCurrency } from '../utils/formatCurrency';
 
 // Modais
@@ -25,17 +25,19 @@ import CartoesModal from '../Components/CartoesModal';
 
 /**
  * Dashboard principal da aplicação de finanças pessoais
- * Exibe resumo financeiro, gráficos, calendário e projeção de saldo
- * Layout atualizado: calendário ocupa largura total
+ * Layout com navegação de usuário integrada
  */
 const Dashboard = () => {
-  // Obtém os dados do dashboard usando o hook personalizado
+  // Hooks
   const { data, loading, error } = useDashboardData();
+  // const { user, signOut } = useAuth(); // Descomente quando tiver useAuth configurado
   
   // Estado local para a data atual e selecionada
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showMoreActions, setShowMoreActions] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   
   // Estado para controlar a exibição dos modais
   const [showContasModal, setShowContasModal] = useState(false);
@@ -57,8 +59,10 @@ const Dashboard = () => {
     cartaoCredito: false
   });
 
-  // Referência para o container do DatePicker para fechar ao clicar fora
+  // Referências para os dropdowns
   const datePickerRef = useRef(null);
+  const moreActionsRef = useRef(null);
+  const userMenuRef = useRef(null);
   
   // Dados mockados para o detalhamento dos cards
   const detalhamentoCards = {
@@ -84,11 +88,17 @@ const Dashboard = () => {
     ]
   };
 
-  // Efeito para fechar o DatePicker ao clicar fora
+  // Efeito para fechar dropdowns ao clicar fora
   useEffect(() => {
     function handleClickOutside(event) {
       if (datePickerRef.current && !datePickerRef.current.contains(event.target)) {
         setShowDatePicker(false);
+      }
+      if (moreActionsRef.current && !moreActionsRef.current.contains(event.target)) {
+        setShowMoreActions(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setShowUserMenu(false);
       }
     }
     
@@ -96,7 +106,7 @@ const Dashboard = () => {
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [datePickerRef]);
+  }, []);
   
   // Função para navegar para o mês anterior
   const handlePreviousMonth = () => {
@@ -123,40 +133,58 @@ const Dashboard = () => {
   const mesAnoSelecionado = format(selectedDate, 'MMMM yyyy', { locale: ptBR });
   const mesAnoSelecionadoCapitalizado = mesAnoSelecionado.charAt(0).toUpperCase() + mesAnoSelecionado.slice(1);
   
-  // Handlers para os botões de ação
-  const handleActionButton = (action) => {
-    console.log(`Ação executada: ${action}`);
-    
-    // Abre o modal correspondente à ação
-    switch (action) {
-      case 'minhas-contas':
-        setShowContasModal(true);
-        break;
-      case 'lancar-despesas':
-        setShowDespesasModal(true);
-        break;
-      case 'lancar-receitas':
-        setShowReceitasModal(true);
-        break;
-      case 'lancar-cartao':
-        setShowDespesasCartaoModal(true);
-        break;
-      case 'meus-cartoes':
-        setShowCartaoModal(true);
-        break;
-      case 'categorias':
-        setShowCategoriasModal(true);
-        break;
-      case 'diagnostico':
-        // Redireciona para o diagnóstico financeiro
-        window.location.href = '/diagnostico';
-        break;
-      // Outros casos serão implementados conforme necessário
-      default:
-        // Por padrão, apenas loga a ação
-        console.log(`Ação ${action} ainda não implementada`);
+  // Ações principais (sempre visíveis)
+  const mainActions = [
+    {
+      id: 'add-receita',
+      label: 'Receita',
+      icon: '💰',
+      color: 'green',
+      action: () => setShowReceitasModal(true)
+    },
+    {
+      id: 'add-despesa', 
+      label: 'Despesa',
+      icon: '💸',
+      color: 'red',
+      action: () => setShowDespesasModal(true)
+    },
+    {
+      id: 'add-cartao',
+      label: 'Cartão',
+      icon: '💳',
+      color: 'purple',
+      action: () => setShowDespesasCartaoModal(true)
     }
-  };
+  ];
+
+  // Ações secundárias (no dropdown "mais")
+  const moreActions = [
+    {
+      id: 'contas',
+      label: 'Minhas Contas',
+      icon: '🏦',
+      action: () => setShowContasModal(true)
+    },
+    {
+      id: 'cartoes',
+      label: 'Meus Cartões', 
+      icon: '💳',
+      action: () => setShowCartaoModal(true)
+    },
+    {
+      id: 'categorias',
+      label: 'Categorias',
+      icon: '📊',
+      action: () => setShowCategoriasModal(true)
+    },
+    {
+      id: 'diagnostico',
+      label: 'Diagnóstico',
+      icon: '🎯',
+      action: () => window.location.href = '/diagnostico'
+    }
+  ];
 
   // Handler para virar um card
   const handleCardFlip = (cardType) => {
@@ -172,11 +200,144 @@ const Dashboard = () => {
     setShowDetalhesDiaModal(true);
   };
 
+  // Handler para logout
+  const handleLogout = async () => {
+    try {
+      // await signOut(); // Descomente quando tiver useAuth
+      // Redirecionamento simples por enquanto
+      window.location.href = '/login';
+    } catch (err) {
+      console.error('Erro ao fazer logout:', err);
+    }
+  };
+
+  // Handler para ir ao perfil
+  const handleGoToProfile = () => {
+    // navigate('/profile'); // Versão com React Router
+    // Por enquanto, usando redirecionamento simples
+    window.location.href = '/profile';
+    setShowUserMenu(false);
+  };
+
+  // Obter nome do usuário ou inicial (dados mockados por enquanto)
+  const getUserDisplayName = () => {
+    // if (user?.user_metadata?.nome) {
+    //   return user.user_metadata.nome;
+    // }
+    // if (user?.email) {
+    //   return user.email.split('@')[0];
+    // }
+    return 'João Silva'; // Dados mockados
+  };
+
+  const getUserInitial = () => {
+    const name = getUserDisplayName();
+    return name.charAt(0).toUpperCase();
+  };
+
+  // Mock do usuário para demonstração
+  const mockUser = {
+    email: 'joao.silva@exemplo.com',
+    user_metadata: {
+      nome: 'João Silva',
+      avatar_url: null
+    }
+  };
+
   return (
     <div className="dashboard-wrapper">
       <div className="dashboard-container">
-        <header className="dashboard-header">
-          <h1 className="dashboard-title">iPoupei - Acompanhamento mensal</h1>
+        {/* Header com navegação do usuário */}
+        <header className="dashboard-header-with-user">
+          <div className="header-content">
+            <div className="header-left">
+              <h1 className="dashboard-title">iPoupei</h1>
+              <p className="dashboard-subtitle">Acompanhamento mensal</p>
+            </div>
+            
+            {/* Menu do usuário */}
+            <div className="header-right" ref={userMenuRef}>
+              <div className="user-menu-container">
+                <button 
+                  className="user-menu-trigger"
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  aria-label="Menu do usuário"
+                >
+                  <div className="user-avatar">
+                    {mockUser?.user_metadata?.avatar_url ? (
+                      <img 
+                        src={mockUser.user_metadata.avatar_url} 
+                        alt="Avatar do usuário" 
+                        className="avatar-image"
+                      />
+                    ) : (
+                      <span className="avatar-initial">{getUserInitial()}</span>
+                    )}
+                  </div>
+                  <div className="user-info">
+                    <span className="user-name">{getUserDisplayName()}</span>
+                    <span className="user-greeting">Bem-vindo de volta!</span>
+                  </div>
+                  <ChevronDown 
+                    size={16} 
+                    className={`chevron ${showUserMenu ? 'rotated' : ''}`} 
+                  />
+                </button>
+                
+                {showUserMenu && (
+                  <div className="user-menu-dropdown">
+                    <div className="dropdown-header">
+                      <div className="user-avatar-large">
+                        {mockUser?.user_metadata?.avatar_url ? (
+                          <img 
+                            src={mockUser.user_metadata.avatar_url} 
+                            alt="Avatar do usuário" 
+                          />
+                        ) : (
+                          <span className="avatar-initial-large">{getUserInitial()}</span>
+                        )}
+                      </div>
+                      <div className="user-details">
+                        <strong>{getUserDisplayName()}</strong>
+                        <span className="user-email">{mockUser?.email}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="dropdown-divider"></div>
+                    
+                    <button 
+                      className="dropdown-item"
+                      onClick={handleGoToProfile}
+                    >
+                      <User size={16} />
+                      <span>Meu Perfil</span>
+                    </button>
+                    
+                    <button 
+                      className="dropdown-item"
+                      onClick={() => {
+                        setShowCategoriasModal(true);
+                        setShowUserMenu(false);
+                      }}
+                    >
+                      <Settings size={16} />
+                      <span>Configurações</span>
+                    </button>
+                    
+                    <div className="dropdown-divider"></div>
+                    
+                    <button 
+                      className="dropdown-item logout"
+                      onClick={handleLogout}
+                    >
+                      <LogOut size={16} />
+                      <span>Sair</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </header>
         
         {/* Seletor de mês */}
@@ -241,82 +402,54 @@ const Dashboard = () => {
           </button>
         </div>
         
-        {/* Barra de ações rápidas - redesenhada em uma linha com textos atualizados + botão diagnóstico */}
-        <div className="actions-bar-container">
-          <div className="actions-bar">
-            <div className="actions-gradient-left"></div>
+        {/* Barra de ações rápidas compacta */}
+        <div className="quick-actions-bar">
+          <div className="main-actions">
+            {mainActions.map((action) => (
+              <button
+                key={action.id}
+                onClick={action.action}
+                className={`action-btn action-btn-${action.color}`}
+                title={`Adicionar ${action.label}`}
+              >
+                <span className="action-icon">{action.icon}</span>
+                <span className="action-label">{action.label}</span>
+              </button>
+            ))}
+          </div>
+          
+          {/* Botão "Mais ações" */}
+          <div className="more-actions-container" ref={moreActionsRef}>
+            <button
+              onClick={() => setShowMoreActions(!showMoreActions)}
+              className="action-btn action-btn-more"
+              title="Mais ações"
+            >
+              <Plus size={18} />
+              <span className="action-label">Mais</span>
+            </button>
             
-            <div className="actions-scroll">
-              {/* Botão de Diagnóstico - Primeiro da lista para dar destaque */}
-              <button 
-                className="action-button blue"
-                onClick={() => handleActionButton('diagnostico')}
-                title="Fazer diagnóstico financeiro completo"
-              >
-                <span>🎯</span>
-                <span>Diagnóstico</span>
-              </button>
-              
-              <button 
-                className="action-button primary"
-                onClick={() => handleActionButton('minhas-contas')}
-                title="Gerenciar contas bancárias"
-              >
-                <span>🏦</span>
-                <span>Contas</span>
-              </button>
-              
-              <button 
-                className="action-button blue"
-                onClick={() => handleActionButton('meus-cartoes')}
-                title="Gerenciar cartões de crédito"
-              >
-                <span>💳</span>
-                <span>Cartões</span>
-              </button>
-              
-              <button 
-                className="action-button green"
-                onClick={() => handleActionButton('lancar-receitas')}
-                title="Registrar nova receita"
-              >
-                <span>➕</span>
-                <span>Receita</span>
-              </button>
-              
-              <button 
-                className="action-button red"
-                onClick={() => handleActionButton('lancar-despesas')}
-                title="Registrar nova despesa"
-              >
-                <span>➖</span>
-                <span>Despesa</span>
-              </button>
-              
-              <button 
-                className="action-button purple"
-                onClick={() => handleActionButton('lancar-cartao')}
-                title="Registrar compra com cartão de crédito"
-              >
-                <span>💳</span>
-                <span>Despesa Cartão</span>
-              </button>
-              
-              <button 
-                className="action-button amber"
-                onClick={() => handleActionButton('categorias')}
-                title="Gerenciar categorias e subcategorias"
-              >
-                <span>📊</span>
-                <span>Categorias</span>
-              </button>
-            </div>
-            
-            <div className="actions-gradient-right"></div>
+            {showMoreActions && (
+              <div className="more-actions-dropdown">
+                {moreActions.map((action) => (
+                  <button
+                    key={action.id}
+                    onClick={() => {
+                      action.action();
+                      setShowMoreActions(false);
+                    }}
+                    className="dropdown-action"
+                  >
+                    <span className="dropdown-icon">{action.icon}</span>
+                    <span>{action.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         
-        {/* Cards de resumo em grid - com capacidade de rolagem no verso */}
+        {/* Cards de resumo em grid */}
         <div className="cards-grid">
           {/* Card de Saldo */}
           <div 
@@ -325,7 +458,6 @@ const Dashboard = () => {
             title={flippedCards.saldo ? "Clique para voltar" : "Clique para ver detalhamento"}
           >
             <div className="card-inner">
-              {/* Frente do card */}
               <div className="card-front">
                 <div className="card-header">
                   <h3 className="card-title">Saldo</h3>
@@ -346,7 +478,6 @@ const Dashboard = () => {
                 </div>
               </div>
               
-              {/* Verso do card - detalhamento por conta (com rolagem) */}
               <div className="card-back">
                 <div className="card-detail-total">
                   <span>Total:</span>
@@ -372,7 +503,6 @@ const Dashboard = () => {
             title={flippedCards.receitas ? "Clique para voltar" : "Clique para ver detalhamento"}
           >
             <div className="card-inner">
-              {/* Frente do card */}
               <div className="card-front">
                 <div className="card-header">
                   <h3 className="card-title">Receitas</h3>
@@ -393,7 +523,6 @@ const Dashboard = () => {
                 </div>
               </div>
               
-              {/* Verso do card - detalhamento por tipo de receita (com rolagem) */}
               <div className="card-back">
                 <div className="card-detail-total">
                   <span>Total:</span>
@@ -419,7 +548,6 @@ const Dashboard = () => {
             title={flippedCards.despesas ? "Clique para voltar" : "Clique para ver detalhamento"}
           >
             <div className="card-inner">
-              {/* Frente do card */}
               <div className="card-front">
                 <div className="card-header">
                   <h3 className="card-title">Despesas</h3>
@@ -440,7 +568,6 @@ const Dashboard = () => {
                 </div>
               </div>
               
-              {/* Verso do card - detalhamento por categoria de despesa (com rolagem) */}
               <div className="card-back">
                 <div className="card-detail-total">
                   <span>Total:</span>
@@ -466,7 +593,6 @@ const Dashboard = () => {
             title={flippedCards.cartaoCredito ? "Clique para voltar" : "Clique para ver detalhamento"}
           >
             <div className="card-inner">
-              {/* Frente do card */}
               <div className="card-front">
                 <div className="card-header">
                   <h3 className="card-title">Cartão de crédito</h3>
@@ -487,7 +613,6 @@ const Dashboard = () => {
                 </div>
               </div>
               
-              {/* Verso do card - detalhamento por cartão (com rolagem) */}
               <div className="card-back">
                 <div className="card-detail-total">
                   <span>Total:</span>
@@ -509,20 +634,12 @@ const Dashboard = () => {
         
         {/* Seção de gráficos de categorias com Donut Charts */}
         <div className="charts-grid">
-          {/* Receitas por categoria - Usando DonutChart */}
           <div className="chart-card">
             <div className="chart-header">
               <h3 className="chart-title">Receitas por categoria</h3>
-              <button 
-                className="chart-action" 
-                onClick={() => handleActionButton('ver-todas-receitas')}
-                title="Ver todas as receitas"
-              >
-                Ver todas
-              </button>
+              <button className="chart-action">Ver todas</button>
             </div>
             
-            {/* Gráfico de Rosca Interativo */}
             <div className="chart-container">
               <DonutChartCategoria 
                 data={data?.receitasPorCategoria || [
@@ -534,20 +651,12 @@ const Dashboard = () => {
             </div>
           </div>
           
-          {/* Despesas por categoria - Usando DonutChart */}
           <div className="chart-card">
             <div className="chart-header">
               <h3 className="chart-title">Despesas por categoria</h3>
-              <button 
-                className="chart-action red" 
-                onClick={() => handleActionButton('ver-todas-despesas')}
-                title="Ver todas as despesas"
-              >
-                Ver todas
-              </button>
+              <button className="chart-action red">Ver todas</button>
             </div>
             
-            {/* Gráfico de Rosca Interativo */}
             <div className="chart-container">
               <DonutChartCategoria 
                 data={data?.despesasPorCategoria || [
@@ -561,9 +670,13 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Calendário Financeiro - Agora em largura total */}
-        <div className="calendar-full-width-section">
-          <h3 className="section-title">Calendário Financeiro</h3>
+        {/* Calendário Financeiro Melhorado */}
+        <div className="calendar-section">
+          <div className="calendar-header">
+            <h3 className="section-title">Calendário Financeiro</h3>
+            <p className="calendar-subtitle">Acompanhe suas movimentações diárias</p>
+          </div>
+          
           <div className="calendar-container">
             <CalendarioFinanceiro 
               data={data} 
