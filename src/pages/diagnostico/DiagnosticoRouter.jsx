@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import JornadaSelection from './JornadaSelection';
 import DiagnosticoForm from './DiagnosticoForm';
 import DiagnosticoSummary from './DiagnosticoSummary';
-import useDiagnostico from '../../hooks/useDiagnostico';
+import useDiagnostico from '../../hooks/useDiagnostico.js';
 import { X } from 'lucide-react';
 import './Diagnostico.css';
 
