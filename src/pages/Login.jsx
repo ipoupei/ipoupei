@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import useAuth from '../hooks/useAuth';
+import { useAuth } from '../context/AuthContext';
 import '../styles/Login.css';
-import logo from '../assets/logo.png';
 import { AlertCircle, Eye, EyeOff, Mail, Lock, User, LogIn, ArrowRight } from 'lucide-react';
 
 /**
- * Página de Login, Registro e Recuperação de Senha
- * Interface unificada e aprimorada para autenticação de usuários
+ * Página de Login com modo de desenvolvimento/debug
+ * Versão temporária para desenvolvimento sem Supabase
  */
 const Login = () => {
   // Estados para controlar as operações de login
@@ -39,6 +38,12 @@ const Login = () => {
     setError('');
     setSuccess('');
   }, [mode]);
+
+  // Função para preencher credenciais de teste rapidamente
+  const fillTestCredentials = () => {
+    setEmail('usuario@exemplo.com');
+    setPassword('senha123');
+  };
 
   // Validação de campos
   const validateFields = () => {
@@ -85,31 +90,34 @@ const Login = () => {
     try {
       // Login
       if (mode === 'login') {
-        const { success, error } = await signIn({ email, password });
+        console.log('Tentando login com:', { email, password });
         
-        if (!success) {
-          throw new Error(error || 'Falha ao fazer login.');
+        const result = await signIn({ email, password });
+        console.log('Resultado do login:', result);
+        
+        if (!result.success) {
+          throw new Error(result.error || 'Falha ao fazer login.');
         }
         
         // Navegação é feita pelo useEffect ao atualizar isAuthenticated
       }
       // Registro
       else if (mode === 'register') {
-        const { success, error } = await signUp({ email, password, nome });
+        const result = await signUp({ email, password, nome });
         
-        if (!success) {
-          throw new Error(error || 'Falha ao criar conta.');
+        if (!result.success) {
+          throw new Error(result.error || 'Falha ao criar conta.');
         }
         
-        setSuccess('Conta criada com sucesso! Verifique seu email para confirmar o cadastro.');
-        setMode('login');
+        setSuccess('Conta criada com sucesso!');
+        // Após criar conta, já está logado
       }
       // Recuperação de senha
       else if (mode === 'recovery') {
-        const { success, error } = await resetPassword(email);
+        const result = await resetPassword(email);
         
-        if (!success) {
-          throw new Error(error || 'Falha ao enviar email de recuperação.');
+        if (!result.success) {
+          throw new Error(result.error || 'Falha ao enviar email de recuperação.');
         }
         
         setSuccess('Email de recuperação enviado. Verifique sua caixa de entrada.');
@@ -136,9 +144,37 @@ const Login = () => {
     <div className="login-container">
       <div className="login-card">
         <div className="login-header">
-          {logo && <img src={logo} alt="iPoupei Logo" className="login-logo" />}
           <h1>iPoupei</h1>
           <p className="login-subtitle">Controle financeiro simplificado</p>
+        </div>
+        
+        {/* Botão de teste para desenvolvimento */}
+        <div style={{ 
+          marginBottom: '1rem', 
+          padding: '0.5rem', 
+          backgroundColor: '#f0f9ff', 
+          border: '1px solid #0ea5e9', 
+          borderRadius: '0.5rem',
+          textAlign: 'center'
+        }}>
+          <p style={{ fontSize: '0.75rem', color: '#0369a1', margin: '0 0 0.5rem 0' }}>
+            🚀 Modo Desenvolvimento
+          </p>
+          <button
+            type="button"
+            onClick={fillTestCredentials}
+            style={{
+              fontSize: '0.75rem',
+              padding: '0.25rem 0.5rem',
+              backgroundColor: '#0ea5e9',
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.25rem',
+              cursor: 'pointer'
+            }}
+          >
+            Preencher Credenciais de Teste
+          </button>
         </div>
         
         {/* Título dinâmico baseado no modo */}
@@ -342,6 +378,22 @@ const Login = () => {
               </button>
             </p>
           )}
+        </div>
+        
+        {/* Informações de desenvolvimento */}
+        <div style={{ 
+          marginTop: '1rem', 
+          padding: '0.5rem', 
+          backgroundColor: '#fef3c7', 
+          border: '1px solid #f59e0b', 
+          borderRadius: '0.5rem',
+          fontSize: '0.75rem',
+          color: '#92400e'
+        }}>
+          <strong>Credenciais de Teste:</strong><br/>
+          📧 usuario@exemplo.com | 🔑 senha123<br/>
+          📧 admin@ipoupei.com | 🔑 123456<br/>
+          📧 teste@teste.com | 🔑 teste123
         </div>
       </div>
       

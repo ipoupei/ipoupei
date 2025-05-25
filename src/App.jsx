@@ -1,71 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import Dashboard from './pages/Dashboard';
-import DiagnosticoRouter from './pages/diagnostico/DiagnosticoRouter';
+import AppRoutes from './routes/AppRoutes';
 import './App.css';
 import { testarLeituraContas, verificarAutenticacao } from './lib/supabaseClient';
-import { supabase } from './lib/supabaseClient';
 import './index.css';
-import './pages/diagnostico/Diagnostico.css';
 
 /**
- * Componente principal da aplicação - Versão simplificada
- * Gerencia a navegação entre Dashboard e Diagnóstico baseado no perfil do usuário
+ * Componente principal da aplicação
+ * Integrado com sistema de rotas do React Router
  */
 function App() {
-  // Estados para controle de fluxo
-  const [currentView, setCurrentView] = useState('loading'); // 'loading', 'dashboard', 'diagnostico'
-  const [userProfile, setUserProfile] = useState(null);
-  const [isFirstTime, setIsFirstTime] = useState(false);
-  
   // Estado para informações de teste
   const [testeConexao, setTesteConexao] = useState({
     executado: false,
     resultado: null,
     mensagem: ""
   });
-
-  // Função para verificar o perfil do usuário
-  const verificarPerfilUsuario = async () => {
-    try {
-      // Primeiro verifica se o usuário está autenticado
-      const authResult = await verificarAutenticacao();
-      
-      if (!authResult.isAuthenticated) {
-        // Se não estiver autenticado, vai para diagnóstico (modo demo)
-        setCurrentView('diagnostico');
-        setIsFirstTime(true);
-        return;
-      }
-
-      // Busca o perfil do usuário no Supabase
-      const { data: perfil, error } = await supabase
-        .from('perfil_usuario')
-        .select('*')
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        // Erro diferente de "não encontrado"
-        console.error('Erro ao buscar perfil:', error);
-        setCurrentView('dashboard'); // Fallback para dashboard
-        return;
-      }
-
-      if (!perfil || !perfil.diagnostico_completo) {
-        // Usuário novo ou que nunca fez diagnóstico
-        setIsFirstTime(true);
-        setCurrentView('diagnostico');
-      } else {
-        // Usuário existente com diagnóstico completo
-        setUserProfile(perfil);
-        setCurrentView('dashboard');
-      }
-
-    } catch (err) {
-      console.error('Erro ao verificar perfil do usuário:', err);
-      // Em caso de erro, vai para dashboard como fallback
-      setCurrentView('dashboard');
-    }
-  };
 
   // Teste de conexão com o Supabase (apenas em desenvolvimento)
   const executarTestesConexao = async () => {
@@ -107,72 +56,10 @@ function App() {
       if (import.meta.env.DEV) {
         await executarTestesConexao();
       }
-      
-      // Verifica o perfil do usuário para determinar a tela inicial
-      await verificarPerfilUsuario();
     };
 
     inicializar();
   }, []);
-
-  // Handler para quando o diagnóstico é concluído
-  const handleDiagnosticoComplete = () => {
-    setCurrentView('dashboard');
-    setIsFirstTime(false);
-  };
-
-  // Handler para quando o usuário escolhe ir direto para o dashboard (jornada simples)
-  const handleSkipToDashboard = () => {
-    setCurrentView('dashboard');
-    setIsFirstTime(false);
-  };
-
-  // Renderização condicional baseada no estado atual
-  const renderCurrentView = () => {
-    switch (currentView) {
-      case 'loading':
-        return (
-          <div className="loading-container" style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: '100vh',
-            backgroundColor: '#f5f7fa'
-          }}>
-            <div className="loading-spinner" style={{
-              width: '40px',
-              height: '40px',
-              border: '4px solid #e2e8f0',
-              borderTop: '4px solid #3b82f6',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite',
-              marginBottom: '16px'
-            }}></div>
-            <p style={{ color: '#6b7280', fontSize: '16px' }}>Carregando iPoupei...</p>
-            <style jsx>{`
-              @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-              }
-            `}</style>
-          </div>
-        );
-      
-      case 'diagnostico':
-        return (
-          <DiagnosticoRouter 
-            isFirstTime={isFirstTime}
-            onComplete={handleDiagnosticoComplete}
-            onSkipToDashboard={handleSkipToDashboard}
-          />
-        );
-      
-      case 'dashboard':
-      default:
-        return <Dashboard userProfile={userProfile} />;
-    }
-  };
 
   return (
     <>
@@ -212,8 +99,8 @@ function App() {
         </div>
       )}
       
-      {/* Renderização da tela atual */}
-      {renderCurrentView()}
+      {/* Sistema de rotas */}
+      <AppRoutes />
     </>
   );
 }

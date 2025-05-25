@@ -1,89 +1,23 @@
 // src/components/layout/TopBar.jsx
 import React, { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import { 
-  Landmark, 
-  PlusCircle, 
-  MinusCircle, 
-  CreditCard, 
-  BarChart2, 
-  Menu,
   User,
   Settings,
   LogOut,
   ChevronDown
 } from 'lucide-react';
-import useAuth from '../../hooks/useAuth';
+import { useAuth } from '../../context/AuthContext';
 
 /**
- * Componente de barra de topo com ações rápidas e navegação
- * Atualizado com menu de perfil de usuário
- * 
- * @example
- * <TopBar 
- *   title="Dashboard" 
- *   onToggleSidebar={handleToggleSidebar} 
- *   user={{ name: 'João Silva' }} 
- * />
+ * TopBar simples e limpa - apenas menu do usuário
  */
-const TopBar = ({
-  title = 'Finanças Pessoais',
-  onToggleSidebar = null,
-  showQuickActions = true,
-  className = '',
-  ...props
-}) => {
+const TopBar = ({ className = '', ...props }) => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
-  
-  // Define ações rápidas padrão - podem ser personalizadas/estendidas
-  const quickActions = [
-    {
-      id: 'gerenciar-contas',
-      label: 'Gerenciar contas',
-      icon: <Landmark size={18} />,
-      color: 'text-gray-700',
-      onClick: () => {}
-    },
-    {
-      id: 'lancar-receitas',
-      label: 'Lançar receitas',
-      icon: <PlusCircle size={18} />,
-      color: 'text-green-600',
-      onClick: () => {}
-    },
-    {
-      id: 'cadastrar-despesas',
-      label: 'Cadastrar despesas',
-      icon: <MinusCircle size={18} />,
-      color: 'text-red-600',
-      onClick: () => {}
-    },
-    {
-      id: 'despesa-cartao',
-      label: 'Despesa Cartão de Crédito',
-      icon: <CreditCard size={18} />,
-      color: 'text-purple-600',
-      onClick: () => {}
-    },
-    {
-      id: 'gerenciar-categorias',
-      label: 'Gerenciar categorias',
-      icon: <BarChart2 size={18} />,
-      color: 'text-amber-600',
-      onClick: () => {}
-    },
-    {
-      id: 'gerenciar-cartao',
-      label: 'Gerenciar Cartão de Crédito',
-      icon: <CreditCard size={18} />,
-      color: 'text-blue-600',
-      onClick: () => {}
-    }
-  ];
   
   // Fechar menu quando clicar fora
   useEffect(() => {
@@ -109,109 +43,149 @@ const TopBar = ({
     }
   };
 
+  // Navegar para o perfil
+  const handleProfileClick = () => {
+    setUserMenuOpen(false);
+    navigate('/profile');
+  };
+
+  // Navegar para configurações
+  const handleSettingsClick = () => {
+    setUserMenuOpen(false);
+    navigate('/profile');
+  };
+
+  // Obtém o nome do usuário ou primeira letra do email
+  const getUserName = () => {
+    if (user?.user_metadata?.nome) {
+      return user.user_metadata.nome;
+    }
+    return user?.email || 'Usuário';
+  };
+
+  const getUserInitial = () => {
+    const name = getUserName();
+    return name.charAt(0).toUpperCase();
+  };
+
+  const getFirstName = () => {
+    const fullName = getUserName();
+    return fullName.split(' ')[0];
+  };
+
   return (
-    <header className={`bg-white shadow-sm z-10 ${className}`} {...props}>
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center h-16 px-4 sm:px-6 lg:px-8">
-          {/* Esquerda: Título e Toggle do Sidebar */}
+    <header className={`bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50 ${className}`} {...props}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          {/* Logo e Título */}
           <div className="flex items-center">
-            {onToggleSidebar && (
-              <button 
-                className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 lg:hidden"
-                onClick={onToggleSidebar}
-                aria-label="Menu lateral"
-              >
-                <Menu size={24} />
-              </button>
-            )}
-            
-            <h1 className="text-xl font-semibold text-gray-800 ml-2">{title}</h1>
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">iP</span>
+              </div>
+              <h1 className="text-xl font-semibold text-gray-900">iPoupei</h1>
+            </div>
           </div>
           
-          {/* Direita: Perfil de usuário */}
+          {/* Menu do usuário - compacto */}
           {user && (
             <div className="relative" ref={userMenuRef}>
-              <div className="flex items-center">
-                <div className="hidden md:block">
-                  <p className="text-sm font-medium text-gray-700">
-                    {user.user_metadata?.nome || user.email}
+              <button 
+                className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                aria-label="Menu de usuário"
+              >
+                {/* Avatar */}
+                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                  <span className="text-white font-medium text-sm">
+                    {getUserInitial()}
+                  </span>
+                </div>
+                
+                {/* Nome do usuário (oculto em telas pequenas) */}
+                <div className="hidden sm:block text-left">
+                  <p className="text-sm font-medium text-gray-900">
+                    {getFirstName()}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Bem-vindo de volta!
                   </p>
                 </div>
                 
-                <div className="ml-3 relative">
-                  <button 
-                    className="flex items-center justify-center space-x-2 rounded-full bg-gray-100 p-1 pr-3 text-gray-600 hover:bg-gray-200"
-                    onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    aria-label="Menu de usuário"
-                  >
-                    <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-medium">
-                      {user.user_metadata?.nome 
-                        ? user.user_metadata.nome.charAt(0).toUpperCase() 
-                        : user.email.charAt(0).toUpperCase()}
+                {/* Ícone de dropdown */}
+                <ChevronDown 
+                  size={16} 
+                  className={`text-gray-400 transform transition-transform duration-200 ${
+                    userMenuOpen ? 'rotate-180' : ''
+                  }`} 
+                />
+              </button>
+              
+              {/* Menu dropdown - compacto */}
+              {userMenuOpen && (  
+                <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-[60]">
+                  {/* Header do menu */}
+                  <div className="px-4 py-3 border-b border-gray-100">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                        <span className="text-white font-medium">
+                          {getUserInitial()}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {getUserName()}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {user.email}
+                        </p>
+                      </div>
                     </div>
-                    <ChevronDown size={16} className={`transform transition-transform duration-200 ${userMenuOpen ? 'rotate-180' : ''}`} />
-                  </button>
+                  </div>
                   
-                  {/* Menu de usuário */}
-                  {userMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 ring-1 ring-black ring-opacity-5">
-                      <Link
-                        to="/profile"
-                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        onClick={() => setUserMenuOpen(false)}
-                      >
-                        <User size={16} className="mr-2" />
-                        Meu Perfil
-                      </Link>
-                      <Link
-                        to="/settings"
-                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        onClick={() => setUserMenuOpen(false)}
-                      >
-                        <Settings size={16} className="mr-2" />
-                        Configurações
-                      </Link>
-                      <button
-                        className="flex items-center w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                        onClick={handleLogout}
-                      >
-                        <LogOut size={16} className="mr-2" />
-                        Sair
-                      </button>
-                    </div>
-                  )}
+                  {/* Opções do menu */}
+                  <div className="py-1">
+                    <button
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      onClick={handleProfileClick}
+                    >
+                      <User size={16} className="mr-3 text-gray-400" />
+                      Meu Perfil
+                    </button>
+                    
+                    <button
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      onClick={handleSettingsClick}
+                    >
+                      <Settings size={16} className="mr-3 text-gray-400" />
+                      Configurações
+                    </button>
+                  </div>
+                  
+                  {/* Separador */}
+                  <div className="border-t border-gray-100 my-1"></div>
+                  
+                  {/* Logout */}
+                  <div className="py-1">
+                    <button
+                      className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      onClick={handleLogout}
+                    >
+                      <LogOut size={16} className="mr-3" />
+                      Sair
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </div>
-        
-        {/* Ações rápidas */}
-        {showQuickActions && (
-          <div className="border-t border-gray-200 overflow-x-auto pb-2">
-            <div className="flex space-x-2 px-4 sm:px-6 lg:px-8 py-2 min-w-max">
-              {quickActions.map((action) => (
-                <button
-                  key={action.id}
-                  className="flex items-center gap-2 px-4 py-2 bg-white rounded-md border border-gray-200 hover:bg-gray-50 transition-colors"
-                  onClick={action.onClick}
-                >
-                  <span className={action.color}>{action.icon}</span>
-                  <span className="text-sm font-medium text-gray-700">{action.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </header>
   );
 };
 
 TopBar.propTypes = {
-  title: PropTypes.string,
-  onToggleSidebar: PropTypes.func,
-  showQuickActions: PropTypes.bool,
   className: PropTypes.string
 };
 

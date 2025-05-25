@@ -1,13 +1,12 @@
-// src/context/AuthContext.js
+// src/context/AuthContext.js - Versão Mockada para Desenvolvimento
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabaseClient } from '../lib/supabaseClient';
 
 // Contexto de autenticação
 const AuthContext = createContext();
 
 /**
- * Provider de autenticação para gerenciar estado de usuário
- * Futuramente será conectado ao Supabase Auth
+ * Provider de autenticação mockado para desenvolvimento
+ * Permite login sem Supabase configurado
  */
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -16,23 +15,15 @@ export const AuthProvider = ({ children }) => {
 
   // Verificar se há um usuário autenticado ao carregar a aplicação
   useEffect(() => {
-    const checkSession = async () => {
+    const checkSession = () => {
       try {
-        // Mock de requisição para verificar sessão atual
-        // Em produção, será substituído por: 
-        // const { data: { session }, error } = await supabaseClient.auth.getSession();
+        // Verifica se há um token no localStorage (simulação)
+        const token = localStorage.getItem('mock_auth_token');
+        const userData = localStorage.getItem('mock_user_data');
         
-        // Simulando verificação de autenticação
-        const token = localStorage.getItem('auth_token');
-        if (token) {
+        if (token && userData) {
           // Simula que existe um usuário autenticado
-          setUser({
-            id: '123456',
-            email: 'usuario@exemplo.com',
-            nome: 'Usuário Teste',
-            avatar_url: null,
-            created_at: '2023-01-01T00:00:00.000Z'
-          });
+          setUser(JSON.parse(userData));
         } else {
           setUser(null);
         }
@@ -46,47 +37,46 @@ export const AuthProvider = ({ children }) => {
       }
     };
 
-    checkSession();
-
-    // Monitora mudanças no estado de autenticação (será implementado com Supabase)
-    // const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
-    //  (event, session) => {
-    //    setUser(session?.user ?? null);
-    //    setLoading(false);
-    //  }
-    // );
-    // 
-    // return () => {
-    //   subscription.unsubscribe();
-    // };
+    // Simula um pequeno delay de carregamento
+    setTimeout(checkSession, 500);
   }, []);
 
-  // Função de login
+  // Função de login mockada
   const signIn = async ({ email, password }) => {
     setLoading(true);
     setError(null);
 
     try {
-      // Mock de requisição de login
-      // Em produção, será substituído por:
-      // const { data, error } = await supabaseClient.auth.signInWithPassword({
-      //   email,
-      //   password
-      // });
+      // Simula delay de rede
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Simulação de login mockado
-      if (email === 'usuario@exemplo.com' && password === 'senha123') {
+      // Credenciais mockadas para desenvolvimento
+      const validCredentials = [
+        { email: 'usuario@exemplo.com', password: 'senha123' },
+        { email: 'admin@ipoupei.com', password: '123456' },
+        { email: 'teste@teste.com', password: 'teste123' }
+      ];
+      
+      const isValid = validCredentials.some(cred => 
+        cred.email === email && cred.password === password
+      );
+      
+      if (isValid) {
         // Login bem-sucedido
         const userData = {
-          id: '123456',
-          email: 'usuario@exemplo.com',
-          nome: 'Usuário Teste',
-          avatar_url: null,
-          created_at: '2023-01-01T00:00:00.000Z'
+          id: 'mock-user-123',
+          email: email,
+          user_metadata: {
+            nome: email === 'admin@ipoupei.com' ? 'Administrador' : 'Usuário Teste'
+          },
+          created_at: new Date().toISOString()
         };
         
         setUser(userData);
-        localStorage.setItem('auth_token', 'mock_token_123');
+        
+        // Salva no localStorage para persistir
+        localStorage.setItem('mock_auth_token', 'mock-token-123');
+        localStorage.setItem('mock_user_data', JSON.stringify(userData));
         
         setLoading(false);
         return { success: true, user: userData };
@@ -104,35 +94,30 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Função de cadastro
+  // Função de cadastro mockada
   const signUp = async ({ email, password, nome }) => {
     setLoading(true);
     setError(null);
 
     try {
-      // Mock de requisição de cadastro
-      // Em produção, será substituído por:
-      // const { data, error } = await supabaseClient.auth.signUp({
-      //   email,
-      //   password,
-      //   options: {
-      //     data: {
-      //       nome
-      //     }
-      //   }
-      // });
+      // Simula delay de rede
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Simulação de cadastro mockado
+      // Simula cadastro bem-sucedido
       const userData = {
-        id: '123456',
+        id: `mock-user-${Date.now()}`,
         email,
-        nome,
-        avatar_url: null,
+        user_metadata: {
+          nome
+        },
         created_at: new Date().toISOString()
       };
       
       setUser(userData);
-      localStorage.setItem('auth_token', 'mock_token_123');
+      
+      // Salva no localStorage
+      localStorage.setItem('mock_auth_token', `mock-token-${Date.now()}`);
+      localStorage.setItem('mock_user_data', JSON.stringify(userData));
       
       setLoading(false);
       return { success: true, user: userData };
@@ -144,15 +129,12 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Função de logout
+  // Função de logout mockada
   const signOut = async () => {
     try {
-      // Mock de requisição de logout
-      // Em produção, será substituído por:
-      // await supabaseClient.auth.signOut();
-      
-      // Simulação de logout mockado
-      localStorage.removeItem('auth_token');
+      // Remove dados do localStorage
+      localStorage.removeItem('mock_auth_token');
+      localStorage.removeItem('mock_user_data');
       setUser(null);
       
       return { success: true };
@@ -162,28 +144,76 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Função para atualizar perfil
+  // Função para recuperação de senha mockada
+  const resetPassword = async (email) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Simula delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      console.log('Mock: Email de recuperação enviado para:', email);
+      
+      setLoading(false);
+      return { success: true };
+    } catch (err) {
+      console.error('Erro ao solicitar recuperação de senha:', err);
+      setError(err.message || 'Falha ao solicitar recuperação de senha');
+      setLoading(false);
+      return { success: false, error: err.message };
+    }
+  };
+
+  // Função para atualizar senha mockada
+  const updatePassword = async (newPassword) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Simula delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      console.log('Mock: Senha atualizada com sucesso');
+      
+      setLoading(false);
+      return { success: true };
+    } catch (err) {
+      console.error('Erro ao atualizar senha:', err);
+      setError(err.message || 'Falha ao atualizar senha');
+      setLoading(false);
+      return { success: false, error: err.message };
+    }
+  };
+
+  // Função para atualizar perfil mockada
   const updateProfile = async (userData) => {
     setLoading(true);
     setError(null);
 
     try {
-      // Mock de atualização de perfil
-      // Em produção, será substituído por uma requisição real ao Supabase
+      // Simula delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Atualiza o estado do usuário
-      setUser(prev => ({
-        ...prev,
-        ...userData
-      }));
+      // Atualiza o usuário mockado
+      const updatedUser = {
+        ...user,
+        user_metadata: {
+          ...user.user_metadata,
+          ...userData
+        }
+      };
+      
+      setUser(updatedUser);
+      localStorage.setItem('mock_user_data', JSON.stringify(updatedUser));
       
       setLoading(false);
-      return { success: true };
+      return { success: true, user: updatedUser };
     } catch (err) {
       console.error('Erro ao atualizar perfil:', err);
-      setError('Falha ao atualizar perfil');
+      setError(err.message || 'Falha ao atualizar perfil');
       setLoading(false);
-      return { success: false, error: 'Falha ao atualizar perfil' };
+      return { success: false, error: err.message || 'Falha ao atualizar perfil' };
     }
   };
 
@@ -195,6 +225,8 @@ export const AuthProvider = ({ children }) => {
     signIn,
     signUp,
     signOut,
+    resetPassword,
+    updatePassword,
     updateProfile,
     isAuthenticated: !!user
   };
@@ -204,9 +236,6 @@ export const AuthProvider = ({ children }) => {
 
 /**
  * Hook personalizado para usar o contexto de autenticação
- * 
- * @example
- * const { user, signIn, signOut } = useAuth();
  */
 export const useAuth = () => {
   const context = useContext(AuthContext);

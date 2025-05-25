@@ -2,15 +2,14 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from '../pages/Login';
 import Dashboard from '../pages/Dashboard';
-import UserProfile from '../pages/UserProfile';
 import ResetPassword from '../pages/ResetPassword';
-import DiagnosticoRouter from '../pages/diagnostico/DiagnosticoRouter';
+import UserProfile from '../pages/UserProfile';
 import ProtectedRoute from '../Components/ProtectedRoute';
 import { AuthProvider } from '../context/AuthContext';
 
 /**
  * Componente para gerenciar as rotas da aplicação
- * Inclui rotas públicas e protegidas, incluindo perfil do usuário
+ * Inclui rotas públicas e protegidas com navegação correta
  */
 const AppRoutes = () => {
   return (
@@ -40,13 +39,15 @@ const AppRoutes = () => {
             } 
           />
           
+          {/* Alias para configurações (redireciona para perfil) */}
           <Route 
-            path="/diagnostico" 
-            element={
-              <ProtectedRoute>
-                <DiagnosticoRouter />
-              </ProtectedRoute>
-            } 
+            path="/settings" 
+            element={<Navigate to="/profile" replace />}
+          />
+          
+          <Route 
+            path="/configuracoes" 
+            element={<Navigate to="/profile" replace />}
           />
           
           {/* Redireciona rota raiz para dashboard ou login */}
