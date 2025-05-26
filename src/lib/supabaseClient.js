@@ -12,17 +12,37 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-// Configurações do cliente Supabase
+// CORREÇÃO: Detectar o ambiente corretamente
+const isProduction = import.meta.env.PROD;
+const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+
+// CORREÇÃO: URLs de redirect corretas para cada ambiente
+const getRedirectUrl = () => {
+  if (import.meta.env.DEV) {
+    return 'http://localhost:5173/dashboard';
+  }
+  
+  // Em produção, usar o origin atual (ipoupei.com.br)
+  return `${currentOrigin}/dashboard`;
+};
+
+// Configurações do cliente Supabase CORRIGIDAS
 const supabaseConfig = {
   auth: {
     // Detecta automaticamente sessão na URL (importante para OAuth)
     detectSessionInUrl: true,
-    // URL de callback para desenvolvimento
-    redirectTo: import.meta.env.DEV ? 'http://localhost:5173' : undefined,
-    // Configurações de storage
-    storage: window.localStorage,
+    
+    // CORREÇÃO: URL de callback dinâmica baseada no ambiente
+    redirectTo: getRedirectUrl(),
+    
+    // CORREÇÃO: Configurações de storage mais robustas
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     autoRefreshToken: true,
     persistSession: true,
+    
+    // CORREÇÃO: Flow type explícito para OAuth
+    flowType: 'pkce',
+    
     // Debug apenas em desenvolvimento
     debug: import.meta.env.DEV
   }
@@ -162,13 +182,17 @@ export async function testarCriacaoUsuario(email, senha, nome) {
   }
 }
 
-// Listener para debug de mudanças de autenticação (apenas desenvolvimento)
+// CORREÇÃO: Listener melhorado para debug de mudanças de autenticação
 if (import.meta.env.DEV) {
   supabase.auth.onAuthStateChange((event, session) => {
     console.log('🔐 Auth State Changed:', event);
+    console.log('🌍 Current Origin:', currentOrigin);
+    console.log('🔄 Redirect URL:', getRedirectUrl());
+    
     if (session) {
       console.log('👤 User:', session.user.email);
       console.log('🔑 Provider:', session.user.app_metadata.provider);
+      console.log('⏰ Session expires:', new Date(session.expires_at * 1000));
     } else {
       console.log('👤 User: null');
     }
@@ -179,11 +203,19 @@ if (import.meta.env.DEV) {
     supabase,
     testarCriacaoUsuario,
     verificarAutenticacao,
-    listarUsuarios
+    listarUsuarios,
+    currentOrigin,
+    redirectUrl: getRedirectUrl()
   };
   
-  // Força exposição imediata
-  console.log('🔧 supabaseTest configurado:', !!window.supabaseTest);
+  // Log das configurações atuais
+  console.log('🔧 Supabase Config:', {
+    url: supabaseUrl,
+    isDev: import.meta.env.DEV,
+    isProd: import.meta.env.PROD,
+    currentOrigin,
+    redirectUrl: getRedirectUrl()
+  });
 }
 
 export default supabase;
