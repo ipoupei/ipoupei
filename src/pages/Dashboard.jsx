@@ -184,28 +184,47 @@ const Dashboard = () => {
     setShowDetalhesDiaModal(true);
   };
 
-  // Handler para logout (corrigido)
-  const handleLogout = async () => {
-    try {
-      console.log('🚪 Fazendo logout...');
-      const result = await signOut();
-      
-      if (result.success) {
-        console.log('✅ Logout realizado com sucesso');
-        // Redirecionamento será feito automaticamente pelo AuthContext
-        window.location.href = '/login';
-      } else {
-        console.error('❌ Erro no logout:', result.error);
-        // Mesmo com erro, redireciona por segurança
-        window.location.href = '/login';
-      }
-    } catch (err) {
-      console.error('❌ Erro inesperado no logout:', err);
-      // Fallback - redireciona mesmo com erro
-      window.location.href = '/login';
-    }
-  };
+// Adicione esta função no Dashboard.jsx (substituir a atual)
 
+const handleLogout = async () => {
+  try {
+    console.log('🚪 Logout simples iniciado...');
+    
+    // 1. Limpar TODOS os dados do localStorage
+    localStorage.clear();
+    sessionStorage.clear();
+    
+    console.log('🧹 Storage limpo');
+    
+    // 2. Tentar logout do Supabase (se disponível)
+    if (typeof signOut === 'function') {
+      try {
+        await signOut();
+        console.log('✅ Logout Supabase realizado');
+      } catch (err) {
+        console.warn('⚠️ Erro no logout Supabase:', err);
+      }
+    }
+    
+    // 3. Redirecionamento forçado
+    console.log('🔄 Redirecionando...');
+    window.location.replace('/login');
+    
+  } catch (err) {
+    console.error('❌ Erro no logout:', err);
+    
+    // Fallback: limpar tudo e redirecionar
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch (clearErr) {
+      console.warn('Erro ao limpar storage:', clearErr);
+    }
+    
+    // Forçar redirecionamento mesmo com erro
+    window.location.replace('/login');
+  }
+};
   // Handler para ir ao perfil
   const handleGoToProfile = () => {
     window.location.href = '/profile';
