@@ -12,35 +12,32 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-// CORREÇÃO: Detectar o ambiente corretamente
-const isProduction = import.meta.env.PROD;
-const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
-
-// CORREÇÃO: URLs de redirect corretas para cada ambiente
+// CORREÇÃO: URLs de redirect fixas e corretas
 const getRedirectUrl = () => {
+  // Desenvolvimento
   if (import.meta.env.DEV) {
     return 'http://localhost:5173/dashboard';
   }
   
-  // Em produção, usar o origin atual (ipoupei.com.br)
-  return `${currentOrigin}/dashboard`;
+  // Produção - URL fixa do seu domínio
+  return 'https://ipoupei.com.br/dashboard';
 };
 
-// Configurações do cliente Supabase CORRIGIDAS
+// Configurações do cliente Supabase
 const supabaseConfig = {
   auth: {
-    // Detecta automaticamente sessão na URL (importante para OAuth)
+    // Detecta automaticamente sessão na URL
     detectSessionInUrl: true,
     
-    // CORREÇÃO: URL de callback dinâmica baseada no ambiente
+    // URL de callback correta
     redirectTo: getRedirectUrl(),
     
-    // CORREÇÃO: Configurações de storage mais robustas
+    // Configurações de storage
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     autoRefreshToken: true,
     persistSession: true,
     
-    // CORREÇÃO: Flow type explícito para OAuth
+    // Flow type para OAuth
     flowType: 'pkce',
     
     // Debug apenas em desenvolvimento
@@ -53,14 +50,13 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, supabaseConfi
 
 /**
  * Função para testar a conexão com o Supabase
- * Realiza uma consulta simples à tabela de contas
  */
 export async function testarLeituraContas() {
   try {
     const { data, error } = await supabase
       .from('contas')
       .select('*')
-      .limit(5); // Limita para não sobrecarregar
+      .limit(5);
       
     if (error) {
       console.error('Erro ao buscar contas:', error);
@@ -77,7 +73,6 @@ export async function testarLeituraContas() {
 
 /**
  * Função para testar a autenticação atual
- * Verifica se há um usuário autenticado
  */
 export async function verificarAutenticacao() {
   try {
@@ -106,8 +101,7 @@ export async function verificarAutenticacao() {
 }
 
 /**
- * Função para debug de usuários cadastrados
- * Lista usuários na tabela perfil_usuario (apenas desenvolvimento)
+ * Debug de usuários (apenas desenvolvimento)
  */
 export async function listarUsuarios() {
   if (!import.meta.env.DEV) return;
@@ -131,8 +125,7 @@ export async function listarUsuarios() {
 }
 
 /**
- * Função para testar criação de usuário
- * Apenas para debug em desenvolvimento
+ * Teste de criação de usuário (apenas desenvolvimento)
  */
 export async function testarCriacaoUsuario(email, senha, nome) {
   if (!import.meta.env.DEV) {
@@ -161,7 +154,6 @@ export async function testarCriacaoUsuario(email, senha, nome) {
     
     console.log('Resultado da criação:', data);
     
-    // Verifica se o perfil foi criado
     if (data.user) {
       const { data: perfil, error: perfilError } = await supabase
         .from('perfil_usuario')
@@ -182,12 +174,11 @@ export async function testarCriacaoUsuario(email, senha, nome) {
   }
 }
 
-// CORREÇÃO: Listener melhorado para debug de mudanças de autenticação
+// Debug apenas em desenvolvimento
 if (import.meta.env.DEV) {
   supabase.auth.onAuthStateChange((event, session) => {
     console.log('🔐 Auth State Changed:', event);
-    console.log('🌍 Current Origin:', currentOrigin);
-    console.log('🔄 Redirect URL:', getRedirectUrl());
+    console.log('🔄 Redirect URL configurada:', getRedirectUrl());
     
     if (session) {
       console.log('👤 User:', session.user.email);
@@ -198,22 +189,19 @@ if (import.meta.env.DEV) {
     }
   });
   
-  // Expõe funções globalmente para teste no console
+  // Expõe funções para teste
   window.supabaseTest = {
     supabase,
     testarCriacaoUsuario,
     verificarAutenticacao,
     listarUsuarios,
-    currentOrigin,
     redirectUrl: getRedirectUrl()
   };
   
-  // Log das configurações atuais
   console.log('🔧 Supabase Config:', {
     url: supabaseUrl,
     isDev: import.meta.env.DEV,
     isProd: import.meta.env.PROD,
-    currentOrigin,
     redirectUrl: getRedirectUrl()
   });
 }

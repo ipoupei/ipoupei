@@ -1,4 +1,4 @@
-// src/context/AuthContext.js - Versão Mais Robusta
+// src/context/AuthContext.js - Versão Real com Supabase
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -7,107 +7,66 @@ const AuthContext = createContext();
 
 /**
  * Provider de autenticação integrado com Supabase
- * Versão mais robusta com timeout e fallbacks
+ * Suporta SSO (Google, GitHub) e autenticação tradicional
  */
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [session, setSession] = useState(null);
-  const [initialized, setInitialized] = useState(false);
+
+  // CORREÇÃO: Função para obter URL de redirect correta
+  const getRedirectUrl = () => {
+    if (import.meta.env.DEV) {
+      return 'http://localhost:5173/dashboard';
+    }
+    return 'https://ipoupei.com.br/dashboard';
+  };
 
   // Verificar sessão atual e configurar listener
   useEffect(() => {
     let mounted = true;
-    let timeoutId;
 
-    const initializeAuth = async () => {
+    const getInitialSession = async () => {
       try {
-        console.log('🔐 Inicializando autenticação...');
-        
-        // Timeout de segurança (10 segundos)
-        timeoutId = setTimeout(() => {
-          if (mounted && !initialized) {
-            console.warn('⚠️ Timeout na inicialização da auth, continuando sem usuário');
-            setUser(null);
-            setSession(null);
-            setLoading(false);
-            setInitialized(true);
-          }
-        }, 10000);
-        
         // Obter sessão atual
         const { data: { session }, error } = await supabase.auth.getSession();
         
-        // Limpar timeout se chegou até aqui
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-          timeoutId = null;
-        }
-        
         if (error) {
-          console.error('❌ Erro ao obter sessão:', error);
-          // Não tratar como erro fatal, apenas continuar sem usuário
-          console.log('ℹ️ Continuando sem usuário autenticado');
-        }
-        
-        if (mounted) {
-          console.log('📋 Sessão obtida:', session ? `Usuário: ${session.user?.email}` : 'Nenhuma sessão');
+          console.error('Erro ao obter sessão:', error);
+          setError('Erro ao verificar autenticação');
+        } else if (mounted) {
           setSession(session);
           setUser(session?.user ?? null);
-          
-          // Se há usuário, tentar criar/verificar perfil (sem bloquear)
-          if (session?.user) {
-            // Executar em background, sem aguardar
-            ensureUserProfile(session.user).catch(err => {
-              console.warn('⚠️ Erro ao verificar perfil (não crítico):', err);
-            });
-          }
         }
       } catch (err) {
-        console.error('❌ Erro inesperado ao verificar sessão:', err);
+        console.error('Erro inesperado ao verificar sessão:', err);
         if (mounted) {
-          // Não tratar como erro fatal
-          console.log('ℹ️ Continuando após erro inesperado');
-          setUser(null);
-          setSession(null);
+          setError('Erro inesperado ao verificar autenticação');
         }
       } finally {
         if (mounted) {
           setLoading(false);
-          setInitialized(true);
-          console.log('✅ Autenticação inicializada');
-        }
-        
-        // Limpar timeout se ainda existir
-        if (timeoutId) {
-          clearTimeout(timeoutId);
         }
       }
     };
 
-    initializeAuth();
+    getInitialSession();
 
     // Configurar listener para mudanças de autenticação
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('🔄 Auth state changed:', event, session?.user?.email || 'sem usuário');
+      console.log('Auth state changed:', event, session?.user?.email);
       
       if (mounted) {
         setSession(session);
         setUser(session?.user ?? null);
+        setLoading(false);
         
-        // Se já estava inicializado, não precisa mais de loading
-        if (initialized) {
-          setLoading(false);
-        }
-        
-        // Criar ou atualizar perfil do usuário quando necessário (em background)
+        // Criar ou atualizar perfil do usuário quando necessário
         if (event === 'SIGNED_IN' && session?.user) {
-          ensureUserProfile(session.user).catch(err => {
-            console.warn('⚠️ Erro ao criar perfil (não crítico):', err);
-          });
+          await ensureUserProfile(session.user);
         }
       }
     });
@@ -115,44 +74,27 @@ export const AuthProvider = ({ children }) => {
     // Cleanup
     return () => {
       mounted = false;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
       subscription.unsubscribe();
     };
-  }, [initialized]);
+  }, []);
 
-  // Função para garantir que o perfil do usuário existe (não bloqueia)
+  // Função para garantir que o perfil do usuário existe
   const ensureUserProfile = async (user) => {
     try {
-      console.log('👤 Verificando perfil do usuário:', user.email);
-      
-      // Verificar se perfil já existe (com timeout)
-      const profilePromise = supabase
+      // Verificar se perfil já existe
+      const { data: existingProfile, error: fetchError } = await supabase
         .from('perfil_usuario')
         .select('*')
         .eq('id', user.id)
         .single();
-      
-      // Timeout de 5 segundos para operações de perfil
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout na verificação de perfil')), 5000);
-      });
-      
-      const { data: existingProfile, error: fetchError } = await Promise.race([
-        profilePromise,
-        timeoutPromise
-      ]);
 
       if (fetchError && fetchError.code !== 'PGRST116') {
-        console.warn('⚠️ Erro ao buscar perfil (não crítico):', fetchError);
+        console.error('Erro ao buscar perfil:', fetchError);
         return;
       }
 
-      // Se perfil não existe, criar um novo (em background)
+      // Se perfil não existe, criar um novo
       if (!existingProfile) {
-        console.log('➕ Criando perfil para usuário:', user.email);
-        
         const profileData = {
           id: user.id,
           nome: user.user_metadata?.full_name || 
@@ -165,35 +107,27 @@ export const AuthProvider = ({ children }) => {
           updated_at: new Date().toISOString()
         };
 
-        // Criar perfil sem aguardar
-        supabase
+        const { error: insertError } = await supabase
           .from('perfil_usuario')
-          .insert([profileData])
-          .then(({ error: insertError }) => {
-            if (insertError) {
-              console.warn('⚠️ Erro ao criar perfil (não crítico):', insertError);
-            } else {
-              console.log('✅ Perfil criado com sucesso para:', user.email);
-              
-              // Criar categorias padrão (em background)
-              createDefaultCategories(user.id).catch(err => {
-                console.warn('⚠️ Erro ao criar categorias padrão (não crítico):', err);
-              });
-            }
-          });
-      } else {
-        console.log('✅ Perfil já existe para:', user.email);
+          .insert([profileData]);
+
+        if (insertError) {
+          console.error('Erro ao criar perfil:', insertError);
+        } else {
+          console.log('Perfil criado com sucesso para:', user.email);
+          
+          // Criar categorias padrão para o novo usuário
+          await createDefaultCategories(user.id);
+        }
       }
     } catch (err) {
-      console.warn('⚠️ Erro ao garantir perfil do usuário (não crítico):', err);
+      console.error('Erro ao garantir perfil do usuário:', err);
     }
   };
 
-  // Função para criar categorias padrão (não bloqueia)
+  // Função para criar categorias padrão
   const createDefaultCategories = async (userId) => {
     try {
-      console.log('📊 Criando categorias padrão para usuário:', userId);
-      
       const defaultCategories = [
         // Categorias de Receita
         { nome: 'Salário', tipo: 'receita', cor: '#10B981', icone: 'briefcase', ordem: 1 },
@@ -215,7 +149,6 @@ export const AuthProvider = ({ children }) => {
       const categoriasComUsuario = defaultCategories.map(cat => ({
         ...cat,
         usuario_id: userId,
-        ativo: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }));
@@ -225,12 +158,12 @@ export const AuthProvider = ({ children }) => {
         .insert(categoriasComUsuario);
 
       if (error) {
-        console.warn('⚠️ Erro ao criar categorias padrão (não crítico):', error);
+        console.error('Erro ao criar categorias padrão:', error);
       } else {
-        console.log('✅ Categorias padrão criadas com sucesso');
+        console.log('Categorias padrão criadas com sucesso');
       }
     } catch (err) {
-      console.warn('⚠️ Erro ao criar categorias padrão (não crítico):', err);
+      console.error('Erro ao criar categorias padrão:', err);
     }
   };
 
@@ -251,7 +184,7 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true, user: data.user, session: data.session };
     } catch (err) {
-      console.error('❌ Erro no login:', err);
+      console.error('Erro no login:', err);
       const errorMessage = getAuthErrorMessage(err);
       setError(errorMessage);
       return { success: false, error: errorMessage };
@@ -293,7 +226,7 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true, user: data.user, session: data.session };
     } catch (err) {
-      console.error('❌ Erro no registro:', err);
+      console.error('Erro no registro:', err);
       const errorMessage = getAuthErrorMessage(err);
       setError(errorMessage);
       return { success: false, error: errorMessage };
@@ -314,7 +247,7 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true };
     } catch (err) {
-      console.error('❌ Erro no logout:', err);
+      console.error('Erro no logout:', err);
       const errorMessage = 'Erro ao fazer logout';
       setError(errorMessage);
       return { success: false, error: errorMessage };
@@ -330,7 +263,7 @@ export const AuthProvider = ({ children }) => {
       setError(null);
 
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/reset-password`
+        redirectTo: `${getRedirectUrl()}/reset-password`
       });
 
       if (error) {
@@ -339,7 +272,7 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true };
     } catch (err) {
-      console.error('❌ Erro na recuperação de senha:', err);
+      console.error('Erro na recuperação de senha:', err);
       const errorMessage = getAuthErrorMessage(err);
       setError(errorMessage);
       return { success: false, error: errorMessage };
@@ -364,7 +297,7 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true };
     } catch (err) {
-      console.error('❌ Erro ao atualizar senha:', err);
+      console.error('Erro ao atualizar senha:', err);
       const errorMessage = getAuthErrorMessage(err);
       setError(errorMessage);
       return { success: false, error: errorMessage };
@@ -407,7 +340,7 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true, profile: data };
     } catch (err) {
-      console.error('❌ Erro ao atualizar perfil:', err);
+      console.error('Erro ao atualizar perfil:', err);
       const errorMessage = getAuthErrorMessage(err);
       setError(errorMessage);
       return { success: false, error: errorMessage };
@@ -416,7 +349,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Login com Google
+  // CORREÇÃO: Login com Google usando URL correta
   const signInWithGoogle = async () => {
     try {
       setLoading(true);
@@ -425,7 +358,7 @@ export const AuthProvider = ({ children }) => {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`
+          redirectTo: getRedirectUrl()
         }
       });
 
@@ -435,7 +368,7 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true };
     } catch (err) {
-      console.error('❌ Erro no login com Google:', err);
+      console.error('Erro no login com Google:', err);
       const errorMessage = getAuthErrorMessage(err);
       setError(errorMessage);
       return { success: false, error: errorMessage };
@@ -453,7 +386,7 @@ export const AuthProvider = ({ children }) => {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'github',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`
+          redirectTo: getRedirectUrl()
         }
       });
 
@@ -463,7 +396,7 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true };
     } catch (err) {
-      console.error('❌ Erro no login com GitHub:', err);
+      console.error('Erro no login com GitHub:', err);
       const errorMessage = getAuthErrorMessage(err);
       setError(errorMessage);
       return { success: false, error: errorMessage };
@@ -494,33 +427,12 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Debug em desenvolvimento
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      window.authDebug = {
-        user: user ? { id: user.id, email: user.email } : null,
-        loading,
-        error,
-        isAuthenticated: !!user,
-        initialized,
-        session: !!session
-      };
-      console.log('🔧 Auth Debug atualizado:', {
-        hasUser: !!user,
-        loading,
-        initialized,
-        isAuthenticated: !!user
-      });
-    }
-  }, [user, loading, error, initialized, session]);
-
   // Valores expostos pelo contexto
   const value = {
     user,
     session,
     loading,
     error,
-    initialized,
     signIn,
     signUp,
     signOut,
@@ -530,7 +442,7 @@ export const AuthProvider = ({ children }) => {
     signInWithGoogle,
     signInWithGitHub,
     isAuthenticated: !!user,
-    setError
+    setError // Para limpar erros manualmente
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
