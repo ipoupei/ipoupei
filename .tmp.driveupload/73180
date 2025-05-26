@@ -1,0 +1,37 @@
+0000000000000000000000000000000000000000 2411f214ce2c27fda6cd7d857d346a68c1d7ef5e Ismael Bezi <ismael.bezi@gmail.com> 1747791819 -0300	commit (initial): Primeiro commit do projeto iPoupei
+2411f214ce2c27fda6cd7d857d346a68c1d7ef5e 0000000000000000000000000000000000000000 Ismael Bezi <ismael.bezi@gmail.com> 1747791834 -0300	Branch: renamed refs/heads/master to refs/heads/main
+0000000000000000000000000000000000000000 2411f214ce2c27fda6cd7d857d346a68c1d7ef5e Ismael Bezi <ismael.bezi@gmail.com> 1747791834 -0300	Branch: renamed refs/heads/master to refs/heads/main
+2411f214ce2c27fda6cd7d857d346a68c1d7ef5e 0000000000000000000000000000000000000000 Ismael Bezi <ismael.bezi@gmail.com> 1747791956 -0300	Branch: renamed refs/heads/main to refs/heads/main
+2411f214ce2c27fda6cd7d857d346a68c1d7ef5e 2411f214ce2c27fda6cd7d857d346a68c1d7ef5e Ismael Bezi <ismael.bezi@gmail.com> 1747791956 -0300	Branch: renamed refs/heads/main to refs/heads/main
+2411f214ce2c27fda6cd7d857d346a68c1d7ef5e 5d389b3782d1c1c2003cb77528916bedc511b699 Ismael Bezi <ismael.bezi@gmail.com> 1747791961 -0300	commit: Primeiro commit do projeto iPoupei
+5d389b3782d1c1c2003cb77528916bedc511b699 0000000000000000000000000000000000000000 Ismael Bezi <ismael.bezi@gmail.com> 1747792049 -0300	Branch: renamed refs/heads/main to refs/heads/main
+5d389b3782d1c1c2003cb77528916bedc511b699 5d389b3782d1c1c2003cb77528916bedc511b699 Ismael Bezi <ismael.bezi@gmail.com> 1747792049 -0300	Branch: renamed refs/heads/main to refs/heads/main
+5d389b3782d1c1c2003cb77528916bedc511b699 de8c8dd6ab4513619a8833c62fb4bec3fd029ac5 Ismael Bezi <ismael.bezi@gmail.com> 1747792051 -0300	commit: Primeiro commit do projeto iPoupei
+de8c8dd6ab4513619a8833c62fb4bec3fd029ac5 0000000000000000000000000000000000000000 Ismael Bezi <ismael.bezi@gmail.com> 1747792101 -0300	Branch: renamed refs/heads/main to refs/heads/main
+de8c8dd6ab4513619a8833c62fb4bec3fd029ac5 de8c8dd6ab4513619a8833c62fb4bec3fd029ac5 Ismael Bezi <ismael.bezi@gmail.com> 1747792101 -0300	Branch: renamed refs/heads/main to refs/heads/main
+de8c8dd6ab4513619a8833c62fb4bec3fd029ac5 56c0c84af30785a886f03c6df3209d17441e075d Ismael Bezi <ismael.bezi@gmail.com> 1747792103 -0300	commit: Primeiro commit do projeto iPoupei
+56c0c84af30785a886f03c6df3209d17441e075d 4b5a2db311be461151c14bbbfe5a71ab3006c78b Ismael Bezi <ismael.bezi@gmail.com> 1747793111 -0300	commit: Adiciona package-lock e dependências para deploy
+4b5a2db311be461151c14bbbfe5a71ab3006c78b 6d217a217c33aa9177c927ffb7b8e73b621c0228 Ismael Bezi <ismael.bezi@gmail.com> 1747794893 -0300	commit: Corrige imports com case-sensitive para deploy
+6d217a217c33aa9177c927ffb7b8e73b621c0228 62c3ae359dacc81eb48af0f78bbc30558c8b59e7 Ismael Bezi <ismael.bezi@gmail.com> 1747952032 -0300	commit: Parcial - adição de diagnóstico
+62c3ae359dacc81eb48af0f78bbc30558c8b59e7 51718d6153b33758929577d1b877dc69ebf22c43 Ismael Bezi <ismael.bezi@gmail.com> 1747952128 -0300	commit: Resolve conflitos e adiciona diagnóstico
+51718d6153b33758929577d1b877dc69ebf22c43 a161dc8148834e447ff8f35e20d8a7775b5d9a0f Ismael Bezi <ismael.bezi@gmail.com> 1747952199 -0300	commit: Salvando alterações antes de resolver conflito
+a161dc8148834e447ff8f35e20d8a7775b5d9a0f e1697c8f629313b8012a3cd7550631dbc19accc2 Ismael Bezi <ismael.bezi@gmail.com> 1747952299 -0300	reset: moving to origin/main
+e1697c8f629313b8012a3cd7550631dbc19accc2 e1697c8f629313b8012a3cd7550631dbc19accc2 Ismael Bezi <ismael.bezi@gmail.com> 1747952324 -0300	reset: moving to origin/main
+e1697c8f629313b8012a3cd7550631dbc19accc2 b550f3e3b0db2b0c514354fcc19c8429c372a91b Ismael Bezi <ismael.bezi@gmail.com> 1747952345 -0300	commit: Resolve conflitos e adiciona diagnóstico
+b550f3e3b0db2b0c514354fcc19c8429c372a91b f165823d9cecd0dce8aebe0a361a46685dda075d Ismael Bezi <ismael.bezi@gmail.com> 1747952429 -0300	commit: Resolve conflitos e adiciona diagnóstico
+f165823d9cecd0dce8aebe0a361a46685dda075d 0d943b6b5dbf3d980fe4cc069e9215a7801ebc1c Ismael Bezi <ismael.bezi@gmail.com> 1747954175 -0300	commit: Resolve conflitos e adiciona diagnóstico
+0d943b6b5dbf3d980fe4cc069e9215a7801ebc1c 26df58b5cb4903cb2f308a380f99ea3cd2cca4b6 Ismael Bezi <ismael.bezi@gmail.com> 1747954874 -0300	commit: Parcial - adição de diagnóstico
+26df58b5cb4903cb2f308a380f99ea3cd2cca4b6 02145cbf552fb64a09c43aa9bdb3bb710938e1bd Ismael Bezi <ismael.bezi@gmail.com> 1747957404 -0300	commit: Parcial - adição de diagnóstico
+02145cbf552fb64a09c43aa9bdb3bb710938e1bd db41a02a0e68b6b044264952f60857f17d349bbc Ismael Bezi <ismael.bezi@gmail.com> 1747957570 -0300	commit: Parcial - adição de diagnóstico
+db41a02a0e68b6b044264952f60857f17d349bbc 5dc9e633eb7e0d4abe805ff93e95d61f7b66dcc5 Ismael Bezi <ismael.bezi@gmail.com> 1747961112 -0300	commit: Parcial - adição de diagnóstico
+5dc9e633eb7e0d4abe805ff93e95d61f7b66dcc5 165f112b3bc781b0fa93d458f9a782051f91c646 Ismael Bezi <ismael.bezi@gmail.com> 1747961337 -0300	commit: Parcial - adição de diagnóstico
+165f112b3bc781b0fa93d458f9a782051f91c646 fa023adc6e4eaeb6f5931b686ef9e22be01ecef6 Ismael Bezi <ismael.bezi@gmail.com> 1747963423 -0300	commit: Parcial - adição de diagnóstico
+fa023adc6e4eaeb6f5931b686ef9e22be01ecef6 55422da5e3aaaef22e1ee61fa72023feb2fce1de Ismael Bezi <ismael.bezi@gmail.com> 1747964541 -0300	commit: Parcial - adição de diagnóstico
+55422da5e3aaaef22e1ee61fa72023feb2fce1de 17614cce5593c6890ff92306e278e7210e1b6d85 Ismael Bezi <ismael.bezi@gmail.com> 1748189886 -0300	commit: Atualziacao domingo
+17614cce5593c6890ff92306e278e7210e1b6d85 aeda9a61b01d18b2aeb4fb380849f38bcd915529 Ismael Bezi <ismael.bezi@gmail.com> 1748195340 -0300	commit: Mensagem do commit
+aeda9a61b01d18b2aeb4fb380849f38bcd915529 cb9f10b2a53727d2a8d34a9b545fe904195759a9 Ismael Bezi <ismael.bezi@gmail.com> 1748205993 -0300	commit: Mensagem do commit
+cb9f10b2a53727d2a8d34a9b545fe904195759a9 f06aa4a1388f223b9e3a6955ba6efae814e23538 Ismael Bezi <ismael.bezi@gmail.com> 1748215885 -0300	commit: Mensagem do commit
+f06aa4a1388f223b9e3a6955ba6efae814e23538 925fdb33b25db770583cf4414f90c35466f7d162 Ismael Bezi <ismael.bezi@gmail.com> 1748228356 -0300	commit: Avanços tela de login e conexão com banco de dados
+925fdb33b25db770583cf4414f90c35466f7d162 6baccbf376d0dae99968404a8b795dcbee07339d Ismael Bezi <ismael.bezi@gmail.com> 1748299512 -0300	commit: Correção login google
+6baccbf376d0dae99968404a8b795dcbee07339d 24e908864995cc14ac3ac65a0ff56a4644bd67f0 Ismael Bezi <ismael.bezi@gmail.com> 1748299930 -0300	commit: fix: AuthProvider duplicado e URLs de redirect
+24e908864995cc14ac3ac65a0ff56a4644bd67f0 73acff2e9748dc33ae332f7ab40d9fc5e052419b Ismael Bezi <ismael.bezi@gmail.com> 1748300047 -0300	commit: fix: simplificar vercel.json
