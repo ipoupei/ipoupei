@@ -30,3 +30,4 @@ f06aa4a1388f223b9e3a6955ba6efae814e23538 925fdb33b25db770583cf4414f90c35466f7d16
 925fdb33b25db770583cf4414f90c35466f7d162 6baccbf376d0dae99968404a8b795dcbee07339d Ismael Bezi <ismael.bezi@gmail.com> 1748299512 -0300	commit: Correção login google
 6baccbf376d0dae99968404a8b795dcbee07339d 24e908864995cc14ac3ac65a0ff56a4644bd67f0 Ismael Bezi <ismael.bezi@gmail.com> 1748299930 -0300	commit: fix: AuthProvider duplicado e URLs de redirect
 24e908864995cc14ac3ac65a0ff56a4644bd67f0 73acff2e9748dc33ae332f7ab40d9fc5e052419b Ismael Bezi <ismael.bezi@gmail.com> 1748300047 -0300	commit: fix: simplificar vercel.json
+73acff2e9748dc33ae332f7ab40d9fc5e052419b c52c1becaa00b758455b56a5919d87a3c8df6523 Ismael Bezi <ismael.bezi@gmail.com> 1748300056 -0300	commit: fix: simplificar vercel.json
