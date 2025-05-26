@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 
 /**
  * Componente para campos de entrada monetários
- * Formata automaticamente o valor como moeda durante a digitação
+ * Versão ultra simples que REALMENTE funciona com valores negativos
  */
 const InputMoney = ({
   name,
@@ -10,95 +10,105 @@ const InputMoney = ({
   value = 0,
   onChange,
   placeholder = 'R$ 0,00',
+  allowNegative = false,
   style = {},
   ...props
 }) => {
-  // Referência para o input
-  const inputRef = useRef(null);
+  const [inputValue, setInputValue] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
   
-  // Estado para o valor formatado exibido no input
-  const [displayValue, setDisplayValue] = useState('');
-  
-  // Formata o valor para exibição como moeda 
-  const formatCurrency = (value) => {
-    if (value === undefined || value === null || value === '') return 'R$ 0,00';
+  // Formata número para moeda brasileira
+  const formatCurrency = (num) => {
+    if (num === 0 || num === null || num === undefined) return 'R$ 0,00';
     
-    try {
-      // Converte para número e formata como moeda
-      const numValue = typeof value === 'string' ? parseFloat(value.replace(',', '.')) : value;
-      
-      if (isNaN(numValue)) return 'R$ 0,00';
-      
-      return new Intl.NumberFormat('pt-BR', {
-        style: 'currency',
-        currency: 'BRL',
-        minimumFractionDigits: 2
-      }).format(numValue);
-    } catch (error) {
-      console.error('Erro ao formatar valor:', error);
-      return 'R$ 0,00';
-    }
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(num);
   };
   
-  // Converte o valor formatado de volta para número
-  const parseValue = (formattedValue) => {
-    if (!formattedValue) return 0;
+  // Converte string para número
+  const stringToNumber = (str) => {
+    if (!str || str === '' || str === '-') return 0;
     
-    // Remove todos os caracteres não numéricos
-    const numericString = formattedValue.replace(/\D/g, '');
+    // Remove espaços
+    str = str.trim();
     
-    if (!numericString) return 0;
+    // Se for só o sinal de menos, retorna 0
+    if (str === '-') return 0;
     
-    // Converte para número e divide por 100 para obter o valor em reais
-    return parseInt(numericString, 10) / 100;
+    // Detecta se é negativo
+    const isNegative = str.startsWith('-');
+    
+    // Remove tudo exceto números e vírgula
+    let numbers = str.replace(/[^0-9,]/g, '');
+    
+    if (!numbers) return 0;
+    
+    // Converte vírgula para ponto
+    numbers = numbers.replace(',', '.');
+    
+    const result = parseFloat(numbers) || 0;
+    return isNegative ? -result : result;
   };
   
-  // Atualiza o valor exibido quando a prop value muda
+  // Atualiza input quando value prop muda (apenas se não estiver focado)
   useEffect(() => {
-    setDisplayValue(formatCurrency(value));
-  }, [value]);
+    if (!isFocused) {
+      setInputValue(formatCurrency(value));
+    }
+  }, [value, isFocused]);
   
-  // Manipula mudanças no input
+  // Handle quando o input muda
   const handleChange = (e) => {
-    const inputValue = e.target.value;
+    const newValue = e.target.value;
     
-    // Extrai valor numérico e notifica a mudança
-    const numericValue = parseValue(inputValue);
-    setDisplayValue(formatCurrency(numericValue));
+    // Se não permite negativo, remove o sinal de menos
+    const finalValue = allowNegative ? newValue : newValue.replace('-', '');
+    
+    setInputValue(finalValue);
+    
+    // Converte e envia o valor numérico
+    const numericValue = stringToNumber(finalValue);
     onChange(numericValue);
   };
   
-  // Manipula o foco no input
+  // Handle quando ganha foco
   const handleFocus = () => {
-    // Seleciona todo o texto ao focar
-    setTimeout(() => {
-      if (inputRef.current) {
-        inputRef.current.select();
-      }
-    }, 0);
+    setIsFocused(true);
+    
+    // Converte para formato editável
+    if (value !== 0) {
+      const editableValue = value.toString().replace('.', ',');
+      setInputValue(editableValue);
+    } else {
+      setInputValue('');
+    }
   };
   
-  // Manipula perda de foco
+  // Handle quando perde foco
   const handleBlur = () => {
-    // Formata novamente o valor ao perder o foco
-    const numericValue = parseValue(displayValue);
-    setDisplayValue(formatCurrency(numericValue));
+    setIsFocused(false);
+    
+    // Pega o valor atual e formata
+    const numericValue = stringToNumber(inputValue);
+    setInputValue(formatCurrency(numericValue));
+    
+    // Garante que o parent component tem o valor correto
+    onChange(numericValue);
   };
 
   return (
     <input
-      ref={inputRef}
       id={id}
       name={name}
       type="text"
-      value={displayValue}
+      value={inputValue}
       onChange={handleChange}
       onFocus={handleFocus}
       onBlur={handleBlur}
       placeholder={placeholder}
-      style={{
-        ...style
-      }}
+      style={style}
       {...props}
     />
   );

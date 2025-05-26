@@ -6,19 +6,20 @@ import './CartoesModal.css';
 
 /**
  * Formulário para cadastro e edição de cartões de crédito
- * Atualizado com mais bandeiras e correções visuais
+ * Versão melhorada mantendo as qualidades do original + integração Supabase
  */
 const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
-  // Estado do formulário
+  // Estado do formulário - campos ajustados para o Supabase
   const [formData, setFormData] = useState({
     nome: '',
     limite: 0,
-    diaFechamento: 1,
-    diaVencimento: 10,
+    dia_fechamento: 1, // Campo corrigido para o DB
+    dia_vencimento: 10, // Campo corrigido para o DB
     bandeira: '',
-    contaPagamento: '',
+    banco: '', // Campo adicional do DB
+    conta_debito_id: '', // Campo corrigido para o DB
     ativo: true,
-    cor: '#7c3aed' // Cor padrão (roxo)
+    cor: '#8A05BE' // Cor padrão Nubank
   });
   
   // Estado de erros do formulário
@@ -27,7 +28,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
   // Estado para controle do botão de preview
   const [mostrarPreview, setMostrarPreview] = useState(false);
   
-  // Bandeiras de cartão disponíveis - Atualizado com mais bandeiras populares
+  // Bandeiras de cartão disponíveis - Mantendo as opções do original
   const BANDEIRAS = [
     { id: 'visa', nome: 'Visa', icon: '💳' },
     { id: 'mastercard', nome: 'Mastercard', icon: '💳' },
@@ -38,7 +39,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
     { id: 'discover', nome: 'Discover', icon: '💳' },
     { id: 'jcb', nome: 'JCB', icon: '💳' },
     { id: 'aura', nome: 'Aura', icon: '💳' },
-    { id: 'outro', nome: 'Outro', icon: '💳' }
+    { id: 'outros', nome: 'Outros', icon: '💳' }
   ];
 
   // Gera array de dias do mês (1-31)
@@ -47,18 +48,19 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
     label: `${i + 1}`
   }));
   
-  // Preenche o formulário quando receber um cartão para edição
+  // Preenche o formulário quando receber um cartão para edição - campos corrigidos
   useEffect(() => {
     if (cartao) {
       setFormData({
         nome: cartao.nome || '',
         limite: cartao.limite || 0,
-        diaFechamento: cartao.diaFechamento || 1,
-        diaVencimento: cartao.diaVencimento || 10,
+        dia_fechamento: cartao.dia_fechamento || 1, // Campo corrigido
+        dia_vencimento: cartao.dia_vencimento || 10, // Campo corrigido
         bandeira: cartao.bandeira || '',
-        contaPagamento: cartao.contaPagamento || '',
+        banco: cartao.banco || '', // Campo adicional
+        conta_debito_id: cartao.conta_debito_id || '', // Campo corrigido
         ativo: cartao.ativo !== undefined ? cartao.ativo : true,
-        cor: cartao.cor || '#7c3aed'
+        cor: cartao.cor || '#8A05BE'
       });
     }
   }, [cartao]);
@@ -70,10 +72,16 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
     // Para checkbox, usa o valor checked
     const inputValue = type === 'checkbox' ? checked : value;
     
+    // Conversão para números quando necessário
+    let finalValue = inputValue;
+    if (name === 'dia_fechamento' || name === 'dia_vencimento') {
+      finalValue = Number(inputValue);
+    }
+    
     // Atualiza o formData
     setFormData(prev => ({
       ...prev,
-      [name]: inputValue
+      [name]: finalValue
     }));
     
     // Limpa o erro deste campo
@@ -109,23 +117,23 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
       newErrors.bandeira = 'Selecione a bandeira do cartão';
     }
     
-    if (!formData.diaFechamento || formData.diaFechamento < 1 || formData.diaFechamento > 31) {
-      newErrors.diaFechamento = 'Dia de fechamento inválido';
+    if (!formData.dia_fechamento || formData.dia_fechamento < 1 || formData.dia_fechamento > 31) {
+      newErrors.dia_fechamento = 'Dia de fechamento inválido';
     }
     
-    if (!formData.diaVencimento || formData.diaVencimento < 1 || formData.diaVencimento > 31) {
-      newErrors.diaVencimento = 'Dia de vencimento inválido';
+    if (!formData.dia_vencimento || formData.dia_vencimento < 1 || formData.dia_vencimento > 31) {
+      newErrors.dia_vencimento = 'Dia de vencimento inválido';
     }
     
     // Validação avançada: vencimento muito próximo do fechamento
-    if (formData.diaVencimento && formData.diaFechamento) {
+    if (formData.dia_vencimento && formData.dia_fechamento) {
       const diasEntreFechamentoEVencimento = calcularDiasEntreDatas(
-        formData.diaFechamento, 
-        formData.diaVencimento
+        formData.dia_fechamento, 
+        formData.dia_vencimento
       );
       
       if (diasEntreFechamentoEVencimento < 5) {
-        newErrors.diaVencimento = 'O vencimento está muito próximo do fechamento';
+        newErrors.dia_vencimento = 'O vencimento está muito próximo do fechamento';
       }
     }
     
@@ -149,6 +157,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
     e.preventDefault();
     
     if (validateForm()) {
+      console.log('📝 CartaoForm - Dados do formulário:', formData);
       onSave(formData, criarNovo);
     }
   };
@@ -191,11 +200,11 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
             <div className="cartao-preview-datas">
               <div>
                 <small>Fecha dia</small>
-                <div>{formData.diaFechamento || '--'}</div>
+                <div>{formData.dia_fechamento || '--'}</div>
               </div>
               <div>
                 <small>Vence dia</small>
-                <div>{formData.diaVencimento || '--'}</div>
+                <div>{formData.dia_vencimento || '--'}</div>
               </div>
             </div>
           </div>
@@ -232,7 +241,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
           {errors.nome && <div className="error-message">{errors.nome}</div>}
         </div>
         
-        {/* Limite do Cartão */}
+        {/* Limite do Cartão - Mantendo InputMoney */}
         <div className="form-group">
           <label htmlFor="limite">
             <DollarSign size={16} />
@@ -249,7 +258,23 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
           {errors.limite && <div className="error-message">{errors.limite}</div>}
         </div>
         
-        {/* Bandeira do Cartão - Layout melhorado */}
+        {/* Banco (campo adicional do DB) */}
+        <div className="form-group">
+          <label htmlFor="banco">
+            <Landmark size={16} />
+            <span>Banco</span>
+          </label>
+          <input 
+            type="text"
+            id="banco"
+            name="banco"
+            value={formData.banco}
+            onChange={handleChange}
+            placeholder="Ex: Nubank, Itaú, Santander"
+          />
+        </div>
+        
+        {/* Bandeira do Cartão - Layout melhorado mantido */}
         <div className="form-group">
           <label htmlFor="bandeira">
             <CreditCard size={16} />
@@ -280,10 +305,10 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
           {errors.bandeira && <div className="error-message">{errors.bandeira}</div>}
         </div>
         
-        {/* Dia de Fechamento */}
+        {/* Dia de Fechamento e Vencimento - campos corrigidos */}
         <div className="form-row">
           <div className="form-group">
-            <label htmlFor="diaFechamento">
+            <label htmlFor="dia_fechamento">
               <Calendar size={16} />
               <span>Dia do Fechamento*</span>
               <div className="tooltip">
@@ -292,11 +317,11 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
               </div>
             </label>
             <select
-              id="diaFechamento"
-              name="diaFechamento"
-              value={formData.diaFechamento}
+              id="dia_fechamento"
+              name="dia_fechamento"
+              value={formData.dia_fechamento}
               onChange={handleChange}
-              className={errors.diaFechamento ? 'input-error' : ''}
+              className={errors.dia_fechamento ? 'input-error' : ''}
             >
               {DIAS_MES.map(dia => (
                 <option key={`fechamento-${dia.value}`} value={dia.value}>
@@ -304,12 +329,11 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
                 </option>
               ))}
             </select>
-            {errors.diaFechamento && <div className="error-message">{errors.diaFechamento}</div>}
+            {errors.dia_fechamento && <div className="error-message">{errors.dia_fechamento}</div>}
           </div>
           
-          {/* Dia de Vencimento */}
           <div className="form-group">
-            <label htmlFor="diaVencimento">
+            <label htmlFor="dia_vencimento">
               <Calendar size={16} />
               <span>Dia do Vencimento*</span>
               <div className="tooltip">
@@ -318,11 +342,11 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
               </div>
             </label>
             <select
-              id="diaVencimento"
-              name="diaVencimento"
-              value={formData.diaVencimento}
+              id="dia_vencimento"
+              name="dia_vencimento"
+              value={formData.dia_vencimento}
               onChange={handleChange}
-              className={errors.diaVencimento ? 'input-error' : ''}
+              className={errors.dia_vencimento ? 'input-error' : ''}
             >
               {DIAS_MES.map(dia => (
                 <option key={`vencimento-${dia.value}`} value={dia.value}>
@@ -330,13 +354,13 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
                 </option>
               ))}
             </select>
-            {errors.diaVencimento && <div className="error-message">{errors.diaVencimento}</div>}
+            {errors.dia_vencimento && <div className="error-message">{errors.dia_vencimento}</div>}
           </div>
         </div>
         
-        {/* Conta para Pagamento */}
+        {/* Conta para Pagamento - campo corrigido */}
         <div className="form-group">
-          <label htmlFor="contaPagamento">
+          <label htmlFor="conta_debito_id">
             <Landmark size={16} />
             <span>Conta para Pagamento</span>
             <div className="tooltip">
@@ -345,13 +369,13 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
             </div>
           </label>
           <select
-            id="contaPagamento"
-            name="contaPagamento"
-            value={formData.contaPagamento}
+            id="conta_debito_id"
+            name="conta_debito_id"
+            value={formData.conta_debito_id}
             onChange={handleChange}
           >
             <option value="">Selecione uma conta</option>
-            {contas.map(conta => (
+            {contas && contas.map(conta => (
               <option key={conta.id} value={conta.id}>
                 {conta.nome}
               </option>
@@ -398,7 +422,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
           </button>
         </div>
         
-        {/* Botões de Ação */}
+        {/* Botões de Ação - Mantendo "Salvar e Criar Novo" */}
         <div className="form-actions">
           <button
             type="button"
@@ -433,7 +457,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
 
 CartaoForm.propTypes = {
   cartao: PropTypes.object,
-  contas: PropTypes.array.isRequired,
+  contas: PropTypes.array,
   onSave: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired
 };

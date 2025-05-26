@@ -1,30 +1,102 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
+import { Wallet, Plus, Trash2, Edit3, X } from 'lucide-react';
 import BasicModal from './BasicModal';
 import InputMoney from './ui/InputMoney';
 import { formatCurrency } from '../utils/formatCurrency';
 import useContas from '../hooks/useContas';
+import './ContasModal.css';
 
 /**
  * Modal para gerenciar contas bancárias
- * VERSÃO CORRIGIDA - Integrado com hook useContas real
+ * Versão integrada com Supabase através do hook useContas
  */
 const ContasModal = ({ isOpen, onClose }) => {
   // Hook real de contas
-  const { contas, loading, error, addConta, deleteConta } = useContas();
+  const { contas, loading, error, addConta, updateConta, deleteConta } = useContas();
   
   // Estados do modal
   const [showForm, setShowForm] = useState(false);
+  const [editingConta, setEditingConta] = useState(null);
   const [feedback, setFeedback] = useState({ visible: false, message: '', type: '' });
-  const [formData, setFormData] = useState({ nome: '', saldo: 0 });
+  const [formData, setFormData] = useState({
+    nome: '',
+    tipo: 'corrente',
+    banco: '',
+    saldo: 0,
+    cor: '#3B82F6'
+  });
   const [formError, setFormError] = useState('');
 
-  // Log para debug
-  console.log('🏦 ContasModal - Estado:', { totalContas: contas.length, loading, error });
+  // Cores predefinidas para seleção
+  const coresPredefinidas = [
+    '#3B82F6', // Azul
+    '#10B981', // Verde
+    '#F59E0B', // Amarelo
+    '#EF4444', // Vermelho
+    '#8B5CF6', // Roxo
+    '#EC4899', // Rosa
+    '#06B6D4', // Ciano
+    '#84CC16', // Lima
+    '#F97316', // Laranja
+    '#6B7280'  // Cinza
+  ];
+
+  // Tipos de conta disponíveis
+  const tiposConta = [
+    { value: 'corrente', label: 'Conta Corrente' },
+    { value: 'poupanca', label: 'Poupança' },
+    { value: 'investimento', label: 'Investimento' },
+    { value: 'carteira', label: 'Carteira' },
+    { value: 'outros', label: 'Outros' }
+  ];
 
   // Calcula o total em contas
   const totalEmContas = contas.reduce((total, conta) => total + (conta.saldo || 0), 0);
 
-  // Adiciona nova conta usando o hook real
+  // Função para mostrar feedback
+  const showFeedback = (message, type = 'success') => {
+    setFeedback({ visible: true, message, type });
+    setTimeout(() => {
+      setFeedback({ visible: false, message: '', type: '' });
+    }, 3000);
+  };
+
+  // Função para resetar formulário
+  const resetForm = () => {
+    setFormData({
+      nome: '',
+      tipo: 'corrente',
+      banco: '',
+      saldo: 0,
+      cor: '#3B82F6'
+    });
+    setFormError('');
+    setEditingConta(null);
+    setShowForm(false);
+  };
+
+  // Função para abrir formulário de nova conta
+  const handleNovaConta = () => {
+    resetForm();
+    setShowForm(true);
+  };
+
+  // Função para abrir formulário de edição
+  const handleEditarConta = (conta) => {
+    setEditingConta(conta);
+    setFormData({
+      nome: conta.nome || '',
+      tipo: conta.tipo || 'corrente',
+      banco: conta.banco || '',
+      saldo: conta.saldo || 0,
+      cor: conta.cor || '#3B82F6'
+    });
+    setFormError('');
+    setShowForm(true);
+  };
+
+  // Adiciona ou atualiza conta
   const handleSaveConta = async (e) => {
     e.preventDefault();
     
@@ -34,55 +106,49 @@ const ContasModal = ({ isOpen, onClose }) => {
       return;
     }
     
-    console.log('💾 Salvando conta:', formData);
+    console.log('💾 Salvando conta:', formData, editingConta);
     
     try {
-      // Usar o hook real para adicionar
-      const result = await addConta({
-        nome: formData.nome.trim(),
-        tipo: 'corrente', // Tipo padrão
-        banco: '',
-        saldo: formData.saldo || 0,
-        cor: '#3B82F6' // Cor padrão
-      });
+      let result;
       
-      console.log('✅ Resultado da criação:', result);
+      if (editingConta) {
+        // Atualizar conta existente
+        result = await updateConta(editingConta.id, {
+          nome: formData.nome.trim(),
+          tipo: formData.tipo,
+          banco: formData.banco.trim(),
+          saldo: formData.saldo || 0,
+          cor: formData.cor
+        });
+      } else {
+        // Adicionar nova conta
+        result = await addConta({
+          nome: formData.nome.trim(),
+          tipo: formData.tipo,
+          banco: formData.banco.trim(),
+          saldo: formData.saldo || 0,
+          cor: formData.cor
+        });
+      }
+      
+      console.log('✅ Resultado da operação:', result);
       
       if (result.success) {
-        // Reset do formulário
-        setFormData({ nome: '', saldo: 0 });
-        setFormError('');
-        setShowForm(false);
-        
-        // Feedback de sucesso
-        setFeedback({
-          visible: true,
-          message: 'Conta adicionada com sucesso!',
-          type: 'success'
-        });
-        
-        // Esconder feedback depois de 3 segundos
-        setTimeout(() => {
-          setFeedback({ visible: false, message: '', type: '' });
-        }, 3000);
+        resetForm();
+        showFeedback(
+          editingConta ? 'Conta atualizada com sucesso!' : 'Conta adicionada com sucesso!',
+          'success'
+        );
       } else {
-        throw new Error(result.error || 'Erro ao criar conta');
+        throw new Error(result.error || 'Erro ao salvar conta');
       }
     } catch (err) {
       console.error('❌ Erro ao salvar conta:', err);
-      setFeedback({
-        visible: true,
-        message: `Erro ao criar conta: ${err.message}`,
-        type: 'error'
-      });
-      
-      setTimeout(() => {
-        setFeedback({ visible: false, message: '', type: '' });
-      }, 5000);
+      showFeedback(`Erro ao ${editingConta ? 'atualizar' : 'criar'} conta: ${err.message}`, 'error');
     }
   };
 
-  // Exclui uma conta usando o hook real
+  // Exclui uma conta
   const handleDeleteConta = async (conta) => {
     if (window.confirm(`Tem certeza que deseja excluir a conta "${conta.nome}"?`)) {
       console.log('🗑️ Excluindo conta:', conta.id);
@@ -93,393 +159,298 @@ const ContasModal = ({ isOpen, onClose }) => {
         console.log('✅ Resultado da exclusão:', result);
         
         if (result.success) {
-          setFeedback({
-            visible: true,
-            message: 'Conta excluída com sucesso!',
-            type: 'success'
-          });
-          
-          setTimeout(() => {
-            setFeedback({ visible: false, message: '', type: '' });
-          }, 3000);
+          showFeedback('Conta excluída com sucesso!', 'success');
         } else {
           throw new Error(result.error || 'Erro ao excluir conta');
         }
       } catch (err) {
         console.error('❌ Erro ao excluir conta:', err);
-        setFeedback({
-          visible: true,
-          message: `Erro ao excluir conta: ${err.message}`,
-          type: 'error'
-        });
-        
-        setTimeout(() => {
-          setFeedback({ visible: false, message: '', type: '' });
-        }, 5000);
+        showFeedback(`Erro ao excluir conta: ${err.message}`, 'error');
       }
     }
   };
 
+  // Função para obter ícone do tipo de conta
+  const getContaIcon = (tipo) => {
+    switch (tipo) {
+      case 'corrente': return '🏦';
+      case 'poupanca': return '🐷';
+      case 'investimento': return '📈';
+      case 'carteira': return '👛';
+      default: return '💳';
+    }
+  };
+
+  // Se não estiver aberto, não renderiza
+  if (!isOpen) return null;
+
   // Se está carregando
-  if (loading) {
+  if (loading && contas.length === 0) {
     return (
       <BasicModal isOpen={isOpen} onClose={onClose} title="Gerenciar contas">
-        <div style={{ textAlign: 'center', padding: '40px' }}>
-          <div>🔄 Carregando contas...</div>
+        <div className="contas-loading">
+          <div className="loading-spinner"></div>
+          <p>Carregando contas...</p>
         </div>
       </BasicModal>
     );
   }
 
-  // Conteúdo principal do modal
-  const modalContent = (
-    <div style={{ maxWidth: '450px', margin: '0 auto' }}>
-      {/* Resumo do dia */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          backgroundColor: '#f5f8ff',
-          padding: '12px',
-          borderRadius: '4px',
-          marginBottom: '20px',
-          width: '100%',
-          boxSizing: 'border-box'
-        }}
-      >
-        <div>
-          <div style={{ fontSize: '14px', color: '#718096', marginBottom: '2px' }}>
-            Total em contas
-          </div>
-          <div style={{ 
-            fontSize: '16px', 
-            fontWeight: 600, 
-            color: totalEmContas >= 0 ? '#3182ce' : '#e53e3e' 
-          }}>
-            {formatCurrency(totalEmContas)}
-          </div>
-        </div>
-        <div>
-          <div style={{ fontSize: '14px', color: '#718096', marginBottom: '2px', textAlign: 'right' }}>
-            Número de contas
-          </div>
-          <div style={{ fontSize: '16px', fontWeight: 600, color: '#4a5568', textAlign: 'right' }}>
-            {contas.length}
-          </div>
-        </div>
-      </div>
-
-      {/* Feedback de sucesso/erro */}
-      {feedback.visible && (
-        <div
-          style={{
-            padding: '10px 12px',
-            marginBottom: '16px',
-            borderRadius: '4px',
-            backgroundColor: feedback.type === 'success' ? '#e6fffa' : '#fff5f5',
-            color: feedback.type === 'success' ? '#2c7a7b' : '#c53030',
-            border: `1px solid ${feedback.type === 'success' ? '#b2f5ea' : '#feb2b2'}`,
-            width: '100%',
-            boxSizing: 'border-box'
-          }}
-        >
-          {feedback.message}
-        </div>
-      )}
-
-      {/* Erro geral do hook */}
-      {error && (
-        <div
-          style={{
-            padding: '10px 12px',
-            marginBottom: '16px',
-            borderRadius: '4px',
-            backgroundColor: '#fff5f5',
-            color: '#c53030',
-            border: '1px solid #feb2b2',
-            width: '100%',
-            boxSizing: 'border-box'
-          }}
-        >
-          ❌ {error}
-        </div>
-      )}
-
-      {showForm ? (
-        <div
-          style={{
-            backgroundColor: '#f7fafc',
-            padding: '16px',
-            borderRadius: '4px',
-            marginBottom: '16px',
-            width: '100%',
-            boxSizing: 'border-box'
-          }}
-        >
-          <h3 style={{ 
-            marginTop: 0, 
-            marginBottom: '16px', 
-            fontSize: '15px',
-            fontWeight: 500
-          }}>
-            Nova Conta
-          </h3>
-          
-          <form onSubmit={handleSaveConta}>
-            <div style={{ marginBottom: '12px' }}>
-              <label 
-                style={{ 
-                  display: 'block', 
-                  marginBottom: '4px', 
-                  fontWeight: 500,
-                  fontSize: '14px'
-                }}
-              >
-                Nome da Conta
-              </label>
-              <input
-                type="text"
-                value={formData.nome}
-                onChange={(e) => {
-                  setFormData(prev => ({ ...prev, nome: e.target.value }));
-                  if (formError) setFormError('');
-                }}
-                placeholder="Ex: Nubank, Itaú, Carteira"
-                style={{
-                  width: '100%',
-                  padding: '6px 10px',
-                  border: `1px solid ${formError ? '#e53e3e' : '#cbd5e0'}`,
-                  borderRadius: '4px',
-                  fontSize: '14px',
-                  boxSizing: 'border-box',
-                  maxWidth: '320px'
-                }}
-              />
-              {formError && (
-                <div style={{ color: '#e53e3e', fontSize: '12px', marginTop: '4px' }}>
-                  {formError}
-                </div>
-              )}
-            </div>
-            
-            <div style={{ marginBottom: '16px' }}>
-              <label 
-                style={{ 
-                  display: 'block', 
-                  marginBottom: '4px', 
-                  fontWeight: 500,
-                  fontSize: '14px'
-                }}
-              >
-                Saldo Inicial
-                <small style={{ 
-                  marginLeft: '4px', 
-                  fontWeight: 'normal',
-                  color: '#718096',
-                  fontSize: '12px'
-                }}>
-                  (pode ser negativo)
-                </small>
-              </label>
-              <InputMoney
-                value={formData.saldo}
-                onChange={(value) => setFormData(prev => ({ ...prev, saldo: value }))}
-                placeholder="R$ 0,00"
-                style={{
-                  width: '100%',
-                  maxWidth: '320px',
-                  padding: '6px 10px',
-                  border: '1px solid #cbd5e0',
-                  borderRadius: '4px',
-                  fontSize: '14px',
-                  boxSizing: 'border-box'
-                }}
-              />
-            </div>
-            
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowForm(false);
-                  setFormData({ nome: '', saldo: 0 });
-                  setFormError('');
-                }}
-                style={{
-                  padding: '6px 12px',
-                  backgroundColor: '#edf2f7',
-                  color: '#4a5568',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                style={{
-                  padding: '6px 12px',
-                  backgroundColor: loading ? '#a0aec0' : '#3182ce',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  fontSize: '14px'
-                }}
-              >
-                {loading ? 'Salvando...' : 'Salvar'}
-              </button>
-            </div>
-          </form>
-        </div>
-      ) : (
-        <>
-          {/* Lista de contas */}
-          <div
-            style={{
-              border: '1px solid #e2e8f0',
-              borderRadius: '4px',
-              overflow: 'hidden',
-              marginBottom: '16px',
-              width: '100%',
-              boxSizing: 'border-box'
-            }}
+  return (
+    <div className="contas-modal-overlay">
+      <div className="contas-modal-container">
+        {/* Cabeçalho do modal */}
+        <div className="contas-modal-header">
+          <h2>
+            <Wallet size={20} className="icon-header" />
+            <span>Gerenciar Contas</span>
+          </h2>
+          <button 
+            className="btn-fechar" 
+            onClick={onClose}
+            aria-label="Fechar"
           >
-            {contas.length === 0 ? (
-              <div style={{
-                padding: '20px',
-                textAlign: 'center',
-                color: '#718096',
-                backgroundColor: 'white'
-              }}>
-                📝 Nenhuma conta cadastrada ainda.
-                <br />
-                <small>Clique em "Criar nova conta" para começar!</small>
+            <X size={20} />
+          </button>
+        </div>
+        
+        {/* Conteúdo do modal */}
+        <div className="contas-modal-content">
+          {/* Resumo financeiro */}
+          <div className="contas-resumo">
+            <div className="resumo-item">
+              <div className="resumo-label">Total em contas</div>
+              <div className={`resumo-valor ${totalEmContas >= 0 ? 'positivo' : 'negativo'}`}>
+                {formatCurrency(totalEmContas)}
               </div>
-            ) : (
-              contas.map(conta => (
-                <div
-                  key={conta.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '10px 12px',
-                    borderBottom: '1px solid #edf2f7',
-                    backgroundColor: 'white'
-                  }}
-                >
-                  <div
-                    style={{
-                      width: '32px',
-                      height: '32px',
-                      borderRadius: '50%',
-                      backgroundColor: conta.cor || '#ebf5ff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginRight: '10px',
-                      fontSize: '16px'
+            </div>
+            <div className="resumo-item">
+              <div className="resumo-label">Número de contas</div>
+              <div className="resumo-valor">{contas.length}</div>
+            </div>
+          </div>
+
+          {/* Feedback de sucesso/erro */}
+          {feedback.visible && (
+            <div className={`feedback-message ${feedback.type}`}>
+              {feedback.message}
+            </div>
+          )}
+
+          {/* Erro geral do hook */}
+          {error && (
+            <div className="feedback-message error">
+              ❌ {error}
+            </div>
+          )}
+
+          {showForm ? (
+            /* Formulário de conta */
+            <div className="conta-form">
+              <h3>{editingConta ? 'Editar Conta' : 'Nova Conta'}</h3>
+              
+              <form onSubmit={handleSaveConta}>
+                <div className="form-group">
+                  <label htmlFor="conta-nome">Nome da Conta *</label>
+                  <input
+                    type="text"
+                    id="conta-nome"
+                    value={formData.nome}
+                    onChange={(e) => {
+                      setFormData(prev => ({ ...prev, nome: e.target.value }));
+                      if (formError) setFormError('');
                     }}
-                  >
-                    🏦
+                    placeholder="Ex: Nubank, Itaú, Carteira"
+                    className={formError ? 'error' : ''}
+                    autoFocus
+                  />
+                  {formError && (
+                    <div className="form-error">{formError}</div>
+                  )}
+                </div>
+                
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="conta-tipo">Tipo</label>
+                    <select
+                      id="conta-tipo"
+                      value={formData.tipo}
+                      onChange={(e) => setFormData(prev => ({ ...prev, tipo: e.target.value }))}
+                    >
+                      {tiposConta.map(tipo => (
+                        <option key={tipo.value} value={tipo.value}>
+                          {tipo.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 500, fontSize: '14px' }}>
-                      {conta.nome}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#718096' }}>
-                      {conta.tipo} {conta.banco && `- ${conta.banco}`}
-                    </div>
-                    <div style={{ 
-                      fontSize: '13px', 
-                      color: conta.saldo >= 0 ? '#3182ce' : '#e53e3e',
-                      fontWeight: 500
-                    }}>
-                      {formatCurrency(conta.saldo)}
+                  <div className="form-group">
+                    <label htmlFor="conta-banco">Banco (opcional)</label>
+                    <input
+                      type="text"
+                      id="conta-banco"
+                      value={formData.banco}
+                      onChange={(e) => setFormData(prev => ({ ...prev, banco: e.target.value }))}
+                      placeholder="Ex: Nubank, Itaú"
+                    />
+                  </div>
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="conta-saldo">
+                    Saldo {editingConta ? 'Atual' : 'Inicial'}
+                    <small>(pode ser negativo)</small>
+                  </label>
+                  <InputMoney
+                    value={formData.saldo}
+                    onChange={(value) => {
+                      console.log('💰 Valor recebido do InputMoney:', value);
+                      setFormData(prev => ({ ...prev, saldo: value }));
+                    }}
+                    placeholder="R$ 0,00"
+                    allowNegative={true}
+                  />
+                  <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                    💡 Para valores negativos, digite o sinal de menos (-) antes do valor
+                  </div>
+                </div>
+                
+                <div className="form-group">
+                  <label>Cor</label>
+                  <div className="cor-selector">
+                    <input
+                      type="color"
+                      value={formData.cor}
+                      onChange={(e) => setFormData(prev => ({ ...prev, cor: e.target.value }))}
+                      className="color-picker"
+                    />
+                    <div className="cores-predefinidas">
+                      {coresPredefinidas.map(cor => (
+                        <button
+                          key={cor}
+                          type="button"
+                          className={`cor-item ${cor === formData.cor ? 'selected' : ''}`}
+                          style={{ backgroundColor: cor }}
+                          onClick={() => setFormData(prev => ({ ...prev, cor }))}
+                          title={cor}
+                        />
+                      ))}
                     </div>
                   </div>
-                  
+                </div>
+                
+                <div className="form-actions">
                   <button
-                    onClick={() => handleDeleteConta(conta)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: '#e53e3e',
-                      padding: '6px',
-                      borderRadius: '4px',
-                      fontSize: '14px'
-                    }}
-                    title="Excluir conta"
+                    type="button"
+                    onClick={resetForm}
+                    className="btn-secondary"
                   >
-                    🗑️
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="btn-primary"
+                  >
+                    {loading ? 'Salvando...' : (editingConta ? 'Atualizar' : 'Salvar')}
                   </button>
                 </div>
-              ))
-            )}
+              </form>
+            </div>
+          ) : (
+            /* Lista de contas */
+            <>
+              <div className="contas-header">
+                <h3>Minhas Contas</h3>
+                <button 
+                  className="btn-nova-conta"
+                  onClick={handleNovaConta}
+                >
+                  <Plus size={18} />
+                  <span>Nova Conta</span>
+                </button>
+              </div>
+              
+              {contas.length > 0 ? (
+                <div className="contas-lista">
+                  {contas.map(conta => (
+                    <div key={conta.id} className="conta-item">
+                      <div 
+                        className="conta-cor"
+                        style={{ backgroundColor: conta.cor || '#3B82F6' }}
+                      >
+                        <span className="conta-icone">
+                          {getContaIcon(conta.tipo)}
+                        </span>
+                      </div>
+                      
+                      <div className="conta-info">
+                        <div className="conta-nome">{conta.nome}</div>
+                        <div className="conta-detalhes">
+                          {tiposConta.find(t => t.value === conta.tipo)?.label}
+                          {conta.banco && ` - ${conta.banco}`}
+                        </div>
+                        <div className={`conta-saldo ${conta.saldo >= 0 ? 'positivo' : 'negativo'}`}>
+                          {formatCurrency(conta.saldo)}
+                        </div>
+                      </div>
+                      
+                      <div className="conta-actions">
+                        <button
+                          onClick={() => handleEditarConta(conta)}
+                          className="btn-action edit"
+                          title="Editar conta"
+                        >
+                          <Edit3 size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteConta(conta)}
+                          className="btn-action delete"
+                          title="Excluir conta"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="contas-empty">
+                  <Wallet size={48} strokeWidth={1} />
+                  <p>Você ainda não tem contas cadastradas</p>
+                  <button 
+                    className="btn-primary"
+                    onClick={handleNovaConta}
+                  >
+                    <Plus size={18} />
+                    <span>Adicionar minha primeira conta</span>
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+        
+        {/* Rodapé do modal */}
+        {!showForm && (
+          <div className="contas-modal-footer">
+            <button 
+              className="btn-fechar-modal" 
+              onClick={onClose}
+            >
+              Fechar
+            </button>
           </div>
-          
-          {/* Botão para adicionar conta */}
-          <button
-            onClick={() => setShowForm(true)}
-            disabled={loading}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '100%',
-              padding: '8px',
-              backgroundColor: loading ? '#a0aec0' : '#3182ce',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              marginBottom: '16px',
-              fontWeight: 500,
-              fontSize: '14px',
-              boxSizing: 'border-box'
-            }}
-          >
-            <span style={{ marginRight: '6px', fontSize: '14px' }}>+</span>
-            Criar nova conta
-          </button>
-        </>
-      )}
-      
-      {/* Botão de fechar */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button
-          onClick={onClose}
-          style={{
-            padding: '6px 12px',
-            backgroundColor: '#edf2f7',
-            color: '#4a5568',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '14px'
-          }}
-        >
-          Fechar
-        </button>
+        )}
       </div>
     </div>
   );
+};
 
-  // Render o modal com o conteúdo
-  return (
-    <BasicModal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Gerenciar contas"
-    >
-      {modalContent}
-    </BasicModal>
-  );
+ContasModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired
 };
 
 export default ContasModal;

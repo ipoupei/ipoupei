@@ -1,16 +1,14 @@
-// src/components/DespesasCartaoModal.jsx - Versão ajustada (sem campo de conta para pagamento)
 import React, { useState, useEffect, useRef } from 'react';
-import ModalWrapper from './ui/ModalWrapper';
+import PropTypes from 'prop-types';
+import { CreditCard, Plus, X, Calendar, FileText, Tag, DollarSign, MessageSquare, Hash, Info } from 'lucide-react';
 import InputMoney from './ui/InputMoney';
-import Tooltip from './ui/ToolTip';
-import PreviewParcelamento from './PreviewParcelamento';
 import useCategorias from '../hooks/useCategorias';
 import useCartoes from '../hooks/useCartoes';
-import { Info } from 'lucide-react';
+import { formatCurrency } from '../utils/formatCurrency';
 
 /**
- * Modal para lançamento de despesas com cartão de crédito
- * Permite registrar uma nova despesa associada a cartão com parcelamento
+ * Modal moderno para lançamento de despesas com cartão de crédito
+ * Seguindo o padrão visual dos outros modais do sistema
  */
 const DespesasCartaoModal = ({ isOpen, onClose }) => {
   // Referência para o primeiro campo do formulário (autofoco)
@@ -58,7 +56,7 @@ const DespesasCartaoModal = ({ isOpen, onClose }) => {
     label: `${i + 1}x${i === 0 ? ' à vista' : ''}`
   }));
   
-  // Calcula o valor da parcela (com precisão monetária)
+  // Calcula o valor da parcela
   const valorParcela = formData.valorTotal > 0 && formData.numeroParcelas > 0
     ? formData.valorTotal / formData.numeroParcelas
     : 0;
@@ -95,6 +93,14 @@ const DespesasCartaoModal = ({ isOpen, onClose }) => {
     const dia = String(hoje.getDate()).padStart(2, '0');
     return `${ano}-${mes}-${dia}`;
   }
+
+  // Função para mostrar feedback
+  const showFeedback = (message, type = 'success') => {
+    setFeedback({ visible: true, message, type });
+    setTimeout(() => {
+      setFeedback({ visible: false, message: '', type: '' });
+    }, 3000);
+  };
 
   // Handler para mudanças nos inputs
   const handleChange = (e) => {
@@ -210,33 +216,28 @@ const DespesasCartaoModal = ({ isOpen, onClose }) => {
     e.preventDefault();
     
     if (validateForm()) {
-      // Calcula o valor de cada parcela (com precisão monetária)
-      const valorParcela = formData.valorTotal / formData.numeroParcelas;
+      // Calcula o valor de cada parcela
+      const valorParcelaFinal = formData.valorTotal / formData.numeroParcelas;
       
       // Constrói o objeto de despesa com cartão
       const despesaCartao = {
         ...formData,
-        valorParcela,
+        valorParcela: valorParcelaFinal,
         dataRegistro: new Date().toISOString(),
         status: 'aberto'
       };
       
       // Mock da função addDespesaCartao
-      console.log("Dados enviados:", despesaCartao);
+      console.log("Dados da despesa de cartão enviados:", despesaCartao);
       
       // Exibe o feedback de sucesso
-      setFeedback({
-        visible: true,
-        message: 'Despesa de cartão registrada com sucesso!',
-        type: 'success'
-      });
+      showFeedback('Despesa de cartão registrada com sucesso!', 'success');
       
-      // Limpa o formulário e fecha o feedback após 3 segundos
+      // Limpa o formulário e fecha após 2 segundos
       setTimeout(() => {
-        setFeedback({ visible: false, message: '', type: '' });
         resetForm();
         onClose();
-      }, 3000);
+      }, 2000);
     }
   };
 
@@ -253,156 +254,100 @@ const DespesasCartaoModal = ({ isOpen, onClose }) => {
       observacoes: ''
     });
     setErrors({});
+    setFeedback({ visible: false, message: '', type: '' });
     setCartaoSelecionado(null);
   };
 
-  // Estilo para a tabela de formulário
-  const tableStyle = {
-    width: '100%',
-    borderCollapse: 'collapse'
-  };
-
-  // Estilo para cada linha da tabela
-  const trStyle = {
-    verticalAlign: 'top'
-  };
-
-  // Estilo para células da label (primeira coluna)
-  const tdLabelStyle = {
-    paddingBottom: '15px',
-    paddingRight: '10px',
-    whiteSpace: 'nowrap',
-    textAlign: 'right',
-    width: '1%', // Faz com que a coluna tenha a largura mínima necessária
-    fontSize: '14px',
-    color: '#4a5568'
-  };
-
-  // Estilo para células do input (segunda coluna)
-  const tdInputStyle = {
-    paddingBottom: '15px',
-    width: '99%' // Faz com que a coluna ocupe o resto do espaço
-  };
-
-  // Estilo para inputs
-  const inputStyle = (hasError) => ({
-    width: '100%',
-    padding: '6px 10px',
-    border: `1px solid ${hasError ? '#e53e3e' : '#d1d5db'}`,
-    borderRadius: '4px',
-    fontSize: '14px',
-    boxSizing: 'border-box'
-  });
-
-  // Estilo para mensagens de erro
-  const errorStyle = {
-    color: '#e53e3e',
-    fontSize: '12px',
-    marginTop: '2px'
-  };
-
-  // Estilo para o contador de caracteres
-  const charCountStyle = {
-    textAlign: 'right',
-    fontSize: '12px',
-    color: '#6b7280',
-    marginTop: '4px'
-  };
-
-  // Estilo para os textos opcionais
-  const optionalTextStyle = {
-    fontSize: '12px',
-    color: '#718096'
-  };
-
-  // Estilo para o botão de informação
-  const infoButtonStyle = {
-    marginLeft: '6px',
-    display: 'inline-flex',
-    alignItems: 'center',
-    cursor: 'help',
-    color: '#718096',
-    position: 'relative', // Garante que o z-index funcione corretamente
-    zIndex: 5 // Valor mais alto que o padrão
-  };
+  // Se não estiver aberto, não renderiza
+  if (!isOpen) return null;
 
   return (
-    <ModalWrapper
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Lançamento de Despesa com Cartão de Crédito"
-    >
-      {feedback.visible && (
-        <div style={{
-          padding: '10px 12px',
-          marginBottom: '16px',
-          borderRadius: '4px',
-          backgroundColor: feedback.type === 'success' ? '#e6fffa' : '#fff5f5',
-          color: feedback.type === 'success' ? '#2c7a7b' : '#c53030',
-          border: `1px solid ${feedback.type === 'success' ? '#b2f5ea' : '#feb2b2'}`,
-          display: 'flex',
-          alignItems: 'center'
-        }}>
-          <span style={{ marginRight: '8px' }}>
-            {feedback.type === 'success' ? '✅' : '❌'}
-          </span>
-          {feedback.message}
+    <div className="contas-modal-overlay">
+      <div className="contas-modal-container" style={{ maxWidth: '600px' }}>
+        {/* Cabeçalho do modal */}
+        <div className="contas-modal-header">
+          <h2>
+            <CreditCard size={20} className="icon-header" style={{ color: '#8b5cf6' }} />
+            <span>Despesa com Cartão de Crédito</span>
+          </h2>
+          <button 
+            className="btn-fechar" 
+            onClick={onClose}
+            aria-label="Fechar"
+          >
+            <X size={20} />
+          </button>
         </div>
-      )}
-      
-      <form onSubmit={handleSubmit}>
-        <table style={tableStyle}>
-          <tbody>
-            {/* Campo Data da Compra */}
-            <tr style={trStyle}>
-              <td style={tdLabelStyle}>
-                <label htmlFor="dataCompra">Data da Compra:</label>
-              </td>
-              <td style={tdInputStyle}>
-                <input
-                  ref={dataInputRef}
-                  type="date"
-                  id="dataCompra"
-                  name="dataCompra"
-                  value={formData.dataCompra}
-                  onChange={handleChange}
-                  style={inputStyle(errors.dataCompra)}
-                />
-                {errors.dataCompra && <p style={errorStyle}>{errors.dataCompra}</p>}
-              </td>
-            </tr>
+        
+        {/* Conteúdo do modal */}
+        <div className="contas-modal-content">
+          {/* Feedback de sucesso/erro */}
+          {feedback.visible && (
+            <div className={`feedback-message ${feedback.type}`}>
+              <span style={{ marginRight: '8px' }}>
+                {feedback.type === 'success' ? '✅' : '❌'}
+              </span>
+              {feedback.message}
+            </div>
+          )}
+          
+          {/* Formulário de despesa com cartão */}
+          <form onSubmit={handleSubmit} className="conta-form">
+            <h3>Nova Despesa com Cartão</h3>
             
-            {/* Campo Descrição */}
-            <tr style={trStyle}>
-              <td style={tdLabelStyle}>
-                <label htmlFor="descricao">Descrição:</label>
-              </td>
-              <td style={tdInputStyle}>
-                <input
-                  type="text"
-                  id="descricao"
-                  name="descricao"
-                  placeholder="Ex: Compra na Amazon"
-                  value={formData.descricao}
-                  onChange={handleChange}
-                  style={inputStyle(errors.descricao)}
-                />
-                {errors.descricao && <p style={errorStyle}>{errors.descricao}</p>}
-              </td>
-            </tr>
+            {/* Data da Compra */}
+            <div className="form-group">
+              <label htmlFor="dataCompra">
+                <Calendar size={16} />
+                Data da Compra *
+              </label>
+              <input
+                ref={dataInputRef}
+                type="date"
+                id="dataCompra"
+                name="dataCompra"
+                value={formData.dataCompra}
+                onChange={handleChange}
+                className={errors.dataCompra ? 'error' : ''}
+              />
+              {errors.dataCompra && (
+                <div className="form-error">{errors.dataCompra}</div>
+              )}
+            </div>
             
-            {/* Campo Categoria */}
-            <tr style={trStyle}>
-              <td style={tdLabelStyle}>
-                <label htmlFor="categoria">Categoria:</label>
-              </td>
-              <td style={tdInputStyle}>
+            {/* Descrição */}
+            <div className="form-group">
+              <label htmlFor="descricao">
+                <FileText size={16} />
+                Descrição *
+              </label>
+              <input
+                type="text"
+                id="descricao"
+                name="descricao"
+                placeholder="Ex: Compra na Amazon"
+                value={formData.descricao}
+                onChange={handleChange}
+                className={errors.descricao ? 'error' : ''}
+              />
+              {errors.descricao && (
+                <div className="form-error">{errors.descricao}</div>
+              )}
+            </div>
+            
+            {/* Categoria e Subcategoria */}
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="categoria">
+                  <Tag size={16} />
+                  Categoria *
+                </label>
                 <select
                   id="categoria"
                   name="categoria"
                   value={formData.categoria}
                   onChange={handleChange}
-                  style={inputStyle(errors.categoria)}
+                  className={errors.categoria ? 'error' : ''}
                 >
                   <option value="">Selecione uma categoria</option>
                   {categoriasDespesa.map(categoria => (
@@ -411,24 +356,24 @@ const DespesasCartaoModal = ({ isOpen, onClose }) => {
                     </option>
                   ))}
                 </select>
-                {errors.categoria && <p style={errorStyle}>{errors.categoria}</p>}
-              </td>
-            </tr>
-            
-            {/* Campo Subcategoria */}
-            <tr style={trStyle}>
-              <td style={tdLabelStyle}>
-                <label htmlFor="subcategoria">Subcategoria:</label>
-              </td>
-              <td style={tdInputStyle}>
+                {errors.categoria && (
+                  <div className="form-error">{errors.categoria}</div>
+                )}
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="subcategoria">
+                  <Tag size={16} />
+                  Subcategoria *
+                </label>
                 <select
                   id="subcategoria"
                   name="subcategoria"
                   value={formData.subcategoria}
                   onChange={handleChange}
                   disabled={!formData.categoria}
+                  className={errors.subcategoria ? 'error' : ''}
                   style={{
-                    ...inputStyle(errors.subcategoria),
                     backgroundColor: !formData.categoria ? '#f9fafb' : 'white'
                   }}
                 >
@@ -439,78 +384,75 @@ const DespesasCartaoModal = ({ isOpen, onClose }) => {
                     </option>
                   ))}
                 </select>
-                {errors.subcategoria && <p style={errorStyle}>{errors.subcategoria}</p>}
-              </td>
-            </tr>
+                {errors.subcategoria && (
+                  <div className="form-error">{errors.subcategoria}</div>
+                )}
+              </div>
+            </div>
             
-            {/* Campo Cartão de Crédito */}
-            <tr style={trStyle}>
-              <td style={tdLabelStyle}>
-                <label htmlFor="cartaoId">Cartão de Crédito:</label>
-              </td>
-              <td style={tdInputStyle}>
-                <select
-                  id="cartaoId"
-                  name="cartaoId"
-                  value={formData.cartaoId}
-                  onChange={handleChange}
-                  style={inputStyle(errors.cartaoId)}
-                >
-                  <option value="">Selecione um cartão</option>
-                  {cartoes.map(cartao => (
-                    <option 
-                      key={cartao.id} 
-                      value={cartao.id}
-                      disabled={!cartao.ativo}
-                    >
-                      {cartao.nome} {!cartao.ativo ? '(Inativo)' : ''}
-                    </option>
-                  ))}
-                </select>
-                {errors.cartaoId && <p style={errorStyle}>{errors.cartaoId}</p>}
-              </td>
-            </tr>
+            {/* Cartão de Crédito */}
+            <div className="form-group">
+              <label htmlFor="cartaoId">
+                <CreditCard size={16} />
+                Cartão de Crédito *
+              </label>
+              <select
+                id="cartaoId"
+                name="cartaoId"
+                value={formData.cartaoId}
+                onChange={handleChange}
+                className={errors.cartaoId ? 'error' : ''}
+              >
+                <option value="">Selecione um cartão</option>
+                {cartoes.map(cartao => (
+                  <option 
+                    key={cartao.id} 
+                    value={cartao.id}
+                    disabled={!cartao.ativo}
+                  >
+                    {cartao.nome} {!cartao.ativo ? '(Inativo)' : ''}
+                  </option>
+                ))}
+              </select>
+              {errors.cartaoId && (
+                <div className="form-error">{errors.cartaoId}</div>
+              )}
+            </div>
             
-            {/* Campo Valor Total */}
-            <tr style={trStyle}>
-              <td style={tdLabelStyle}>
-                <label htmlFor="valorTotal">Valor Total:</label>
-              </td>
-              <td style={tdInputStyle}>
+            {/* Valor Total e Parcelas */}
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="valorTotal">
+                  <DollarSign size={16} />
+                  Valor Total *
+                </label>
                 <InputMoney
                   id="valorTotal"
                   name="valorTotal"
                   value={formData.valorTotal}
                   onChange={handleValorTotalChange}
                   placeholder="R$ 0,00"
-                  style={inputStyle(errors.valorTotal)}
+                  style={{
+                    borderColor: errors.valorTotal ? '#ef4444' : '#d1d5db'
+                  }}
                 />
-                {errors.valorTotal && <p style={errorStyle}>{errors.valorTotal}</p>}
-              </td>
-            </tr>
-            
-            {/* Campo Número de Parcelas */}
-            <tr style={trStyle}>
-              <td style={tdLabelStyle}>
+                {errors.valorTotal && (
+                  <div className="form-error">{errors.valorTotal}</div>
+                )}
+              </div>
+              
+              <div className="form-group">
                 <label htmlFor="numeroParcelas">
-                  Parcelas:
-                  <Tooltip
-                    content="Número de parcelas que esta compra será dividida. Impacta em faturas futuras."
-                    position="right"
-                  >
-                    <span style={infoButtonStyle}>
-                      <Info size={14} />
-                    </span>
-                  </Tooltip>
+                  <Hash size={16} />
+                  Parcelas *
+                  <Info size={12} style={{ marginLeft: '4px', color: '#6b7280' }} />
                 </label>
-              </td>
-              <td style={tdInputStyle}>
                 <select
                   id="numeroParcelas"
                   name="numeroParcelas"
                   value={formData.numeroParcelas}
                   onChange={handleChange}
-                  style={inputStyle(errors.numeroParcelas)}
+                  className={errors.numeroParcelas ? 'error' : ''}
                 >
                   {opcoesParcelamento.map(opcao => (
                     <option key={opcao.value} value={opcao.value}>
@@ -518,97 +460,91 @@ const DespesasCartaoModal = ({ isOpen, onClose }) => {
                     </option>
                   ))}
                 </select>
-                {errors.numeroParcelas && <p style={errorStyle}>{errors.numeroParcelas}</p>}
-              </td>
-            </tr>
+                {errors.numeroParcelas && (
+                  <div className="form-error">{errors.numeroParcelas}</div>
+                )}
+              </div>
+            </div>
             
             {/* Preview do Parcelamento */}
-            {formData.valorTotal > 0 && formData.cartaoId && (
-              <tr style={trStyle}>
-                <td style={tdLabelStyle}></td>
-                <td style={tdInputStyle}>
-                  <PreviewParcelamento
-                    valorTotal={formData.valorTotal}
-                    numeroParcelas={formData.numeroParcelas}
-                    dataCompra={formData.dataCompra}
-                    diaFechamento={cartaoSelecionado?.diaFechamento || 1}
-                    diaVencimento={cartaoSelecionado?.diaVencimento || 10}
-                  />
-                </td>
-              </tr>
+            {formData.valorTotal > 0 && formData.numeroParcelas > 0 && (
+              <div className="contas-resumo" style={{ marginBottom: '16px' }}>
+                <div className="resumo-item">
+                  <div className="resumo-label">Valor por parcela</div>
+                  <div className="resumo-valor" style={{ color: '#8b5cf6' }}>
+                    {formatCurrency(valorParcela)}
+                  </div>
+                </div>
+                <div className="resumo-item">
+                  <div className="resumo-label">Total de parcelas</div>
+                  <div className="resumo-valor">
+                    {formData.numeroParcelas}x
+                  </div>
+                </div>
+              </div>
             )}
             
-            {/* Campo Observações */}
-            <tr style={trStyle}>
-              <td style={tdLabelStyle}>
-                <label htmlFor="observacoes">Observações:</label>
-              </td>
-              <td style={tdInputStyle}>
-                <div style={optionalTextStyle}>(opcional, máx. 300 caracteres)</div>
-                <textarea
-                  id="observacoes"
-                  name="observacoes"
-                  value={formData.observacoes}
-                  onChange={handleObservacoesChange}
-                  placeholder="Adicione informações extras sobre esta compra"
-                  rows="3"
-                  style={{
-                    ...inputStyle(errors.observacoes),
-                    resize: 'vertical'
-                  }}
-                ></textarea>
-                <div style={charCountStyle}>
-                  {formData.observacoes.length}/300
-                </div>
-                {errors.observacoes && <p style={errorStyle}>{errors.observacoes}</p>}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        
-        {/* Botões de ação */}
-        <div style={{ 
-          display: 'flex',
-          justifyContent: 'flex-end',
-          marginTop: '20px',
-          gap: '8px'
-        }}>
-          <button
-            type="button"
-            onClick={() => {
-              resetForm();
-              onClose();
-            }}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#f3f4f6',
-              color: '#4b5563',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#3b82f6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
-          >
-            Salvar
-          </button>
+            {/* Observações */}
+            <div className="form-group">
+              <label htmlFor="observacoes">
+                <MessageSquare size={16} />
+                Observações
+                <small>(opcional, máx. 300 caracteres)</small>
+              </label>
+              <textarea
+                id="observacoes"
+                name="observacoes"
+                value={formData.observacoes}
+                onChange={handleObservacoesChange}
+                placeholder="Adicione informações extras sobre esta compra"
+                rows="3"
+                className={errors.observacoes ? 'error' : ''}
+                style={{ resize: 'vertical' }}
+              />
+              <div style={{ 
+                textAlign: 'right', 
+                fontSize: '12px', 
+                color: '#6b7280',
+                marginTop: '4px'
+              }}>
+                {formData.observacoes.length}/300
+              </div>
+              {errors.observacoes && (
+                <div className="form-error">{errors.observacoes}</div>
+              )}
+            </div>
+            
+            {/* Botões de ação */}
+            <div className="form-actions">
+              <button
+                type="button"
+                onClick={() => {
+                  resetForm();
+                  onClose();
+                }}
+                className="btn-secondary"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="btn-primary"
+                style={{ backgroundColor: '#8b5cf6' }}
+              >
+                <Plus size={16} />
+                Salvar Despesa
+              </button>
+            </div>
+          </form>
         </div>
-      </form>
-    </ModalWrapper>
+      </div>
+    </div>
   );
+};
+
+DespesasCartaoModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired
 };
 
 export default DespesasCartaoModal;

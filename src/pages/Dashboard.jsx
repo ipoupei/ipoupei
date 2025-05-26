@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { format, subMonths, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar, ChevronLeft, ChevronRight, Plus, User, Settings, LogOut, ChevronDown } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Plus, User, LogOut, ChevronDown } from 'lucide-react';
 import './Dashboard.css';
 
 // Componentes
@@ -30,22 +30,7 @@ import CartoesModal from '../Components/CartoesModal';
 const Dashboard = () => {
   // Hooks
   const { data, loading, error } = useDashboardData();
-
-// DEBUG: Verificar dados do hook
-console.log('🏠 Dashboard - Estado do useDashboardData:', {
-  data,
-  loading,
-  error,
-  hasData: !!data
-});
-
-// Mostrar dados reais no console
-if (data) {
-  console.log('📊 Dados reais do dashboard:', data);
-}
-
-
-  // const { user, signOut } = useAuth(); // Descomente quando tiver useAuth configurado
+  const { user, signOut } = useAuth();
   
   // Estado local para a data atual e selecionada
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -78,30 +63,6 @@ if (data) {
   const datePickerRef = useRef(null);
   const moreActionsRef = useRef(null);
   const userMenuRef = useRef(null);
-  
-  // Dados mockados para o detalhamento dos cards
-  const detalhamentoCards = {
-    saldo: [
-      { nome: 'Conta Corrente', valor: 5432.75 },
-      { nome: 'Poupança', valor: 15750.20 },
-      { nome: 'Investimentos', valor: 96441.05 }
-    ],
-    receitas: [
-      { nome: 'Salário', valor: 300.00 },
-      { nome: 'Freelance', valor: 100.00 },
-      { nome: 'Investimentos', valor: 56.32 }
-    ],
-    despesas: [
-      { nome: 'Alimentação', valor: 150.00 },
-      { nome: 'Transporte', valor: 95.00 },
-      { nome: 'Moradia', valor: 150.00 },
-      { nome: 'Lazer', valor: 61.32 }
-    ],
-    cartaoCredito: [
-      { nome: 'Visa', valor: 256.32 },
-      { nome: 'Mastercard', valor: 200.00 }
-    ]
-  };
 
   // Efeito para fechar dropdowns ao clicar fora
   useEffect(() => {
@@ -148,7 +109,7 @@ if (data) {
   const mesAnoSelecionado = format(selectedDate, 'MMMM yyyy', { locale: ptBR });
   const mesAnoSelecionadoCapitalizado = mesAnoSelecionado.charAt(0).toUpperCase() + mesAnoSelecionado.slice(1);
   
-  // Ações principais (sempre visíveis)
+  // Ações principais (expandidas - mais botões visíveis)
   const mainActions = [
     {
       id: 'add-receita',
@@ -170,23 +131,25 @@ if (data) {
       icon: '💳',
       color: 'purple',
       action: () => setShowDespesasCartaoModal(true)
-    }
-  ];
-
-  // Ações secundárias (no dropdown "mais")
-  const moreActions = [
+    },
     {
       id: 'contas',
-      label: 'Minhas Contas',
+      label: 'Contas',
       icon: '🏦',
+      color: 'blue',
       action: () => setShowContasModal(true)
     },
     {
       id: 'cartoes',
-      label: 'Meus Cartões', 
+      label: 'Cartões', 
       icon: '💳',
+      color: 'orange',
       action: () => setShowCartaoModal(true)
-    },
+    }
+  ];
+
+  // Ações secundárias (reduzidas - apenas as menos usadas)
+  const moreActions = [
     {
       id: 'categorias',
       label: 'Categorias',
@@ -198,6 +161,12 @@ if (data) {
       label: 'Diagnóstico',
       icon: '🎯',
       action: () => window.location.href = '/diagnostico'
+    },
+    {
+      id: 'relatorios',
+      label: 'Relatórios',
+      icon: '📈',
+      action: () => window.location.href = '/relatorios'
     }
   ];
 
@@ -215,34 +184,50 @@ if (data) {
     setShowDetalhesDiaModal(true);
   };
 
-  // Handler para logout
+  // Handler para logout (corrigido)
   const handleLogout = async () => {
     try {
-      // await signOut(); // Descomente quando tiver useAuth
-      // Redirecionamento simples por enquanto
-      window.location.href = '/login';
+      console.log('🚪 Fazendo logout...');
+      const result = await signOut();
+      
+      if (result.success) {
+        console.log('✅ Logout realizado com sucesso');
+        // Redirecionamento será feito automaticamente pelo AuthContext
+        window.location.href = '/login';
+      } else {
+        console.error('❌ Erro no logout:', result.error);
+        // Mesmo com erro, redireciona por segurança
+        window.location.href = '/login';
+      }
     } catch (err) {
-      console.error('Erro ao fazer logout:', err);
+      console.error('❌ Erro inesperado no logout:', err);
+      // Fallback - redireciona mesmo com erro
+      window.location.href = '/login';
     }
   };
 
   // Handler para ir ao perfil
   const handleGoToProfile = () => {
-    // navigate('/profile'); // Versão com React Router
-    // Por enquanto, usando redirecionamento simples
     window.location.href = '/profile';
     setShowUserMenu(false);
   };
 
-  // Obter nome do usuário ou inicial (dados mockados por enquanto)
+  // Obter nome do usuário real do banco de dados
   const getUserDisplayName = () => {
-    // if (user?.user_metadata?.nome) {
-    //   return user.user_metadata.nome;
-    // }
-    // if (user?.email) {
-    //   return user.email.split('@')[0];
-    // }
-    return 'João Silva'; // Dados mockados
+    // Prioridade: dados do dashboard (perfil do banco) > user_metadata > email
+    if (data?.usuario?.nome) {
+      return data.usuario.nome;
+    }
+    if (user?.user_metadata?.nome) {
+      return user.user_metadata.nome;
+    }
+    if (user?.user_metadata?.full_name) {
+      return user.user_metadata.full_name;
+    }
+    if (user?.email) {
+      return user.email.split('@')[0];
+    }
+    return 'Usuário';
   };
 
   const getUserInitial = () => {
@@ -250,13 +235,12 @@ if (data) {
     return name.charAt(0).toUpperCase();
   };
 
-  // Mock do usuário para demonstração
-  const mockUser = {
-    email: 'joao.silva@exemplo.com',
-    user_metadata: {
-      nome: 'João Silva',
-      avatar_url: null
-    }
+  const getUserEmail = () => {
+    return data?.usuario?.email || user?.email || 'usuario@exemplo.com';
+  };
+
+  const getUserAvatar = () => {
+    return data?.usuario?.avatar_url || user?.user_metadata?.avatar_url || null;
   };
 
   return (
@@ -279,9 +263,9 @@ if (data) {
                   aria-label="Menu do usuário"
                 >
                   <div className="user-avatar">
-                    {mockUser?.user_metadata?.avatar_url ? (
+                    {getUserAvatar() ? (
                       <img 
-                        src={mockUser.user_metadata.avatar_url} 
+                        src={getUserAvatar()} 
                         alt="Avatar do usuário" 
                         className="avatar-image"
                       />
@@ -303,9 +287,9 @@ if (data) {
                   <div className="user-menu-dropdown">
                     <div className="dropdown-header">
                       <div className="user-avatar-large">
-                        {mockUser?.user_metadata?.avatar_url ? (
+                        {getUserAvatar() ? (
                           <img 
-                            src={mockUser.user_metadata.avatar_url} 
+                            src={getUserAvatar()} 
                             alt="Avatar do usuário" 
                           />
                         ) : (
@@ -314,7 +298,7 @@ if (data) {
                       </div>
                       <div className="user-details">
                         <strong>{getUserDisplayName()}</strong>
-                        <span className="user-email">{mockUser?.email}</span>
+                        <span className="user-email">{getUserEmail()}</span>
                       </div>
                     </div>
                     
@@ -326,17 +310,6 @@ if (data) {
                     >
                       <User size={16} />
                       <span>Meu Perfil</span>
-                    </button>
-                    
-                    <button 
-                      className="dropdown-item"
-                      onClick={() => {
-                        setShowCategoriasModal(true);
-                        setShowUserMenu(false);
-                      }}
-                    >
-                      <Settings size={16} />
-                      <span>Configurações</span>
                     </button>
                     
                     <div className="dropdown-divider"></div>
@@ -417,7 +390,7 @@ if (data) {
           </button>
         </div>
         
-        {/* Barra de ações rápidas compacta */}
+        {/* Barra de ações rápidas expandida */}
         <div className="quick-actions-bar">
           <div className="main-actions">
             {mainActions.map((action) => (
@@ -425,7 +398,7 @@ if (data) {
                 key={action.id}
                 onClick={action.action}
                 className={`action-btn action-btn-${action.color}`}
-                title={`Adicionar ${action.label}`}
+                title={`${action.label}`}
               >
                 <span className="action-icon">{action.icon}</span>
                 <span className="action-label">{action.label}</span>
@@ -433,12 +406,12 @@ if (data) {
             ))}
           </div>
           
-          {/* Botão "Mais ações" */}
+          {/* Botão "Mais ações" - reduzido */}
           <div className="more-actions-container" ref={moreActionsRef}>
             <button
               onClick={() => setShowMoreActions(!showMoreActions)}
               className="action-btn action-btn-more"
-              title="Mais ações"
+              title="Mais opções"
             >
               <Plus size={18} />
               <span className="action-label">Mais</span>
@@ -464,210 +437,210 @@ if (data) {
           </div>
         </div>
         
-
-<div className="cards-grid">
-  {/* Card de Saldo */}
-  <div 
-    className={`summary-card card-green ${flippedCards.saldo ? 'flipped' : ''}`}
-    onClick={() => handleCardFlip('saldo')}
-    title={flippedCards.saldo ? "Clique para voltar" : "Clique para ver detalhamento"}
-  >
-    <div className="card-inner">
-      <div className="card-front">
-        <div className="card-header">
-          <h3 className="card-title">Saldo</h3>
-        </div>
-        
-        <div className="card-value-section">
-          <div className="card-label">Atual</div>
-          <div className="card-value">
-            {loading ? 'Carregando...' : formatCurrency(data?.saldo?.atual || 0)}
-          </div>
-        </div>
-        
-        <div className="card-value-section">
-          <div className="card-label">Previsto</div>
-          <div className="card-value-sm">
-            {loading ? '...' : formatCurrency(data?.saldo?.previsto || 0)}
-          </div>
-        </div>
-      </div>
-      
-      <div className="card-back">
-        <div className="card-detail-total">
-          <span>Total:</span>
-          <span>{data?.resumo ? formatCurrency(data.resumo.saldoLiquido || 0) : 'R$ 0,00'}</span>
-        </div>
-        
-        <div className="card-details">
-          <div className="detail-item">
-            <span className="detail-name">Contas</span>
-            <span className="detail-value">{data?.resumo ? formatCurrency(data.saldo?.atual || 0) : 'R$ 0,00'}</span>
-          </div>
-          <div className="detail-item">
-            <span className="detail-name">Total Contas</span>
-            <span className="detail-value">{data?.resumo?.totalContas || 0}</span>
-          </div>
-          <div className="detail-item">
-            <span className="detail-name">Total Cartões</span>
-            <span className="detail-value">{data?.resumo?.totalCartoes || 0}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  
-  {/* Card de Receitas */}
-  <div 
-    className={`summary-card card-blue ${flippedCards.receitas ? 'flipped' : ''}`}
-    onClick={() => handleCardFlip('receitas')}
-    title={flippedCards.receitas ? "Clique para voltar" : "Clique para ver detalhamento"}
-  >
-    <div className="card-inner">
-      <div className="card-front">
-        <div className="card-header">
-          <h3 className="card-title">Receitas</h3>
-        </div>
-        
-        <div className="card-value-section">
-          <div className="card-label">Atual</div>
-          <div className="card-value">
-            {loading ? 'Carregando...' : formatCurrency(data?.receitas?.atual || 0)}
-          </div>
-        </div>
-        
-        <div className="card-value-section">
-          <div className="card-label">Previsto</div>
-          <div className="card-value-sm">
-            {loading ? '...' : formatCurrency(data?.receitas?.previsto || 0)}
-          </div>
-        </div>
-      </div>
-      
-      <div className="card-back">
-        <div className="card-detail-total">
-          <span>Total:</span>
-          <span>{formatCurrency(data?.receitas?.atual || 0)}</span>
-        </div>
-        
-        <div className="card-details">
-          {data?.receitas?.categorias?.map((receita, index) => (
-            <div key={index} className="detail-item">
-              <span className="detail-name">{receita.nome}</span>
-              <span className="detail-value">{formatCurrency(receita.valor)}</span>
+        {/* Cards Grid */}
+        <div className="cards-grid">
+          {/* Card de Saldo */}
+          <div 
+            className={`summary-card card-green ${flippedCards.saldo ? 'flipped' : ''}`}
+            onClick={() => handleCardFlip('saldo')}
+            title={flippedCards.saldo ? "Clique para voltar" : "Clique para ver detalhamento"}
+          >
+            <div className="card-inner">
+              <div className="card-front">
+                <div className="card-header">
+                  <h3 className="card-title">Saldo</h3>
+                </div>
+                
+                <div className="card-value-section">
+                  <div className="card-label">Atual</div>
+                  <div className="card-value">
+                    {loading ? 'Carregando...' : formatCurrency(data?.saldo?.atual || 0)}
+                  </div>
+                </div>
+                
+                <div className="card-value-section">
+                  <div className="card-label">Previsto</div>
+                  <div className="card-value-sm">
+                    {loading ? '...' : formatCurrency(data?.saldo?.previsto || 0)}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="card-back">
+                <div className="card-detail-total">
+                  <span>Total:</span>
+                  <span>{data?.resumo ? formatCurrency(data.resumo.saldoLiquido || 0) : 'R$ 0,00'}</span>
+                </div>
+                
+                <div className="card-details">
+                  <div className="detail-item">
+                    <span className="detail-name">Contas</span>
+                    <span className="detail-value">{data?.resumo ? formatCurrency(data.saldo?.atual || 0) : 'R$ 0,00'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-name">Total Contas</span>
+                    <span className="detail-value">{data?.resumo?.totalContas || 0}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-name">Total Cartões</span>
+                    <span className="detail-value">{data?.resumo?.totalCartoes || 0}</span>
+                  </div>
+                </div>
+              </div>
             </div>
-          )) || (
-            <div className="detail-item">
-              <span className="detail-name">Nenhuma receita</span>
-              <span className="detail-value">R$ 0,00</span>
+          </div>
+          
+          {/* Card de Receitas */}
+          <div 
+            className={`summary-card card-blue ${flippedCards.receitas ? 'flipped' : ''}`}
+            onClick={() => handleCardFlip('receitas')}
+            title={flippedCards.receitas ? "Clique para voltar" : "Clique para ver detalhamento"}
+          >
+            <div className="card-inner">
+              <div className="card-front">
+                <div className="card-header">
+                  <h3 className="card-title">Receitas</h3>
+                </div>
+                
+                <div className="card-value-section">
+                  <div className="card-label">Atual</div>
+                  <div className="card-value">
+                    {loading ? 'Carregando...' : formatCurrency(data?.receitas?.atual || 0)}
+                  </div>
+                </div>
+                
+                <div className="card-value-section">
+                  <div className="card-label">Previsto</div>
+                  <div className="card-value-sm">
+                    {loading ? '...' : formatCurrency(data?.receitas?.previsto || 0)}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="card-back">
+                <div className="card-detail-total">
+                  <span>Total:</span>
+                  <span>{formatCurrency(data?.receitas?.atual || 0)}</span>
+                </div>
+                
+                <div className="card-details">
+                  {data?.receitas?.categorias?.map((receita, index) => (
+                    <div key={index} className="detail-item">
+                      <span className="detail-name">{receita.nome}</span>
+                      <span className="detail-value">{formatCurrency(receita.valor)}</span>
+                    </div>
+                  )) || (
+                    <div className="detail-item">
+                      <span className="detail-name">Nenhuma receita</span>
+                      <span className="detail-value">R$ 0,00</span>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-          )}
-        </div>
-      </div>
-    </div>
-  </div>
-  
-  {/* Card de Despesas */}
-  <div 
-    className={`summary-card card-amber ${flippedCards.despesas ? 'flipped' : ''}`}
-    onClick={() => handleCardFlip('despesas')}
-    title={flippedCards.despesas ? "Clique para voltar" : "Clique para ver detalhamento"}
-  >
-    <div className="card-inner">
-      <div className="card-front">
-        <div className="card-header">
-          <h3 className="card-title">Despesas</h3>
-        </div>
-        
-        <div className="card-value-section">
-          <div className="card-label">Atual</div>
-          <div className="card-value">
-            {loading ? 'Carregando...' : formatCurrency(data?.despesas?.atual || 0)}
           </div>
-        </div>
-        
-        <div className="card-value-section">
-          <div className="card-label">Previsto</div>
-          <div className="card-value-sm">
-            {loading ? '...' : formatCurrency(data?.despesas?.previsto || 0)}
-          </div>
-        </div>
-      </div>
-      
-      <div className="card-back">
-        <div className="card-detail-total">
-          <span>Total:</span>
-          <span>{formatCurrency(data?.despesas?.atual || 0)}</span>
-        </div>
-        
-        <div className="card-details">
-          {data?.despesas?.categorias?.map((despesa, index) => (
-            <div key={index} className="detail-item">
-              <span className="detail-name">{despesa.nome}</span>
-              <span className="detail-value">{formatCurrency(despesa.valor)}</span>
+          
+          {/* Card de Despesas */}
+          <div 
+            className={`summary-card card-amber ${flippedCards.despesas ? 'flipped' : ''}`}
+            onClick={() => handleCardFlip('despesas')}
+            title={flippedCards.despesas ? "Clique para voltar" : "Clique para ver detalhamento"}
+          >
+            <div className="card-inner">
+              <div className="card-front">
+                <div className="card-header">
+                  <h3 className="card-title">Despesas</h3>
+                </div>
+                
+                <div className="card-value-section">
+                  <div className="card-label">Atual</div>
+                  <div className="card-value">
+                    {loading ? 'Carregando...' : formatCurrency(data?.despesas?.atual || 0)}
+                  </div>
+                </div>
+                
+                <div className="card-value-section">
+                  <div className="card-label">Previsto</div>
+                  <div className="card-value-sm">
+                    {loading ? '...' : formatCurrency(data?.despesas?.previsto || 0)}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="card-back">
+                <div className="card-detail-total">
+                  <span>Total:</span>
+                  <span>{formatCurrency(data?.despesas?.atual || 0)}</span>
+                </div>
+                
+                <div className="card-details">
+                  {data?.despesas?.categorias?.map((despesa, index) => (
+                    <div key={index} className="detail-item">
+                      <span className="detail-name">{despesa.nome}</span>
+                      <span className="detail-value">{formatCurrency(despesa.valor)}</span>
+                    </div>
+                  )) || (
+                    <div className="detail-item">
+                      <span className="detail-name">Nenhuma despesa</span>
+                      <span className="detail-value">R$ 0,00</span>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-          )) || (
-            <div className="detail-item">
-              <span className="detail-name">Nenhuma despesa</span>
-              <span className="detail-value">R$ 0,00</span>
+          </div>
+          
+          {/* Card de Cartão de Crédito */}
+          <div 
+            className={`summary-card card-purple ${flippedCards.cartaoCredito ? 'flipped' : ''}`}
+            onClick={() => handleCardFlip('cartaoCredito')}
+            title={flippedCards.cartaoCredito ? "Clique para voltar" : "Clique para ver detalhamento"}
+          >
+            <div className="card-inner">
+              <div className="card-front">
+                <div className="card-header">
+                  <h3 className="card-title">Cartão de crédito</h3>
+                </div>
+                
+                <div className="card-value-section">
+                  <div className="card-label">Atual</div>
+                  <div className="card-value">
+                    {loading ? 'Carregando...' : formatCurrency(data?.cartaoCredito?.atual || 0)}
+                  </div>
+                </div>
+                
+                <div className="card-value-section">
+                  <div className="card-label">Previsto</div>
+                  <div className="card-value-sm">
+                    {loading ? '...' : formatCurrency(data?.cartaoCredito?.previsto || 0)}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="card-back">
+                <div className="card-detail-total">
+                  <span>Total:</span>
+                  <span>{formatCurrency(data?.cartaoCredito?.atual || 0)}</span>
+                </div>
+                
+                <div className="card-details">
+                  <div className="detail-item">
+                    <span className="detail-name">Limite Total</span>
+                    <span className="detail-value">{data?.resumo ? formatCurrency((data.resumo.totalCartoes || 0) * 1000) : 'R$ 0,00'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-name">Usado</span>
+                    <span className="detail-value">{formatCurrency(data?.cartaoCredito?.atual || 0)}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-name">Disponível</span>
+                    <span className="detail-value">{data?.resumo ? formatCurrency(((data.resumo.totalCartoes || 0) * 1000) - (data?.cartaoCredito?.atual || 0)) : 'R$ 0,00'}</span>
+                  </div>
+                </div>
+              </div>
             </div>
-          )}
-        </div>
-      </div>
-    </div>
-  </div>
-  
-  {/* Card de Cartão de Crédito */}
-  <div 
-    className={`summary-card card-purple ${flippedCards.cartaoCredito ? 'flipped' : ''}`}
-    onClick={() => handleCardFlip('cartaoCredito')}
-    title={flippedCards.cartaoCredito ? "Clique para voltar" : "Clique para ver detalhamento"}
-  >
-    <div className="card-inner">
-      <div className="card-front">
-        <div className="card-header">
-          <h3 className="card-title">Cartão de crédito</h3>
-        </div>
-        
-        <div className="card-value-section">
-          <div className="card-label">Atual</div>
-          <div className="card-value">
-            {loading ? 'Carregando...' : formatCurrency(data?.cartaoCredito?.atual || 0)}
           </div>
         </div>
-        
-        <div className="card-value-section">
-          <div className="card-label">Previsto</div>
-          <div className="card-value-sm">
-            {loading ? '...' : formatCurrency(data?.cartaoCredito?.previsto || 0)}
-          </div>
-        </div>
-      </div>
-      
-      <div className="card-back">
-        <div className="card-detail-total">
-          <span>Total:</span>
-          <span>{formatCurrency(data?.cartaoCredito?.atual || 0)}</span>
-        </div>
-        
-        <div className="card-details">
-          <div className="detail-item">
-            <span className="detail-name">Limite Total</span>
-            <span className="detail-value">{data?.resumo ? formatCurrency((data.resumo.totalCartoes || 0) * 1000) : 'R$ 0,00'}</span>
-          </div>
-          <div className="detail-item">
-            <span className="detail-name">Usado</span>
-            <span className="detail-value">{formatCurrency(data?.cartaoCredito?.atual || 0)}</span>
-          </div>
-          <div className="detail-item">
-            <span className="detail-name">Disponível</span>
-            <span className="detail-value">{data?.resumo ? formatCurrency(((data.resumo.totalCartoes || 0) * 1000) - (data?.cartaoCredito?.atual || 0)) : 'R$ 0,00'}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
         
         {/* Seção de gráficos de categorias com Donut Charts */}
         <div className="charts-grid">

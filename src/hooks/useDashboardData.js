@@ -1,127 +1,340 @@
 // src/hooks/useDashboardData.js
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../lib/supabaseClient';
 import useCategorias from './useCategorias';
 import useContas from './useContas';
 import useCartoes from './useCartoes';
+import useTransacoes from './useTransacoes';
 import useAuth from './useAuth';
 
 /**
- * Hook ULTRA SIMPLES para dashboard
- * Foco em funcionar, não em perfeição
+ * Hook completo para dashboard com dados reais do usuário
+ * Busca dados do perfil, transações e calcula métricas
  */
 const useDashboardData = () => {
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false); // Começar com false
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [perfilUsuario, setPerfilUsuario] = useState(null);
 
   // Hooks de dados
   const { categorias } = useCategorias();
-  const { contas, saldoTotal } = useContas();
-  const { cartoes, limiteTotal } = useCartoes();
-  const { isAuthenticated } = useAuth();
+  const { contas, saldoTotal, loading: contasLoading } = useContas();
+  const { cartoes, limiteTotal, loading: cartoesLoading } = useCartoes();
+  const { 
+    transacoes, 
+    getTotalReceitas, 
+    getTotalDespesas,
+    getReceitasPorCategoria,
+    getDespesasPorCategoria,
+    loading: transacoesLoading 
+  } = useTransacoes();
+  const { user, isAuthenticated } = useAuth();
 
-  // Efeito que monta os dados de forma bem simples
+  // Busca dados do perfil do usuário
+  const fetchPerfilUsuario = useCallback(async () => {
+    if (!isAuthenticated || !user) {
+      setPerfilUsuario(null);
+      return { success: false, error: 'Usuário não autenticado' };
+    }
+
+    try {
+      console.log('👤 Buscando perfil do usuário:', user.id);
+      
+      const { data: perfil, error } = await supabase
+        .from('perfil_usuario')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+
+      // Se não encontrou perfil, criar um básico
+      if (!perfil) {
+        console.log('📝 Criando perfil básico para usuário');
+        const novoPerfilData = {
+          id: user.id,
+          nome: user.user_metadata?.full_name || 
+                user.user_metadata?.nome || 
+                user.email?.split('@')[0] || 
+                'Usuário',
+          email: user.email,
+          avatar_url: user.user_metadata?.avatar_url || null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        const { data: novoPerfil, error: createError } = await supabase
+          .from('perfil_usuario')
+          .insert([novoPerfilData])
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('❌ Erro ao criar perfil:', createError);
+          // Usa dados básicos mesmo com erro
+          setPerfilUsuario(novoPerfilData);
+        } else {
+          console.log('✅ Perfil criado com sucesso');
+          setPerfilUsuario(novoPerfil);
+        }
+      } else {
+        console.log('✅ Perfil encontrado:', perfil.nome);
+        setPerfilUsuario(perfil);
+      }
+
+      return { success: true };
+    } catch (err) {
+      console.error('❌ Erro ao buscar perfil:', err);
+      // Fallback com dados básicos do auth
+      setPerfilUsuario({
+        id: user.id,
+        nome: user.user_metadata?.full_name || 
+              user.user_metadata?.nome || 
+              user.email?.split('@')[0] || 
+              'Usuário',
+        email: user.email,
+        avatar_url: user.user_metadata?.avatar_url || null
+      });
+      return { success: false, error: err.message };
+    }
+  }, [isAuthenticated, user]);
+
+  // Busca perfil quando usuário muda
   useEffect(() => {
-    console.log('🏠 useDashboardData - Executando...', {
+    if (isAuthenticated && user) {
+      fetchPerfilUsuario();
+    } else {
+      setPerfilUsuario(null);
+    }
+  }, [isAuthenticated, user, fetchPerfilUsuario]);
+
+  // Calcula dados do dashboard quando dependências mudam
+  useEffect(() => {
+    console.log('🔄 Recalculando dados do dashboard...', {
       isAuthenticated,
+      perfilUsuario: !!perfilUsuario,
       categorias: categorias.length,
       contas: contas.length,
       cartoes: cartoes.length,
-      saldoTotal,
-      limiteTotal
+      transacoes: transacoes.length,
+      loadings: {
+        contas: contasLoading,
+        cartoes: cartoesLoading,
+        transacoes: transacoesLoading
+      }
     });
 
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !perfilUsuario) {
       setData(null);
+      setLoading(false);
       return;
     }
 
-    // Dados bem simples
-    const dashboardData = {
-      saldo: {
-        atual: saldoTotal || 0,
-        previsto: (saldoTotal || 0) * 1.1,
-        ultimaAtualizacao: new Date().toLocaleString('pt-BR')
-      },
-      receitas: {
-        atual: 4000, // Valor fixo por enquanto
-        previsto: 4200,
-        ultimaAtualizacao: new Date().toLocaleString('pt-BR'),
-        categorias: [
-          { nome: 'Salário', valor: 3000 },
-          { nome: 'Freelance', valor: 800 },
-          { nome: 'Outros', valor: 200 }
-        ]
-      },
-      despesas: {
-        atual: 1900, // Valor fixo por enquanto
-        previsto: 1800,
-        ultimaAtualizacao: new Date().toLocaleString('pt-BR'),
-        categorias: [
-          { nome: 'Alimentação', valor: 800 },
-          { nome: 'Transporte', valor: 300 },
-          { nome: 'Moradia', valor: 600 },
-          { nome: 'Outros', valor: 200 }
-        ]
-      },
-      cartaoCredito: {
-        atual: (limiteTotal || 0) * 0.3,
-        previsto: (limiteTotal || 0) * 0.25,
-        ultimaAtualizacao: new Date().toLocaleString('pt-BR')
-      },
-      receitasPorCategoria: [
-        { nome: "Salário", valor: 3000, color: "#3B82F6" },
-        { nome: "Freelance", valor: 800, color: "#10B981" },
-        { nome: "Outros", valor: 200, color: "#F59E0B" }
-      ],
-      despesasPorCategoria: [
-        { nome: "Alimentação", valor: 800, color: "#EF4444" },
-        { nome: "Transporte", valor: 300, color: "#F59E0B" },
-        { nome: "Moradia", valor: 600, color: "#3B82F6" },
-        { nome: "Outros", valor: 200, color: "#8B5CF6" }
-      ],
-      ultimaAtualizacao: new Date().toLocaleString('pt-BR'),
-      resumo: {
-        totalContas: contas.length,
-        totalCartoes: cartoes.length,
-        totalCategorias: categorias.length,
-        saldoLiquido: saldoTotal || 0
-      }
-    };
+    // Se ainda está carregando dados essenciais, aguarda
+    if (contasLoading || cartoesLoading || transacoesLoading) {
+      setLoading(true);
+      return;
+    }
 
-    console.log('✅ Dashboard data montado:', dashboardData);
-    setData(dashboardData);
-    setLoading(false);
-    setError(null);
-  }, [categorias, contas, cartoes, saldoTotal, limiteTotal, isAuthenticated]);
+    try {
+      setLoading(true);
+      setError(null);
 
-  // Debug
+      // Calcula totais de receitas e despesas reais
+      const totalReceitas = getTotalReceitas();
+      const totalDespesas = getTotalDespesas();
+      const receitasPorCategoria = getReceitasPorCategoria();
+      const despesasPorCategoria = getDespesasPorCategoria();
+
+      // Calcula projeções baseadas nos dados históricos
+      const projecaoReceitas = totalReceitas * 1.05; // 5% de crescimento
+      const projecaoDespesas = totalDespesas * 0.95; // 5% de redução
+      const projecaoSaldo = saldoTotal + (projecaoReceitas - projecaoDespesas);
+      const projecaoCartao = (limiteTotal || 0) * 0.25; // 25% do limite
+
+      // Monta dados finais do dashboard
+      const dashboardData = {
+        // Dados do usuário
+        usuario: {
+          id: perfilUsuario.id,
+          nome: perfilUsuario.nome,
+          email: perfilUsuario.email,
+          avatar_url: perfilUsuario.avatar_url
+        },
+        
+        // Saldo atual e projetado
+        saldo: {
+          atual: saldoTotal || 0,
+          previsto: projecaoSaldo,
+          ultimaAtualizacao: new Date().toLocaleString('pt-BR')
+        },
+        
+        // Dados detalhados das contas para o card flip
+        contasDetalhadas: contas.map(conta => ({
+          nome: conta.nome,
+          tipo: conta.tipo === 'corrente' ? 'Conta Corrente' : 
+                conta.tipo === 'poupanca' ? 'Poupança' : 
+                conta.tipo === 'investimento' ? 'Investimento' : 
+                conta.tipo === 'carteira' ? 'Carteira' : 'Outros',
+          saldo: conta.saldo || 0,
+          cor: conta.cor || '#3B82F6'
+        })),
+        
+        // Receitas atuais e projetadas
+        receitas: {
+          atual: totalReceitas,
+          previsto: projecaoReceitas,
+          ultimaAtualizacao: new Date().toLocaleString('pt-BR'),
+          categorias: receitasPorCategoria.slice(0, 5) // Top 5 categorias
+        },
+        
+        // Despesas atuais e projetadas
+        despesas: {
+          atual: totalDespesas,
+          previsto: projecaoDespesas,
+          ultimaAtualizacao: new Date().toLocaleString('pt-BR'),
+          categorias: despesasPorCategoria.slice(0, 5) // Top 5 categorias
+        },
+        
+        // Cartão de crédito
+        cartaoCredito: {
+          atual: (limiteTotal || 0) * 0.3, // Simula 30% usado
+          previsto: projecaoCartao,
+          limite: limiteTotal || 0,
+          ultimaAtualizacao: new Date().toLocaleString('pt-BR')
+        },
+        
+        // Dados detalhados dos cartões para o card flip
+        cartoesDetalhados: cartoes.map(cartao => ({
+          nome: cartao.nome,
+          bandeira: cartao.bandeira === 'visa' ? 'Visa' : 
+                   cartao.bandeira === 'mastercard' ? 'Mastercard' : 
+                   cartao.bandeira === 'elo' ? 'Elo' : 
+                   cartao.bandeira || 'Outro',
+          limite: cartao.limite || 0,
+          usado: (cartao.limite || 0) * 0.3, // Simula 30% usado
+          cor: cartao.cor || '#8B5CF6'
+        })),
+        
+        // Dados para gráficos
+        receitasPorCategoria: receitasPorCategoria.length > 0 ? receitasPorCategoria : [
+          { nome: "Sem receitas", valor: 0, color: "#E5E7EB" }
+        ],
+        
+        despesasPorCategoria: despesasPorCategoria.length > 0 ? despesasPorCategoria : [
+          { nome: "Sem despesas", valor: 0, color: "#E5E7EB" }
+        ],
+        
+        // Resumo geral
+        resumo: {
+          totalContas: contas.length,
+          totalCartoes: cartoes.length,
+          totalCategorias: categorias.length,
+          totalTransacoes: transacoes.length,
+          saldoLiquido: saldoTotal || 0,
+          balanco: totalReceitas - totalDespesas,
+          percentualGasto: totalReceitas > 0 ? ((totalDespesas / totalReceitas) * 100).toFixed(1) : 0
+        },
+        
+        // Histórico para gráficos (dados básicos)
+        historico: [],
+        
+        // Timestamp da última atualização
+        ultimaAtualizacao: new Date().toLocaleString('pt-BR')
+      };
+
+      console.log('✅ Dashboard data calculado:', {
+        receitas: dashboardData.receitas.atual,
+        despesas: dashboardData.despesas.atual,
+        saldo: dashboardData.saldo.atual,
+        balanco: dashboardData.resumo.balanco,
+        totalTransacoes: dashboardData.resumo.totalTransacoes
+      });
+
+      setData(dashboardData);
+      setLoading(false);
+      setError(null);
+
+    } catch (err) {
+      console.error('❌ Erro ao calcular dados do dashboard:', err);
+      setError('Erro ao carregar dados do dashboard');
+      setLoading(false);
+    }
+  }, [
+    isAuthenticated,
+    perfilUsuario,
+    categorias,
+    contas,
+    cartoes,
+    transacoes,
+    saldoTotal,
+    limiteTotal,
+    contasLoading,
+    cartoesLoading,
+    transacoesLoading,
+    getTotalReceitas,
+    getTotalDespesas,
+    getReceitasPorCategoria,
+    getDespesasPorCategoria
+  ]);
+
+  // Debug em desenvolvimento
   useEffect(() => {
     if (import.meta.env.DEV) {
       window.dashboardDebug = {
         data,
         loading,
         error,
+        perfilUsuario,
         hooks: {
           categorias: categorias.length,
           contas: contas.length,
           cartoes: cartoes.length,
+          transacoes: transacoes.length,
           saldoTotal,
           limiteTotal
+        },
+        loadings: {
+          main: loading,
+          contas: contasLoading,
+          cartoes: cartoesLoading,
+          transacoes: transacoesLoading
         }
       };
+      
       console.log('🔧 dashboardDebug atualizado:', {
         hasData: !!data,
         loading,
-        error
+        error,
+        nomeUsuario: perfilUsuario?.nome,
+        totalTransacoes: transacoes.length
       });
     }
-  }, [data, loading, error, categorias, contas, cartoes, saldoTotal, limiteTotal]);
+  }, [
+    data, 
+    loading, 
+    error, 
+    perfilUsuario,
+    categorias, 
+    contas, 
+    cartoes, 
+    transacoes,
+    saldoTotal, 
+    limiteTotal,
+    contasLoading,
+    cartoesLoading,
+    transacoesLoading
+  ]);
 
   return { 
     data, 
     loading, 
-    error
+    error,
+    perfilUsuario,
+    refreshData: fetchPerfilUsuario
   };
 };
 

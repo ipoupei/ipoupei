@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import '../styles/Login.css';
+import './Login.css';
 import { 
   AlertCircle, 
   Eye, 
@@ -13,12 +13,12 @@ import {
   ArrowRight,
   CheckCircle,
   Chrome,
-  Github
+  Wallet
 } from 'lucide-react';
 
 /**
- * Página de Login com SSO (Google, GitHub) e autenticação tradicional
- * Integrada com Supabase
+ * Página de Login com SSO (Google) e autenticação tradicional
+ * Design moderno e compacto integrado com Supabase
  */
 const Login = () => {
   // Estados para controlar as operações de login
@@ -42,7 +42,6 @@ const Login = () => {
     signUp, 
     resetPassword,
     signInWithGoogle,
-    signInWithGitHub,
     isAuthenticated, 
     loading: authLoading,
     error: authError,
@@ -73,11 +72,14 @@ const Login = () => {
     }
   }, [mode, setAuthError]);
 
-  // Função para preencher credenciais de teste rapidamente
-  const fillTestCredentials = () => {
-    setEmail('teste@exemplo.com');
-    setPassword('senha123');
-  };
+  // Reset dos campos ao trocar de modo
+  useEffect(() => {
+    setPassword('');
+    setConfirmPassword('');
+    setNome('');
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+  }, [mode]);
 
   // Validação de campos
   const validateFields = () => {
@@ -189,24 +191,6 @@ const Login = () => {
     }
   };
 
-  // Handler para login com GitHub
-  const handleGitHubLogin = async () => {
-    setLoading(true);
-    setError('');
-    
-    try {
-      const result = await signInWithGitHub();
-      if (!result.success) {
-        throw new Error(result.error || 'Falha no login com GitHub');
-      }
-      // O redirecionamento é feito automaticamente pelo Supabase
-    } catch (err) {
-      console.error('Erro no login com GitHub:', err);
-      setError(err.message);
-      setLoading(false);
-    }
-  };
-
   // Toggle para mostrar/ocultar senha
   const toggleShowPassword = () => {
     setShowPassword(!showPassword);
@@ -221,278 +205,281 @@ const Login = () => {
   const isLoading = loading || authLoading;
 
   return (
-    <div className="login-container">
-      <div className="login-card">
-        <div className="login-header">
-          <h1>iPoupei</h1>
-          <p className="login-subtitle">Controle financeiro simplificado</p>
-        </div>
-        
-        {/* Botão de teste para desenvolvimento */}
-        {import.meta.env.DEV && (
-          <div className="development-notice">
-            <p>🚀 Modo Desenvolvimento</p>
-            <button
-              type="button"
-              onClick={fillTestCredentials}
-              className="test-credentials-btn"
-            >
-              Preencher Credenciais de Teste
-            </button>
-          </div>
-        )}
-        
-        {/* Título dinâmico baseado no modo */}
-        <h2 className="login-mode-title">
-          {mode === 'login' ? 'Entre na sua conta' : 
-           mode === 'register' ? 'Crie sua conta' : 
-           'Recupere sua senha'}
-        </h2>
-        
-        {/* Mensagens de erro e sucesso */}
-        {error && (
-          <div className="login-error-message">
-            <AlertCircle size={16} className="alert-icon" />
-            <span>{error}</span>
-          </div>
-        )}
-        
-        {success && (
-          <div className="login-success-message">
-            <CheckCircle size={16} className="success-icon" />
-            <span>{success}</span>
-          </div>
-        )}
+    <div className="login-page">
+      {/* Background com gradiente e padrão */}
+      <div className="login-background">
+        <div className="bg-pattern"></div>
+        <div className="bg-gradient"></div>
+      </div>
 
-        {/* Botões de SSO - apenas para login */}
-        {mode === 'login' && (
-          <div className="sso-section">
-            <div className="sso-buttons">
+      {/* Container principal */}
+      <div className="login-container">
+        {/* Cartão de login */}
+        <div className="login-card">
+          {/* Header com logo */}
+          <div className="login-header">
+            <div className="logo-container">
+              <div className="logo-icon">
+                <Wallet size={28} className="logo-svg" />
+              </div>
+              <h1 className="logo-text">iPoupei</h1>
+            </div>
+            <p className="login-subtitle">
+              {mode === 'login' && 'Bem-vindo de volta ao seu controle financeiro'}
+              {mode === 'register' && 'Junte-se a milhares de usuários que já controlam suas finanças'}
+              {mode === 'recovery' && 'Vamos recuperar o acesso à sua conta'}
+            </p>
+          </div>
+
+          {/* Título do modo atual */}
+          <div className="mode-header">
+            <h2 className="mode-title">
+              {mode === 'login' && 'Entre na sua conta'}
+              {mode === 'register' && 'Crie sua conta gratuita'}
+              {mode === 'recovery' && 'Recuperar senha'}
+            </h2>
+          </div>
+
+          {/* Mensagens de feedback */}
+          {error && (
+            <div className="alert alert-error">
+              <AlertCircle size={18} />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {success && (
+            <div className="alert alert-success">
+              <CheckCircle size={18} />
+              <span>{success}</span>
+            </div>
+          )}
+
+          {/* Botão de SSO - apenas Google e apenas para login */}
+          {mode === 'login' && (
+            <div className="sso-section">
               <button
                 type="button"
                 onClick={handleGoogleLogin}
                 disabled={isLoading}
-                className="sso-button google-button"
+                className="sso-btn sso-btn-google"
               >
-                <Chrome size={18} />
+                <Chrome size={20} />
                 <span>Continuar com Google</span>
               </button>
               
-              <button
-                type="button"
-                onClick={handleGitHubLogin}
-                disabled={isLoading}
-                className="sso-button github-button"
-              >
-                <Github size={18} />
-                <span>Continuar com GitHub</span>
-              </button>
-            </div>
-            
-            <div className="divider">
-              <span>ou</span>
-            </div>
-          </div>
-        )}
-        
-        {/* Formulário de login/registro/recuperação */}
-        <form onSubmit={handleSubmit} className="login-form">
-          {/* Campo de Email */}
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <div className="input-container">
-              <Mail size={18} className="input-icon" />
-              <input
-                type="email"
-                id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="seu.email@exemplo.com"
-                required
-                disabled={isLoading}
-                className="input-with-icon"
-              />
-            </div>
-          </div>
-          
-          {/* Senha (apenas para login e registro) */}
-          {mode !== 'recovery' && (
-            <div className="form-group">
-              <label htmlFor="password">Senha</label>
-              <div className="input-container">
-                <Lock size={18} className="input-icon" />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  id="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Sua senha"
-                  required
-                  disabled={isLoading}
-                  className="input-with-icon"
-                />
-                <button 
-                  type="button"
-                  className="password-toggle"
-                  onClick={toggleShowPassword}
-                  tabIndex="-1"
-                  disabled={isLoading}
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+              <div className="divider">
+                <span>ou continue com email</span>
               </div>
             </div>
           )}
-          
-          {/* Campos adicionais para registro */}
-          {mode === 'register' && (
-            <>
+
+          {/* Formulário principal */}
+          <form onSubmit={handleSubmit} className="login-form" noValidate>
+            {/* Campo Nome - primeiro no registro para melhor UX */}
+            {mode === 'register' && (
               <div className="form-group">
-                <label htmlFor="confirmPassword">Confirme a senha</label>
-                <div className="input-container">
+                <label htmlFor="nome" className="form-label">
+                  Nome completo
+                </label>
+                <div className="input-wrapper">
+                  <User size={18} className="input-icon" />
+                  <input
+                    type="text"
+                    id="nome"
+                    className="form-input"
+                    placeholder="Como devemos te chamar?"
+                    value={nome}
+                    onChange={(e) => setNome(e.target.value)}
+                    disabled={isLoading}
+                    required
+                    autoComplete="name"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Campo Email */}
+            <div className="form-group">
+              <label htmlFor="email" className="form-label">
+                Email
+              </label>
+              <div className="input-wrapper">
+                <Mail size={18} className="input-icon" />
+                <input
+                  type="email"
+                  id="email"
+                  className="form-input"
+                  placeholder="seu.email@exemplo.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isLoading}
+                  required
+                  autoComplete="email"
+                />
+              </div>
+            </div>
+
+            {/* Campo Senha */}
+            {mode !== 'recovery' && (
+              <div className="form-group">
+                <label htmlFor="password" className="form-label">
+                  Senha
+                </label>
+                <div className="input-wrapper">
                   <Lock size={18} className="input-icon" />
                   <input
-                    type={showConfirmPassword ? "text" : "password"}
+                    type={showPassword ? 'text' : 'password'}
+                    id="password"
+                    className="form-input"
+                    placeholder="Digite sua senha"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={isLoading}
+                    required
+                    autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                  />
+                  <button
+                    type="button"
+                    className="input-action"
+                    onClick={toggleShowPassword}
+                    disabled={isLoading}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Campo Confirmar Senha - apenas para registro */}
+            {mode === 'register' && (
+              <div className="form-group">
+                <label htmlFor="confirmPassword" className="form-label">
+                  Confirmar senha
+                </label>
+                <div className="input-wrapper">
+                  <Lock size={18} className="input-icon" />
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
                     id="confirmPassword"
+                    className="form-input"
+                    placeholder="Confirme sua senha"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Confirme sua senha"
+                    disabled={isLoading}
                     required
-                    disabled={isLoading}
-                    className="input-with-icon"
+                    autoComplete="new-password"
                   />
-                  <button 
+                  <button
                     type="button"
-                    className="password-toggle"
+                    className="input-action"
                     onClick={toggleShowConfirmPassword}
-                    tabIndex="-1"
                     disabled={isLoading}
+                    tabIndex={-1}
                   >
                     {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
               </div>
-              
-              <div className="form-group">
-                <label htmlFor="nome">Nome completo</label>
-                <div className="input-container">
-                  <User size={18} className="input-icon" />
-                  <input
-                    type="text"
-                    id="nome"
-                    value={nome}
-                    onChange={(e) => setNome(e.target.value)}
-                    placeholder="Seu nome completo"
-                    required
-                    disabled={isLoading}
-                    className="input-with-icon"
-                  />
-                </div>
-              </div>
-            </>
-          )}
-          
-          {/* Opção "Lembrar de mim" para login */}
-          {mode === 'login' && (
-            <div className="form-footer">
-              <div className="checkbox-container">
-                <input
-                  type="checkbox"
-                  id="rememberMe"
-                  checked={rememberMe}
-                  onChange={() => setRememberMe(!rememberMe)}
-                  disabled={isLoading}
-                />
-                <label htmlFor="rememberMe" className="checkbox-label">
-                  Lembrar de mim
-                </label>
-              </div>
-              
-              <button 
-                type="button" 
-                className="text-button"
-                onClick={() => setMode('recovery')}
-                disabled={isLoading}
-              >
-                Esqueceu a senha?
-              </button>
-            </div>
-          )}
-          
-          {/* Botão de submissão (adaptado ao modo) */}
-          <button 
-            type="submit" 
-            className="login-button" 
-            disabled={isLoading}
-          >
-            {isLoading ? 'Processando...' : (
-              <>
-                {mode === 'login' && <><LogIn size={18} /> Entrar</>}
-                {mode === 'register' && <><User size={18} /> Criar conta</>}
-                {mode === 'recovery' && <><ArrowRight size={18} /> Recuperar senha</>}
-              </>
             )}
-          </button>
-        </form>
-        
-        {/* Links para alternar entre modos */}
-        <div className="login-mode-links">
-          {mode === 'login' && (
-            <p>
-              Não tem uma conta?{' '}
-              <button 
-                type="button" 
-                className="text-button text-button-highlight"
-                onClick={() => setMode('register')}
-                disabled={isLoading}
-              >
-                Registre-se
-              </button>
-            </p>
-          )}
-          
-          {mode === 'register' && (
-            <p>
-              Já tem uma conta?{' '}
-              <button 
-                type="button" 
-                className="text-button text-button-highlight"
-                onClick={() => setMode('login')}
-                disabled={isLoading}
-              >
-                Fazer login
-              </button>
-            </p>
-          )}
-          
-          {mode === 'recovery' && (
-            <p>
-              <button 
-                type="button" 
-                className="text-button text-button-highlight"
-                onClick={() => setMode('login')}
-                disabled={isLoading}
-              >
-                Voltar para login
-              </button>
-            </p>
-          )}
-        </div>
-        
-        {/* Informações de desenvolvimento */}
-        {import.meta.env.DEV && (
-          <div className="development-info">
-            <strong>Credenciais de Teste:</strong><br/>
-            📧 teste@exemplo.com | 🔑 senha123<br/>
-            📧 admin@ipoupei.com | 🔑 123456<br/>
-            📧 usuario@teste.com | 🔑 teste123
+
+            {/* Opções do formulário para login */}
+            {mode === 'login' && (
+              <div className="form-options">
+                <label className="checkbox-wrapper">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    disabled={isLoading}
+                  />
+                  <span className="checkbox-label">Lembrar de mim</span>
+                </label>
+                
+                <button
+                  type="button"
+                  className="link-btn"
+                  onClick={() => setMode('recovery')}
+                  disabled={isLoading}
+                >
+                  Esqueceu a senha?
+                </button>
+              </div>
+            )}
+
+            {/* Botão de submit */}
+            <button
+              type="submit"
+              className={`submit-btn ${isLoading ? 'loading' : ''}`}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <div className="spinner"></div>
+                  <span>Processando...</span>
+                </>
+              ) : (
+                <>
+                  {mode === 'login' && <><LogIn size={18} />Entrar</>}
+                  {mode === 'register' && <><User size={18} />Criar conta</>}
+                  {mode === 'recovery' && <><ArrowRight size={18} />Enviar link</>}
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Links para alternar modos */}
+          <div className="mode-switcher">
+            {mode === 'login' && (
+              <p>
+                Ainda não tem uma conta?{' '}
+                <button
+                  type="button"
+                  className="link-btn primary"
+                  onClick={() => setMode('register')}
+                  disabled={isLoading}
+                >
+                  Registre-se gratuitamente
+                </button>
+              </p>
+            )}
+
+            {mode === 'register' && (
+              <p>
+                Já possui uma conta?{' '}
+                <button
+                  type="button"
+                  className="link-btn primary"
+                  onClick={() => setMode('login')}
+                  disabled={isLoading}
+                >
+                  Fazer login
+                </button>
+              </p>
+            )}
+
+            {mode === 'recovery' && (
+              <p>
+                Lembrou da senha?{' '}
+                <button
+                  type="button"
+                  className="link-btn primary"
+                  onClick={() => setMode('login')}
+                  disabled={isLoading}
+                >
+                  Voltar ao login
+                </button>
+              </p>
+            )}
           </div>
-        )}
+        </div>
+
+        {/* Footer compacto */}
+        <footer className="login-footer">
+          <p>&copy; {new Date().getFullYear()} iPoupei. Todos os direitos reservados.</p>
+        </footer>
       </div>
-      
-      <footer className="login-footer">
-        <p>&copy; {new Date().getFullYear()} iPoupei - Todos os direitos reservados</p>
-      </footer>
     </div>
   );
 };

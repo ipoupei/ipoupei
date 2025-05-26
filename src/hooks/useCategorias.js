@@ -4,30 +4,51 @@ import useAuth from './useAuth';
 
 /**
  * Hook personalizado para gerenciar categorias (receitas e despesas)
- * Versão final integrada com Supabase
+ * Versão final corrigida que resolve problemas de loading após refresh
  */
 const useCategorias = () => {
   // Estado para armazenar as categorias
   const [categorias, setCategorias] = useState([]);
   
   // Estados de UI
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Começar com false
   const [error, setError] = useState(null);
 
-  // Hook de autenticação
-  const { user, isAuthenticated } = useAuth();
+  // Hook de autenticação com novo campo initialized
+  const { user, isAuthenticated, loading: authLoading, initialized } = useAuth();
+
+  // Debug do estado da autenticação
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.log('📊 useCategorias - Estado da autenticação:', {
+        isAuthenticated,
+        hasUser: !!user,
+        authLoading,
+        initialized,
+        userId: user?.id?.substring(0, 8)
+      });
+    }
+  }, [isAuthenticated, user, authLoading, initialized]);
 
   // Busca todas as categorias e subcategorias do usuário logado
   const fetchCategorias = useCallback(async () => {
+    // Aguarda a inicialização da autenticação terminar
+    if (authLoading || !initialized) {
+      console.log('⏳ useCategorias - Aguardando inicialização da auth...');
+      return { success: false, error: 'Aguardando autenticação' };
+    }
+
     if (!isAuthenticated || !user) {
+      console.log('❌ useCategorias - Usuário não autenticado');
       setCategorias([]);
-      setLoading(false);
       return { success: false, error: 'Usuário não autenticado' };
     }
 
     try {
       setLoading(true);
       setError(null);
+      
+      console.log('🔍 useCategorias - Buscando categorias para usuário:', user.id);
       
       // Busca as categorias principais do usuário
       const { data: dataCategoria, error: errorCategoria } = await supabase
@@ -62,27 +83,47 @@ const useCategorias = () => {
         };
       });
       
+      console.log('📊 useCategorias - Resultado da busca:', {
+        categorias: dataCategoria?.length || 0,
+        subcategorias: dataSubcategorias?.length || 0,
+        combinadas: categoriasCombinadas.length
+      });
+      
       setCategorias(categoriasCombinadas);
+      console.log('✅ useCategorias - Categorias carregadas:', categoriasCombinadas.length);
       return { success: true, data: categoriasCombinadas };
     } catch (err) {
-      console.error('Erro ao buscar categorias:', err);
+      console.error('❌ useCategorias - Erro ao buscar categorias:', err);
       const errorMessage = 'Não foi possível carregar suas categorias. Tente novamente.';
       setError(errorMessage);
       return { success: false, error: err.message };
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, user]);
+  }, [authLoading, initialized, isAuthenticated, user]);
 
-  // Carrega as categorias quando o usuário muda ou componente monta
+  // Carrega as categorias quando a autenticação estiver pronta
   useEffect(() => {
-    if (isAuthenticated && user) {
-      fetchCategorias();
-    } else {
-      setCategorias([]);
-      setLoading(false);
+    console.log('🔄 useCategorias - Effect disparado:', {
+      authLoading,
+      initialized,
+      isAuthenticated,
+      hasUser: !!user
+    });
+    
+    // Só executa quando a autenticação terminou de inicializar
+    if (!authLoading && initialized) {
+      if (isAuthenticated && user) {
+        console.log('🚀 useCategorias - Executando fetchCategorias...');
+        fetchCategorias();
+      } else {
+        console.log('🧹 useCategorias - Limpando categorias (usuário não autenticado)');
+        setCategorias([]);
+        setLoading(false);
+        setError(null);
+      }
     }
-  }, [fetchCategorias, isAuthenticated, user]);
+  }, [authLoading, initialized, isAuthenticated, user, fetchCategorias]);
 
   // Adiciona uma nova categoria
   const addCategoria = useCallback(async (novaCategoria) => {
@@ -93,6 +134,8 @@ const useCategorias = () => {
     try {
       setLoading(true);
       setError(null);
+      
+      console.log('➕ useCategorias - Adicionando categoria:', novaCategoria);
       
       // Prepara os dados para inserção
       const dadosCategoria = {
@@ -123,12 +166,13 @@ const useCategorias = () => {
         };
         
         setCategorias(prev => [...prev, novaCategoriaCompleta]);
+        console.log('✅ useCategorias - Categoria adicionada com sucesso');
         return { success: true, data: novaCategoriaCompleta };
       } else {
         throw new Error('Erro ao adicionar categoria: dados não retornados');
       }
     } catch (err) {
-      console.error('Erro ao adicionar categoria:', err);
+      console.error('❌ useCategorias - Erro ao adicionar categoria:', err);
       const errorMessage = 'Não foi possível adicionar a categoria. Tente novamente.';
       setError(errorMessage);
       return { success: false, error: err.message };
@@ -146,6 +190,8 @@ const useCategorias = () => {
     try {
       setLoading(true);
       setError(null);
+      
+      console.log('✏️ useCategorias - Atualizando categoria:', categoriaId, dadosAtualizados);
       
       // Prepara os dados para atualização
       const dadosCategoria = {
@@ -181,12 +227,13 @@ const useCategorias = () => {
           return categoria;
         }));
         
+        console.log('✅ useCategorias - Categoria atualizada com sucesso');
         return { success: true, data: data[0] };
       } else {
         throw new Error('Erro ao atualizar categoria: dados não retornados');
       }
     } catch (err) {
-      console.error('Erro ao atualizar categoria:', err);
+      console.error('❌ useCategorias - Erro ao atualizar categoria:', err);
       const errorMessage = 'Não foi possível atualizar a categoria. Tente novamente.';
       setError(errorMessage);
       return { success: false, error: err.message };
@@ -205,6 +252,8 @@ const useCategorias = () => {
       setLoading(true);
       setError(null);
       
+      console.log('🗑️ useCategorias - Excluindo categoria:', categoriaId);
+      
       // Verifica se a categoria tem transações associadas
       const { data: transacoes, error: errorTransacoes } = await supabase
         .from('transacoes')
@@ -213,10 +262,13 @@ const useCategorias = () => {
         .eq('usuario_id', user.id)
         .limit(1);
       
-      if (errorTransacoes) throw errorTransacoes;
+      if (errorTransacoes) {
+        console.warn('⚠️ useCategorias - Erro ao verificar transações:', errorTransacoes);
+      }
       
       // Se tem transações, apenas desativa; senão, exclui fisicamente
       if (transacoes && transacoes.length > 0) {
+        console.log('📝 useCategorias - Categoria tem transações, desativando...');
         // Desativa categoria
         const { error: errorUpdate } = await supabase
           .from('categorias')
@@ -233,8 +285,11 @@ const useCategorias = () => {
           .eq('categoria_id', categoriaId)
           .eq('usuario_id', user.id);
         
-        if (errorSubcategorias) throw errorSubcategorias;
+        if (errorSubcategorias) {
+          console.warn('⚠️ useCategorias - Erro ao desativar subcategorias:', errorSubcategorias);
+        }
       } else {
+        console.log('🗑️ useCategorias - Categoria sem transações, excluindo fisicamente...');
         // Exclui subcategorias fisicamente
         const { error: errorSubcategorias } = await supabase
           .from('subcategorias')
@@ -242,7 +297,9 @@ const useCategorias = () => {
           .eq('categoria_id', categoriaId)
           .eq('usuario_id', user.id);
         
-        if (errorSubcategorias) throw errorSubcategorias;
+        if (errorSubcategorias) {
+          console.warn('⚠️ useCategorias - Erro ao excluir subcategorias:', errorSubcategorias);
+        }
         
         // Exclui categoria fisicamente
         const { error } = await supabase
@@ -255,10 +312,16 @@ const useCategorias = () => {
       }
       
       // Atualiza o estado local
-      setCategorias(prev => prev.filter(categoria => categoria.id !== categoriaId));
+      setCategorias(prev => {
+        const novaLista = prev.filter(categoria => categoria.id !== categoriaId);
+        console.log('📋 useCategorias - Lista após exclusão:', novaLista.length, 'categorias');
+        return novaLista;
+      });
+      
+      console.log('✅ useCategorias - Categoria excluída com sucesso');
       return { success: true };
     } catch (err) {
-      console.error('Erro ao excluir categoria:', err);
+      console.error('❌ useCategorias - Erro ao excluir categoria:', err);
       const errorMessage = 'Não foi possível excluir a categoria. Tente novamente.';
       setError(errorMessage);
       return { success: false, error: err.message };
@@ -277,19 +340,33 @@ const useCategorias = () => {
     return categorias.find(categoria => categoria.id === id);
   }, [categorias]);
 
-  // Expor para debug apenas em desenvolvimento
+  // Debug em desenvolvimento
   useEffect(() => {
     if (import.meta.env.DEV) {
-      window.categoriasDebug = {
+      const debugInfo = {
         categorias,
+        loading,
+        error,
+        authLoading,
+        initialized,
+        isAuthenticated,
+        user: user ? { id: user.id, email: user.email } : null,
+        totalCategorias: categorias.length,
         updateCategoria,
         deleteCategoria,
-        addCategoria,
-        loading,
-        error
+        addCategoria
       };
+      
+      window.categoriasDebug = debugInfo;
+      console.log('🔧 useCategorias - Debug info atualizado:', {
+        totalCategorias: categorias.length,
+        loading,
+        authLoading,
+        initialized,
+        isAuthenticated
+      });
     }
-  }, [categorias, updateCategoria, deleteCategoria, addCategoria, loading, error]);
+  }, [categorias, loading, error, authLoading, initialized, isAuthenticated, user, updateCategoria, deleteCategoria, addCategoria]);
 
   // Retorna os dados e funções
   return {
@@ -306,7 +383,10 @@ const useCategorias = () => {
     categoriasReceita: getCategoriasPorTipo('receita'),
     categoriasDespesa: getCategoriasPorTipo('despesa'),
     totalCategorias: categorias.length,
-    isAuthenticated
+    isAuthenticated,
+    // Estados da autenticação para debug
+    authLoading,
+    initialized
   };
 };
 

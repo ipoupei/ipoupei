@@ -4,7 +4,6 @@ import './App.css';
 import { testarLeituraContas, verificarAutenticacao } from './lib/supabaseClient';
 import './index.css';
 import { AuthProvider } from './context/AuthContext';
-import DebugAuth from './components/DebugAuth';
 
 /**
  * Componente principal da aplicação
@@ -103,9 +102,6 @@ function App() {
       
       {/* Sistema de rotas */}
       <AppRoutes />
-      
-      {/* Componente de debug - apenas em desenvolvimento */}
-      <DebugAuth />
       
     </AuthProvider>
   );
