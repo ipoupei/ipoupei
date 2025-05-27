@@ -83,9 +83,9 @@
   position: relative;
   display: flex;
   align-items: center;
-  border: 1px solid #d1d5db;
+  border: 1px solid #e5e7eb;
   border-radius: 12px;
-  background: white;
+  background: #f9fafb;
   min-height: 50px;
   transition: all 0.2s ease;
   flex: 1;
@@ -93,11 +93,13 @@
 
 .form-field:focus-within {
   border-color: #10b981;
+  background: white;
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
 }
 
 .form-field.error {
   border-color: #ef4444;
+  background: white;
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
 
@@ -108,7 +110,7 @@
   flex-shrink: 0;
 }
 
-/* Input base */
+/* Input base - sem borda, completamente integrado */
 .form-input {
   flex: 1;
   border: none;
@@ -128,6 +130,12 @@
   background-color: transparent;
   color: #9ca3af;
   cursor: not-allowed;
+}
+
+/* Campo desabilitado - visual diferenciado */
+.form-field:has(.form-input:disabled) {
+  background: #f3f4f6;
+  border-color: #d1d5db;
 }
 
 /* Input de valor com destaque */
