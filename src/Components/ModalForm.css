@@ -19,12 +19,12 @@
 /* Container principal do modal */
 .modal-form-container {
   background: white;
-  border-radius: 12px;
+  border-radius: 16px;
   width: 100%;
-  max-width: 520px;
+  max-width: 480px;
   max-height: 85vh;
   overflow: hidden;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 }
 
 /* Cabeçalho do modal */
@@ -32,9 +32,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #fafafa;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #f3f4f6;
 }
 
 .modal-form-title {
@@ -42,26 +41,20 @@
   font-size: 1.25rem;
   font-weight: 600;
   color: #111827;
-  display: flex;
-  align-items: center;
-  gap: 10px;
 }
 
 .modal-form-close {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 8px;
+  padding: 4px;
   border-radius: 6px;
   color: #6b7280;
   transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .modal-form-close:hover {
-  background-color: #e5e7eb;
+  background-color: #f3f4f6;
   color: #374151;
 }
 
@@ -69,72 +62,48 @@
 .modal-form-content {
   padding: 24px;
   overflow-y: auto;
-  max-height: calc(85vh - 140px);
+  max-height: calc(85vh - 100px);
 }
 
 /* Formulário */
 .modal-form {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
 
 /* Linha de campos (lado a lado) */
 .form-row {
   display: flex;
-  gap: 16px;
+  gap: 12px;
 }
 
-.form-row .form-field {
-  flex: 1;
-}
-
-/* Campo individual */
+/* Campo individual com ícone inline */
 .form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-/* Label do campo */
-.form-label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #374151;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.form-label .required {
-  color: #ef4444;
-}
-
-/* Container do input */
-.form-input-container {
   position: relative;
   display: flex;
   align-items: center;
-  border: 1.5px solid #d1d5db;
-  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
   background: white;
-  min-height: 48px;
+  min-height: 50px;
   transition: all 0.2s ease;
+  flex: 1;
 }
 
-.form-input-container:focus-within {
+.form-field:focus-within {
   border-color: #10b981;
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
 }
 
-.form-input-container.error {
+.form-field.error {
   border-color: #ef4444;
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
 
 /* Ícone do campo */
 .form-icon {
-  margin-left: 14px;
+  margin-left: 16px;
   color: #6b7280;
   flex-shrink: 0;
 }
@@ -144,7 +113,7 @@
   flex: 1;
   border: none;
   outline: none;
-  padding: 12px 14px 12px 10px;
+  padding: 12px 16px 12px 8px;
   font-size: 1rem;
   background: transparent;
   color: #111827;
@@ -160,11 +129,18 @@
   cursor: not-allowed;
 }
 
+/* Input de valor com destaque */
+.form-input.valor {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #10b981;
+}
+
 /* Textarea */
 .form-textarea {
   resize: vertical;
   min-height: 48px;
-  padding: 12px 14px 12px 10px;
+  padding: 12px 16px 12px 8px;
   font-family: inherit;
   line-height: 1.4;
 }
@@ -187,6 +163,8 @@
 .form-dropdown-wrapper {
   position: relative;
   flex: 1;
+  display: flex;
+  align-items: center;
 }
 
 .form-dropdown-options {
@@ -197,7 +175,7 @@
   background: white;
   border: 1px solid #d1d5db;
   border-radius: 8px;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
   z-index: 1000;
   max-height: 200px;
   overflow-y: auto;
@@ -205,7 +183,7 @@
 }
 
 .form-dropdown-option {
-  padding: 12px 14px;
+  padding: 10px 14px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -216,14 +194,6 @@
 
 .form-dropdown-option:hover {
   background-color: #f3f4f6;
-}
-
-.form-dropdown-option:first-child {
-  border-radius: 8px 8px 0 0;
-}
-
-.form-dropdown-option:last-child {
-  border-radius: 0 0 8px 8px;
 }
 
 /* Indicador de cor da categoria */
@@ -239,9 +209,7 @@
   font-size: 0.8125rem;
   color: #ef4444;
   margin-top: 4px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  margin-left: 16px;
 }
 
 /* Feedback geral */
@@ -272,25 +240,22 @@
 .form-actions {
   display: flex;
   gap: 12px;
-  margin-top: 24px;
-  padding-top: 20px;
-  border-top: 1px solid #f3f4f6;
+  margin-top: 8px;
 }
 
 /* Botões */
 .form-btn {
   flex: 1;
-  padding: 12px 20px;
+  padding: 14px 20px;
   border-radius: 8px;
   font-weight: 500;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 44px;
 }
 
 .form-btn:disabled {
@@ -299,15 +264,14 @@
 }
 
 .form-btn-secondary {
-  border: 1.5px solid #d1d5db;
+  border: 1px solid #d1d5db;
   background: white;
   color: #6b7280;
 }
 
 .form-btn-secondary:hover:not(:disabled) {
-  border-color: #9ca3af;
-  color: #374151;
-  background-color: #f9fafb;
+  border-color: #10b981;
+  color: #10b981;
 }
 
 .form-btn-primary {
@@ -319,8 +283,33 @@
 
 .form-btn-primary:hover:not(:disabled) {
   background: #059669;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+/* Cores específicas para receitas */
+.form-btn-primary.receita {
+  background: #10b981;
+}
+
+.form-btn-primary.receita:hover:not(:disabled) {
+  background: #059669;
+}
+
+/* Cores específicas para despesas */
+.form-btn-primary.despesa {
+  background: #ef4444;
+}
+
+.form-btn-primary.despesa:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+/* Cores específicas para cartão */
+.form-btn-primary.cartao {
+  background: #8b5cf6;
+}
+
+.form-btn-primary.cartao:hover:not(:disabled) {
+  background: #7c3aed;
 }
 
 /* Spinner para loading */
@@ -427,7 +416,6 @@
   
   .form-row {
     flex-direction: column;
-    gap: 16px;
   }
   
   .form-actions {
@@ -451,21 +439,10 @@
   }
 }
 
-/* Estados especiais */
-@media (prefers-reduced-motion: reduce) {
-  .form-input-container,
-  .form-btn,
-  .form-dropdown-option {
-    transition: none;
-  }
-}
-
-@media (prefers-contrast: high) {
-  .form-input-container {
-    border-width: 2px;
-  }
-  
-  .form-input::placeholder {
-    color: #6b7280;
+/* Estados de foco melhorados */
+@media (prefers-reduced-motion: no-preference) {
+  .form-btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
   }
 }
