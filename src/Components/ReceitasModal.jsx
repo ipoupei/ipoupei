@@ -522,12 +522,38 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                       }} />
                       
                       {categoriaDropdownOpen && categoriasFiltradas.length > 0 && (
-                        <div className="dropdown-options">
+                        <div 
+                          className="dropdown-options"
+                          style={{
+                            position: 'absolute',
+                            top: '100%',
+                            left: 0,
+                            right: 0,
+                            background: 'white',
+                            border: '1px solid #d1d5db',
+                            borderTop: 'none',
+                            borderRadius: '0 0 6px 6px',
+                            maxHeight: '200px',
+                            overflowY: 'auto',
+                            zIndex: 1000,
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                          }}
+                        >
                           {categoriasFiltradas.map(categoria => (
                             <div
                               key={categoria.id}
                               className="dropdown-option"
+                              style={{
+                                padding: '12px 16px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                borderBottom: '1px solid #f3f4f6',
+                                transition: 'background-color 0.2s ease'
+                              }}
                               onMouseDown={() => handleSelecionarCategoria(categoria)}
+                              onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
+                              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
                             >
                               <div 
                                 className="categoria-cor"
@@ -582,12 +608,38 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                       }} />
                       
                       {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
-                        <div className="dropdown-options">
+                        <div 
+                          className="dropdown-options"
+                          style={{
+                            position: 'absolute',
+                            top: '100%',
+                            left: 0,
+                            right: 0,
+                            background: 'white',
+                            border: '1px solid #d1d5db',
+                            borderTop: 'none',
+                            borderRadius: '0 0 6px 6px',
+                            maxHeight: '200px',
+                            overflowY: 'auto',
+                            zIndex: 1000,
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                          }}
+                        >
                           {subcategoriasFiltradas.map(subcategoria => (
                             <div
                               key={subcategoria.id}
                               className="dropdown-option"
+                              style={{
+                                padding: '12px 16px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                borderBottom: '1px solid #f3f4f6',
+                                transition: 'background-color 0.2s ease'
+                              }}
                               onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
+                              onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
+                              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
                             >
                               {subcategoria.nome}
                             </div>
@@ -706,14 +758,56 @@ const ReceitasModal = ({ isOpen, onClose }) => {
       
       {/* Modal de Confirmação */}
       {confirmacao.show && (
-        <div className="confirmacao-overlay">
-          <div className="confirmacao-container">
-            <h3>Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}</h3>
-            <p>
+        <div 
+          className="confirmacao-overlay"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1100
+          }}
+        >
+          <div 
+            className="confirmacao-container"
+            style={{
+              background: 'white',
+              borderRadius: '12px',
+              padding: '24px',
+              maxWidth: '400px',
+              width: '90%',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+            }}
+          >
+            <h3 style={{
+              margin: '0 0 16px 0',
+              fontSize: '1.25rem',
+              fontWeight: '600',
+              color: '#111827'
+            }}>
+              Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
+            </h3>
+            <p style={{
+              margin: '0 0 24px 0',
+              color: '#6b7280',
+              lineHeight: '1.5'
+            }}>
               {confirmacao.type === 'categoria' ? 'A categoria' : 'A subcategoria'}{' '}
               <strong>"{confirmacao.nome}"</strong> não existe. Deseja criá-la?
             </p>
-            <div className="confirmacao-actions">
+            <div 
+              className="confirmacao-actions"
+              style={{
+                display: 'flex',
+                gap: '12px',
+                justifyContent: 'flex-end'
+              }}
+            >
               <button 
                 className="btn-secondary"
                 onClick={() => setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' })}
@@ -732,104 +826,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
         )}
       </div>
       
-      <style>{`
-        .dropdown-options {
-          position: absolute;
-          top: 100%;
-          left: 0;
-          right: 0;
-          background: white;
-          border: 1px solid #d1d5db;
-          border-top: none;
-          border-radius: 0 0 6px 6px;
-          max-height: 200px;
-          overflow-y: auto;
-          z-index: 1000;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
-        
-        .dropdown-option {
-          padding: 12px 16px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          border-bottom: 1px solid #f3f4f6;
-          transition: background-color 0.2s ease;
-        }
-        
-        .dropdown-option:hover {
-          background-color: #f9fafb;
-        }
-        
-        .dropdown-option:last-child {
-          border-bottom: none;
-        }
-        
-        .confirmacao-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background-color: rgba(0, 0, 0, 0.5);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1100;
-        }
-        
-        .confirmacao-container {
-          background: white;
-          border-radius: 12px;
-          padding: 24px;
-          max-width: 400px;
-          width: 90%;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-        }
-        
-        .confirmacao-container h3 {
-          margin: 0 0 16px 0;
-          font-size: 1.25rem;
-          font-weight: 600;
-          color: #111827;
-        }
-        
-        .confirmacao-container p {
-          margin: 0 0 24px 0;
-          color: #6b7280;
-          line-height: 1.5;
-        }
-        
-        .confirmacao-actions {
-          display: flex;
-          gap: 12px;
-          justify-content: flex-end;
-        }
-        
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        
-        @media (max-width: 640px) {
-          .dropdown-options {
-            max-height: 150px;
-          }
-          
-          .confirmacao-container {
-            margin: 20px;
-            width: calc(100% - 40px);
-          }
-          
-          .confirmacao-actions {
-            flex-direction: column-reverse;
-          }
-          
-          .confirmacao-actions button {
-            width: 100%;
-          }
-        }
-      `}</style>
+
     </>
   );
 };
