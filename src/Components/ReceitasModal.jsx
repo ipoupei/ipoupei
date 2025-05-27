@@ -10,8 +10,7 @@ import {
   Building, 
   DollarSign, 
   MessageSquare, 
-  Search,
-  ChevronDown 
+  Search 
 } from 'lucide-react';
 import InputMoney from './ui/InputMoney';
 import useCategorias from '../hooks/useCategorias';
@@ -380,410 +379,391 @@ const ReceitasModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
   
   return (
-    <>
-      <div className="contas-modal-overlay">
-        <div className="contas-modal-container" style={{ maxWidth: '500px' }}>
-          {/* Cabeçalho */}
-          <div className="contas-modal-header">
-            <h2>
-              <TrendingUp size={20} className="icon-header" style={{ color: '#10b981' }} />
-              <span>Lançamento de Receitas</span>
-            </h2>
-            <button className="btn-fechar" onClick={onClose} aria-label="Fechar">
-              <X size={20} />
-            </button>
-          </div>
+    <div className="contas-modal-overlay">
+      <div className="contas-modal-container" style={{ maxWidth: '500px' }}>
+        {/* Cabeçalho */}
+        <div className="contas-modal-header">
+          <h2>
+            <TrendingUp size={20} className="icon-header" style={{ color: '#10b981' }} />
+            <span>Lançamento de Receitas</span>
+          </h2>
+          <button className="btn-fechar" onClick={onClose} aria-label="Fechar">
+            <X size={20} />
+          </button>
+        </div>
+        
+        {/* Conteúdo */}
+        <div className="contas-modal-content">
+          {/* Feedback */}
+          {feedback.visible && (
+            <div className={`feedback-message ${feedback.type}`}>
+              <span style={{ marginRight: '8px' }}>
+                {feedback.type === 'success' ? '✅' : '❌'}
+              </span>
+              {feedback.message}
+            </div>
+          )}
           
-          {/* Conteúdo */}
-          <div className="contas-modal-content">
-            {/* Feedback */}
-            {feedback.visible && (
-              <div className={`feedback-message ${feedback.type}`}>
-                <span style={{ marginRight: '8px' }}>
-                  {feedback.type === 'success' ? '✅' : '❌'}
-                </span>
-                {feedback.message}
-              </div>
-            )}
-            
-            {/* Loading ou Formulário */}
-            {(categoriasLoading || contasLoading) ? (
-              <div style={{ textAlign: 'center', padding: '40px' }}>
-                <div style={{
-                  width: '32px',
-                  height: '32px',
-                  border: '3px solid #f3f4f6',
-                  borderTop: '3px solid #10b981',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite',
-                  margin: '0 auto 16px'
-                }}></div>
-                <p>Carregando dados...</p>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="conta-form">
-                <h3>Nova Receita</h3>
-                
-                {/* Valor e Data */}
-                <div className="form-row">
-                  <div className="form-group" style={{ flex: 2 }}>
-                    <label htmlFor="valor">
-                      <DollarSign size={16} />
-                      Valor *
-                    </label>
-                    <InputMoney
-                      ref={valorInputRef}
-                      id="valor"
-                      value={formData.valor}
-                      onChange={handleValorChange}
-                      placeholder="R$ 0,00"
-                      disabled={submitting}
-                      style={{
-                        borderColor: errors.valor ? '#ef4444' : '#d1d5db',
-                        fontSize: '1.1rem',
-                        fontWeight: '600',
-                        color: '#10b981'
-                      }}
-                    />
-                    {errors.valor && (
-                      <div className="form-error">{errors.valor}</div>
-                    )}
-                  </div>
-                  
-                  <div className="form-group">
-                    <label htmlFor="data">
-                      <Calendar size={16} />
-                      Data *
-                    </label>
-                    <input
-                      type="date"
-                      id="data"
-                      name="data"
-                      value={formData.data}
-                      onChange={handleInputChange}
-                      className={errors.data ? 'error' : ''}
-                      disabled={submitting}
-                    />
-                    {errors.data && (
-                      <div className="form-error">{errors.data}</div>
-                    )}
-                  </div>
+          {/* Loading ou Formulário */}
+          {(categoriasLoading || contasLoading) ? (
+            <div style={{ textAlign: 'center', padding: '40px' }}>
+              <div style={{
+                width: '32px',
+                height: '32px',
+                border: '3px solid #f3f4f6',
+                borderTop: '3px solid #10b981',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite',
+                margin: '0 auto 16px'
+              }}></div>
+              <p>Carregando dados...</p>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="conta-form">
+              <h3>Nova Receita</h3>
+              
+              {/* Valor e Data */}
+              <div className="form-row">
+                <div className="form-group" style={{ flex: 2 }}>
+                  <label htmlFor="valor">
+                    <DollarSign size={16} />
+                    Valor *
+                  </label>
+                  <InputMoney
+                    ref={valorInputRef}
+                    id="valor"
+                    value={formData.valor}
+                    onChange={handleValorChange}
+                    placeholder="R$ 0,00"
+                    disabled={submitting}
+                    style={{
+                      borderColor: errors.valor ? '#ef4444' : '#d1d5db',
+                      fontSize: '1.1rem',
+                      fontWeight: '600',
+                      color: '#10b981'
+                    }}
+                  />
+                  {errors.valor && (
+                    <div className="form-error">{errors.valor}</div>
+                  )}
                 </div>
                 
-                {/* Descrição */}
                 <div className="form-group">
-                  <label htmlFor="descricao">
-                    <FileText size={16} />
-                    Descrição *
+                  <label htmlFor="data">
+                    <Calendar size={16} />
+                    Data *
                   </label>
                   <input
-                    type="text"
-                    id="descricao"
-                    name="descricao"
-                    placeholder="Ex: Salário, Freelance, Rendimentos"
-                    value={formData.descricao}
+                    type="date"
+                    id="data"
+                    name="data"
+                    value={formData.data}
                     onChange={handleInputChange}
-                    className={errors.descricao ? 'error' : ''}
+                    className={errors.data ? 'error' : ''}
                     disabled={submitting}
                   />
-                  {errors.descricao && (
-                    <div className="form-error">{errors.descricao}</div>
+                  {errors.data && (
+                    <div className="form-error">{errors.data}</div>
                   )}
                 </div>
-                
-                {/* Categoria e Subcategoria com busca */}
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="categoria">
-                      <Tag size={16} />
-                      Categoria *
-                    </label>
-                    <div style={{ position: 'relative' }}>
-                      <input
-                        ref={categoriaInputRef}
-                        type="text"
-                        id="categoria"
-                        value={formData.categoriaTexto}
-                        onChange={handleCategoriaChange}
-                        onBlur={handleCategoriaBlur}
-                        onFocus={() => setCategoriaDropdownOpen(true)}
-                        placeholder="Digite ou selecione uma categoria"
-                        className={errors.categoria ? 'error' : ''}
-                        disabled={submitting}
-                        autoComplete="off"
-                      />
-                      <Search size={16} style={{
+              </div>
+              
+              {/* Descrição */}
+              <div className="form-group">
+                <label htmlFor="descricao">
+                  <FileText size={16} />
+                  Descrição *
+                </label>
+                <input
+                  type="text"
+                  id="descricao"
+                  name="descricao"
+                  placeholder="Ex: Salário, Freelance, Rendimentos"
+                  value={formData.descricao}
+                  onChange={handleInputChange}
+                  className={errors.descricao ? 'error' : ''}
+                  disabled={submitting}
+                />
+                {errors.descricao && (
+                  <div className="form-error">{errors.descricao}</div>
+                )}
+              </div>
+              
+              {/* Categoria e Subcategoria com busca */}
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="categoria">
+                    <Tag size={16} />
+                    Categoria *
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      ref={categoriaInputRef}
+                      type="text"
+                      id="categoria"
+                      value={formData.categoriaTexto}
+                      onChange={handleCategoriaChange}
+                      onBlur={handleCategoriaBlur}
+                      onFocus={() => setCategoriaDropdownOpen(true)}
+                      placeholder="Digite ou selecione uma categoria"
+                      className={errors.categoria ? 'error' : ''}
+                      disabled={submitting}
+                      autoComplete="off"
+                    />
+                    <Search size={16} style={{
+                      position: 'absolute',
+                      right: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: '#6b7280',
+                      pointerEvents: 'none'
+                    }} />
+                    
+                    {categoriaDropdownOpen && categoriasFiltradas.length > 0 && (
+                      <div style={{
                         position: 'absolute',
-                        right: '12px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        color: '#6b7280',
-                        pointerEvents: 'none'
-                      }} />
-                      
-                      {categoriaDropdownOpen && categoriasFiltradas.length > 0 && (
-                        <div 
-                          className="dropdown-options"
-                          style={{
-                            position: 'absolute',
-                            top: '100%',
-                            left: 0,
-                            right: 0,
-                            background: 'white',
-                            border: '1px solid #d1d5db',
-                            borderTop: 'none',
-                            borderRadius: '0 0 6px 6px',
-                            maxHeight: '200px',
-                            overflowY: 'auto',
-                            zIndex: 1000,
-                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                          }}
-                        >
-                          {categoriasFiltradas.map(categoria => (
-                            <div
-                              key={categoria.id}
-                              className="dropdown-option"
-                              style={{
-                                padding: '12px 16px',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                borderBottom: '1px solid #f3f4f6',
-                                transition: 'background-color 0.2s ease'
-                              }}
-                              onMouseDown={() => handleSelecionarCategoria(categoria)}
-                              onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
-                              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-                            >
-                              <div 
-                                className="categoria-cor"
-                                style={{ 
-                                  width: '12px', 
-                                  height: '12px', 
-                                  borderRadius: '50%',
-                                  backgroundColor: categoria.cor,
-                                  marginRight: '8px'
-                                }}
-                              ></div>
-                              {categoria.nome}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    {errors.categoria && (
-                      <div className="form-error">{errors.categoria}</div>
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        background: 'white',
+                        border: '1px solid #d1d5db',
+                        borderTop: 'none',
+                        borderRadius: '0 0 6px 6px',
+                        maxHeight: '200px',
+                        overflowY: 'auto',
+                        zIndex: 1000,
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                      }}>
+                        {categoriasFiltradas.map(categoria => (
+                          <div
+                            key={categoria.id}
+                            style={{
+                              padding: '12px 16px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              borderBottom: '1px solid #f3f4f6',
+                              transition: 'background-color 0.2s ease'
+                            }}
+                            onMouseDown={() => handleSelecionarCategoria(categoria)}
+                            onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
+                            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                          >
+                            <div style={{ 
+                              width: '12px', 
+                              height: '12px', 
+                              borderRadius: '50%',
+                              backgroundColor: categoria.cor,
+                              marginRight: '8px'
+                            }}></div>
+                            {categoria.nome}
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
-                  
-                  <div className="form-group">
-                    <label htmlFor="subcategoria">
-                      <Tag size={16} />
-                      Subcategoria <small>(opcional)</small>
-                    </label>
-                    <div style={{ position: 'relative' }}>
-                      <input
-                        ref={subcategoriaInputRef}
-                        type="text"
-                        id="subcategoria"
-                        value={formData.subcategoriaTexto}
-                        onChange={handleSubcategoriaChange}
-                        onBlur={handleSubcategoriaBlur}
-                        onFocus={() => categoriaSelecionada && setSubcategoriaDropdownOpen(true)}
-                        placeholder={!formData.categoria ? "Escolha categoria primeiro" : "Digite ou selecione"}
-                        disabled={!formData.categoria || submitting}
-                        className={errors.subcategoria ? 'error' : ''}
-                        style={{
-                          backgroundColor: !formData.categoria ? '#f9fafb' : 'white'
-                        }}
-                        autoComplete="off"
-                      />
-                      <Search size={16} style={{
+                  {errors.categoria && (
+                    <div className="form-error">{errors.categoria}</div>
+                  )}
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="subcategoria">
+                    <Tag size={16} />
+                    Subcategoria <small>(opcional)</small>
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      ref={subcategoriaInputRef}
+                      type="text"
+                      id="subcategoria"
+                      value={formData.subcategoriaTexto}
+                      onChange={handleSubcategoriaChange}
+                      onBlur={handleSubcategoriaBlur}
+                      onFocus={() => categoriaSelecionada && setSubcategoriaDropdownOpen(true)}
+                      placeholder={!formData.categoria ? "Escolha categoria primeiro" : "Digite ou selecione"}
+                      disabled={!formData.categoria || submitting}
+                      className={errors.subcategoria ? 'error' : ''}
+                      style={{
+                        backgroundColor: !formData.categoria ? '#f9fafb' : 'white'
+                      }}
+                      autoComplete="off"
+                    />
+                    <Search size={16} style={{
+                      position: 'absolute',
+                      right: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: '#6b7280',
+                      pointerEvents: 'none'
+                    }} />
+                    
+                    {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
+                      <div style={{
                         position: 'absolute',
-                        right: '12px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        color: '#6b7280',
-                        pointerEvents: 'none'
-                      }} />
-                      
-                      {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
-                        <div 
-                          className="dropdown-options"
-                          style={{
-                            position: 'absolute',
-                            top: '100%',
-                            left: 0,
-                            right: 0,
-                            background: 'white',
-                            border: '1px solid #d1d5db',
-                            borderTop: 'none',
-                            borderRadius: '0 0 6px 6px',
-                            maxHeight: '200px',
-                            overflowY: 'auto',
-                            zIndex: 1000,
-                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                          }}
-                        >
-                          {subcategoriasFiltradas.map(subcategoria => (
-                            <div
-                              key={subcategoria.id}
-                              className="dropdown-option"
-                              style={{
-                                padding: '12px 16px',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                borderBottom: '1px solid #f3f4f6',
-                                transition: 'background-color 0.2s ease'
-                              }}
-                              onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
-                              onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
-                              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-                            >
-                              {subcategoria.nome}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Conta de Depósito */}
-                <div className="form-group">
-                  <label htmlFor="contaDeposito">
-                    <Building size={16} />
-                    Conta de Depósito *
-                  </label>
-                  <select
-                    id="contaDeposito"
-                    name="contaDeposito"
-                    value={formData.contaDeposito}
-                    onChange={handleInputChange}
-                    className={errors.contaDeposito ? 'error' : ''}
-                    disabled={submitting}
-                  >
-                    <option value="">Selecione uma conta</option>
-                    {contas.map(conta => (
-                      <option key={conta.id} value={conta.id}>
-                        {conta.nome}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.contaDeposito && (
-                    <div className="form-error">{errors.contaDeposito}</div>
-                  )}
-                </div>
-                
-                {/* Observações */}
-                <div className="form-group">
-                  <label htmlFor="observacoes">
-                    <MessageSquare size={16} />
-                    Observações
-                    <small>(opcional, máx. 300 caracteres)</small>
-                  </label>
-                  <textarea
-                    id="observacoes"
-                    name="observacoes"
-                    value={formData.observacoes}
-                    onChange={(e) => {
-                      if (e.target.value.length <= 300) {
-                        handleInputChange(e);
-                      }
-                    }}
-                    placeholder="Adicione informações extras sobre esta receita"
-                    rows="3"
-                    className={errors.observacoes ? 'error' : ''}
-                    disabled={submitting}
-                    style={{ resize: 'vertical' }}
-                  />
-                  <div style={{ 
-                    textAlign: 'right', 
-                    fontSize: '12px', 
-                    color: '#6b7280',
-                    marginTop: '4px'
-                  }}>
-                    {formData.observacoes.length}/300
-                  </div>
-                  {errors.observacoes && (
-                    <div className="form-error">{errors.observacoes}</div>
-                  )}
-                </div>
-                
-                {/* Ações */}
-                <div className="form-actions">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      resetForm();
-                      onClose();
-                    }}
-                    disabled={submitting}
-                    className="btn-secondary"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="btn-primary"
-                    style={{ backgroundColor: '#10b981' }}
-                  >
-                    {submitting ? (
-                      <>
-                        <div style={{
-                          width: '16px',
-                          height: '16px',
-                          border: '2px solid transparent',
-                          borderTop: '2px solid white',
-                          borderRadius: '50%',
-                          animation: 'spin 1s linear infinite'
-                        }}></div>
-                        Salvando...
-                      </>
-                    ) : (
-                      <>
-                        <Plus size={16} />
-                        Salvar Receita
-                      </>
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        background: 'white',
+                        border: '1px solid #d1d5db',
+                        borderTop: 'none',
+                        borderRadius: '0 0 6px 6px',
+                        maxHeight: '200px',
+                        overflowY: 'auto',
+                        zIndex: 1000,
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                      }}>
+                        {subcategoriasFiltradas.map(subcategoria => (
+                          <div
+                            key={subcategoria.id}
+                            style={{
+                              padding: '12px 16px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              borderBottom: '1px solid #f3f4f6',
+                              transition: 'background-color 0.2s ease'
+                            }}
+                            onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
+                            onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
+                            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                          >
+                            {subcategoria.nome}
+                          </div>
+                        ))}
+                      </div>
                     )}
-                  </button>
+                  </div>
                 </div>
-              </form>
-            )}
-          </div>
+              </div>
+              
+              {/* Conta de Depósito */}
+              <div className="form-group">
+                <label htmlFor="contaDeposito">
+                  <Building size={16} />
+                  Conta de Depósito *
+                </label>
+                <select
+                  id="contaDeposito"
+                  name="contaDeposito"
+                  value={formData.contaDeposito}
+                  onChange={handleInputChange}
+                  className={errors.contaDeposito ? 'error' : ''}
+                  disabled={submitting}
+                >
+                  <option value="">Selecione uma conta</option>
+                  {contas.map(conta => (
+                    <option key={conta.id} value={conta.id}>
+                      {conta.nome}
+                    </option>
+                  ))}
+                </select>
+                {errors.contaDeposito && (
+                  <div className="form-error">{errors.contaDeposito}</div>
+                )}
+              </div>
+              
+              {/* Observações */}
+              <div className="form-group">
+                <label htmlFor="observacoes">
+                  <MessageSquare size={16} />
+                  Observações
+                  <small>(opcional, máx. 300 caracteres)</small>
+                </label>
+                <textarea
+                  id="observacoes"
+                  name="observacoes"
+                  value={formData.observacoes}
+                  onChange={(e) => {
+                    if (e.target.value.length <= 300) {
+                      handleInputChange(e);
+                    }
+                  }}
+                  placeholder="Adicione informações extras sobre esta receita"
+                  rows="3"
+                  className={errors.observacoes ? 'error' : ''}
+                  disabled={submitting}
+                  style={{ resize: 'vertical' }}
+                />
+                <div style={{ 
+                  textAlign: 'right', 
+                  fontSize: '12px', 
+                  color: '#6b7280',
+                  marginTop: '4px'
+                }}>
+                  {formData.observacoes.length}/300
+                </div>
+                {errors.observacoes && (
+                  <div className="form-error">{errors.observacoes}</div>
+                )}
+              </div>
+              
+              {/* Ações */}
+              <div className="form-actions">
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetForm();
+                    onClose();
+                  }}
+                  disabled={submitting}
+                  className="btn-secondary"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="btn-primary"
+                  style={{ backgroundColor: '#10b981' }}
+                >
+                  {submitting ? (
+                    <>
+                      <div style={{
+                        width: '16px',
+                        height: '16px',
+                        border: '2px solid transparent',
+                        borderTop: '2px solid white',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite'
+                      }}></div>
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={16} />
+                      Salvar Receita
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
       
       {/* Modal de Confirmação */}
       {confirmacao.show && (
-        <div 
-          className="confirmacao-overlay"
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1100
-          }}
-        >
-          <div 
-            className="confirmacao-container"
-            style={{
-              background: 'white',
-              borderRadius: '12px',
-              padding: '24px',
-              maxWidth: '400px',
-              width: '90%',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-            }}
-          >
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1100
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            maxWidth: '400px',
+            width: '90%',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+          }}>
             <h3 style={{
               margin: '0 0 16px 0',
               fontSize: '1.25rem',
@@ -800,14 +780,11 @@ const ReceitasModal = ({ isOpen, onClose }) => {
               {confirmacao.type === 'categoria' ? 'A categoria' : 'A subcategoria'}{' '}
               <strong>"{confirmacao.nome}"</strong> não existe. Deseja criá-la?
             </p>
-            <div 
-              className="confirmacao-actions"
-              style={{
-                display: 'flex',
-                gap: '12px',
-                justifyContent: 'flex-end'
-              }}
-            >
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'flex-end'
+            }}>
               <button 
                 className="btn-secondary"
                 onClick={() => setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' })}
@@ -823,11 +800,9 @@ const ReceitasModal = ({ isOpen, onClose }) => {
               </button>
             </div>
           </div>
-        )}
-      </div>
-      
-
-    </>
+        </div>
+      )}
+    </div>
   );
 };
 
