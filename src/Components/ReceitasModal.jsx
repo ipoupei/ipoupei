@@ -10,24 +10,27 @@ import {
   Building, 
   DollarSign, 
   MessageSquare, 
+  Search,
   ChevronDown 
 } from 'lucide-react';
 import InputMoney from './ui/InputMoney';
 import useCategorias from '../hooks/useCategorias';
 import useContas from '../hooks/useContas';
-import './ModalForm.css';
+import { supabase } from '../lib/supabaseClient';
+import useAuth from '../hooks/useAuth';
 
 /**
- * Modal moderno para lançamento de receitas
- * Design clean sem labels, apenas placeholders e ícones
+ * Modal melhorado para lançamento de receitas
+ * Integrado com o sistema existente e com funcionalidades avançadas
  */
 const ReceitasModal = ({ isOpen, onClose }) => {
-  // Referências
+  // Referências para campos
   const valorInputRef = useRef(null);
   const categoriaInputRef = useRef(null);
   const subcategoriaInputRef = useRef(null);
   
-  // Hooks
+  // Hooks do sistema
+  const { user } = useAuth();
   const { 
     categorias, 
     loading: categoriasLoading, 
@@ -57,13 +60,13 @@ const ReceitasModal = ({ isOpen, onClose }) => {
   const [feedback, setFeedback] = useState({ visible: false, message: '', type: '' });
   const [submitting, setSubmitting] = useState(false);
   
-  // Estados para dropdowns
+  // Estados para dropdowns com busca
   const [categoriaDropdownOpen, setCategoriaDropdownOpen] = useState(false);
   const [subcategoriaDropdownOpen, setSubcategoriaDropdownOpen] = useState(false);
   const [categoriasFiltradas, setCategoriasFiltradas] = useState([]);
   const [subcategoriasFiltradas, setSubcategoriasFiltradas] = useState([]);
   
-  // Estados para confirmação
+  // Estados para confirmação de criação
   const [confirmacao, setConfirmacao] = useState({
     show: false,
     type: '',
@@ -251,9 +254,9 @@ const ReceitasModal = ({ isOpen, onClose }) => {
             categoriaTexto: result.data.nome
           }));
           
-          showFeedback(`Categoria "${confirmacao.nome}" criada!`);
+          showFeedback(`Categoria "${confirmacao.nome}" criada com sucesso!`);
         } else {
-          showFeedback('Erro ao criar categoria.', 'error');
+          showFeedback('Erro ao criar categoria. Tente novamente.', 'error');
         }
       } else if (confirmacao.type === 'subcategoria') {
         const result = await addSubcategoria(confirmacao.categoriaId, {
@@ -267,13 +270,14 @@ const ReceitasModal = ({ isOpen, onClose }) => {
             subcategoriaTexto: result.data.nome
           }));
           
-          showFeedback(`Subcategoria "${confirmacao.nome}" criada!`);
+          showFeedback(`Subcategoria "${confirmacao.nome}" criada com sucesso!`);
         } else {
-          showFeedback('Erro ao criar subcategoria.', 'error');
+          showFeedback('Erro ao criar subcategoria. Tente novamente.', 'error');
         }
       }
     } catch (error) {
-      showFeedback('Erro inesperado.', 'error');
+      console.error('Erro ao criar categoria/subcategoria:', error);
+      showFeedback('Erro inesperado. Tente novamente.', 'error');
     }
     
     setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
@@ -297,6 +301,9 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     if (!formData.contaDeposito) {
       newErrors.contaDeposito = "Conta é obrigatória";
     }
+    if (formData.observacoes.length > 300) {
+      newErrors.observacoes = "Máximo de 300 caracteres";
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -311,6 +318,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
       setSubmitting(true);
       
       const dadosReceita = {
+        usuario_id: user.id,
         data: formData.data,
         descricao: formData.descricao.trim(),
         categoria_id: formData.categoria,
@@ -318,13 +326,22 @@ const ReceitasModal = ({ isOpen, onClose }) => {
         conta_id: formData.contaDeposito,
         valor: formData.valor,
         observacoes: formData.observacoes.trim(),
-        tipo: 'receita'
+        tipo: 'receita',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
       
-      console.log("💰 Dados da receita:", dadosReceita);
+      console.log("💰 Salvando receita:", dadosReceita);
       
-      // TODO: Implementar chamada real para API
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Salvar no Supabase
+      const { data, error } = await supabase
+        .from('transacoes')
+        .insert([dadosReceita])
+        .select();
+      
+      if (error) throw error;
+      
+      console.log("✅ Receita salva com sucesso:", data);
       
       showFeedback('Receita registrada com sucesso!');
       
@@ -334,7 +351,8 @@ const ReceitasModal = ({ isOpen, onClose }) => {
       }, 1500);
       
     } catch (error) {
-      showFeedback('Erro ao salvar receita.', 'error');
+      console.error('❌ Erro ao salvar receita:', error);
+      showFeedback(`Erro ao salvar receita: ${error.message}`, 'error');
     } finally {
       setSubmitting(false);
     }
@@ -363,120 +381,163 @@ const ReceitasModal = ({ isOpen, onClose }) => {
   
   return (
     <>
-      <div className="modal-form-overlay">
-        <div className="modal-form-container">
-          {/* Cabeçalho limpo */}
-          <div className="modal-form-header">
-            <h2 className="modal-form-title">
-              <TrendingUp size={20} style={{ color: '#10b981' }} />
-              Lançamento de Receitas
+      <div className="contas-modal-overlay">
+        <div className="contas-modal-container" style={{ maxWidth: '500px' }}>
+          {/* Cabeçalho */}
+          <div className="contas-modal-header">
+            <h2>
+              <TrendingUp size={20} className="icon-header" style={{ color: '#10b981' }} />
+              <span>Lançamento de Receitas</span>
             </h2>
-            <button className="modal-form-close" onClick={onClose}>
+            <button className="btn-fechar" onClick={onClose} aria-label="Fechar">
               <X size={20} />
             </button>
           </div>
           
           {/* Conteúdo */}
-          <div className="modal-form-content">
+          <div className="contas-modal-content">
             {/* Feedback */}
             {feedback.visible && (
-              <div className={`form-feedback ${feedback.type}`}>
-                {feedback.type === 'success' ? '✅' : '❌'} {feedback.message}
+              <div className={`feedback-message ${feedback.type}`}>
+                <span style={{ marginRight: '8px' }}>
+                  {feedback.type === 'success' ? '✅' : '❌'}
+                </span>
+                {feedback.message}
               </div>
             )}
             
             {/* Loading ou Formulário */}
             {(categoriasLoading || contasLoading) ? (
-              <div className="form-loading">
-                <div className="form-loading-spinner"></div>
+              <div style={{ textAlign: 'center', padding: '40px' }}>
+                <div style={{
+                  width: '32px',
+                  height: '32px',
+                  border: '3px solid #f3f4f6',
+                  borderTop: '3px solid #10b981',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  margin: '0 auto 16px'
+                }}></div>
                 <p>Carregando dados...</p>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="modal-form">
-                {/* Valor e Data - lado a lado */}
+              <form onSubmit={handleSubmit} className="conta-form">
+                <h3>Nova Receita</h3>
+                
+                {/* Valor e Data */}
                 <div className="form-row">
-                  <div className={`form-field ${errors.valor ? 'error' : ''}`} style={{ flex: 2 }}>
-                    <DollarSign size={18} className="form-icon" />
+                  <div className="form-group" style={{ flex: 2 }}>
+                    <label htmlFor="valor">
+                      <DollarSign size={16} />
+                      Valor *
+                    </label>
                     <InputMoney
                       ref={valorInputRef}
+                      id="valor"
                       value={formData.valor}
                       onChange={handleValorChange}
-                      placeholder="Valor da receita"
+                      placeholder="R$ 0,00"
                       disabled={submitting}
-                      className="form-input valor"
+                      style={{
+                        borderColor: errors.valor ? '#ef4444' : '#d1d5db',
+                        fontSize: '1.1rem',
+                        fontWeight: '600',
+                        color: '#10b981'
+                      }}
                     />
+                    {errors.valor && (
+                      <div className="form-error">{errors.valor}</div>
+                    )}
                   </div>
                   
-                  <div className={`form-field ${errors.data ? 'error' : ''}`}>
-                    <Calendar size={18} className="form-icon" />
+                  <div className="form-group">
+                    <label htmlFor="data">
+                      <Calendar size={16} />
+                      Data *
+                    </label>
                     <input
                       type="date"
+                      id="data"
                       name="data"
                       value={formData.data}
                       onChange={handleInputChange}
+                      className={errors.data ? 'error' : ''}
                       disabled={submitting}
-                      className="form-input"
                     />
+                    {errors.data && (
+                      <div className="form-error">{errors.data}</div>
+                    )}
                   </div>
                 </div>
-                
-                {/* Mostrar erros de valor e data */}
-                {(errors.valor || errors.data) && (
-                  <div style={{ display: 'flex', gap: '12px', marginTop: '-12px' }}>
-                    <div style={{ flex: 2 }}>
-                      {errors.valor && <div className="form-error">{errors.valor}</div>}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      {errors.data && <div className="form-error">{errors.data}</div>}
-                    </div>
-                  </div>
-                )}
                 
                 {/* Descrição */}
-                <div className={`form-field ${errors.descricao ? 'error' : ''}`}>
-                  <FileText size={18} className="form-icon" />
+                <div className="form-group">
+                  <label htmlFor="descricao">
+                    <FileText size={16} />
+                    Descrição *
+                  </label>
                   <input
                     type="text"
+                    id="descricao"
                     name="descricao"
+                    placeholder="Ex: Salário, Freelance, Rendimentos"
                     value={formData.descricao}
                     onChange={handleInputChange}
-                    placeholder="Descrição da receita"
+                    className={errors.descricao ? 'error' : ''}
                     disabled={submitting}
-                    className="form-input"
                   />
+                  {errors.descricao && (
+                    <div className="form-error">{errors.descricao}</div>
+                  )}
                 </div>
-                {errors.descricao && <div className="form-error" style={{ marginTop: '-12px' }}>{errors.descricao}</div>}
                 
-                {/* Categoria e Subcategoria */}
+                {/* Categoria e Subcategoria com busca */}
                 <div className="form-row">
-                  <div className={`form-field ${errors.categoria ? 'error' : ''}`}>
-                    <Tag size={18} className="form-icon" />
-                    <div className="form-dropdown-wrapper">
+                  <div className="form-group">
+                    <label htmlFor="categoria">
+                      <Tag size={16} />
+                      Categoria *
+                    </label>
+                    <div style={{ position: 'relative' }}>
                       <input
                         ref={categoriaInputRef}
                         type="text"
+                        id="categoria"
                         value={formData.categoriaTexto}
                         onChange={handleCategoriaChange}
                         onBlur={handleCategoriaBlur}
                         onFocus={() => setCategoriaDropdownOpen(true)}
-                        placeholder="Categoria"
+                        placeholder="Digite ou selecione uma categoria"
+                        className={errors.categoria ? 'error' : ''}
                         disabled={submitting}
-                        className="form-input"
                         autoComplete="off"
                       />
-                      <ChevronDown size={16} className="form-select-arrow" />
+                      <Search size={16} style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        color: '#6b7280',
+                        pointerEvents: 'none'
+                      }} />
                       
                       {categoriaDropdownOpen && categoriasFiltradas.length > 0 && (
-                        <div className="form-dropdown-options">
+                        <div className="dropdown-options">
                           {categoriasFiltradas.map(categoria => (
                             <div
                               key={categoria.id}
-                              className="form-dropdown-option"
+                              className="dropdown-option"
                               onMouseDown={() => handleSelecionarCategoria(categoria)}
                             >
                               <div 
-                                className="category-color"
-                                style={{ backgroundColor: categoria.cor }}
+                                className="categoria-cor"
+                                style={{ 
+                                  width: '12px', 
+                                  height: '12px', 
+                                  borderRadius: '50%',
+                                  backgroundColor: categoria.cor,
+                                  marginRight: '8px'
+                                }}
                               ></div>
                               {categoria.nome}
                             </div>
@@ -484,31 +545,48 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                         </div>
                       )}
                     </div>
+                    {errors.categoria && (
+                      <div className="form-error">{errors.categoria}</div>
+                    )}
                   </div>
                   
-                  <div className="form-field">
-                    <Tag size={18} className="form-icon" />
-                    <div className="form-dropdown-wrapper">
+                  <div className="form-group">
+                    <label htmlFor="subcategoria">
+                      <Tag size={16} />
+                      Subcategoria <small>(opcional)</small>
+                    </label>
+                    <div style={{ position: 'relative' }}>
                       <input
                         ref={subcategoriaInputRef}
                         type="text"
+                        id="subcategoria"
                         value={formData.subcategoriaTexto}
                         onChange={handleSubcategoriaChange}
                         onBlur={handleSubcategoriaBlur}
                         onFocus={() => categoriaSelecionada && setSubcategoriaDropdownOpen(true)}
-                        placeholder={!formData.categoria ? "Escolha categoria primeiro" : "Subcategoria (opcional)"}
+                        placeholder={!formData.categoria ? "Escolha categoria primeiro" : "Digite ou selecione"}
                         disabled={!formData.categoria || submitting}
-                        className="form-input"
+                        className={errors.subcategoria ? 'error' : ''}
+                        style={{
+                          backgroundColor: !formData.categoria ? '#f9fafb' : 'white'
+                        }}
                         autoComplete="off"
                       />
-                      <ChevronDown size={16} className="form-select-arrow" />
+                      <Search size={16} style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        color: '#6b7280',
+                        pointerEvents: 'none'
+                      }} />
                       
                       {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
-                        <div className="form-dropdown-options">
+                        <div className="dropdown-options">
                           {subcategoriasFiltradas.map(subcategoria => (
                             <div
                               key={subcategoria.id}
-                              className="form-dropdown-option"
+                              className="dropdown-option"
                               onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
                             >
                               {subcategoria.nome}
@@ -519,42 +597,66 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                     </div>
                   </div>
                 </div>
-                {errors.categoria && <div className="form-error" style={{ marginTop: '-12px' }}>{errors.categoria}</div>}
                 
-                {/* Conta */}
-                <div className={`form-field ${errors.contaDeposito ? 'error' : ''}`}>
-                  <Building size={18} className="form-icon" />
+                {/* Conta de Depósito */}
+                <div className="form-group">
+                  <label htmlFor="contaDeposito">
+                    <Building size={16} />
+                    Conta de Depósito *
+                  </label>
                   <select
+                    id="contaDeposito"
                     name="contaDeposito"
                     value={formData.contaDeposito}
                     onChange={handleInputChange}
+                    className={errors.contaDeposito ? 'error' : ''}
                     disabled={submitting}
-                    className="form-input form-select"
                   >
-                    <option value="">Conta de depósito</option>
+                    <option value="">Selecione uma conta</option>
                     {contas.map(conta => (
                       <option key={conta.id} value={conta.id}>
                         {conta.nome}
                       </option>
                     ))}
                   </select>
-                  <ChevronDown size={16} className="form-select-arrow" />
+                  {errors.contaDeposito && (
+                    <div className="form-error">{errors.contaDeposito}</div>
+                  )}
                 </div>
-                {errors.contaDeposito && <div className="form-error" style={{ marginTop: '-12px' }}>{errors.contaDeposito}</div>}
                 
                 {/* Observações */}
-                <div className="form-field">
-                  <MessageSquare size={18} className="form-icon" />
+                <div className="form-group">
+                  <label htmlFor="observacoes">
+                    <MessageSquare size={16} />
+                    Observações
+                    <small>(opcional, máx. 300 caracteres)</small>
+                  </label>
                   <textarea
+                    id="observacoes"
                     name="observacoes"
                     value={formData.observacoes}
-                    onChange={handleInputChange}
-                    placeholder="Observações (opcional)"
-                    rows="2"
+                    onChange={(e) => {
+                      if (e.target.value.length <= 300) {
+                        handleInputChange(e);
+                      }
+                    }}
+                    placeholder="Adicione informações extras sobre esta receita"
+                    rows="3"
+                    className={errors.observacoes ? 'error' : ''}
                     disabled={submitting}
-                    className="form-input form-textarea"
-                    maxLength="300"
+                    style={{ resize: 'vertical' }}
                   />
+                  <div style={{ 
+                    textAlign: 'right', 
+                    fontSize: '12px', 
+                    color: '#6b7280',
+                    marginTop: '4px'
+                  }}>
+                    {formData.observacoes.length}/300
+                  </div>
+                  {errors.observacoes && (
+                    <div className="form-error">{errors.observacoes}</div>
+                  )}
                 </div>
                 
                 {/* Ações */}
@@ -566,18 +668,26 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                       onClose();
                     }}
                     disabled={submitting}
-                    className="form-btn form-btn-secondary"
+                    className="btn-secondary"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="form-btn form-btn-primary receita"
+                    className="btn-primary"
+                    style={{ backgroundColor: '#10b981' }}
                   >
                     {submitting ? (
                       <>
-                        <div className="form-spinner"></div>
+                        <div style={{
+                          width: '16px',
+                          height: '16px',
+                          border: '2px solid transparent',
+                          borderTop: '2px solid white',
+                          borderRadius: '50%',
+                          animation: 'spin 1s linear infinite'
+                        }}></div>
                         Salvando...
                       </>
                     ) : (
@@ -596,32 +706,130 @@ const ReceitasModal = ({ isOpen, onClose }) => {
       
       {/* Modal de Confirmação */}
       {confirmacao.show && (
-        <div className="confirmation-overlay">
-          <div className="confirmation-container">
-            <h3 className="confirmation-title">
-              Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
-            </h3>
-            <p className="confirmation-message">
+        <div className="confirmacao-overlay">
+          <div className="confirmacao-container">
+            <h3>Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}</h3>
+            <p>
               {confirmacao.type === 'categoria' ? 'A categoria' : 'A subcategoria'}{' '}
               <strong>"{confirmacao.nome}"</strong> não existe. Deseja criá-la?
             </p>
-            <div className="confirmation-actions">
+            <div className="confirmacao-actions">
               <button 
-                className="form-btn form-btn-secondary"
+                className="btn-secondary"
                 onClick={() => setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' })}
               >
                 Cancelar
               </button>
               <button 
-                className="form-btn form-btn-primary receita"
+                className="btn-primary"
                 onClick={handleConfirmarCriacao}
+                style={{ backgroundColor: '#10b981' }}
               >
                 Criar {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+      
+      <style jsx>{`
+        .dropdown-options {
+          position: absolute;
+          top: 100%;
+          left: 0;
+          right: 0;
+          background: white;
+          border: 1px solid #d1d5db;
+          border-top: none;
+          border-radius: 0 0 6px 6px;
+          max-height: 200px;
+          overflow-y: auto;
+          z-index: 1000;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        .dropdown-option {
+          padding: 12px 16px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          border-bottom: 1px solid #f3f4f6;
+          transition: background-color 0.2s ease;
+        }
+        
+        .dropdown-option:hover {
+          background-color: #f9fafb;
+        }
+        
+        .dropdown-option:last-child {
+          border-bottom: none;
+        }
+        
+        .confirmacao-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: rgba(0, 0, 0, 0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1100;
+        }
+        
+        .confirmacao-container {
+          background: white;
+          border-radius: 12px;
+          padding: 24px;
+          max-width: 400px;
+          width: 90%;
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        
+        .confirmacao-container h3 {
+          margin: 0 0 16px 0;
+          font-size: 1.25rem;
+          font-weight: 600;
+          color: #111827;
+        }
+        
+        .confirmacao-container p {
+          margin: 0 0 24px 0;
+          color: #6b7280;
+          line-height: 1.5;
+        }
+        
+        .confirmacao-actions {
+          display: flex;
+          gap: 12px;
+          justify-content: flex-end;
+        }
+        
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 640px) {
+          .dropdown-options {
+            max-height: 150px;
+          }
+          
+          .confirmacao-container {
+            margin: 20px;
+            width: calc(100% - 40px);
+          }
+          
+          .confirmacao-actions {
+            flex-direction: column-reverse;
+          }
+          
+          .confirmacao-actions button {
+            width: 100%;
+          }
+        }
+      `}</style>
     </>
   );
 };
