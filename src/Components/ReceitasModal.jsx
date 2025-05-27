@@ -18,30 +18,17 @@ import useContas from '../hooks/useContas';
 import { supabase } from '../lib/supabaseClient';
 import useAuth from '../hooks/useAuth';
 
-/**
- * Modal melhorado para lançamento de receitas
- * Integrado com o sistema existente e com funcionalidades avançadas
- */
 const ReceitasModal = ({ isOpen, onClose }) => {
-  // Referências para campos
   const valorInputRef = useRef(null);
   const categoriaInputRef = useRef(null);
   const subcategoriaInputRef = useRef(null);
   
-  // Hooks do sistema
   const { user } = useAuth();
-  const { 
-    categorias, 
-    loading: categoriasLoading, 
-    addCategoria, 
-    addSubcategoria 
-  } = useCategorias();
+  const { categorias, loading: categoriasLoading, addCategoria, addSubcategoria } = useCategorias();
   const { contas, loading: contasLoading } = useContas();
   
-  // Filtrar categorias de receita
   const categoriasReceita = categorias.filter(cat => cat.tipo === 'receita');
   
-  // Estados do formulário
   const [formData, setFormData] = useState({
     valor: 0,
     data: getCurrentDate(),
@@ -54,18 +41,13 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     observacoes: ''
   });
   
-  // Estados de controle
   const [errors, setErrors] = useState({});
   const [feedback, setFeedback] = useState({ visible: false, message: '', type: '' });
   const [submitting, setSubmitting] = useState(false);
-  
-  // Estados para dropdowns com busca
   const [categoriaDropdownOpen, setCategoriaDropdownOpen] = useState(false);
   const [subcategoriaDropdownOpen, setSubcategoriaDropdownOpen] = useState(false);
   const [categoriasFiltradas, setCategoriasFiltradas] = useState([]);
   const [subcategoriasFiltradas, setSubcategoriasFiltradas] = useState([]);
-  
-  // Estados para confirmação de criação
   const [confirmacao, setConfirmacao] = useState({
     show: false,
     type: '',
@@ -73,16 +55,13 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     categoriaId: ''
   });
   
-  // Função para obter data atual
   function getCurrentDate() {
     const hoje = new Date();
     return hoje.toISOString().split('T')[0];
   }
   
-  // Categoria selecionada
   const categoriaSelecionada = categoriasReceita.find(cat => cat.id === formData.categoria);
   
-  // Efeitos para filtros
   useEffect(() => {
     if (formData.categoriaTexto) {
       const filtradas = categoriasReceita.filter(cat =>
@@ -107,7 +86,6 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     }
   }, [formData.subcategoriaTexto, categoriaSelecionada]);
   
-  // Reset e foco
   useEffect(() => {
     if (isOpen) {
       resetForm();
@@ -117,7 +95,6 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     }
   }, [isOpen]);
   
-  // Funções auxiliares
   const showFeedback = (message, type = 'success') => {
     setFeedback({ visible: true, message, type });
     setTimeout(() => {
@@ -332,7 +309,6 @@ const ReceitasModal = ({ isOpen, onClose }) => {
       
       console.log("💰 Salvando receita:", dadosReceita);
       
-      // Salvar no Supabase
       const { data, error } = await supabase
         .from('transacoes')
         .insert([dadosReceita])
@@ -381,7 +357,6 @@ const ReceitasModal = ({ isOpen, onClose }) => {
   return (
     <div className="contas-modal-overlay">
       <div className="contas-modal-container" style={{ maxWidth: '500px' }}>
-        {/* Cabeçalho */}
         <div className="contas-modal-header">
           <h2>
             <TrendingUp size={20} className="icon-header" style={{ color: '#10b981' }} />
@@ -392,9 +367,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
           </button>
         </div>
         
-        {/* Conteúdo */}
         <div className="contas-modal-content">
-          {/* Feedback */}
           {feedback.visible && (
             <div className={`feedback-message ${feedback.type}`}>
               <span style={{ marginRight: '8px' }}>
@@ -404,7 +377,6 @@ const ReceitasModal = ({ isOpen, onClose }) => {
             </div>
           )}
           
-          {/* Loading ou Formulário */}
           {(categoriasLoading || contasLoading) ? (
             <div style={{ textAlign: 'center', padding: '40px' }}>
               <div style={{
@@ -422,7 +394,6 @@ const ReceitasModal = ({ isOpen, onClose }) => {
             <form onSubmit={handleSubmit} className="conta-form">
               <h3>Nova Receita</h3>
               
-              {/* Valor e Data */}
               <div className="form-row">
                 <div className="form-group" style={{ flex: 2 }}>
                   <label htmlFor="valor">
@@ -468,7 +439,6 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                 </div>
               </div>
               
-              {/* Descrição */}
               <div className="form-group">
                 <label htmlFor="descricao">
                   <FileText size={16} />
@@ -489,7 +459,6 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                 )}
               </div>
               
-              {/* Categoria e Subcategoria com busca */}
               <div className="form-row">
                 <div className="form-group">
                   <label htmlFor="categoria">
@@ -637,7 +606,6 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                 </div>
               </div>
               
-              {/* Conta de Depósito */}
               <div className="form-group">
                 <label htmlFor="contaDeposito">
                   <Building size={16} />
@@ -663,7 +631,6 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                 )}
               </div>
               
-              {/* Observações */}
               <div className="form-group">
                 <label htmlFor="observacoes">
                   <MessageSquare size={16} />
@@ -698,7 +665,6 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                 )}
               </div>
               
-              {/* Ações */}
               <div className="form-actions">
                 <button
                   type="button"
@@ -742,7 +708,6 @@ const ReceitasModal = ({ isOpen, onClose }) => {
         </div>
       </div>
       
-      {/* Modal de Confirmação */}
       {confirmacao.show && (
         <div style={{
           position: 'fixed',
