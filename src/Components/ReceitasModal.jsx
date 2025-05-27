@@ -416,8 +416,16 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                     />
                   </div>
                 </div>
-                {errors.valor && <div className="form-error">{errors.valor}</div>}
-                {errors.data && <div className="form-error">{errors.data}</div>}
+                {(errors.valor || errors.data) && (
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <div style={{ flex: 2 }}>
+                      {errors.valor && <div className="form-error">{errors.valor}</div>}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      {errors.data && <div className="form-error">{errors.data}</div>}
+                    </div>
+                  </div>
+                )}
                 
                 {/* Descrição */}
                 <div className={`form-field ${errors.descricao ? 'error' : ''}`}>
@@ -487,9 +495,6 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                         disabled={!formData.categoria || submitting}
                         className="form-input"
                         autoComplete="off"
-                        style={{
-                          backgroundColor: !formData.categoria ? '#f9fafb' : 'transparent'
-                        }}
                       />
                       <ChevronDown size={16} className="form-select-arrow" />
                       
