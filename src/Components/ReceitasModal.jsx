@@ -19,10 +19,10 @@ import './ModalForm.css';
 
 /**
  * Modal para lançamento de receitas
- * Versão completamente nova com design limpo e otimizado
+ * Design limpo e compacto
  */
 const ReceitasModal = ({ isOpen, onClose }) => {
-  // Referências para campos
+  // Referências
   const valorInputRef = useRef(null);
   const categoriaInputRef = useRef(null);
   const subcategoriaInputRef = useRef(null);
@@ -63,10 +63,10 @@ const ReceitasModal = ({ isOpen, onClose }) => {
   const [categoriasFiltradas, setCategoriasFiltradas] = useState([]);
   const [subcategoriasFiltradas, setSubcategoriasFiltradas] = useState([]);
   
-  // Estados para confirmação de criação
+  // Estados para confirmação
   const [confirmacao, setConfirmacao] = useState({
     show: false,
-    type: '', // 'categoria' ou 'subcategoria'
+    type: '',
     nome: '',
     categoriaId: ''
   });
@@ -80,7 +80,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
   // Categoria selecionada
   const categoriaSelecionada = categoriasReceita.find(cat => cat.id === formData.categoria);
   
-  // Efeito para filtrar categorias
+  // Efeitos para filtros
   useEffect(() => {
     if (formData.categoriaTexto) {
       const filtradas = categoriasReceita.filter(cat =>
@@ -92,7 +92,6 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     }
   }, [formData.categoriaTexto, categoriasReceita]);
   
-  // Efeito para filtrar subcategorias
   useEffect(() => {
     if (categoriaSelecionada && formData.subcategoriaTexto) {
       const filtradas = (categoriaSelecionada.subcategorias || []).filter(sub =>
@@ -106,7 +105,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     }
   }, [formData.subcategoriaTexto, categoriaSelecionada]);
   
-  // Efeito para reset e foco
+  // Reset e foco
   useEffect(() => {
     if (isOpen) {
       resetForm();
@@ -116,7 +115,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     }
   }, [isOpen]);
   
-  // Função para mostrar feedback
+  // Funções auxiliares
   const showFeedback = (message, type = 'success') => {
     setFeedback({ visible: true, message, type });
     setTimeout(() => {
@@ -124,18 +123,15 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     }, 3000);
   };
   
-  // Handler para mudanças normais nos inputs
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     
-    // Limpar erro se existir
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: null }));
     }
   };
   
-  // Handler para mudança no valor
   const handleValorChange = (value) => {
     setFormData(prev => ({ ...prev, valor: value }));
     if (errors.valor) {
@@ -143,7 +139,6 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     }
   };
   
-  // Handler para mudança na categoria
   const handleCategoriaChange = (e) => {
     const { value } = e.target;
     setFormData(prev => ({
@@ -155,13 +150,11 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     }));
     
     setCategoriaDropdownOpen(true);
-    
     if (errors.categoria) {
       setErrors(prev => ({ ...prev, categoria: null }));
     }
   };
   
-  // Handler para seleção de categoria
   const handleSelecionarCategoria = (categoria) => {
     setFormData(prev => ({
       ...prev,
@@ -172,13 +165,11 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     }));
     
     setCategoriaDropdownOpen(false);
-    
     setTimeout(() => {
       subcategoriaInputRef.current?.focus();
     }, 100);
   };
   
-  // Handler para blur da categoria
   const handleCategoriaBlur = () => {
     setTimeout(() => {
       setCategoriaDropdownOpen(false);
@@ -200,7 +191,6 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     }, 200);
   };
   
-  // Handler para mudança na subcategoria
   const handleSubcategoriaChange = (e) => {
     const { value } = e.target;
     setFormData(prev => ({
@@ -212,13 +202,8 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     if (categoriaSelecionada) {
       setSubcategoriaDropdownOpen(true);
     }
-    
-    if (errors.subcategoria) {
-      setErrors(prev => ({ ...prev, subcategoria: null }));
-    }
   };
   
-  // Handler para seleção de subcategoria
   const handleSelecionarSubcategoria = (subcategoria) => {
     setFormData(prev => ({
       ...prev,
@@ -229,7 +214,6 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     setSubcategoriaDropdownOpen(false);
   };
   
-  // Handler para blur da subcategoria
   const handleSubcategoriaBlur = () => {
     setTimeout(() => {
       setSubcategoriaDropdownOpen(false);
@@ -251,17 +235,14 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     }, 200);
   };
   
-  // Handler para confirmar criação
   const handleConfirmarCriacao = async () => {
     try {
       if (confirmacao.type === 'categoria') {
-        const novaCategoria = {
+        const result = await addCategoria({
           nome: confirmacao.nome,
           tipo: 'receita',
           cor: '#10B981'
-        };
-        
-        const result = await addCategoria(novaCategoria);
+        });
         
         if (result.success) {
           setFormData(prev => ({
@@ -270,9 +251,9 @@ const ReceitasModal = ({ isOpen, onClose }) => {
             categoriaTexto: result.data.nome
           }));
           
-          showFeedback(`Categoria "${confirmacao.nome}" criada com sucesso!`);
+          showFeedback(`Categoria "${confirmacao.nome}" criada!`);
         } else {
-          showFeedback('Erro ao criar categoria. Tente novamente.', 'error');
+          showFeedback('Erro ao criar categoria.', 'error');
         }
       } else if (confirmacao.type === 'subcategoria') {
         const result = await addSubcategoria(confirmacao.categoriaId, {
@@ -286,25 +267,18 @@ const ReceitasModal = ({ isOpen, onClose }) => {
             subcategoriaTexto: result.data.nome
           }));
           
-          showFeedback(`Subcategoria "${confirmacao.nome}" criada com sucesso!`);
+          showFeedback(`Subcategoria "${confirmacao.nome}" criada!`);
         } else {
-          showFeedback('Erro ao criar subcategoria. Tente novamente.', 'error');
+          showFeedback('Erro ao criar subcategoria.', 'error');
         }
       }
     } catch (error) {
-      console.error('Erro ao criar:', error);
-      showFeedback('Erro inesperado. Tente novamente.', 'error');
+      showFeedback('Erro inesperado.', 'error');
     }
     
     setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
   };
   
-  // Handler para cancelar confirmação
-  const handleCancelarConfirmacao = () => {
-    setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
-  };
-  
-  // Validação do formulário
   const validateForm = () => {
     const newErrors = {};
     
@@ -323,15 +297,11 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     if (!formData.contaDeposito) {
       newErrors.contaDeposito = "Conta é obrigatória";
     }
-    if (formData.observacoes.length > 300) {
-      newErrors.observacoes = "Máximo de 300 caracteres";
-    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
   
-  // Handler para submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -364,14 +334,12 @@ const ReceitasModal = ({ isOpen, onClose }) => {
       }, 1500);
       
     } catch (error) {
-      console.error('Erro ao salvar receita:', error);
-      showFeedback('Erro ao salvar receita. Tente novamente.', 'error');
+      showFeedback('Erro ao salvar receita.', 'error');
     } finally {
       setSubmitting(false);
     }
   };
   
-  // Função para resetar formulário
   const resetForm = () => {
     setFormData({
       valor: 0,
@@ -391,7 +359,6 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
   };
   
-  // Se não estiver aberto, não renderiza
   if (!isOpen) return null;
   
   return (
@@ -400,11 +367,8 @@ const ReceitasModal = ({ isOpen, onClose }) => {
         <div className="modal-form-container">
           {/* Cabeçalho */}
           <div className="modal-form-header">
-            <h2 className="modal-form-title">
-              <TrendingUp size={20} style={{ color: '#10b981' }} />
-              Lançamento de Receitas
-            </h2>
-            <button className="modal-form-close" onClick={onClose} aria-label="Fechar">
+            <h2 className="modal-form-title">Lançamento de Receitas</h2>
+            <button className="modal-form-close" onClick={onClose}>
               <X size={20} />
             </button>
           </div>
@@ -426,223 +390,164 @@ const ReceitasModal = ({ isOpen, onClose }) => {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="modal-form">
-                {/* Linha 1: Valor e Data */}
+                {/* Valor e Data */}
                 <div className="form-row">
-                  <div className="form-field" style={{ flex: 2 }}>
-                    <label className="form-label">
-                      <DollarSign size={16} />
-                      Valor <span className="required">*</span>
-                    </label>
-                    <div className={`form-input-container ${errors.valor ? 'error' : ''}`}>
-                      <InputMoney
-                        ref={valorInputRef}
-                        value={formData.valor}
-                        onChange={handleValorChange}
-                        placeholder="R$ 0,00"
-                        disabled={submitting}
-                        className="form-input"
-                        style={{ 
-                          fontSize: '1.1rem', 
-                          fontWeight: '600',
-                          color: '#10b981'
-                        }}
-                      />
-                    </div>
-                    {errors.valor && <div className="form-error">{errors.valor}</div>}
+                  <div className={`form-field ${errors.valor ? 'error' : ''}`} style={{ flex: 2 }}>
+                    <DollarSign size={18} className="form-icon" />
+                    <InputMoney
+                      ref={valorInputRef}
+                      value={formData.valor}
+                      onChange={handleValorChange}
+                      placeholder="Valor *"
+                      disabled={submitting}
+                      className="form-input valor"
+                    />
                   </div>
                   
-                  <div className="form-field">
-                    <label className="form-label">
-                      <Calendar size={16} />
-                      Data <span className="required">*</span>
-                    </label>
-                    <div className={`form-input-container ${errors.data ? 'error' : ''}`}>
-                      <input
-                        type="date"
-                        name="data"
-                        value={formData.data}
-                        onChange={handleInputChange}
-                        disabled={submitting}
-                        className="form-input"
-                      />
-                    </div>
-                    {errors.data && <div className="form-error">{errors.data}</div>}
-                  </div>
-                </div>
-                
-                {/* Linha 2: Descrição */}
-                <div className="form-field">
-                  <label className="form-label">
-                    <FileText size={16} />
-                    Descrição <span className="required">*</span>
-                  </label>
-                  <div className={`form-input-container ${errors.descricao ? 'error' : ''}`}>
-                    <FileText size={16} className="form-icon" />
+                  <div className={`form-field ${errors.data ? 'error' : ''}`}>
+                    <Calendar size={18} className="form-icon" />
                     <input
-                      type="text"
-                      name="descricao"
-                      value={formData.descricao}
+                      type="date"
+                      name="data"
+                      value={formData.data}
                       onChange={handleInputChange}
-                      placeholder="Ex: Pagamento projeto XPTO"
                       disabled={submitting}
                       className="form-input"
                     />
                   </div>
-                  {errors.descricao && <div className="form-error">{errors.descricao}</div>}
                 </div>
+                {errors.valor && <div className="form-error">{errors.valor}</div>}
+                {errors.data && <div className="form-error">{errors.data}</div>}
                 
-                {/* Linha 3: Categoria e Subcategoria */}
+                {/* Descrição */}
+                <div className={`form-field ${errors.descricao ? 'error' : ''}`}>
+                  <FileText size={18} className="form-icon" />
+                  <input
+                    type="text"
+                    name="descricao"
+                    value={formData.descricao}
+                    onChange={handleInputChange}
+                    placeholder="Descrição *"
+                    disabled={submitting}
+                    className="form-input"
+                  />
+                </div>
+                {errors.descricao && <div className="form-error">{errors.descricao}</div>}
+                
+                {/* Categoria e Subcategoria */}
                 <div className="form-row">
-                  <div className="form-field">
-                    <label className="form-label">
-                      <Tag size={16} />
-                      Categoria <span className="required">*</span>
-                    </label>
-                    <div className={`form-input-container ${errors.categoria ? 'error' : ''}`}>
-                      <Tag size={16} className="form-icon" />
-                      <div className="form-dropdown-wrapper">
-                        <input
-                          ref={categoriaInputRef}
-                          type="text"
-                          value={formData.categoriaTexto}
-                          onChange={handleCategoriaChange}
-                          onBlur={handleCategoriaBlur}
-                          onFocus={() => setCategoriaDropdownOpen(true)}
-                          placeholder="Digite ou selecione uma categoria"
-                          disabled={submitting}
-                          className="form-input"
-                          autoComplete="off"
-                        />
-                        <ChevronDown size={16} className="form-select-arrow" />
-                        
-                        {/* Dropdown de categorias */}
-                        {categoriaDropdownOpen && categoriasFiltradas.length > 0 && (
-                          <div className="form-dropdown-options">
-                            {categoriasFiltradas.map(categoria => (
-                              <div
-                                key={categoria.id}
-                                className="form-dropdown-option"
-                                onMouseDown={() => handleSelecionarCategoria(categoria)}
-                              >
-                                <div 
-                                  className="category-color"
-                                  style={{ backgroundColor: categoria.cor }}
-                                ></div>
-                                {categoria.nome}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                  <div className={`form-field ${errors.categoria ? 'error' : ''}`}>
+                    <Tag size={18} className="form-icon" />
+                    <div className="form-dropdown-wrapper">
+                      <input
+                        ref={categoriaInputRef}
+                        type="text"
+                        value={formData.categoriaTexto}
+                        onChange={handleCategoriaChange}
+                        onBlur={handleCategoriaBlur}
+                        onFocus={() => setCategoriaDropdownOpen(true)}
+                        placeholder="Categoria *"
+                        disabled={submitting}
+                        className="form-input"
+                        autoComplete="off"
+                      />
+                      <ChevronDown size={16} className="form-select-arrow" />
+                      
+                      {categoriaDropdownOpen && categoriasFiltradas.length > 0 && (
+                        <div className="form-dropdown-options">
+                          {categoriasFiltradas.map(categoria => (
+                            <div
+                              key={categoria.id}
+                              className="form-dropdown-option"
+                              onMouseDown={() => handleSelecionarCategoria(categoria)}
+                            >
+                              <div 
+                                className="category-color"
+                                style={{ backgroundColor: categoria.cor }}
+                              ></div>
+                              {categoria.nome}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    {errors.categoria && <div className="form-error">{errors.categoria}</div>}
                   </div>
                   
                   <div className="form-field">
-                    <label className="form-label">
-                      <Tag size={16} />
-                      Subcategoria (opcional)
-                    </label>
-                    <div className={`form-input-container ${errors.subcategoria ? 'error' : ''}`}>
-                      <Tag size={16} className="form-icon" />
-                      <div className="form-dropdown-wrapper">
-                        <input
-                          ref={subcategoriaInputRef}
-                          type="text"
-                          value={formData.subcategoriaTexto}
-                          onChange={handleSubcategoriaChange}
-                          onBlur={handleSubcategoriaBlur}
-                          onFocus={() => categoriaSelecionada && setSubcategoriaDropdownOpen(true)}
-                          placeholder={!formData.categoria ? "Selecione categoria primeiro" : "Digite ou selecione"}
-                          disabled={!formData.categoria || submitting}
-                          className="form-input"
-                          autoComplete="off"
-                          style={{
-                            backgroundColor: !formData.categoria ? '#f9fafb' : 'transparent'
-                          }}
-                        />
-                        <ChevronDown size={16} className="form-select-arrow" />
-                        
-                        {/* Dropdown de subcategorias */}
-                        {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
-                          <div className="form-dropdown-options">
-                            {subcategoriasFiltradas.map(subcategoria => (
-                              <div
-                                key={subcategoria.id}
-                                className="form-dropdown-option"
-                                onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
-                              >
-                                {subcategoria.nome}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                    <Tag size={18} className="form-icon" />
+                    <div className="form-dropdown-wrapper">
+                      <input
+                        ref={subcategoriaInputRef}
+                        type="text"
+                        value={formData.subcategoriaTexto}
+                        onChange={handleSubcategoriaChange}
+                        onBlur={handleSubcategoriaBlur}
+                        onFocus={() => categoriaSelecionada && setSubcategoriaDropdownOpen(true)}
+                        placeholder={!formData.categoria ? "Escolha categoria primeiro" : "Subcategoria (opcional)"}
+                        disabled={!formData.categoria || submitting}
+                        className="form-input"
+                        autoComplete="off"
+                        style={{
+                          backgroundColor: !formData.categoria ? '#f9fafb' : 'transparent'
+                        }}
+                      />
+                      <ChevronDown size={16} className="form-select-arrow" />
+                      
+                      {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
+                        <div className="form-dropdown-options">
+                          {subcategoriasFiltradas.map(subcategoria => (
+                            <div
+                              key={subcategoria.id}
+                              className="form-dropdown-option"
+                              onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
+                            >
+                              {subcategoria.nome}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    {errors.subcategoria && <div className="form-error">{errors.subcategoria}</div>}
                   </div>
                 </div>
+                {errors.categoria && <div className="form-error">{errors.categoria}</div>}
                 
-                {/* Linha 4: Conta de Depósito */}
+                {/* Conta */}
+                <div className={`form-field ${errors.contaDeposito ? 'error' : ''}`}>
+                  <Building size={18} className="form-icon" />
+                  <select
+                    name="contaDeposito"
+                    value={formData.contaDeposito}
+                    onChange={handleInputChange}
+                    disabled={submitting}
+                    className="form-input form-select"
+                  >
+                    <option value="">Conta de depósito *</option>
+                    {contas.map(conta => (
+                      <option key={conta.id} value={conta.id}>
+                        {conta.nome}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={16} className="form-select-arrow" />
+                </div>
+                {errors.contaDeposito && <div className="form-error">{errors.contaDeposito}</div>}
+                
+                {/* Observações */}
                 <div className="form-field">
-                  <label className="form-label">
-                    <Building size={16} />
-                    Conta de Depósito <span className="required">*</span>
-                  </label>
-                  <div className={`form-input-container ${errors.contaDeposito ? 'error' : ''}`}>
-                    <Building size={16} className="form-icon" />
-                    <select
-                      name="contaDeposito"
-                      value={formData.contaDeposito}
-                      onChange={handleInputChange}
-                      disabled={submitting}
-                      className="form-input form-select"
-                    >
-                      <option value="">Selecione uma conta</option>
-                      {contas.map(conta => (
-                        <option key={conta.id} value={conta.id}>
-                          {conta.nome}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={16} className="form-select-arrow" />
-                  </div>
-                  {errors.contaDeposito && <div className="form-error">{errors.contaDeposito}</div>}
+                  <MessageSquare size={18} className="form-icon" />
+                  <textarea
+                    name="observacoes"
+                    value={formData.observacoes}
+                    onChange={handleInputChange}
+                    placeholder="Observações (opcional)"
+                    rows="2"
+                    disabled={submitting}
+                    className="form-input form-textarea"
+                    maxLength="300"
+                  />
                 </div>
                 
-                {/* Linha 5: Observações */}
-                <div className="form-field">
-                  <label className="form-label">
-                    <MessageSquare size={16} />
-                    Observações (opcional)
-                  </label>
-                  <div className={`form-input-container ${errors.observacoes ? 'error' : ''}`}>
-                    <MessageSquare size={16} className="form-icon" />
-                    <textarea
-                      name="observacoes"
-                      value={formData.observacoes}
-                      onChange={handleInputChange}
-                      placeholder="Adicione informações extras sobre esta receita"
-                      rows="3"
-                      disabled={submitting}
-                      className="form-input form-textarea"
-                      maxLength="300"
-                    />
-                  </div>
-                  {formData.observacoes.length > 0 && (
-                    <div style={{ 
-                      fontSize: '0.75rem', 
-                      color: '#6b7280', 
-                      textAlign: 'right',
-                      marginTop: '4px'
-                    }}>
-                      {formData.observacoes.length}/300
-                    </div>
-                  )}
-                  {errors.observacoes && <div className="form-error">{errors.observacoes}</div>}
-                </div>
-                
-                {/* Ações do formulário */}
+                {/* Ações */}
                 <div className="form-actions">
                   <button
                     type="button"
@@ -658,7 +563,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="form-btn form-btn-primary"
+                    className="form-btn form-btn-primary receita"
                   >
                     {submitting ? (
                       <>
@@ -693,12 +598,12 @@ const ReceitasModal = ({ isOpen, onClose }) => {
             <div className="confirmation-actions">
               <button 
                 className="form-btn form-btn-secondary"
-                onClick={handleCancelarConfirmacao}
+                onClick={() => setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' })}
               >
                 Cancelar
               </button>
               <button 
-                className="form-btn form-btn-primary"
+                className="form-btn form-btn-primary receita"
                 onClick={handleConfirmarCriacao}
               >
                 Criar {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
