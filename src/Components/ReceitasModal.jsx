@@ -18,8 +18,8 @@ import useContas from '../hooks/useContas';
 import './ModalForm.css';
 
 /**
- * Modal para lançamento de receitas
- * Design limpo e compacto
+ * Modal moderno para lançamento de receitas
+ * Design clean sem labels, apenas placeholders e ícones
  */
 const ReceitasModal = ({ isOpen, onClose }) => {
   // Referências
@@ -365,9 +365,12 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     <>
       <div className="modal-form-overlay">
         <div className="modal-form-container">
-          {/* Cabeçalho */}
+          {/* Cabeçalho limpo */}
           <div className="modal-form-header">
-            <h2 className="modal-form-title">Lançamento de Receitas</h2>
+            <h2 className="modal-form-title">
+              <TrendingUp size={20} style={{ color: '#10b981' }} />
+              Lançamento de Receitas
+            </h2>
             <button className="modal-form-close" onClick={onClose}>
               <X size={20} />
             </button>
@@ -390,7 +393,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="modal-form">
-                {/* Valor e Data */}
+                {/* Valor e Data - lado a lado */}
                 <div className="form-row">
                   <div className={`form-field ${errors.valor ? 'error' : ''}`} style={{ flex: 2 }}>
                     <DollarSign size={18} className="form-icon" />
@@ -398,7 +401,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                       ref={valorInputRef}
                       value={formData.valor}
                       onChange={handleValorChange}
-                      placeholder="Valor *"
+                      placeholder="Valor da receita"
                       disabled={submitting}
                       className="form-input valor"
                     />
@@ -416,8 +419,10 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                     />
                   </div>
                 </div>
+                
+                {/* Mostrar erros de valor e data */}
                 {(errors.valor || errors.data) && (
-                  <div style={{ display: 'flex', gap: '12px' }}>
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '-12px' }}>
                     <div style={{ flex: 2 }}>
                       {errors.valor && <div className="form-error">{errors.valor}</div>}
                     </div>
@@ -435,12 +440,12 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                     name="descricao"
                     value={formData.descricao}
                     onChange={handleInputChange}
-                    placeholder="Descrição *"
+                    placeholder="Descrição da receita"
                     disabled={submitting}
                     className="form-input"
                   />
                 </div>
-                {errors.descricao && <div className="form-error">{errors.descricao}</div>}
+                {errors.descricao && <div className="form-error" style={{ marginTop: '-12px' }}>{errors.descricao}</div>}
                 
                 {/* Categoria e Subcategoria */}
                 <div className="form-row">
@@ -454,7 +459,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                         onChange={handleCategoriaChange}
                         onBlur={handleCategoriaBlur}
                         onFocus={() => setCategoriaDropdownOpen(true)}
-                        placeholder="Categoria *"
+                        placeholder="Categoria"
                         disabled={submitting}
                         className="form-input"
                         autoComplete="off"
@@ -514,7 +519,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                     </div>
                   </div>
                 </div>
-                {errors.categoria && <div className="form-error">{errors.categoria}</div>}
+                {errors.categoria && <div className="form-error" style={{ marginTop: '-12px' }}>{errors.categoria}</div>}
                 
                 {/* Conta */}
                 <div className={`form-field ${errors.contaDeposito ? 'error' : ''}`}>
@@ -526,7 +531,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                     disabled={submitting}
                     className="form-input form-select"
                   >
-                    <option value="">Conta de depósito *</option>
+                    <option value="">Conta de depósito</option>
                     {contas.map(conta => (
                       <option key={conta.id} value={conta.id}>
                         {conta.nome}
@@ -535,7 +540,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                   </select>
                   <ChevronDown size={16} className="form-select-arrow" />
                 </div>
-                {errors.contaDeposito && <div className="form-error">{errors.contaDeposito}</div>}
+                {errors.contaDeposito && <div className="form-error" style={{ marginTop: '-12px' }}>{errors.contaDeposito}</div>}
                 
                 {/* Observações */}
                 <div className="form-field">
