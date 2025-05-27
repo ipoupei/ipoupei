@@ -5,15 +5,8 @@ import './CategoriasModal.css';
 
 /**
  * Modal para gerenciamento de categorias e subcategorias
+ * Versão corrigida com funcionalidades completas de subcategorias
  */
-
-// Botão temporário para criar categorias padrão
-const criarCategoriasPadrao = async () => {
-  // Código para criar categorias
-  console.log('Criando categorias padrão...');
-};
-
-
 const CategoriasModal = ({ isOpen, onClose }) => {
   // Obter dados das categorias do hook existente
   const { 
@@ -43,6 +36,9 @@ const CategoriasModal = ({ isOpen, onClose }) => {
   const [editandoCategoria, setEditandoCategoria] = useState(null);
   const [editandoSubcategoria, setEditandoSubcategoria] = useState(null);
   
+  // Estados para feedback
+  const [feedback, setFeedback] = useState({ show: false, message: '', type: '' });
+  
   // Cores predefinidas para seleção
   const coresPredefinidas = [
     '#FF5733', // Vermelho
@@ -56,6 +52,14 @@ const CategoriasModal = ({ isOpen, onClose }) => {
     '#FF8333', // Laranja
     '#337DFF'  // Azul escuro
   ];
+  
+  // Função para mostrar feedback
+  const showFeedback = (message, type = 'success') => {
+    setFeedback({ show: true, message, type });
+    setTimeout(() => {
+      setFeedback({ show: false, message: '', type: '' });
+    }, 3000);
+  };
   
   // Função para resetar formulários
   const resetarFormularios = () => {
@@ -138,69 +142,131 @@ const CategoriasModal = ({ isOpen, onClose }) => {
   };
   
   // Salvar categoria (nova ou editada)
-  const handleSalvarCategoria = () => {
+  const handleSalvarCategoria = async () => {
     if (!novaCategoriaNome.trim()) {
-      alert('O nome da categoria é obrigatório');
+      showFeedback('O nome da categoria é obrigatório', 'error');
       return;
     }
     
-    if (editandoCategoria) {
-      // Atualizar categoria existente
-      updateCategoria(editandoCategoria.id, {
-        nome: novaCategoriaNome,
-        cor: novaCategoriaColor
-      });
-    } else {
-      // Adicionar nova categoria
-      addCategoria({
-        nome: novaCategoriaNome,
-        tipo: tipoAtual,
-        cor: novaCategoriaColor
-      });
+    try {
+      let result;
+      
+      if (editandoCategoria) {
+        // Atualizar categoria existente
+        result = await updateCategoria(editandoCategoria.id, {
+          nome: novaCategoriaNome.trim(),
+          cor: novaCategoriaColor
+        });
+      } else {
+        // Adicionar nova categoria
+        result = await addCategoria({
+          nome: novaCategoriaNome.trim(),
+          tipo: tipoAtual,
+          cor: novaCategoriaColor
+        });
+      }
+      
+      if (result.success) {
+        showFeedback(
+          editandoCategoria ? 'Categoria atualizada com sucesso!' : 'Categoria adicionada com sucesso!',
+          'success'
+        );
+        resetarFormularios();
+      } else {
+        throw new Error(result.error || 'Erro ao salvar categoria');
+      }
+    } catch (err) {
+      console.error('Erro ao salvar categoria:', err);
+      showFeedback(`Erro ao ${editandoCategoria ? 'atualizar' : 'adicionar'} categoria: ${err.message}`, 'error');
     }
-    
-    resetarFormularios();
   };
   
   // Salvar subcategoria (nova ou editada)
-  const handleSalvarSubcategoria = () => {
+  const handleSalvarSubcategoria = async () => {
     if (!novaSubcategoriaNome.trim()) {
-      alert('O nome da subcategoria é obrigatório');
+      showFeedback('O nome da subcategoria é obrigatório', 'error');
       return;
     }
     
-    if (editandoSubcategoria) {
-      // Atualizar subcategoria existente
-      updateSubcategoria(
-        categoriaSelecionada, 
-        editandoSubcategoria.id, 
-        { nome: novaSubcategoriaNome }
-      );
-    } else {
-      // Adicionar nova subcategoria
-      addSubcategoria(
-        categoriaSelecionada, 
-        { nome: novaSubcategoriaNome }
-      );
+    if (!categoriaSelecionada) {
+      showFeedback('Erro: Categoria não selecionada', 'error');
+      return;
     }
     
-    resetarFormularios();
+    try {
+      let result;
+      
+      if (editandoSubcategoria) {
+        // Atualizar subcategoria existente
+        result = await updateSubcategoria(
+          categoriaSelecionada, 
+          editandoSubcategoria.id, 
+          { nome: novaSubcategoriaNome.trim() }
+        );
+      } else {
+        // Adicionar nova subcategoria
+        result = await addSubcategoria(
+          categoriaSelecionada, 
+          { nome: novaSubcategoriaNome.trim() }
+        );
+      }
+      
+      if (result.success) {
+        showFeedback(
+          editandoSubcategoria ? 'Subcategoria atualizada com sucesso!' : 'Subcategoria adicionada com sucesso!',
+          'success'
+        );
+        resetarFormularios();
+      } else {
+        throw new Error(result.error || 'Erro ao salvar subcategoria');
+      }
+    } catch (err) {
+      console.error('Erro ao salvar subcategoria:', err);
+      showFeedback(`Erro ao ${editandoSubcategoria ? 'atualizar' : 'adicionar'} subcategoria: ${err.message}`, 'error');
+    }
   };
   
   // Handler para excluir categoria
-  const handleExcluirCategoria = (categoriaId) => {
-    if (window.confirm('Tem certeza que deseja excluir esta categoria?')) {
-      deleteCategoria(categoriaId);
-      if (categoriaId === categoriaSelecionada) {
-        setCategoriaSelecionada(null);
+  const handleExcluirCategoria = async (categoriaId) => {
+    if (!window.confirm('Tem certeza que deseja excluir esta categoria? Esta ação afetará todas as subcategorias e transações relacionadas.')) {
+      return;
+    }
+    
+    try {
+      const result = await deleteCategoria(categoriaId);
+      
+      if (result.success) {
+        showFeedback('Categoria excluída com sucesso!', 'success');
+        if (categoriaId === categoriaSelecionada) {
+          setCategoriaSelecionada(null);
+        }
+        resetarFormularios();
+      } else {
+        throw new Error(result.error || 'Erro ao excluir categoria');
       }
+    } catch (err) {
+      console.error('Erro ao excluir categoria:', err);
+      showFeedback(`Erro ao excluir categoria: ${err.message}`, 'error');
     }
   };
   
   // Handler para excluir subcategoria
-  const handleExcluirSubcategoria = (categoriaId, subcategoriaId) => {
-    if (window.confirm('Tem certeza que deseja excluir esta subcategoria?')) {
-      deleteSubcategoria(categoriaId, subcategoriaId);
+  const handleExcluirSubcategoria = async (categoriaId, subcategoriaId) => {
+    if (!window.confirm('Tem certeza que deseja excluir esta subcategoria? Esta ação afetará todas as transações relacionadas.')) {
+      return;
+    }
+    
+    try {
+      const result = await deleteSubcategoria(categoriaId, subcategoriaId);
+      
+      if (result.success) {
+        showFeedback('Subcategoria excluída com sucesso!', 'success');
+      } else {
+        throw new Error(result.error || 'Erro ao excluir subcategoria');
+      }
+    } catch (err) {
+      console.error('Erro ao excluir subcategoria:', err);
+      showFeedback(`Erro ao excluir subcategoria: ${err.message}`, 'error');
     }
   };
   
@@ -259,8 +325,9 @@ const CategoriasModal = ({ isOpen, onClose }) => {
             type="button" 
             className="button primary"
             onClick={handleSalvarCategoria}
+            disabled={loading}
           >
-            {editandoCategoria ? 'Atualizar' : 'Salvar'}
+            {loading ? 'Salvando...' : (editandoCategoria ? 'Atualizar' : 'Salvar')}
           </button>
         </div>
       </div>
@@ -304,8 +371,9 @@ const CategoriasModal = ({ isOpen, onClose }) => {
             type="button" 
             className="button primary"
             onClick={handleSalvarSubcategoria}
+            disabled={loading}
           >
-            {editandoSubcategoria ? 'Atualizar' : 'Salvar'}
+            {loading ? 'Salvando...' : (editandoSubcategoria ? 'Atualizar' : 'Salvar')}
           </button>
         </div>
       </div>
@@ -339,14 +407,16 @@ const CategoriasModal = ({ isOpen, onClose }) => {
             <button 
               className="button-small edit-button"
               onClick={() => handleEditarCategoria(categoria)}
+              title="Editar categoria"
             >
-              Editar
+              ✏️
             </button>
             <button 
               className="button-small delete-button"
               onClick={() => handleExcluirCategoria(categoria.id)}
+              title="Excluir categoria"
             >
-              Excluir
+              🗑️
             </button>
           </div>
         </div>
@@ -359,8 +429,9 @@ const CategoriasModal = ({ isOpen, onClose }) => {
               <button 
                 className="button-small add-button"
                 onClick={() => handleNovaSubcategoria(categoria.id)}
+                title="Adicionar subcategoria"
               >
-                Nova Subcategoria
+                ➕ Nova Subcategoria
               </button>
             </div>
             
@@ -373,14 +444,16 @@ const CategoriasModal = ({ isOpen, onClose }) => {
                       <button 
                         className="button-small edit-button"
                         onClick={() => handleEditarSubcategoria(categoria.id, subcategoria)}
+                        title="Editar subcategoria"
                       >
-                        Editar
+                        ✏️
                       </button>
                       <button 
                         className="button-small delete-button"
                         onClick={() => handleExcluirSubcategoria(categoria.id, subcategoria.id)}
+                        title="Excluir subcategoria"
                       >
-                        Excluir
+                        🗑️
                       </button>
                     </div>
                   </div>
@@ -389,6 +462,12 @@ const CategoriasModal = ({ isOpen, onClose }) => {
             ) : (
               <div className="subcategorias-empty">
                 <p>Nenhuma subcategoria encontrada.</p>
+                <button 
+                  className="button-small primary"
+                  onClick={() => handleNovaSubcategoria(categoria.id)}
+                >
+                  ➕ Criar primeira subcategoria
+                </button>
               </div>
             )}
           </div>
@@ -403,9 +482,16 @@ const CategoriasModal = ({ isOpen, onClose }) => {
         <div className="modal-header">
           <h2>Gestão de categorias e subcategorias</h2>
           <button className="close-button" onClick={onClose}>
-            X
+            ✕
           </button>
         </div>
+
+        {/* Feedback de sucesso/erro */}
+        {feedback.show && (
+          <div className={`feedback-message ${feedback.type}`}>
+            {feedback.message}
+          </div>
+        )}
 
         <div className="tipo-selector">
           <button 
@@ -429,17 +515,33 @@ const CategoriasModal = ({ isOpen, onClose }) => {
             renderFormSubcategoria()
           ) : (
             <div className="categorias-container">
-              <h3>Categorias</h3>
+              <div className="categorias-header">
+                <h3>Categorias de {tipoAtual === 'despesa' ? 'Despesas' : 'Receitas'}</h3>
+                <p className="categorias-subtitle">
+                  Clique em uma categoria para ver e gerenciar suas subcategorias
+                </p>
+              </div>
               
               {loading ? (
-                <div className="loading">Carregando categorias...</div>
+                <div className="loading">
+                  <div className="loading-spinner"></div>
+                  <p>Carregando categorias...</p>
+                </div>
               ) : categoriasFiltradas.length > 0 ? (
                 <div className="categorias-list">
                   {categoriasFiltradas.map(renderCategoria)}
                 </div>
               ) : (
                 <div className="empty-state">
-                  <p>Você ainda não criou nenhuma categoria. Vamos começar?</p>
+                  <div className="empty-icon">📊</div>
+                  <p>Você ainda não criou nenhuma categoria de {tipoAtual === 'despesa' ? 'despesas' : 'receitas'}.</p>
+                  <p>Vamos começar criando sua primeira categoria?</p>
+                  <button 
+                    className="button primary"
+                    onClick={handleNovaCategoria}
+                  >
+                    ➕ Criar primeira categoria
+                  </button>
                 </div>
               )}
             </div>
@@ -453,10 +555,10 @@ const CategoriasModal = ({ isOpen, onClose }) => {
                 className="button primary"
                 onClick={handleNovaCategoria}
               >
-                Nova Categoria de {tipoAtual === 'despesa' ? 'despesas' : 'receitas'}
+                ➕ Nova Categoria
               </button>
               <button 
-                className="button"
+                className="button secondary"
                 onClick={onClose}
               >
                 Fechar
