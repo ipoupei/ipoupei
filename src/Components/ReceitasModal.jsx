@@ -230,9 +230,9 @@ const ReceitasModal = ({ isOpen, onClose }) => {
             categoriaTexto: result.data.nome
           }));
           
-          showFeedback(`Categoria "${confirmacao.nome}" criada com sucesso!`);
+          showFeedback(`Categoria "${confirmacao.nome}" criada!`);
         } else {
-          showFeedback('Erro ao criar categoria. Tente novamente.', 'error');
+          showFeedback('Erro ao criar categoria.', 'error');
         }
       } else if (confirmacao.type === 'subcategoria') {
         const result = await addSubcategoria(confirmacao.categoriaId, {
@@ -246,14 +246,14 @@ const ReceitasModal = ({ isOpen, onClose }) => {
             subcategoriaTexto: result.data.nome
           }));
           
-          showFeedback(`Subcategoria "${confirmacao.nome}" criada com sucesso!`);
+          showFeedback(`Subcategoria "${confirmacao.nome}" criada!`);
         } else {
-          showFeedback('Erro ao criar subcategoria. Tente novamente.', 'error');
+          showFeedback('Erro ao criar subcategoria.', 'error');
         }
       }
     } catch (error) {
       console.error('Erro ao criar categoria/subcategoria:', error);
-      showFeedback('Erro inesperado. Tente novamente.', 'error');
+      showFeedback('Erro inesperado.', 'error');
     }
     
     setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
@@ -355,136 +355,467 @@ const ReceitasModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
   
   return (
-    <div className="contas-modal-overlay">
-      <div className="contas-modal-container" style={{ maxWidth: '500px' }}>
-        <div className="contas-modal-header">
-          <h2>
-            <TrendingUp size={20} className="icon-header" style={{ color: '#10b981' }} />
-            <span>Lançamento de Receitas</span>
-          </h2>
-          <button className="btn-fechar" onClick={onClose} aria-label="Fechar">
-            <X size={20} />
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000,
+      padding: '16px'
+    }}>
+      <div style={{
+        background: 'white',
+        borderRadius: '16px',
+        width: '100%',
+        maxWidth: '420px',
+        maxHeight: '90vh',
+        overflow: 'hidden',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+      }}>
+        {/* Header compacto */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '16px 20px',
+          borderBottom: '1px solid #f3f4f6'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <TrendingUp size={18} style={{ color: '#10b981' }} />
+            <h2 style={{ 
+              margin: 0, 
+              fontSize: '1.125rem', 
+              fontWeight: '600', 
+              color: '#111827' 
+            }}>
+              Lançamento de Receitas
+            </h2>
+          </div>
+          <button 
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '4px',
+              borderRadius: '6px',
+              color: '#6b7280',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            onMouseEnter={(e) => e.target.style.backgroundColor = '#f3f4f6'}
+            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+          >
+            <X size={18} />
           </button>
         </div>
         
-        <div className="contas-modal-content">
+        {/* Content */}
+        <div style={{ 
+          padding: '20px',
+          overflowY: 'auto',
+          maxHeight: 'calc(90vh - 100px)'
+        }}>
+          {/* Feedback */}
           {feedback.visible && (
-            <div className={`feedback-message ${feedback.type}`}>
-              <span style={{ marginRight: '8px' }}>
-                {feedback.type === 'success' ? '✅' : '❌'}
-              </span>
-              {feedback.message}
+            <div style={{
+              padding: '10px 14px',
+              borderRadius: '8px',
+              marginBottom: '16px',
+              fontSize: '0.875rem',
+              fontWeight: '500',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              backgroundColor: feedback.type === 'success' ? '#dcfce7' : '#fee2e2',
+              color: feedback.type === 'success' ? '#166534' : '#991b1b',
+              border: `1px solid ${feedback.type === 'success' ? '#bbf7d0' : '#fecaca'}`
+            }}>
+              {feedback.type === 'success' ? '✅' : '❌'} {feedback.message}
             </div>
           )}
           
+          {/* Loading */}
           {(categoriasLoading || contasLoading) ? (
-            <div style={{ textAlign: 'center', padding: '40px' }}>
+            <div style={{ textAlign: 'center', padding: '30px' }}>
               <div style={{
-                width: '32px',
-                height: '32px',
+                width: '28px',
+                height: '28px',
                 border: '3px solid #f3f4f6',
                 borderTop: '3px solid #10b981',
                 borderRadius: '50%',
                 animation: 'spin 1s linear infinite',
-                margin: '0 auto 16px'
+                margin: '0 auto 12px'
               }}></div>
-              <p>Carregando dados...</p>
+              <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>
+                Carregando dados...
+              </p>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="conta-form">
-              <h3>Nova Receita</h3>
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Valor e Data - Layout horizontal compacto */}
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ 
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  fontSize: '0.75rem', 
+                  color: '#9ca3af',
+                  marginTop: '4px'
+                }}>
+                  <span></span>
+                  <span>{formData.observacoes.length}/300</span>
+                </div>
+                {errors.observacoes && (
+                  <div style={{ 
+                    fontSize: '0.75rem', 
+                    color: '#ef4444', 
+                    marginTop: '4px' 
+                  }}>
+                    {errors.observacoes}
+                  </div>
+                )}
+              </div>
               
-              <div className="form-row">
-                <div className="form-group" style={{ flex: 2 }}>
-                  <label htmlFor="valor">
-                    <DollarSign size={16} />
+              {/* Botões de ação compactos */}
+              <div style={{ 
+                display: 'flex', 
+                gap: '10px', 
+                marginTop: '8px',
+                paddingTop: '16px',
+                borderTop: '1px solid #f3f4f6'
+              }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetForm();
+                    onClose();
+                  }}
+                  disabled={submitting}
+                  style={{
+                    flex: 1,
+                    padding: '12px 16px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '0.875rem',
+                    fontWeight: '500',
+                    cursor: submitting ? 'not-allowed' : 'pointer',
+                    backgroundColor: 'white',
+                    color: '#6b7280',
+                    opacity: submitting ? 0.6 : 1
+                  }}
+                  onMouseEnter={(e) => !submitting && (e.target.style.borderColor = '#10b981', e.target.style.color = '#10b981')}
+                  onMouseLeave={(e) => !submitting && (e.target.style.borderColor = '#d1d5db', e.target.style.color = '#6b7280')}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  style={{
+                    flex: 2,
+                    padding: '12px 16px',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                    cursor: submitting ? 'not-allowed' : 'pointer',
+                    backgroundColor: '#10b981',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    opacity: submitting ? 0.8 : 1
+                  }}
+                  onMouseEnter={(e) => !submitting && (e.target.style.backgroundColor = '#059669')}
+                  onMouseLeave={(e) => !submitting && (e.target.style.backgroundColor = '#10b981')}
+                >
+                  {submitting ? (
+                    <>
+                      <div style={{
+                        width: '14px',
+                        height: '14px',
+                        border: '2px solid transparent',
+                        borderTop: '2px solid white',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite'
+                      }}></div>
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={14} />
+                      Salvar Receita
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+      
+      {/* Modal de Confirmação */}
+      {confirmacao.show && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1100
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            padding: '20px',
+            maxWidth: '360px',
+            width: '90%',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+          }}>
+            <h3 style={{
+              margin: '0 0 12px 0',
+              fontSize: '1.125rem',
+              fontWeight: '600',
+              color: '#111827'
+            }}>
+              Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
+            </h3>
+            <p style={{
+              margin: '0 0 20px 0',
+              color: '#6b7280',
+              lineHeight: '1.5',
+              fontSize: '0.875rem'
+            }}>
+              {confirmacao.type === 'categoria' ? 'A categoria' : 'A subcategoria'}{' '}
+              <strong>"{confirmacao.nome}"</strong> não existe. Deseja criá-la?
+            </p>
+            <div style={{
+              display: 'flex',
+              gap: '10px',
+              justifyContent: 'flex-end'
+            }}>
+              <button 
+                onClick={() => setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' })}
+                style={{
+                  padding: '8px 16px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  backgroundColor: 'white',
+                  color: '#6b7280'
+                }}
+                onMouseEnter={(e) => (e.target.style.borderColor = '#10b981', e.target.style.color = '#10b981')}
+                onMouseLeave={(e) => (e.target.style.borderColor = '#d1d5db', e.target.style.color = '#6b7280')}
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleConfirmarCriacao}
+                style={{
+                  padding: '8px 16px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '0.875rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  backgroundColor: '#10b981',
+                  color: 'white'
+                }}
+                onMouseEnter={(e) => (e.target.style.backgroundColor = '#059669')}
+                onMouseLeave={(e) => (e.target.style.backgroundColor = '#10b981')}
+              >
+                Criar {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+ReceitasModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired
+};
+
+export default ReceitasModal;={{ flex: '1.5' }}>
+                  <label style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '0.875rem',
+                    fontWeight: '500',
+                    marginBottom: '6px',
+                    color: '#374151'
+                  }}>
+                    <DollarSign size={14} />
                     Valor *
                   </label>
                   <InputMoney
                     ref={valorInputRef}
-                    id="valor"
                     value={formData.valor}
                     onChange={handleValorChange}
                     placeholder="R$ 0,00"
                     disabled={submitting}
                     style={{
-                      borderColor: errors.valor ? '#ef4444' : '#d1d5db',
-                      fontSize: '1.1rem',
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: `1px solid ${errors.valor ? '#ef4444' : '#d1d5db'}`,
+                      borderRadius: '8px',
+                      fontSize: '1rem',
                       fontWeight: '600',
-                      color: '#10b981'
+                      color: '#10b981',
+                      backgroundColor: 'white'
                     }}
                   />
                   {errors.valor && (
-                    <div className="form-error">{errors.valor}</div>
+                    <div style={{ 
+                      fontSize: '0.75rem', 
+                      color: '#ef4444', 
+                      marginTop: '4px' 
+                    }}>
+                      {errors.valor}
+                    </div>
                   )}
                 </div>
                 
-                <div className="form-group">
-                  <label htmlFor="data">
-                    <Calendar size={16} />
+                <div style={{ flex: '1' }}>
+                  <label style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '0.875rem',
+                    fontWeight: '500',
+                    marginBottom: '6px',
+                    color: '#374151'
+                  }}>
+                    <Calendar size={14} />
                     Data *
                   </label>
                   <input
                     type="date"
-                    id="data"
                     name="data"
                     value={formData.data}
                     onChange={handleInputChange}
-                    className={errors.data ? 'error' : ''}
                     disabled={submitting}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: `1px solid ${errors.data ? '#ef4444' : '#d1d5db'}`,
+                      borderRadius: '8px',
+                      fontSize: '0.875rem',
+                      backgroundColor: 'white'
+                    }}
                   />
                   {errors.data && (
-                    <div className="form-error">{errors.data}</div>
+                    <div style={{ 
+                      fontSize: '0.75rem', 
+                      color: '#ef4444', 
+                      marginTop: '4px' 
+                    }}>
+                      {errors.data}
+                    </div>
                   )}
                 </div>
               </div>
               
-              <div className="form-group">
-                <label htmlFor="descricao">
-                  <FileText size={16} />
+              {/* Descrição */}
+              <div>
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  marginBottom: '6px',
+                  color: '#374151'
+                }}>
+                  <FileText size={14} />
                   Descrição *
                 </label>
                 <input
                   type="text"
-                  id="descricao"
                   name="descricao"
                   placeholder="Ex: Salário, Freelance, Rendimentos"
                   value={formData.descricao}
                   onChange={handleInputChange}
-                  className={errors.descricao ? 'error' : ''}
                   disabled={submitting}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: `1px solid ${errors.descricao ? '#ef4444' : '#d1d5db'}`,
+                    borderRadius: '8px',
+                    fontSize: '0.875rem',
+                    backgroundColor: 'white'
+                  }}
                 />
                 {errors.descricao && (
-                  <div className="form-error">{errors.descricao}</div>
+                  <div style={{ 
+                    fontSize: '0.75rem', 
+                    color: '#ef4444', 
+                    marginTop: '4px' 
+                  }}>
+                    {errors.descricao}
+                  </div>
                 )}
               </div>
               
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="categoria">
-                    <Tag size={16} />
+              {/* Categoria e Subcategoria */}
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '0.875rem',
+                    fontWeight: '500',
+                    marginBottom: '6px',
+                    color: '#374151'
+                  }}>
+                    <Tag size={14} />
                     Categoria *
                   </label>
                   <div style={{ position: 'relative' }}>
                     <input
                       ref={categoriaInputRef}
                       type="text"
-                      id="categoria"
                       value={formData.categoriaTexto}
                       onChange={handleCategoriaChange}
                       onBlur={handleCategoriaBlur}
                       onFocus={() => setCategoriaDropdownOpen(true)}
-                      placeholder="Digite ou selecione uma categoria"
-                      className={errors.categoria ? 'error' : ''}
+                      placeholder="Digite ou selecione"
                       disabled={submitting}
                       autoComplete="off"
+                      style={{
+                        width: '100%',
+                        padding: '10px 32px 10px 12px',
+                        border: `1px solid ${errors.categoria ? '#ef4444' : '#d1d5db'}`,
+                        borderRadius: '8px',
+                        fontSize: '0.875rem',
+                        backgroundColor: 'white'
+                      }}
                     />
-                    <Search size={16} style={{
+                    <Search size={14} style={{
                       position: 'absolute',
-                      right: '12px',
+                      right: '10px',
                       top: '50%',
                       transform: 'translateY(-50%)',
-                      color: '#6b7280',
+                      color: '#9ca3af',
                       pointerEvents: 'none'
                     }} />
                     
@@ -498,7 +829,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                         border: '1px solid #d1d5db',
                         borderTop: 'none',
                         borderRadius: '0 0 6px 6px',
-                        maxHeight: '200px',
+                        maxHeight: '160px',
                         overflowY: 'auto',
                         zIndex: 1000,
                         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
@@ -507,20 +838,20 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                           <div
                             key={categoria.id}
                             style={{
-                              padding: '12px 16px',
+                              padding: '8px 12px',
                               cursor: 'pointer',
                               display: 'flex',
                               alignItems: 'center',
                               borderBottom: '1px solid #f3f4f6',
-                              transition: 'background-color 0.2s ease'
+                              fontSize: '0.875rem'
                             }}
                             onMouseDown={() => handleSelecionarCategoria(categoria)}
                             onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
                             onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
                           >
                             <div style={{ 
-                              width: '12px', 
-                              height: '12px', 
+                              width: '10px', 
+                              height: '10px', 
                               borderRadius: '50%',
                               backgroundColor: categoria.cor,
                               marginRight: '8px'
@@ -532,38 +863,55 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                     )}
                   </div>
                   {errors.categoria && (
-                    <div className="form-error">{errors.categoria}</div>
+                    <div style={{ 
+                      fontSize: '0.75rem', 
+                      color: '#ef4444', 
+                      marginTop: '4px' 
+                    }}>
+                      {errors.categoria}
+                    </div>
                   )}
                 </div>
                 
-                <div className="form-group">
-                  <label htmlFor="subcategoria">
-                    <Tag size={16} />
-                    Subcategoria <small>(opcional)</small>
+                <div style={{ flex: 1 }}>
+                  <label style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '0.875rem',
+                    fontWeight: '500',
+                    marginBottom: '6px',
+                    color: '#374151'
+                  }}>
+                    <Tag size={14} />
+                    Subcategoria
                   </label>
                   <div style={{ position: 'relative' }}>
                     <input
                       ref={subcategoriaInputRef}
                       type="text"
-                      id="subcategoria"
                       value={formData.subcategoriaTexto}
                       onChange={handleSubcategoriaChange}
                       onBlur={handleSubcategoriaBlur}
                       onFocus={() => categoriaSelecionada && setSubcategoriaDropdownOpen(true)}
-                      placeholder={!formData.categoria ? "Escolha categoria primeiro" : "Digite ou selecione"}
+                      placeholder={!formData.categoria ? "Escolha categoria" : "Digite ou selecione"}
                       disabled={!formData.categoria || submitting}
-                      className={errors.subcategoria ? 'error' : ''}
+                      autoComplete="off"
                       style={{
+                        width: '100%',
+                        padding: '10px 32px 10px 12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '8px',
+                        fontSize: '0.875rem',
                         backgroundColor: !formData.categoria ? '#f9fafb' : 'white'
                       }}
-                      autoComplete="off"
                     />
-                    <Search size={16} style={{
+                    <Search size={14} style={{
                       position: 'absolute',
-                      right: '12px',
+                      right: '10px',
                       top: '50%',
                       transform: 'translateY(-50%)',
-                      color: '#6b7280',
+                      color: '#9ca3af',
                       pointerEvents: 'none'
                     }} />
                     
@@ -577,7 +925,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                         border: '1px solid #d1d5db',
                         borderTop: 'none',
                         borderRadius: '0 0 6px 6px',
-                        maxHeight: '200px',
+                        maxHeight: '160px',
                         overflowY: 'auto',
                         zIndex: 1000,
                         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
@@ -586,12 +934,10 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                           <div
                             key={subcategoria.id}
                             style={{
-                              padding: '12px 16px',
+                              padding: '8px 12px',
                               cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
                               borderBottom: '1px solid #f3f4f6',
-                              transition: 'background-color 0.2s ease'
+                              fontSize: '0.875rem'
                             }}
                             onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
                             onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
@@ -606,18 +952,33 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                 </div>
               </div>
               
-              <div className="form-group">
-                <label htmlFor="contaDeposito">
-                  <Building size={16} />
+              {/* Conta de Depósito */}
+              <div>
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  marginBottom: '6px',
+                  color: '#374151'
+                }}>
+                  <Building size={14} />
                   Conta de Depósito *
                 </label>
                 <select
-                  id="contaDeposito"
                   name="contaDeposito"
                   value={formData.contaDeposito}
                   onChange={handleInputChange}
-                  className={errors.contaDeposito ? 'error' : ''}
                   disabled={submitting}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: `1px solid ${errors.contaDeposito ? '#ef4444' : '#d1d5db'}`,
+                    borderRadius: '8px',
+                    fontSize: '0.875rem',
+                    backgroundColor: 'white'
+                  }}
                 >
                   <option value="">Selecione uma conta</option>
                   {contas.map(conta => (
@@ -627,18 +988,31 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                   ))}
                 </select>
                 {errors.contaDeposito && (
-                  <div className="form-error">{errors.contaDeposito}</div>
+                  <div style={{ 
+                    fontSize: '0.75rem', 
+                    color: '#ef4444', 
+                    marginTop: '4px' 
+                  }}>
+                    {errors.contaDeposito}
+                  </div>
                 )}
               </div>
               
-              <div className="form-group">
-                <label htmlFor="observacoes">
-                  <MessageSquare size={16} />
-                  Observações
-                  <small>(opcional, máx. 300 caracteres)</small>
+              {/* Observações */}
+              <div>
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  marginBottom: '6px',
+                  color: '#374151'
+                }}>
+                  <MessageSquare size={14} />
+                  Observações <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>(máx. 300)</span>
                 </label>
                 <textarea
-                  id="observacoes"
                   name="observacoes"
                   value={formData.observacoes}
                   onChange={(e) => {
@@ -646,26 +1020,50 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                       handleInputChange(e);
                     }
                   }}
-                  placeholder="Adicione informações extras sobre esta receita"
-                  rows="3"
-                  className={errors.observacoes ? 'error' : ''}
+                  placeholder="Informações extras sobre esta receita"
+                  rows="2"
                   disabled={submitting}
-                  style={{ resize: 'vertical' }}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: `1px solid ${errors.observacoes ? '#ef4444' : '#d1d5db'}`,
+                    borderRadius: '8px',
+                    fontSize: '0.875rem',
+                    backgroundColor: 'white',
+                    resize: 'none',
+                    fontFamily: 'inherit'
+                  }}
                 />
-                <div style={{ 
-                  textAlign: 'right', 
-                  fontSize: '12px', 
-                  color: '#6b7280',
+               <div style={{ 
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  fontSize: '0.75rem', 
+                  color: '#9ca3af',
                   marginTop: '4px'
                 }}>
-                  {formData.observacoes.length}/300
+                  <span></span>
+                  <span>{formData.observacoes.length}/300</span>
                 </div>
                 {errors.observacoes && (
-                  <div className="form-error">{errors.observacoes}</div>
+                  <div style={{ 
+                    fontSize: '0.75rem', 
+                    color: '#ef4444', 
+                    marginTop: '4px' 
+                  }}>
+                    {errors.observacoes}
+                  </div>
                 )}
               </div>
               
-              <div className="form-actions">
+              {/* Botões de ação compactos */}
+              <div style={{ 
+                display: 'flex', 
+                gap: '10px', 
+                marginTop: '8px',
+                paddingTop: '16px',
+                borderTop: '1px solid #f3f4f6'
+              }}>
                 <button
                   type="button"
                   onClick={() => {
@@ -673,21 +1071,50 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                     onClose();
                   }}
                   disabled={submitting}
-                  className="btn-secondary"
+                  style={{
+                    flex: 1,
+                    padding: '12px 16px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '0.875rem',
+                    fontWeight: '500',
+                    cursor: submitting ? 'not-allowed' : 'pointer',
+                    backgroundColor: 'white',
+                    color: '#6b7280',
+                    opacity: submitting ? 0.6 : 1
+                  }}
+                  onMouseEnter={(e) => !submitting && (e.target.style.borderColor = '#10b981', e.target.style.color = '#10b981')}
+                  onMouseLeave={(e) => !submitting && (e.target.style.borderColor = '#d1d5db', e.target.style.color = '#6b7280')}
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="btn-primary"
-                  style={{ backgroundColor: '#10b981' }}
+                  style={{
+                    flex: 2,
+                    padding: '12px 16px',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                    cursor: submitting ? 'not-allowed' : 'pointer',
+                    backgroundColor: '#10b981',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    opacity: submitting ? 0.8 : 1
+                  }}
+                  onMouseEnter={(e) => !submitting && (e.target.style.backgroundColor = '#059669')}
+                  onMouseLeave={(e) => !submitting && (e.target.style.backgroundColor = '#10b981')}
                 >
                   {submitting ? (
                     <>
                       <div style={{
-                        width: '16px',
-                        height: '16px',
+                        width: '14px',
+                        height: '14px',
                         border: '2px solid transparent',
                         borderTop: '2px solid white',
                         borderRadius: '50%',
@@ -697,7 +1124,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                     </>
                   ) : (
                     <>
-                      <Plus size={16} />
+                      <Plus size={14} />
                       Salvar Receita
                     </>
                   )}
@@ -708,6 +1135,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
         </div>
       </div>
       
+      {/* Modal de Confirmação */}
       {confirmacao.show && (
         <div style={{
           position: 'fixed',
@@ -715,7 +1143,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -724,42 +1152,64 @@ const ReceitasModal = ({ isOpen, onClose }) => {
           <div style={{
             background: 'white',
             borderRadius: '12px',
-            padding: '24px',
-            maxWidth: '400px',
+            padding: '20px',
+            maxWidth: '360px',
             width: '90%',
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
           }}>
             <h3 style={{
-              margin: '0 0 16px 0',
-              fontSize: '1.25rem',
+              margin: '0 0 12px 0',
+              fontSize: '1.125rem',
               fontWeight: '600',
               color: '#111827'
             }}>
               Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
             </h3>
             <p style={{
-              margin: '0 0 24px 0',
+              margin: '0 0 20px 0',
               color: '#6b7280',
-              lineHeight: '1.5'
+              lineHeight: '1.5',
+              fontSize: '0.875rem'
             }}>
               {confirmacao.type === 'categoria' ? 'A categoria' : 'A subcategoria'}{' '}
               <strong>"{confirmacao.nome}"</strong> não existe. Deseja criá-la?
             </p>
             <div style={{
               display: 'flex',
-              gap: '12px',
+              gap: '10px',
               justifyContent: 'flex-end'
             }}>
               <button 
-                className="btn-secondary"
                 onClick={() => setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' })}
+                style={{
+                  padding: '8px 16px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  backgroundColor: 'white',
+                  color: '#6b7280'
+                }}
+                onMouseEnter={(e) => (e.target.style.borderColor = '#10b981', e.target.style.color = '#10b981')}
+                onMouseLeave={(e) => (e.target.style.borderColor = '#d1d5db', e.target.style.color = '#6b7280')}
               >
                 Cancelar
               </button>
               <button 
-                className="btn-primary"
                 onClick={handleConfirmarCriacao}
-                style={{ backgroundColor: '#10b981' }}
+                style={{
+                  padding: '8px 16px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '0.875rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  backgroundColor: '#10b981',
+                  color: 'white'
+                }}
+                onMouseEnter={(e) => (e.target.style.backgroundColor = '#059669')}
+                onMouseLeave={(e) => (e.target.style.backgroundColor = '#10b981')}
               >
                 Criar {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
               </button>
