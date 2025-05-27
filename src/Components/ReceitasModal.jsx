@@ -6,12 +6,12 @@ import useCategorias from '../hooks/useCategorias';
 import useContas from '../hooks/useContas';
 
 /**
- * Modal moderno para lançamento de receitas
- * Com busca inteligente e criação automática de categorias/subcategorias
+ * Modal melhorado para lançamento de receitas
+ * Interface mais limpa e organizada seguindo o padrão do concorrente
  */
 const ReceitasModal = ({ isOpen, onClose }) => {
   // Referências para os campos
-  const dataInputRef = useRef(null);
+  const valorInputRef = useRef(null);
   const categoriaInputRef = useRef(null);
   const subcategoriaInputRef = useRef(null);
   
@@ -24,14 +24,14 @@ const ReceitasModal = ({ isOpen, onClose }) => {
   
   // Estados para os campos do formulário
   const [formData, setFormData] = useState({
+    valor: 0,
     data: formatarDataAtual(),
     descricao: '',
     categoria: '',
     categoriaTexto: '',
     subcategoria: '',
     subcategoriaTexto: '',
-    contaDeposito: '',
-    valor: 0,
+    conta: '',
     observacoes: ''
   });
 
@@ -85,9 +85,9 @@ const ReceitasModal = ({ isOpen, onClose }) => {
   
   // Efeito para autofoco no primeiro campo quando o modal abre
   useEffect(() => {
-    if (isOpen && dataInputRef.current) {
+    if (isOpen && valorInputRef.current) {
       setTimeout(() => {
-        dataInputRef.current.focus();
+        valorInputRef.current.focus();
       }, 100);
     }
     
@@ -348,11 +348,11 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     const newErrors = {};
     
     // Validação dos campos obrigatórios
+    if (!formData.valor || formData.valor === 0) newErrors.valor = "Valor é obrigatório";
     if (!formData.data) newErrors.data = "Data é obrigatória";
     if (!formData.descricao.trim()) newErrors.descricao = "Descrição é obrigatória";
     if (!formData.categoria && !formData.categoriaTexto.trim()) newErrors.categoria = "Categoria é obrigatória";
-    if (!formData.contaDeposito) newErrors.contaDeposito = "Conta é obrigatória";
-    if (!formData.valor || formData.valor === 0) newErrors.valor = "Valor é obrigatório";
+    if (!formData.conta) newErrors.conta = "Conta é obrigatória";
     
     // Limite de caracteres para observações
     if (formData.observacoes.length > 300) {
@@ -364,7 +364,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
   };
 
   // Handler para o envio do formulário
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e, criarNova = false) => {
     e.preventDefault();
     
     if (validateForm()) {
@@ -377,7 +377,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
           descricao: formData.descricao.trim(),
           categoria_id: formData.categoria,
           subcategoria_id: formData.subcategoria || null, // Subcategoria é opcional
-          conta_id: formData.contaDeposito,
+          conta_id: formData.conta,
           valor: formData.valor,
           observacoes: formData.observacoes.trim(),
           tipo: 'receita'
@@ -393,13 +393,28 @@ const ReceitasModal = ({ isOpen, onClose }) => {
         await new Promise(resolve => setTimeout(resolve, 1000)); // Simula delay da API
         
         // Exibe o feedback de sucesso
-        showFeedback('Receita registrada com sucesso!', 'success');
-        
-        // Limpa o formulário e fecha após 2 segundos
-        setTimeout(() => {
-          resetForm();
-          onClose();
-        }, 2000);
+        if (criarNova) {
+          showFeedback('Receita salva! Cadastre uma nova receita.', 'success');
+          // Reseta apenas os campos principais, mantém categoria e conta selecionadas
+          setFormData(prev => ({
+            ...prev,
+            valor: 0,
+            data: formatarDataAtual(),
+            descricao: '',
+            observacoes: ''
+          }));
+          // Foca no campo valor para agilizar o próximo cadastro
+          setTimeout(() => {
+            valorInputRef.current?.focus();
+          }, 100);
+        } else {
+          showFeedback('Receita registrada com sucesso!', 'success');
+          // Limpa o formulário e fecha após 2 segundos
+          setTimeout(() => {
+            resetForm();
+            onClose();
+          }, 2000);
+        }
         
       } catch (error) {
         console.error('❌ ReceitasModal - Erro ao salvar receita:', error);
@@ -413,14 +428,14 @@ const ReceitasModal = ({ isOpen, onClose }) => {
   // Função para resetar o formulário
   const resetForm = () => {
     setFormData({
+      valor: 0,
       data: formatarDataAtual(),
       descricao: '',
       categoria: '',
       categoriaTexto: '',
       subcategoria: '',
       subcategoriaTexto: '',
-      contaDeposito: '',
-      valor: 0,
+      conta: '',
       observacoes: ''
     });
     setErrors({});
@@ -435,16 +450,16 @@ const ReceitasModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="contas-modal-overlay">
-      <div className="contas-modal-container">
+    <div className="modal-overlay">
+      <div className="modal-container receitas-modal">
         {/* Cabeçalho do modal */}
-        <div className="contas-modal-header">
-          <h2>
-            <TrendingUp size={20} className="icon-header" style={{ color: '#10b981' }} />
+        <div className="modal-header">
+          <h2 className="modal-title">
+            <TrendingUp size={20} className="modal-icon" />
             <span>Lançamento de Receitas</span>
           </h2>
           <button 
-            className="btn-fechar" 
+            className="modal-close-btn" 
             onClick={onClose}
             aria-label="Fechar"
           >
@@ -453,11 +468,11 @@ const ReceitasModal = ({ isOpen, onClose }) => {
         </div>
         
         {/* Conteúdo do modal */}
-        <div className="contas-modal-content">
+        <div className="modal-content">
           {/* Feedback de sucesso/erro */}
           {feedback.visible && (
-            <div className={`feedback-message ${feedback.type}`}>
-              <span style={{ marginRight: '8px' }}>
+            <div className={`feedback-alert ${feedback.type}`}>
+              <span className="feedback-icon">
                 {feedback.type === 'success' ? '✅' : '❌'}
               </span>
               {feedback.message}
@@ -466,21 +481,20 @@ const ReceitasModal = ({ isOpen, onClose }) => {
           
           {/* Modal de confirmação para nova categoria */}
           {confirmacaoCategoria.show && (
-            <div className="confirmacao-overlay">
-              <div className="confirmacao-container">
+            <div className="confirmation-overlay">
+              <div className="confirmation-modal">
                 <h3>Criar Nova Categoria</h3>
                 <p>A categoria <strong>"{confirmacaoCategoria.nome}"</strong> não existe. Deseja criá-la?</p>
-                <div className="confirmacao-actions">
+                <div className="confirmation-actions">
                   <button 
-                    className="btn-secondary"
+                    className="btn btn-secondary"
                     onClick={() => setConfirmacaoCategoria({ show: false, nome: '' })}
                   >
                     Cancelar
                   </button>
                   <button 
-                    className="btn-primary"
+                    className="btn btn-primary btn-success"
                     onClick={handleConfirmarNovaCategoria}
-                    style={{ backgroundColor: '#10b981' }}
                   >
                     Criar Categoria
                   </button>
@@ -491,21 +505,20 @@ const ReceitasModal = ({ isOpen, onClose }) => {
           
           {/* Modal de confirmação para nova subcategoria */}
           {confirmacaoSubcategoria.show && (
-            <div className="confirmacao-overlay">
-              <div className="confirmacao-container">
+            <div className="confirmation-overlay">
+              <div className="confirmation-modal">
                 <h3>Criar Nova Subcategoria</h3>
                 <p>A subcategoria <strong>"{confirmacaoSubcategoria.nome}"</strong> não existe. Deseja criá-la?</p>
-                <div className="confirmacao-actions">
+                <div className="confirmation-actions">
                   <button 
-                    className="btn-secondary"
+                    className="btn btn-secondary"
                     onClick={() => setConfirmacaoSubcategoria({ show: false, nome: '', categoriaId: '' })}
                   >
                     Cancelar
                   </button>
                   <button 
-                    className="btn-primary"
+                    className="btn btn-primary btn-success"
                     onClick={handleConfirmarNovaSubcategoria}
-                    style={{ backgroundColor: '#10b981' }}
                   >
                     Criar Subcategoria
                   </button>
@@ -516,51 +529,37 @@ const ReceitasModal = ({ isOpen, onClose }) => {
           
           {/* Verificação se está carregando dados */}
           {(categoriasLoading || contasLoading) ? (
-            <div className="loading" style={{ textAlign: 'center', padding: '40px' }}>
-              <div className="loading-spinner" style={{
-                width: '32px',
-                height: '32px',
-                border: '3px solid #f3f4f6',
-                borderTop: '3px solid #10b981',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite',
-                margin: '0 auto 16px'
-              }}></div>
-              <p>Carregando categorias e contas...</p>
+            <div className="loading-state">
+              <div className="spinner"></div>
+              <p>Carregando dados...</p>
             </div>
           ) : (
             /* Formulário de receita */
-            <form onSubmit={handleSubmit} className="conta-form">
-              <h3>Nova Receita</h3>
-              
-              {/* Valor e Data */}
+            <form onSubmit={handleSubmit} className="receita-form">
+              {/* Primeira linha: Valor e Data */}
               <div className="form-row">
-                <div className="form-group" style={{ flex: 2 }}>
-                  <label htmlFor="valor">
+                <div className="form-group form-group-valor">
+                  <label htmlFor="valor" className="form-label">
                     <DollarSign size={16} />
                     Valor *
                   </label>
                   <InputMoney
-                    ref={dataInputRef}
+                    ref={valorInputRef}
                     id="valor"
                     name="valor"
                     value={formData.valor}
                     onChange={handleValorChange}
                     placeholder="R$ 0,00"
                     disabled={submitting}
-                    style={{
-                      borderColor: errors.valor ? '#ef4444' : '#d1d5db',
-                      fontSize: '1.1rem',
-                      fontWeight: '600'
-                    }}
+                    className={`form-input valor-input ${errors.valor ? 'error' : ''}`}
                   />
                   {errors.valor && (
                     <div className="form-error">{errors.valor}</div>
                   )}
                 </div>
                 
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label htmlFor="data">
+                <div className="form-group form-group-data">
+                  <label htmlFor="data" className="form-label">
                     <Calendar size={16} />
                     Data *
                   </label>
@@ -570,7 +569,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                     name="data"
                     value={formData.data}
                     onChange={handleChange}
-                    className={errors.data ? 'error' : ''}
+                    className={`form-input ${errors.data ? 'error' : ''}`}
                     disabled={submitting}
                   />
                   {errors.data && (
@@ -579,9 +578,9 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                 </div>
               </div>
               
-              {/* Descrição */}
+              {/* Segunda linha: Descrição */}
               <div className="form-group">
-                <label htmlFor="descricao">
+                <label htmlFor="descricao" className="form-label">
                   <FileText size={16} />
                   Descrição *
                 </label>
@@ -592,7 +591,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                   placeholder="Ex: Pagamento projeto XPTO"
                   value={formData.descricao}
                   onChange={handleChange}
-                  className={errors.descricao ? 'error' : ''}
+                  className={`form-input ${errors.descricao ? 'error' : ''}`}
                   disabled={submitting}
                 />
                 {errors.descricao && (
@@ -600,55 +599,42 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                 )}
               </div>
               
-              {/* Categoria, Subcategoria e Conta */}
+              {/* Terceira linha: Categoria e Subcategoria */}
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="categoria">
+                  <label htmlFor="categoria" className="form-label">
                     <Tag size={16} />
                     Categoria *
                   </label>
-                  <div className="categoria-input-container" style={{ position: 'relative' }}>
+                  <div className="search-input-container">
                     <input
                       ref={categoriaInputRef}
                       type="text"
                       id="categoria"
                       name="categoriaTexto"
-                      placeholder="Digite ou selecione"
+                      placeholder="Digite ou selecione uma categoria"
                       value={formData.categoriaTexto}
                       onChange={handleCategoriaChange}
                       onBlur={handleCategoriaBlur}
                       onFocus={() => setCategoriaDropdownAberto(true)}
-                      className={errors.categoria ? 'error' : ''}
+                      className={`form-input search-input ${errors.categoria ? 'error' : ''}`}
                       disabled={submitting}
                       autoComplete="off"
                     />
-                    <Search size={14} style={{
-                      position: 'absolute',
-                      right: '8px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      color: '#6b7280',
-                      pointerEvents: 'none'
-                    }} />
+                    <Search size={16} className="search-icon" />
                     
                     {/* Dropdown de categorias */}
                     {categoriaDropdownAberto && categoriasFiltradas.length > 0 && (
-                      <div className="dropdown-options">
+                      <div className="dropdown-menu">
                         {categoriasFiltradas.map(categoria => (
                           <div
                             key={categoria.id}
-                            className="dropdown-option"
+                            className="dropdown-item"
                             onMouseDown={() => handleSelecionarCategoria(categoria)}
                           >
                             <div 
-                              className="categoria-cor"
-                              style={{ 
-                                width: '10px', 
-                                height: '10px', 
-                                borderRadius: '50%',
-                                backgroundColor: categoria.cor,
-                                marginRight: '6px'
-                              }}
+                              className="categoria-color"
+                              style={{ backgroundColor: categoria.cor }}
                             ></div>
                             {categoria.nome}
                           </div>
@@ -662,44 +648,34 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                 </div>
                 
                 <div className="form-group">
-                  <label htmlFor="subcategoria">
+                  <label htmlFor="subcategoria" className="form-label">
                     <Tag size={16} />
                     Subcategoria <small>(opcional)</small>
                   </label>
-                  <div className="subcategoria-input-container" style={{ position: 'relative' }}>
+                  <div className="search-input-container">
                     <input
                       ref={subcategoriaInputRef}
                       type="text"
                       id="subcategoria"
                       name="subcategoriaTexto"
-                      placeholder={!formData.categoria ? "Categoria primeiro" : "Digite ou selecione"}
+                      placeholder={!formData.categoria ? "Selecione uma categoria primeiro" : "Digite ou selecione"}
                       value={formData.subcategoriaTexto}
                       onChange={handleSubcategoriaChange}
                       onBlur={handleSubcategoriaBlur}
                       onFocus={() => categoriaSelecionada && setSubcategoriaDropdownAberto(true)}
                       disabled={!formData.categoria || submitting}
-                      className={errors.subcategoria ? 'error' : ''}
-                      style={{
-                        backgroundColor: !formData.categoria ? '#f9fafb' : 'white'
-                      }}
+                      className={`form-input search-input ${errors.subcategoria ? 'error' : ''} ${!formData.categoria ? 'disabled' : ''}`}
                       autoComplete="off"
                     />
-                    <Search size={14} style={{
-                      position: 'absolute',
-                      right: '8px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      color: '#6b7280',
-                      pointerEvents: 'none'
-                    }} />
+                    <Search size={16} className="search-icon" />
                     
                     {/* Dropdown de subcategorias */}
                     {subcategoriaDropdownAberto && subcategoriasFiltradas.length > 0 && (
-                      <div className="dropdown-options">
+                      <div className="dropdown-menu">
                         {subcategoriasFiltradas.map(subcategoria => (
                           <div
                             key={subcategoria.id}
-                            className="dropdown-option"
+                            className="dropdown-item"
                             onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
                           >
                             {subcategoria.nome}
@@ -712,36 +688,37 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                     <div className="form-error">{errors.subcategoria}</div>
                   )}
                 </div>
-                
-                <div className="form-group">
-                  <label htmlFor="contaDeposito">
-                    <Building size={16} />
-                    Conta *
-                  </label>
-                  <select
-                    id="contaDeposito"
-                    name="contaDeposito"
-                    value={formData.contaDeposito}
-                    onChange={handleChange}
-                    className={errors.contaDeposito ? 'error' : ''}
-                    disabled={submitting}
-                  >
-                    <option value="">Selecione</option>
-                    {contas.map(conta => (
-                      <option key={conta.id} value={conta.id}>
-                        {conta.nome}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.contaDeposito && (
-                    <div className="form-error">{errors.contaDeposito}</div>
-                  )}
-                </div>
               </div>
               
-              {/* Observações */}
+              {/* Quarta linha: Conta */}
               <div className="form-group">
-                <label htmlFor="observacoes">
+                <label htmlFor="conta" className="form-label">
+                  <Building size={16} />
+                  Conta *
+                </label>
+                <select
+                  id="conta"
+                  name="conta"
+                  value={formData.conta}
+                  onChange={handleChange}
+                  className={`form-input form-select ${errors.conta ? 'error' : ''}`}
+                  disabled={submitting}
+                >
+                  <option value="">Selecione uma conta</option>
+                  {contas.map(conta => (
+                    <option key={conta.id} value={conta.id}>
+                      {conta.nome}
+                    </option>
+                  ))}
+                </select>
+                {errors.conta && (
+                  <div className="form-error">{errors.conta}</div>
+                )}
+              </div>
+              
+              {/* Quinta linha: Observações */}
+              <div className="form-group">
+                <label htmlFor="observacoes" className="form-label">
                   <MessageSquare size={16} />
                   Observações
                   <small>(opcional, máx. 300 caracteres)</small>
@@ -753,16 +730,10 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                   onChange={handleObservacoesChange}
                   placeholder="Adicione informações extras sobre esta receita"
                   rows="3"
-                  className={errors.observacoes ? 'error' : ''}
+                  className={`form-input form-textarea ${errors.observacoes ? 'error' : ''}`}
                   disabled={submitting}
-                  style={{ resize: 'vertical' }}
                 />
-                <div style={{ 
-                  textAlign: 'right', 
-                  fontSize: '12px', 
-                  color: '#6b7280',
-                  marginTop: '4px'
-                }}>
+                <div className="char-counter">
                   {formData.observacoes.length}/300
                 </div>
                 {errors.observacoes && (
@@ -778,27 +749,37 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                     resetForm();
                     onClose();
                   }}
-                  className="btn-secondary"
+                  className="btn btn-secondary"
                   disabled={submitting}
                 >
                   Cancelar
                 </button>
                 <button
-                  type="submit"
-                  className="btn-primary"
+                  type="button"
+                  onClick={(e) => handleSubmit(e, true)}
+                  className="btn btn-primary btn-outline"
                   disabled={submitting}
-                  style={{ backgroundColor: '#10b981' }}
                 >
                   {submitting ? (
                     <>
-                      <div className="loading-spinner" style={{
-                        width: '16px',
-                        height: '16px',
-                        border: '2px solid transparent',
-                        borderTop: '2px solid white',
-                        borderRadius: '50%',
-                        animation: 'spin 1s linear infinite'
-                      }}></div>
+                      <div className="btn-spinner"></div>
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={16} />
+                      Salvar e Criar Nova
+                    </>
+                  )}
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-success"
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <>
+                      <div className="btn-spinner"></div>
                       Salvando...
                     </>
                   ) : (
@@ -815,53 +796,96 @@ const ReceitasModal = ({ isOpen, onClose }) => {
       </div>
       
       <style jsx>{`
-        .categoria-input-container,
-        .subcategoria-input-container {
-          position: relative;
-        }
-        
-        .dropdown-options {
-          position: absolute;
-          top: 100%;
+        .modal-overlay {
+          position: fixed;
+          top: 0;
           left: 0;
           right: 0;
-          background: white;
-          border: 1px solid #d1d5db;
-          border-top: none;
-          border-radius: 0 0 6px 6px;
-          max-height: 180px;
-          overflow-y: auto;
-          z-index: 1000;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
-        
-        .dropdown-option {
-          padding: 8px 12px;
-          cursor: pointer;
+          bottom: 0;
+          background-color: rgba(0, 0, 0, 0.5);
           display: flex;
           align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          padding: 20px;
+        }
+
+        .modal-container {
+          background: white;
+          border-radius: 16px;
+          width: 100%;
+          max-width: 600px;
+          max-height: 90vh;
+          overflow-y: auto;
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+
+        .modal-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 24px 24px 0 24px;
           border-bottom: 1px solid #f3f4f6;
-          transition: background-color 0.2s ease;
-          font-size: 0.9rem;
+          margin-bottom: 24px;
         }
-        
-        .dropdown-option:hover {
-          background-color: #f9fafb;
+
+        .modal-title {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin: 0;
+          font-size: 1.25rem;
+          font-weight: 600;
+          color: #111827;
         }
-        
-        .dropdown-option:last-child {
-          border-bottom: none;
+
+        .modal-icon {
+          color: #10b981;
         }
-        
-        .categoria-cor {
-          width: 12px;
-          height: 12px;
-          border-radius: 50%;
-          margin-right: 8px;
-          flex-shrink: 0;
+
+        .modal-close-btn {
+          background: none;
+          border: none;
+          padding: 8px;
+          border-radius: 8px;
+          cursor: pointer;
+          color: #6b7280;
+          transition: all 0.2s;
         }
-        
-        .confirmacao-overlay {
+
+        .modal-close-btn:hover {
+          background-color: #f3f4f6;
+          color: #374151;
+        }
+
+        .modal-content {
+          padding: 0 14px 14px 14px;
+        }
+
+        .feedback-alert {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 12px 16px;
+          border-radius: 8px;
+          margin-bottom: 20px;
+          font-size: 14px;
+          font-weight: 500;
+        }
+
+        .feedback-alert.success {
+          background-color: #d1fae5;
+          color: #065f46;
+          border: 1px solid #a7f3d0;
+        }
+
+        .feedback-alert.error {
+          background-color: #fee2e2;
+          color: #991b1b;
+          border: 1px solid #fca5a5;
+        }
+
+        .confirmation-overlay {
           position: fixed;
           top: 0;
           left: 0;
@@ -873,8 +897,8 @@ const ReceitasModal = ({ isOpen, onClose }) => {
           justify-content: center;
           z-index: 1100;
         }
-        
-        .confirmacao-container {
+
+        .confirmation-modal {
           background: white;
           border-radius: 12px;
           padding: 24px;
@@ -882,60 +906,334 @@ const ReceitasModal = ({ isOpen, onClose }) => {
           width: 90%;
           box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
         }
-        
-        .confirmacao-container h3 {
+
+        .confirmation-modal h3 {
           margin: 0 0 16px 0;
-          font-size: 1.25rem;
+          font-size: 1.125rem;
           font-weight: 600;
           color: #111827;
         }
-        
-        .confirmacao-container p {
+
+        .confirmation-modal p {
           margin: 0 0 24px 0;
           color: #6b7280;
           line-height: 1.5;
         }
-        
-        .confirmacao-actions {
+
+        .confirmation-actions {
           display: flex;
           gap: 12px;
           justify-content: flex-end;
         }
-        
-        .loading-spinner {
-          display: inline-block;
-          margin-right: 8px;
+
+        .loading-state {
+          text-align: center;
+          padding: 40px;
         }
-        
+
+        .spinner {
+          width: 32px;
+          height: 32px;
+          border: 3px solid #f3f4f6;
+          border-top: 3px solid #10b981;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin: 0 auto 16px;
+        }
+
+        .receita-form {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .form-row {
+          display: flex;
+          gap: 6px;
+        }
+
+        .form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          flex: 1;
+        }
+
+        .form-group-valor {
+          flex: 2;
+        }
+
+        .form-group-data {
+          flex: 1;
+        }
+
+        .form-label {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-weight: 500;
+          color: #374151;
+          font-size: 14px;
+        }
+
+        .form-label small {
+          font-weight: 400;
+          color: #6b7280;
+          margin-left: 4px;
+        }
+
+        .form-input {
+          padding: 10px 14px;
+          border: 1px solid #d1d5db;
+          border-radius: 8px;
+          font-size: 14px;
+          transition: all 0.2s;
+          background: white;
+          height: 44px;
+          box-sizing: border-box;
+        }
+
+        .form-input:focus {
+          outline: none;
+          border-color: #10b981;
+          box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
+
+        .form-input.error {
+          border-color: #ef4444;
+          box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+        }
+
+        .form-input.disabled {
+          background-color: #f9fafb;
+          color: #9ca3af;
+          cursor: not-allowed;
+        }
+
+        .valor-input {
+          font-size: 16px;
+          font-weight: 600;
+          color: #10b981;
+          height: 44px;
+        }
+
+        .search-input-container {
+          position: relative;
+        }
+
+        .search-input {
+          padding-right: 36px;
+          height: 44px;
+        }
+
+        .search-icon {
+          position: absolute;
+          right: 10px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: #9ca3af;
+          pointer-events: none;
+        }
+
+        .dropdown-menu {
+          position: absolute;
+          top: 100%;
+          left: 0;
+          right: 0;
+          background: white;
+          border: 1px solid #d1d5db;
+          border-top: none;
+          border-radius: 0 0 8px 8px;
+          max-height: 200px;
+          overflow-y: auto;
+          z-index: 1000;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .dropdown-item {
+          padding: 10px 14px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          transition: background-color 0.2s;
+          font-size: 14px;
+        }
+
+        .dropdown-item:hover {
+          background-color: #f9fafb;
+        }
+
+        .categoria-color {
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+
+        .form-select {
+          cursor: pointer;
+          height: 44px;
+        }
+
+        .form-textarea {
+          resize: vertical;
+          min-height: 70px;
+          height: auto;
+          padding: 10px 14px;
+        }
+
+        .char-counter {
+          text-align: right;
+          font-size: 12px;
+          color: #6b7280;
+          margin-top: 2px;
+        }
+
+        .form-error {
+          color: #ef4444;
+          font-size: 12px;
+          margin-top: 2px;
+        }
+
+        .form-actions {
+          display: flex;
+          gap: 12px;
+          justify-content: flex-end;
+          margin-top: 4px;
+          padding-top: 16px;
+          border-top: 1px solid #f3f4f6;
+        }
+
+        .btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 10px 20px;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s;
+          border: 1px solid transparent;
+          text-decoration: none;
+          height: 40px;
+          box-sizing: border-box;
+        }
+
+        .btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .btn-secondary {
+          background: white;
+          color: #6b7280;
+          border-color: #d1d5db;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+          background: #f9fafb;
+          color: #374151;
+        }
+
+        .btn-primary {
+          background: #3b82f6;
+          color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+          background: #2563eb;
+        }
+
+        .btn-success {
+          background: #10b981;
+        }
+
+        .btn-success:hover:not(:disabled) {
+          background: #059669;
+        }
+
+        .btn-outline {
+          background: transparent;
+          color: #10b981;
+          border-color: #10b981;
+        }
+
+        .btn-outline:hover:not(:disabled) {
+          background: #f0fdf4;
+          color: #059669;
+          border-color: #059669;
+        }
+
+        .btn-spinner {
+          width: 16px;
+          height: 16px;
+          border: 2px solid transparent;
+          border-top: 2px solid currentColor;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
-        
-        /* Ajustes para inputs com busca */
-        input[type="text"]:focus + .dropdown-options {
-          display: block;
-        }
-        
+
         /* Responsividade */
         @media (max-width: 640px) {
-          .dropdown-options {
+          .modal-container {
+            margin: 10px;
+            max-height: calc(100vh - 20px);
+          }
+
+          .modal-header {
+            padding: 16px 16px 0 16px;
+          }
+
+          .modal-content {
+            padding: 0 16px 16px 16px;
+          }
+
+          .form-row {
+            flex-direction: column;
+            gap: 16px;
+          }
+
+          .form-group-valor,
+          .form-group-data {
+            flex: 1;
+          }
+
+          .dropdown-menu {
             max-height: 150px;
           }
-          
-          .confirmacao-container {
+
+          .confirmation-modal {
             margin: 20px;
             width: calc(100% - 40px);
           }
-          
-          .confirmacao-actions {
+
+          .confirmation-actions {
             flex-direction: column-reverse;
           }
-          
-          .confirmacao-actions button {
+
+          .confirmation-actions .btn {
             width: 100%;
+            justify-content: center;
+          }
+
+          .form-actions {
+            flex-direction: column-reverse;
+            gap: 8px;
+          }
+
+          .form-actions .btn {
+            width: 100%;
+            justify-content: center;
           }
         }
+      `}
       `}</style>
     </div>
   );
