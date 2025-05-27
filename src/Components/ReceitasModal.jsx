@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { TrendingUp, Plus, X, Calendar, FileText, Tag, Building, DollarSign, MessageSquare, Search } from 'lucide-react';
+import { TrendingUp, Plus, X, Calendar, FileText, Tag, Building, DollarSign, MessageSquare, Search, ChevronDown } from 'lucide-react';
 import InputMoney from './ui/InputMoney';
 import useCategorias from '../hooks/useCategorias';
 import useContas from '../hooks/useContas';
 
 /**
- * Modal melhorado para lançamento de receitas
- * Interface mais limpa e organizada seguindo o padrão do concorrente
+ * Modal compacto para lançamento de receitas
+ * Layout otimizado com placeholders como labels
  */
 const ReceitasModal = ({ isOpen, onClose }) => {
   // Referências para os campos
@@ -31,7 +31,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     categoriaTexto: '',
     subcategoria: '',
     subcategoriaTexto: '',
-    conta: '',
+    contaDeposito: '',
     observacoes: ''
   });
 
@@ -53,6 +53,12 @@ const ReceitasModal = ({ isOpen, onClose }) => {
   
   // Estado para loading do formulário
   const [submitting, setSubmitting] = useState(false);
+  
+  // Estado para controle do toggle "Foi recebida"
+  const [foiRecebida, setFoiRecebida] = useState(true);
+  
+  // Estado para mostrar detalhes adicionais
+  const [mostrarDetalhes, setMostrarDetalhes] = useState(false);
   
   // Obter categoria selecionada
   const categoriaSelecionada = categoriasReceita.find(cat => cat.id === formData.categoria);
@@ -348,11 +354,11 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     const newErrors = {};
     
     // Validação dos campos obrigatórios
-    if (!formData.valor || formData.valor === 0) newErrors.valor = "Valor é obrigatório";
     if (!formData.data) newErrors.data = "Data é obrigatória";
     if (!formData.descricao.trim()) newErrors.descricao = "Descrição é obrigatória";
     if (!formData.categoria && !formData.categoriaTexto.trim()) newErrors.categoria = "Categoria é obrigatória";
-    if (!formData.conta) newErrors.conta = "Conta é obrigatória";
+    if (!formData.contaDeposito) newErrors.contaDeposito = "Conta é obrigatória";
+    if (!formData.valor || formData.valor === 0) newErrors.valor = "Valor é obrigatório";
     
     // Limite de caracteres para observações
     if (formData.observacoes.length > 300) {
@@ -364,7 +370,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
   };
 
   // Handler para o envio do formulário
-  const handleSubmit = async (e, criarNova = false) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (validateForm()) {
@@ -377,10 +383,11 @@ const ReceitasModal = ({ isOpen, onClose }) => {
           descricao: formData.descricao.trim(),
           categoria_id: formData.categoria,
           subcategoria_id: formData.subcategoria || null, // Subcategoria é opcional
-          conta_id: formData.conta,
+          conta_id: formData.contaDeposito,
           valor: formData.valor,
           observacoes: formData.observacoes.trim(),
-          tipo: 'receita'
+          tipo: 'receita',
+          foi_recebida: foiRecebida
         };
         
         // Debug dos dados a serem enviados
@@ -393,28 +400,13 @@ const ReceitasModal = ({ isOpen, onClose }) => {
         await new Promise(resolve => setTimeout(resolve, 1000)); // Simula delay da API
         
         // Exibe o feedback de sucesso
-        if (criarNova) {
-          showFeedback('Receita salva! Cadastre uma nova receita.', 'success');
-          // Reseta apenas os campos principais, mantém categoria e conta selecionadas
-          setFormData(prev => ({
-            ...prev,
-            valor: 0,
-            data: formatarDataAtual(),
-            descricao: '',
-            observacoes: ''
-          }));
-          // Foca no campo valor para agilizar o próximo cadastro
-          setTimeout(() => {
-            valorInputRef.current?.focus();
-          }, 100);
-        } else {
-          showFeedback('Receita registrada com sucesso!', 'success');
-          // Limpa o formulário e fecha após 2 segundos
-          setTimeout(() => {
-            resetForm();
-            onClose();
-          }, 2000);
-        }
+        showFeedback('Receita registrada com sucesso!', 'success');
+        
+        // Limpa o formulário e fecha após 2 segundos
+        setTimeout(() => {
+          resetForm();
+          onClose();
+        }, 2000);
         
       } catch (error) {
         console.error('❌ ReceitasModal - Erro ao salvar receita:', error);
@@ -435,7 +427,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
       categoriaTexto: '',
       subcategoria: '',
       subcategoriaTexto: '',
-      conta: '',
+      contaDeposito: '',
       observacoes: ''
     });
     setErrors({});
@@ -444,196 +436,219 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     setSubcategoriaDropdownAberto(false);
     setConfirmacaoCategoria({ show: false, nome: '' });
     setConfirmacaoSubcategoria({ show: false, nome: '', categoriaId: '' });
+    setFoiRecebida(true);
+    setMostrarDetalhes(false);
   };
 
   // Se não estiver aberto, não renderiza
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-container receitas-modal">
-        {/* Cabeçalho do modal */}
-        <div className="modal-header">
-          <h2 className="modal-title">
-            <TrendingUp size={20} className="modal-icon" />
-            <span>Lançamento de Receitas</span>
-          </h2>
-          <button 
-            className="modal-close-btn" 
-            onClick={onClose}
-            aria-label="Fechar"
-          >
-            <X size={20} />
-          </button>
-        </div>
-        
-        {/* Conteúdo do modal */}
-        <div className="modal-content">
-          {/* Feedback de sucesso/erro */}
-          {feedback.visible && (
-            <div className={`feedback-alert ${feedback.type}`}>
-              <span className="feedback-icon">
-                {feedback.type === 'success' ? '✅' : '❌'}
-              </span>
-              {feedback.message}
-            </div>
-          )}
+    <>
+      <div className="modal-overlay-compact">
+        <div className="modal-container-compact">
+          {/* Cabeçalho do modal */}
+          <div className="modal-header-compact">
+            <h2>Nova receita</h2>
+            <button 
+              className="btn-close-compact" 
+              onClick={onClose}
+              aria-label="Fechar"
+            >
+              <X size={20} />
+            </button>
+          </div>
           
-          {/* Modal de confirmação para nova categoria */}
-          {confirmacaoCategoria.show && (
-            <div className="confirmation-overlay">
-              <div className="confirmation-modal">
-                <h3>Criar Nova Categoria</h3>
-                <p>A categoria <strong>"{confirmacaoCategoria.nome}"</strong> não existe. Deseja criá-la?</p>
-                <div className="confirmation-actions">
-                  <button 
-                    className="btn btn-secondary"
-                    onClick={() => setConfirmacaoCategoria({ show: false, nome: '' })}
-                  >
-                    Cancelar
-                  </button>
-                  <button 
-                    className="btn btn-primary btn-success"
-                    onClick={handleConfirmarNovaCategoria}
-                  >
-                    Criar Categoria
-                  </button>
+          {/* Conteúdo do modal */}
+          <div className="modal-content-compact">
+            {/* Feedback de sucesso/erro */}
+            {feedback.visible && (
+              <div className={`feedback-compact ${feedback.type}`}>
+                <span style={{ marginRight: '8px' }}>
+                  {feedback.type === 'success' ? '✅' : '❌'}
+                </span>
+                {feedback.message}
+              </div>
+            )}
+            
+            {/* Modal de confirmação para nova categoria */}
+            {confirmacaoCategoria.show && (
+              <div className="confirmacao-overlay">
+                <div className="confirmacao-container">
+                  <h3>Criar Nova Categoria</h3>
+                  <p>A categoria <strong>"{confirmacaoCategoria.nome}"</strong> não existe. Deseja criá-la?</p>
+                  <div className="confirmacao-actions">
+                    <button 
+                      className="btn-secondary"
+                      onClick={() => setConfirmacaoCategoria({ show: false, nome: '' })}
+                    >
+                      Cancelar
+                    </button>
+                    <button 
+                      className="btn-primary"
+                      onClick={handleConfirmarNovaCategoria}
+                      style={{ backgroundColor: '#10b981' }}
+                    >
+                      Criar Categoria
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-          
-          {/* Modal de confirmação para nova subcategoria */}
-          {confirmacaoSubcategoria.show && (
-            <div className="confirmation-overlay">
-              <div className="confirmation-modal">
-                <h3>Criar Nova Subcategoria</h3>
-                <p>A subcategoria <strong>"{confirmacaoSubcategoria.nome}"</strong> não existe. Deseja criá-la?</p>
-                <div className="confirmation-actions">
-                  <button 
-                    className="btn btn-secondary"
-                    onClick={() => setConfirmacaoSubcategoria({ show: false, nome: '', categoriaId: '' })}
-                  >
-                    Cancelar
-                  </button>
-                  <button 
-                    className="btn btn-primary btn-success"
-                    onClick={handleConfirmarNovaSubcategoria}
-                  >
-                    Criar Subcategoria
-                  </button>
+            )}
+            
+            {/* Modal de confirmação para nova subcategoria */}
+            {confirmacaoSubcategoria.show && (
+              <div className="confirmacao-overlay">
+                <div className="confirmacao-container">
+                  <h3>Criar Nova Subcategoria</h3>
+                  <p>A subcategoria <strong>"{confirmacaoSubcategoria.nome}"</strong> não existe. Deseja criá-la?</p>
+                  <div className="confirmacao-actions">
+                    <button 
+                      className="btn-secondary"
+                      onClick={() => setConfirmacaoSubcategoria({ show: false, nome: '', categoriaId: '' })}
+                    >
+                      Cancelar
+                    </button>
+                    <button 
+                      className="btn-primary"
+                      onClick={handleConfirmarNovaSubcategoria}
+                      style={{ backgroundColor: '#10b981' }}
+                    >
+                      Criar Subcategoria
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-          
-          {/* Verificação se está carregando dados */}
-          {(categoriasLoading || contasLoading) ? (
-            <div className="loading-state">
-              <div className="spinner"></div>
-              <p>Carregando dados...</p>
-            </div>
-          ) : (
-            /* Formulário de receita */
-            <form onSubmit={handleSubmit} className="receita-form">
-              {/* Primeira linha: Valor e Data */}
-              <div className="form-row">
-                <div className="form-group form-group-valor">
-                  <label htmlFor="valor" className="form-label">
-                    <DollarSign size={16} />
-                    Valor *
-                  </label>
-                  <InputMoney
-                    ref={valorInputRef}
-                    id="valor"
-                    name="valor"
-                    value={formData.valor}
-                    onChange={handleValorChange}
-                    placeholder="R$ 0,00"
-                    disabled={submitting}
-                    className={`form-input valor-input ${errors.valor ? 'error' : ''}`}
-                  />
-                  {errors.valor && (
-                    <div className="form-error">{errors.valor}</div>
-                  )}
+            )}
+            
+            {/* Verificação se está carregando dados */}
+            {(categoriasLoading || contasLoading) ? (
+              <div className="loading-compact">
+                <div className="loading-spinner-compact"></div>
+                <p>Carregando...</p>
+              </div>
+            ) : (
+              /* Formulário de receita */
+              <form onSubmit={handleSubmit} className="form-compact">
+                {/* Valor e Data na mesma linha */}
+                <div className="form-row-compact">
+                  <div className="field-group-compact valor-field">
+                    <DollarSign size={18} className="field-icon" />
+                    <InputMoney
+                      ref={valorInputRef}
+                      value={formData.valor}
+                      onChange={handleValorChange}
+                      placeholder="Valor"
+                      disabled={submitting}
+                      className={`input-compact input-valor ${errors.valor ? 'error' : ''}`}
+                    />
+                    <span className="currency-code">BRL</span>
+                  </div>
+                  
+                  <div className="field-group-compact data-field">
+                    <Calendar size={18} className="field-icon" />
+                    <input
+                      type="date"
+                      value={formData.data}
+                      name="data"
+                      onChange={handleChange}
+                      className={`input-compact ${errors.data ? 'error' : ''}`}
+                      disabled={submitting}
+                    />
+                  </div>
                 </div>
                 
-                <div className="form-group form-group-data">
-                  <label htmlFor="data" className="form-label">
-                    <Calendar size={16} />
-                    Data *
-                  </label>
+                {/* Toggle Foi Recebida */}
+                <div className="toggle-row-compact">
+                  <div className="toggle-group">
+                    <div className="toggle-icon">
+                      <div className="clock-icon"></div>
+                    </div>
+                    <span className="toggle-label">Foi recebida</span>
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        checked={foiRecebida}
+                        onChange={(e) => setFoiRecebida(e.target.checked)}
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+                </div>
+                
+                {/* Botões de período (Hoje, Ontem, Outros...) */}
+                <div className="period-buttons-compact">
+                  <button
+                    type="button"
+                    className="period-btn active"
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, data: formatarDataAtual() }));
+                    }}
+                  >
+                    Hoje
+                  </button>
+                  <button
+                    type="button"
+                    className="period-btn"
+                    onClick={() => {
+                      const ontem = new Date();
+                      ontem.setDate(ontem.getDate() - 1);
+                      const ano = ontem.getFullYear();
+                      const mes = String(ontem.getMonth() + 1).padStart(2, '0');
+                      const dia = String(ontem.getDate()).padStart(2, '0');
+                      setFormData(prev => ({ ...prev, data: `${ano}-${mes}-${dia}` }));
+                    }}
+                  >
+                    Ontem
+                  </button>
+                  <button type="button" className="period-btn">
+                    Outros...
+                  </button>
+                </div>
+                
+                {/* Descrição */}
+                <div className="field-group-compact">
+                  <FileText size={18} className="field-icon" />
                   <input
-                    type="date"
-                    id="data"
-                    name="data"
-                    value={formData.data}
+                    type="text"
+                    placeholder="Descrição"
+                    value={formData.descricao}
+                    name="descricao"
                     onChange={handleChange}
-                    className={`form-input ${errors.data ? 'error' : ''}`}
+                    className={`input-compact ${errors.descricao ? 'error' : ''}`}
                     disabled={submitting}
                   />
-                  {errors.data && (
-                    <div className="form-error">{errors.data}</div>
-                  )}
                 </div>
-              </div>
-              
-              {/* Segunda linha: Descrição */}
-              <div className="form-group">
-                <label htmlFor="descricao" className="form-label">
-                  <FileText size={16} />
-                  Descrição *
-                </label>
-                <input
-                  type="text"
-                  id="descricao"
-                  name="descricao"
-                  placeholder="Ex: Pagamento projeto XPTO"
-                  value={formData.descricao}
-                  onChange={handleChange}
-                  className={`form-input ${errors.descricao ? 'error' : ''}`}
-                  disabled={submitting}
-                />
-                {errors.descricao && (
-                  <div className="form-error">{errors.descricao}</div>
-                )}
-              </div>
-              
-              {/* Terceira linha: Categoria e Subcategoria */}
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="categoria" className="form-label">
-                    <Tag size={16} />
-                    Categoria *
-                  </label>
-                  <div className="search-input-container">
+                
+                {/* Categoria */}
+                <div className="field-group-compact dropdown-field">
+                  <Tag size={18} className="field-icon" />
+                  <div className="dropdown-wrapper">
                     <input
                       ref={categoriaInputRef}
                       type="text"
-                      id="categoria"
-                      name="categoriaTexto"
                       placeholder="Digite ou selecione uma categoria"
                       value={formData.categoriaTexto}
                       onChange={handleCategoriaChange}
                       onBlur={handleCategoriaBlur}
                       onFocus={() => setCategoriaDropdownAberto(true)}
-                      className={`form-input search-input ${errors.categoria ? 'error' : ''}`}
+                      className={`input-compact ${errors.categoria ? 'error' : ''}`}
                       disabled={submitting}
                       autoComplete="off"
                     />
-                    <Search size={16} className="search-icon" />
+                    <ChevronDown size={16} className="dropdown-arrow" />
                     
                     {/* Dropdown de categorias */}
                     {categoriaDropdownAberto && categoriasFiltradas.length > 0 && (
-                      <div className="dropdown-menu">
+                      <div className="dropdown-options-compact">
                         {categoriasFiltradas.map(categoria => (
                           <div
                             key={categoria.id}
-                            className="dropdown-item"
+                            className="dropdown-option-compact"
                             onMouseDown={() => handleSelecionarCategoria(categoria)}
                           >
                             <div 
-                              className="categoria-color"
+                              className="categoria-cor-compact"
                               style={{ backgroundColor: categoria.cor }}
                             ></div>
                             {categoria.nome}
@@ -642,161 +657,127 @@ const ReceitasModal = ({ isOpen, onClose }) => {
                       </div>
                     )}
                   </div>
-                  {errors.categoria && (
-                    <div className="form-error">{errors.categoria}</div>
-                  )}
                 </div>
                 
-                <div className="form-group">
-                  <label htmlFor="subcategoria" className="form-label">
-                    <Tag size={16} />
-                    Subcategoria <small>(opcional)</small>
-                  </label>
-                  <div className="search-input-container">
-                    <input
-                      ref={subcategoriaInputRef}
-                      type="text"
-                      id="subcategoria"
-                      name="subcategoriaTexto"
-                      placeholder={!formData.categoria ? "Selecione uma categoria primeiro" : "Digite ou selecione"}
-                      value={formData.subcategoriaTexto}
-                      onChange={handleSubcategoriaChange}
-                      onBlur={handleSubcategoriaBlur}
-                      onFocus={() => categoriaSelecionada && setSubcategoriaDropdownAberto(true)}
-                      disabled={!formData.categoria || submitting}
-                      className={`form-input search-input ${errors.subcategoria ? 'error' : ''} ${!formData.categoria ? 'disabled' : ''}`}
-                      autoComplete="off"
-                    />
-                    <Search size={16} className="search-icon" />
-                    
-                    {/* Dropdown de subcategorias */}
-                    {subcategoriaDropdownAberto && subcategoriasFiltradas.length > 0 && (
-                      <div className="dropdown-menu">
-                        {subcategoriasFiltradas.map(subcategoria => (
-                          <div
-                            key={subcategoria.id}
-                            className="dropdown-item"
-                            onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
-                          >
-                            {subcategoria.nome}
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                {/* Conta */}
+                <div className="field-group-compact dropdown-field">
+                  <Building size={18} className="field-icon" />
+                  <div className="conta-wrapper">
+                    <select
+                      value={formData.contaDeposito}
+                      name="contaDeposito"
+                      onChange={handleChange}
+                      className={`input-compact select-compact ${errors.contaDeposito ? 'error' : ''}`}
+                      disabled={submitting}
+                    >
+                      <option value="">Selecione uma conta</option>
+                      {contas.map(conta => (
+                        <option key={conta.id} value={conta.id}>
+                          {conta.nome}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={16} className="dropdown-arrow" />
                   </div>
-                  {errors.subcategoria && (
-                    <div className="form-error">{errors.subcategoria}</div>
-                  )}
                 </div>
-              </div>
-              
-              {/* Quarta linha: Conta */}
-              <div className="form-group">
-                <label htmlFor="conta" className="form-label">
-                  <Building size={16} />
-                  Conta *
-                </label>
-                <select
-                  id="conta"
-                  name="conta"
-                  value={formData.conta}
-                  onChange={handleChange}
-                  className={`form-input form-select ${errors.conta ? 'error' : ''}`}
-                  disabled={submitting}
-                >
-                  <option value="">Selecione uma conta</option>
-                  {contas.map(conta => (
-                    <option key={conta.id} value={conta.id}>
-                      {conta.nome}
-                    </option>
-                  ))}
-                </select>
-                {errors.conta && (
-                  <div className="form-error">{errors.conta}</div>
-                )}
-              </div>
-              
-              {/* Quinta linha: Observações */}
-              <div className="form-group">
-                <label htmlFor="observacoes" className="form-label">
-                  <MessageSquare size={16} />
-                  Observações
-                  <small>(opcional, máx. 300 caracteres)</small>
-                </label>
-                <textarea
-                  id="observacoes"
-                  name="observacoes"
-                  value={formData.observacoes}
-                  onChange={handleObservacoesChange}
-                  placeholder="Adicione informações extras sobre esta receita"
-                  rows="3"
-                  className={`form-input form-textarea ${errors.observacoes ? 'error' : ''}`}
-                  disabled={submitting}
-                />
-                <div className="char-counter">
-                  {formData.observacoes.length}/300
-                </div>
-                {errors.observacoes && (
-                  <div className="form-error">{errors.observacoes}</div>
-                )}
-              </div>
-              
-              {/* Botões de ação */}
-              <div className="form-actions">
+                
+                {/* Botão para mostrar mais detalhes */}
                 <button
                   type="button"
-                  onClick={() => {
-                    resetForm();
-                    onClose();
-                  }}
-                  className="btn btn-secondary"
-                  disabled={submitting}
+                  className="mais-detalhes-btn"
+                  onClick={() => setMostrarDetalhes(!mostrarDetalhes)}
                 >
-                  Cancelar
+                  Mais detalhes
+                  <ChevronDown 
+                    size={16} 
+                    className={`chevron-icon ${mostrarDetalhes ? 'rotated' : ''}`} 
+                  />
                 </button>
-                <button
-                  type="button"
-                  onClick={(e) => handleSubmit(e, true)}
-                  className="btn btn-primary btn-outline"
-                  disabled={submitting}
-                >
-                  {submitting ? (
-                    <>
-                      <div className="btn-spinner"></div>
-                      Salvando...
-                    </>
-                  ) : (
-                    <>
-                      <Plus size={16} />
-                      Salvar e Criar Nova
-                    </>
-                  )}
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary btn-success"
-                  disabled={submitting}
-                >
-                  {submitting ? (
-                    <>
-                      <div className="btn-spinner"></div>
-                      Salvando...
-                    </>
-                  ) : (
-                    <>
-                      <Plus size={16} />
-                      Salvar Receita
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          )}
+                
+                {/* Campos adicionais (mostrados apenas quando expandido) */}
+                {mostrarDetalhes && (
+                  <div className="detalhes-section">
+                    {/* Subcategoria */}
+                    <div className="field-group-compact dropdown-field">
+                      <Tag size={18} className="field-icon" />
+                      <div className="dropdown-wrapper">
+                        <input
+                          ref={subcategoriaInputRef}
+                          type="text"
+                          placeholder={!formData.categoria ? "Selecione uma categoria primeiro" : "Subcategoria (opcional)"}
+                          value={formData.subcategoriaTexto}
+                          onChange={handleSubcategoriaChange}
+                          onBlur={handleSubcategoriaBlur}
+                          onFocus={() => categoriaSelecionada && setSubcategoriaDropdownAberto(true)}
+                          disabled={!formData.categoria || submitting}
+                          className={`input-compact ${errors.subcategoria ? 'error' : ''}`}
+                          style={{ backgroundColor: !formData.categoria ? '#f9fafb' : 'white' }}
+                          autoComplete="off"
+                        />
+                        <ChevronDown size={16} className="dropdown-arrow" />
+                        
+                        {/* Dropdown de subcategorias */}
+                        {subcategoriaDropdownAberto && subcategoriasFiltradas.length > 0 && (
+                          <div className="dropdown-options-compact">
+                            {subcategoriasFiltradas.map(subcategoria => (
+                              <div
+                                key={subcategoria.id}
+                                className="dropdown-option-compact"
+                                onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
+                              >
+                                {subcategoria.nome}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Observações */}
+                    <div className="field-group-compact">
+                      <MessageSquare size={18} className="field-icon" />
+                      <textarea
+                        placeholder="Observações (opcional)"
+                        value={formData.observacoes}
+                        onChange={handleObservacoesChange}
+                        rows="2"
+                        className={`input-compact textarea-compact ${errors.observacoes ? 'error' : ''}`}
+                        disabled={submitting}
+                      />
+                    </div>
+                  </div>
+                )}
+                
+                {/* Botões de ação */}
+                <div className="actions-compact">
+                  <button
+                    type="button"
+                    className="btn-secondary-compact"
+                    onClick={() => {
+                      // TODO: Implementar "Salvar e criar nova"
+                      handleSubmit({ preventDefault: () => {} });
+                    }}
+                    disabled={submitting}
+                  >
+                    SALVAR E CRIAR NOVA
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-primary-compact"
+                    disabled={submitting}
+                  >
+                    {submitting ? 'SALVANDO...' : 'SALVAR'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
         </div>
       </div>
       
+      {/* Estilos CSS */}
       <style jsx>{`
-        .modal-overlay {
+        .modal-overlay-compact {
           position: fixed;
           top: 0;
           left: 0;
@@ -809,83 +790,428 @@ const ReceitasModal = ({ isOpen, onClose }) => {
           z-index: 1000;
           padding: 20px;
         }
-
-        .modal-container {
+        
+        .modal-container-compact {
           background: white;
           border-radius: 16px;
           width: 100%;
-          max-width: 600px;
+          max-width: 480px;
           max-height: 90vh;
-          overflow-y: auto;
+          overflow: hidden;
           box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
         }
-
-        .modal-header {
+        
+        .modal-header-compact {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 24px 24px 0 24px;
+          padding: 20px 24px 16px;
           border-bottom: 1px solid #f3f4f6;
-          margin-bottom: 24px;
         }
-
-        .modal-title {
-          display: flex;
-          align-items: center;
-          gap: 12px;
+        
+        .modal-header-compact h2 {
           margin: 0;
           font-size: 1.25rem;
           font-weight: 600;
           color: #111827;
         }
-
-        .modal-icon {
-          color: #10b981;
-        }
-
-        .modal-close-btn {
+        
+        .btn-close-compact {
           background: none;
           border: none;
-          padding: 8px;
-          border-radius: 8px;
           cursor: pointer;
+          padding: 4px;
+          border-radius: 6px;
           color: #6b7280;
-          transition: all 0.2s;
+          transition: all 0.2s ease;
         }
-
-        .modal-close-btn:hover {
+        
+        .btn-close-compact:hover {
           background-color: #f3f4f6;
           color: #374151;
         }
-
-        .modal-content {
-          padding: 0 14px 14px 14px;
+        
+        .modal-content-compact {
+          padding: 24px;
+          overflow-y: auto;
+          max-height: calc(90vh - 100px);
         }
-
-        .feedback-alert {
-          display: flex;
-          align-items: center;
-          gap: 8px;
+        
+        .feedback-compact {
           padding: 12px 16px;
           border-radius: 8px;
           margin-bottom: 20px;
-          font-size: 14px;
+          font-size: 0.875rem;
           font-weight: 500;
         }
-
-        .feedback-alert.success {
+        
+        .feedback-compact.success {
           background-color: #d1fae5;
           color: #065f46;
           border: 1px solid #a7f3d0;
         }
-
-        .feedback-alert.error {
+        
+        .feedback-compact.error {
           background-color: #fee2e2;
           color: #991b1b;
-          border: 1px solid #fca5a5;
+          border: 1px solid #fecaca;
         }
-
-        .confirmation-overlay {
+        
+        .loading-compact {
+          text-align: center;
+          padding: 40px 20px;
+        }
+        
+        .loading-spinner-compact {
+          width: 24px;
+          height: 24px;
+          border: 2px solid #f3f4f6;
+          border-top: 2px solid #10b981;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin: 0 auto 12px;
+        }
+        
+        .form-compact {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+        
+        .form-row-compact {
+          display: flex;
+          gap: 12px;
+        }
+        
+        .field-group-compact {
+          position: relative;
+          display: flex;
+          align-items: center;
+          border: 1px solid #d1d5db;
+          border-radius: 12px;
+          background: white;
+          min-height: 50px;
+          transition: all 0.2s ease;
+        }
+        
+        .field-group-compact:focus-within {
+          border-color: #10b981;
+          box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
+        
+        .field-group-compact.error {
+          border-color: #ef4444;
+        }
+        
+        .valor-field {
+          flex: 2;
+        }
+        
+        .data-field {
+          flex: 1;
+        }
+        
+        .field-icon {
+          margin-left: 16px;
+          color: #6b7280;
+          flex-shrink: 0;
+        }
+        
+        .input-compact {
+          flex: 1;
+          border: none;
+          outline: none;
+          padding: 12px 16px 12px 8px;
+          font-size: 1rem;
+          background: transparent;
+          color: #111827;
+        }
+        
+        .input-valor {
+          font-size: 1.125rem;
+          font-weight: 600;
+          color: #10b981;
+        }
+        
+        .currency-code {
+          padding-right: 16px;
+          font-size: 0.875rem;
+          color: #6b7280;
+          font-weight: 500;
+        }
+        
+        .input-compact::placeholder {
+          color: #9ca3af;
+        }
+        
+        .input-compact:disabled {
+          background-color: #f9fafb;
+          color: #6b7280;
+        }
+        
+        .toggle-row-compact {
+          padding: 0 4px;
+        }
+        
+        .toggle-group {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        
+        .toggle-icon {
+          width: 24px;
+          height: 24px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        
+        .clock-icon {
+          width: 16px;
+          height: 16px;
+          border: 2px solid #6b7280;
+          border-radius: 50%;
+          position: relative;
+        }
+        
+        .clock-icon::after {
+          content: '';
+          position: absolute;
+          top: 2px;
+          left: 6px;
+          width: 2px;
+          height: 6px;
+          background: #6b7280;
+          border-radius: 1px;
+        }
+        
+        .toggle-label {
+          flex: 1;
+          color: #374151;
+          font-weight: 500;
+        }
+        
+        .toggle-switch {
+          position: relative;
+          display: inline-block;
+          width: 44px;
+          height: 24px;
+        }
+        
+        .toggle-switch input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+        
+        .toggle-slider {
+          position: absolute;
+          cursor: pointer;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: #d1d5db;
+          transition: 0.3s;
+          border-radius: 24px;
+        }
+        
+        .toggle-slider:before {
+          position: absolute;
+          content: "";
+          height: 18px;
+          width: 18px;
+          left: 3px;
+          bottom: 3px;
+          background-color: white;
+          transition: 0.3s;
+          border-radius: 50%;
+        }
+        
+        input:checked + .toggle-slider {
+          background-color: #10b981;
+        }
+        
+        input:checked + .toggle-slider:before {
+          transform: translateX(20px);
+        }
+        
+        .period-buttons-compact {
+          display: flex;
+          gap: 8px;
+          padding: 0 4px;
+        }
+        
+        .period-btn {
+          flex: 1;
+          padding: 8px 16px;
+          border: 1px solid #d1d5db;
+          border-radius: 20px;
+          background: white;
+          color: #6b7280;
+          font-size: 0.875rem;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        
+        .period-btn:hover {
+          border-color: #10b981;
+          color: #10b981;
+        }
+        
+        .period-btn.active {
+          background: #10b981;
+          border-color: #10b981;
+          color: white;
+        }
+        
+        .dropdown-field .dropdown-wrapper,
+        .dropdown-field .conta-wrapper {
+          position: relative;
+          flex: 1;
+          display: flex;
+          align-items: center;
+        }
+        
+        .dropdown-arrow {
+          position: absolute;
+          right: 12px;
+          color: #6b7280;
+          pointer-events: none;
+        }
+        
+        .select-compact {
+          appearance: none;
+          padding-right: 40px;
+        }
+        
+        .dropdown-options-compact {
+          position: absolute;
+          top: 100%;
+          left: 0;
+          right: 0;
+          background: white;
+          border: 1px solid #d1d5db;
+          border-radius: 8px;
+          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+          z-index: 1000;
+          max-height: 200px;
+          overflow-y: auto;
+          margin-top: 4px;
+        }
+        
+        .dropdown-option-compact {
+          padding: 12px 16px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          transition: background-color 0.2s ease;
+          font-size: 0.875rem;
+        }
+        
+        .dropdown-option-compact:hover {
+          background-color: #f9fafb;
+        }
+        
+        .categoria-cor-compact {
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+        
+        .mais-detalhes-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          background: none;
+          border: none;
+          color: #10b981;
+          font-weight: 500;
+          cursor: pointer;
+          padding: 12px;
+          border-radius: 8px;
+          transition: all 0.2s ease;
+          font-size: 0.875rem;
+        }
+        
+        .mais-detalhes-btn:hover {
+          background-color: #f0fdf4;
+        }
+        
+        .chevron-icon {
+          transition: transform 0.2s ease;
+        }
+        
+        .chevron-icon.rotated {
+          transform: rotate(180deg);
+        }
+        
+        .detalhes-section {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          padding-top: 8px;
+        }
+        
+        .textarea-compact {
+          resize: vertical;
+          min-height: 60px;
+          padding: 12px 16px 12px 8px;
+          font-family: inherit;
+        }
+        
+        .actions-compact {
+          display: flex;
+          gap: 12px;
+          margin-top: 8px;
+        }
+        
+        .btn-secondary-compact {
+          flex: 1;
+          padding: 14px 20px;
+          border: 1px solid #d1d5db;
+          border-radius: 8px;
+          background: white;
+          color: #6b7280;
+          font-weight: 500;
+          font-size: 0.875rem;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        
+        .btn-secondary-compact:hover {
+          border-color: #10b981;
+          color: #10b981;
+        }
+        
+        .btn-primary-compact {
+          flex: 1;
+          padding: 14px 20px;
+          border: none;
+          border-radius: 8px;
+          background: #10b981;
+          color: white;
+          font-weight: 600;
+          font-size: 0.875rem;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        
+        .btn-primary-compact:hover:not(:disabled) {
+          background: #059669;
+        }
+        
+        .btn-primary-compact:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+        
+        .confirmacao-overlay {
           position: fixed;
           top: 0;
           left: 0;
@@ -897,8 +1223,8 @@ const ReceitasModal = ({ isOpen, onClose }) => {
           justify-content: center;
           z-index: 1100;
         }
-
-        .confirmation-modal {
+        
+        .confirmacao-container {
           background: white;
           border-radius: 12px;
           padding: 24px;
@@ -906,336 +1232,102 @@ const ReceitasModal = ({ isOpen, onClose }) => {
           width: 90%;
           box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
         }
-
-        .confirmation-modal h3 {
+        
+        .confirmacao-container h3 {
           margin: 0 0 16px 0;
-          font-size: 1.125rem;
+          font-size: 1.25rem;
           font-weight: 600;
           color: #111827;
         }
-
-        .confirmation-modal p {
+        
+        .confirmacao-container p {
           margin: 0 0 24px 0;
           color: #6b7280;
           line-height: 1.5;
         }
-
-        .confirmation-actions {
+        
+        .confirmacao-actions {
           display: flex;
           gap: 12px;
           justify-content: flex-end;
         }
-
-        .loading-state {
-          text-align: center;
-          padding: 40px;
-        }
-
-        .spinner {
-          width: 32px;
-          height: 32px;
-          border: 3px solid #f3f4f6;
-          border-top: 3px solid #10b981;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-          margin: 0 auto 16px;
-        }
-
-        .receita-form {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .form-row {
-          display: flex;
-          gap: 6px;
-        }
-
-        .form-group {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          flex: 1;
-        }
-
-        .form-group-valor {
-          flex: 2;
-        }
-
-        .form-group-data {
-          flex: 1;
-        }
-
-        .form-label {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-weight: 500;
-          color: #374151;
-          font-size: 14px;
-        }
-
-        .form-label small {
-          font-weight: 400;
-          color: #6b7280;
-          margin-left: 4px;
-        }
-
-        .form-input {
-          padding: 10px 14px;
-          border: 1px solid #d1d5db;
-          border-radius: 8px;
-          font-size: 14px;
-          transition: all 0.2s;
-          background: white;
-          height: 44px;
-          box-sizing: border-box;
-        }
-
-        .form-input:focus {
-          outline: none;
-          border-color: #10b981;
-          box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
-        }
-
-        .form-input.error {
-          border-color: #ef4444;
-          box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
-        }
-
-        .form-input.disabled {
-          background-color: #f9fafb;
-          color: #9ca3af;
-          cursor: not-allowed;
-        }
-
-        .valor-input {
-          font-size: 16px;
-          font-weight: 600;
-          color: #10b981;
-          height: 44px;
-        }
-
-        .search-input-container {
-          position: relative;
-        }
-
-        .search-input {
-          padding-right: 36px;
-          height: 44px;
-        }
-
-        .search-icon {
-          position: absolute;
-          right: 10px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: #9ca3af;
-          pointer-events: none;
-        }
-
-        .dropdown-menu {
-          position: absolute;
-          top: 100%;
-          left: 0;
-          right: 0;
-          background: white;
-          border: 1px solid #d1d5db;
-          border-top: none;
-          border-radius: 0 0 8px 8px;
-          max-height: 200px;
-          overflow-y: auto;
-          z-index: 1000;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
-
-        .dropdown-item {
-          padding: 10px 14px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          transition: background-color 0.2s;
-          font-size: 14px;
-        }
-
-        .dropdown-item:hover {
-          background-color: #f9fafb;
-        }
-
-        .categoria-color {
-          width: 12px;
-          height: 12px;
-          border-radius: 50%;
-          flex-shrink: 0;
-        }
-
-        .form-select {
-          cursor: pointer;
-          height: 44px;
-        }
-
-        .form-textarea {
-          resize: vertical;
-          min-height: 70px;
-          height: auto;
-          padding: 10px 14px;
-        }
-
-        .char-counter {
-          text-align: right;
-          font-size: 12px;
-          color: #6b7280;
-          margin-top: 2px;
-        }
-
-        .form-error {
-          color: #ef4444;
-          font-size: 12px;
-          margin-top: 2px;
-        }
-
-        .form-actions {
-          display: flex;
-          gap: 12px;
-          justify-content: flex-end;
-          margin-top: 4px;
-          padding-top: 16px;
-          border-top: 1px solid #f3f4f6;
-        }
-
-        .btn {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          padding: 10px 20px;
-          border-radius: 8px;
-          font-size: 14px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.2s;
-          border: 1px solid transparent;
-          text-decoration: none;
-          height: 40px;
-          box-sizing: border-box;
-        }
-
-        .btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
+        
         .btn-secondary {
+          padding: 8px 16px;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
           background: white;
           color: #6b7280;
-          border-color: #d1d5db;
+          cursor: pointer;
+          transition: all 0.2s ease;
         }
-
-        .btn-secondary:hover:not(:disabled) {
-          background: #f9fafb;
+        
+        .btn-secondary:hover {
+          border-color: #9ca3af;
           color: #374151;
         }
-
+        
         .btn-primary {
-          background: #3b82f6;
-          color: white;
-        }
-
-        .btn-primary:hover:not(:disabled) {
-          background: #2563eb;
-        }
-
-        .btn-success {
+          padding: 8px 16px;
+          border: none;
+          border-radius: 6px;
           background: #10b981;
+          color: white;
+          cursor: pointer;
+          transition: all 0.2s ease;
         }
-
-        .btn-success:hover:not(:disabled) {
+        
+        .btn-primary:hover {
           background: #059669;
         }
-
-        .btn-outline {
-          background: transparent;
-          color: #10b981;
-          border-color: #10b981;
-        }
-
-        .btn-outline:hover:not(:disabled) {
-          background: #f0fdf4;
-          color: #059669;
-          border-color: #059669;
-        }
-
-        .btn-spinner {
-          width: 16px;
-          height: 16px;
-          border: 2px solid transparent;
-          border-top: 2px solid currentColor;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-        }
-
+        
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
-
+        
         /* Responsividade */
         @media (max-width: 640px) {
-          .modal-container {
-            margin: 10px;
-            max-height: calc(100vh - 20px);
-          }
-
-          .modal-header {
-            padding: 16px 16px 0 16px;
-          }
-
-          .modal-content {
-            padding: 0 16px 16px 16px;
-          }
-
-          .form-row {
-            flex-direction: column;
-            gap: 16px;
-          }
-
-          .form-group-valor,
-          .form-group-data {
-            flex: 1;
-          }
-
-          .dropdown-menu {
-            max-height: 150px;
-          }
-
-          .confirmation-modal {
+          .modal-container-compact {
             margin: 20px;
             width: calc(100% - 40px);
+            max-height: calc(100vh - 40px);
           }
-
-          .confirmation-actions {
-            flex-direction: column-reverse;
+          
+          .form-row-compact {
+            flex-direction: column;
           }
-
-          .confirmation-actions .btn {
-            width: 100%;
-            justify-content: center;
+          
+          .valor-field,
+          .data-field {
+            flex: 1;
           }
-
-          .form-actions {
-            flex-direction: column-reverse;
-            gap: 8px;
+          
+          .period-buttons-compact {
+            flex-direction: column;
           }
-
-          .form-actions .btn {
-            width: 100%;
-            justify-content: center;
+          
+          .actions-compact {
+            flex-direction: column;
+          }
+          
+          .dropdown-options-compact {
+            max-height: 150px;
           }
         }
-      `}
+        
+        /* Melhorias na acessibilidade */
+        @media (prefers-reduced-motion: reduce) {
+          .toggle-slider,
+          .toggle-slider:before,
+          .chevron-icon,
+          .btn-secondary-compact,
+          .btn-primary-compact {
+            transition: none;
+          }
+        }
       `}</style>
-    </div>
+    </>
   );
 };
 
