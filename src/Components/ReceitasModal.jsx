@@ -732,7 +732,7 @@ const ReceitasModal = ({ isOpen, onClose }) => {
         )}
       </div>
       
-      <style jsx>{`
+      <style>{`
         .dropdown-options {
           position: absolute;
           top: 100%;
