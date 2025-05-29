@@ -32,6 +32,13 @@ const Dashboard = () => {
   const { data, loading, error } = useDashboardData();
   const { user, signOut } = useAuth();
   
+  // Função para atualizar dados após salvar transação
+  const handleTransacaoSalva = () => {
+    console.log('🔄 Transação salva com sucesso!');
+    // Por enquanto apenas log - evita loops infinitos
+    // TODO: Implementar refresh inteligente dos dados
+  };
+  
   // Estado local para a data atual e selecionada
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -184,47 +191,47 @@ const Dashboard = () => {
     setShowDetalhesDiaModal(true);
   };
 
-// Adicione esta função no Dashboard.jsx (substituir a atual)
-
-const handleLogout = async () => {
-  try {
-    console.log('🚪 Logout simples iniciado...');
-    
-    // 1. Limpar TODOS os dados do localStorage
-    localStorage.clear();
-    sessionStorage.clear();
-    
-    console.log('🧹 Storage limpo');
-    
-    // 2. Tentar logout do Supabase (se disponível)
-    if (typeof signOut === 'function') {
-      try {
-        await signOut();
-        console.log('✅ Logout Supabase realizado');
-      } catch (err) {
-        console.warn('⚠️ Erro no logout Supabase:', err);
-      }
-    }
-    
-    // 3. Redirecionamento forçado
-    console.log('🔄 Redirecionando...');
-    window.location.replace('/login');
-    
-  } catch (err) {
-    console.error('❌ Erro no logout:', err);
-    
-    // Fallback: limpar tudo e redirecionar
+  // Função de logout
+  const handleLogout = async () => {
     try {
+      console.log('🚪 Logout simples iniciado...');
+      
+      // 1. Limpar TODOS os dados do localStorage
       localStorage.clear();
       sessionStorage.clear();
-    } catch (clearErr) {
-      console.warn('Erro ao limpar storage:', clearErr);
+      
+      console.log('🧹 Storage limpo');
+      
+      // 2. Tentar logout do Supabase (se disponível)
+      if (typeof signOut === 'function') {
+        try {
+          await signOut();
+          console.log('✅ Logout Supabase realizado');
+        } catch (err) {
+          console.warn('⚠️ Erro no logout Supabase:', err);
+        }
+      }
+      
+      // 3. Redirecionamento forçado
+      console.log('🔄 Redirecionando...');
+      window.location.replace('/login');
+      
+    } catch (err) {
+      console.error('❌ Erro no logout:', err);
+      
+      // Fallback: limpar tudo e redirecionar
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch (clearErr) {
+        console.warn('Erro ao limpar storage:', clearErr);
+      }
+      
+      // Forçar redirecionamento mesmo com erro
+      window.location.replace('/login');
     }
-    
-    // Forçar redirecionamento mesmo com erro
-    window.location.replace('/login');
-  }
-};
+  };
+
   // Handler para ir ao perfil
   const handleGoToProfile = () => {
     window.location.href = '/profile';
@@ -737,11 +744,13 @@ const handleLogout = async () => {
         <DespesasModal
           isOpen={showDespesasModal}
           onClose={() => setShowDespesasModal(false)}
+          onSave={handleTransacaoSalva}
         />
         
         <ReceitasModal
           isOpen={showReceitasModal}
           onClose={() => setShowReceitasModal(false)}
+          onSave={handleTransacaoSalva}
         />
         
         <DespesasCartaoModal

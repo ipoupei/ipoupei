@@ -11,6 +11,11 @@ import useAuth from './useAuth';
  * Hook completo para dashboard com dados reais do usuário
  * Busca dados do perfil, transações e calcula métricas
  */
+
+
+
+
+
 const useDashboardData = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,8 +44,6 @@ const useDashboardData = () => {
     }
 
     try {
-      console.log('👤 Buscando perfil do usuário:', user.id);
-      
       const { data: perfil, error } = await supabase
         .from('perfil_usuario')
         .select('*')
@@ -53,7 +56,6 @@ const useDashboardData = () => {
 
       // Se não encontrou perfil, criar um básico
       if (!perfil) {
-        console.log('📝 Criando perfil básico para usuário');
         const novoPerfilData = {
           id: user.id,
           nome: user.user_metadata?.full_name || 
@@ -77,11 +79,9 @@ const useDashboardData = () => {
           // Usa dados básicos mesmo com erro
           setPerfilUsuario(novoPerfilData);
         } else {
-          console.log('✅ Perfil criado com sucesso');
           setPerfilUsuario(novoPerfil);
         }
       } else {
-        console.log('✅ Perfil encontrado:', perfil.nome);
         setPerfilUsuario(perfil);
       }
 
@@ -113,20 +113,6 @@ const useDashboardData = () => {
 
   // Calcula dados do dashboard quando dependências mudam
   useEffect(() => {
-    console.log('🔄 Recalculando dados do dashboard...', {
-      isAuthenticated,
-      perfilUsuario: !!perfilUsuario,
-      categorias: categorias.length,
-      contas: contas.length,
-      cartoes: cartoes.length,
-      transacoes: transacoes.length,
-      loadings: {
-        contas: contasLoading,
-        cartoes: cartoesLoading,
-        transacoes: transacoesLoading
-      }
-    });
-
     if (!isAuthenticated || !perfilUsuario) {
       setData(null);
       setLoading(false);
@@ -246,14 +232,6 @@ const useDashboardData = () => {
         ultimaAtualizacao: new Date().toLocaleString('pt-BR')
       };
 
-      console.log('✅ Dashboard data calculado:', {
-        receitas: dashboardData.receitas.atual,
-        despesas: dashboardData.despesas.atual,
-        saldo: dashboardData.saldo.atual,
-        balanco: dashboardData.resumo.balanco,
-        totalTransacoes: dashboardData.resumo.totalTransacoes
-      });
-
       setData(dashboardData);
       setLoading(false);
       setError(null);
@@ -281,54 +259,6 @@ const useDashboardData = () => {
     getDespesasPorCategoria
   ]);
 
-  // Debug em desenvolvimento
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      window.dashboardDebug = {
-        data,
-        loading,
-        error,
-        perfilUsuario,
-        hooks: {
-          categorias: categorias.length,
-          contas: contas.length,
-          cartoes: cartoes.length,
-          transacoes: transacoes.length,
-          saldoTotal,
-          limiteTotal
-        },
-        loadings: {
-          main: loading,
-          contas: contasLoading,
-          cartoes: cartoesLoading,
-          transacoes: transacoesLoading
-        }
-      };
-      
-      console.log('🔧 dashboardDebug atualizado:', {
-        hasData: !!data,
-        loading,
-        error,
-        nomeUsuario: perfilUsuario?.nome,
-        totalTransacoes: transacoes.length
-      });
-    }
-  }, [
-    data, 
-    loading, 
-    error, 
-    perfilUsuario,
-    categorias, 
-    contas, 
-    cartoes, 
-    transacoes,
-    saldoTotal, 
-    limiteTotal,
-    contasLoading,
-    cartoesLoading,
-    transacoesLoading
-  ]);
-
   return { 
     data, 
     loading, 
@@ -336,6 +266,35 @@ const useDashboardData = () => {
     perfilUsuario,
     refreshData: fetchPerfilUsuario
   };
+const fetchDadosCartao = useCallback(async () => {
+  if (!isAuthenticated || !user) return null;
+
+  try {
+    // Buscar próximas faturas (próximos 2 meses)
+    const dataLimite = new Date();
+    dataLimite.setMonth(dataLimite.getMonth() + 2);
+    
+    const { data: proximasFaturas, error } = await supabase
+      .from('vw_faturas_cartao')
+      .select('*')
+      .eq('usuario_id', user.id)
+      .gte('fatura_vencimento', new Date().toISOString().split('T')[0])
+      .lte('fatura_vencimento', dataLimite.toISOString().split('T')[0])
+      .order('fatura_vencimento', { ascending: true });
+
+    if (error) throw error;
+
+    return {
+      proximasFaturas: proximasFaturas || [],
+      totalProximasFaturas: proximasFaturas?.reduce((sum, f) => sum + f.valor_total_fatura, 0) || 0
+    };
+  } catch (err) {
+    console.error('Erro ao buscar dados de cartão:', err);
+    return null;
+  }
+}, [isAuthenticated, user]);
+
 };
+
 
 export default useDashboardData;

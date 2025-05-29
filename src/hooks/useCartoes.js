@@ -15,29 +15,14 @@ const useCartoes = () => {
   // Hook de autenticação com novo campo initialized
   const { user, isAuthenticated, loading: authLoading, initialized } = useAuth();
 
-  // Debug do estado da autenticação
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      console.log('💳 useCartoes - Estado da autenticação:', {
-        isAuthenticated,
-        hasUser: !!user,
-        authLoading,
-        initialized,
-        userId: user?.id?.substring(0, 8)
-      });
-    }
-  }, [isAuthenticated, user, authLoading, initialized]);
-
   // Busca todos os cartões do usuário logado
   const fetchCartoes = useCallback(async () => {
     // Aguarda a inicialização da autenticação terminar
     if (authLoading || !initialized) {
-      console.log('⏳ useCartoes - Aguardando inicialização da auth...');
       return { success: false, error: 'Aguardando autenticação' };
     }
 
     if (!isAuthenticated || !user) {
-      console.log('❌ useCartoes - Usuário não autenticado');
       setCartoes([]);
       return { success: false, error: 'Usuário não autenticado' };
     }
@@ -45,8 +30,6 @@ const useCartoes = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      console.log('🔍 useCartoes - Buscando cartões para usuário:', user.id);
       
       // Busca os cartões do usuário
       const { data, error, count } = await supabase
@@ -56,17 +39,9 @@ const useCartoes = () => {
         .eq('ativo', true)
         .order('created_at', { ascending: true });
       
-      console.log('📊 useCartoes - Resultado da busca:', {
-        data,
-        error,
-        count,
-        dataLength: data?.length
-      });
-      
       if (error) throw error;
       
       setCartoes(data || []);
-      console.log('✅ useCartoes - Cartões carregados:', data?.length || 0);
       return { success: true, data };
     } catch (err) {
       console.error('❌ useCartoes - Erro ao buscar cartões:', err);
@@ -80,20 +55,11 @@ const useCartoes = () => {
 
   // Carrega os cartões quando a autenticação estiver pronta
   useEffect(() => {
-    console.log('🔄 useCartoes - Effect disparado:', {
-      authLoading,
-      initialized,
-      isAuthenticated,
-      hasUser: !!user
-    });
-    
     // Só executa quando a autenticação terminou de inicializar
     if (!authLoading && initialized) {
       if (isAuthenticated && user) {
-        console.log('🚀 useCartoes - Executando fetchCartoes...');
         fetchCartoes();
       } else {
-        console.log('🧹 useCartoes - Limpando cartões (usuário não autenticado)');
         setCartoes([]);
         setLoading(false);
         setError(null);
@@ -111,8 +77,6 @@ const useCartoes = () => {
       setLoading(true);
       setError(null);
       
-      console.log('➕ useCartoes - Adicionando cartão:', novoCartao);
-      
       // Prepara os dados para inserção
       const dadosCartao = {
         usuario_id: user.id,
@@ -128,28 +92,19 @@ const useCartoes = () => {
         updated_at: new Date().toISOString()
       };
       
-      console.log('📝 useCartoes - Dados preparados:', dadosCartao);
-      
       // Chama a API para adicionar o cartão
       const { data, error } = await supabase
         .from('cartoes')
         .insert([dadosCartao])
         .select();
       
-      console.log('📊 useCartoes - Resultado da inserção:', { data, error });
-      
       if (error) throw error;
       
       // Adiciona o novo cartão ao estado local
       if (data && data.length > 0) {
         const novoCartaoCompleto = data[0];
-        setCartoes(prev => {
-          const novaLista = [...prev, novoCartaoCompleto];
-          console.log('📋 useCartoes - Lista atualizada:', novaLista.length, 'cartões');
-          return novaLista;
-        });
+        setCartoes(prev => [...prev, novoCartaoCompleto]);
         
-        console.log('✅ useCartoes - Cartão adicionado com sucesso');
         return { success: true, data: novoCartaoCompleto };
       } else {
         throw new Error('Erro ao adicionar cartão: dados não retornados');
@@ -173,8 +128,6 @@ const useCartoes = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      console.log('✏️ useCartoes - Atualizando cartão:', cartaoId, dadosAtualizados);
       
       // Prepara os dados para atualização
       const dadosCartao = {
@@ -203,7 +156,6 @@ const useCartoes = () => {
           cartao.id === cartaoId ? data[0] : cartao
         ));
         
-        console.log('✅ useCartoes - Cartão atualizado com sucesso');
         return { success: true, data: data[0] };
       } else {
         throw new Error('Erro ao atualizar cartão: dados não retornados');
@@ -228,8 +180,6 @@ const useCartoes = () => {
       setLoading(true);
       setError(null);
       
-      console.log('🗑️ useCartoes - Excluindo cartão:', cartaoId);
-      
       // Verifica se o cartão tem transações associadas
       const { data: transacoes, error: errorTransacoes } = await supabase
         .from('transacoes')
@@ -244,7 +194,6 @@ const useCartoes = () => {
       
       // Se tem transações, apenas desativa; senão, exclui fisicamente
       if (transacoes && transacoes.length > 0) {
-        console.log('📝 useCartoes - Cartão tem transações, desativando...');
         const { error: errorUpdate } = await supabase
           .from('cartoes')
           .update({ ativo: false, updated_at: new Date().toISOString() })
@@ -253,7 +202,6 @@ const useCartoes = () => {
         
         if (errorUpdate) throw errorUpdate;
       } else {
-        console.log('🗑️ useCartoes - Cartão sem transações, excluindo fisicamente...');
         const { error } = await supabase
           .from('cartoes')
           .delete()
@@ -266,11 +214,9 @@ const useCartoes = () => {
       // Atualiza o estado local
       setCartoes(prev => {
         const novaLista = prev.filter(cartao => cartao.id !== cartaoId);
-        console.log('📋 useCartoes - Lista após exclusão:', novaLista.length, 'cartões');
         return novaLista;
       });
       
-      console.log('✅ useCartoes - Cartão excluído com sucesso');
       return { success: true };
       
     } catch (err) {
@@ -290,8 +236,6 @@ const useCartoes = () => {
     }
 
     try {
-      console.log('🧾 useCartoes - Buscando faturas do cartão:', cartaoId, mes, ano);
-      
       // Se você tiver uma tabela específica de faturas, use ela
       // Por enquanto, vou buscar transações do cartão
       const { data, error } = await supabase
@@ -324,11 +268,7 @@ const useCartoes = () => {
 
   // Funções auxiliares
   const getLimiteTotal = useCallback(() => {
-    const total = cartoes.reduce((sum, cartao) => sum + (Number(cartao.limite) || 0), 0);
-    if (import.meta.env.DEV) {
-      console.log('💰 useCartoes - Limite total calculado:', total, 'de', cartoes.length, 'cartões');
-    }
-    return total;
+    return cartoes.reduce((sum, cartao) => sum + (Number(cartao.limite) || 0), 0);
   }, [cartoes]);
 
   const getCartaoById = useCallback((id) => {
@@ -363,37 +303,6 @@ const useCartoes = () => {
       return proximoVencimento <= dataLimite;
     });
   }, [cartoes]);
-
-  // Debug em desenvolvimento
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      const debugInfo = {
-        cartoes,
-        loading,
-        error,
-        authLoading,
-        initialized,
-        isAuthenticated,
-        user: user ? { id: user.id, email: user.email } : null,
-        totalCartoes: cartoes.length,
-        limiteTotal: getLimiteTotal(),
-        fetchCartoes,
-        addCartao,
-        updateCartao,
-        deleteCartao,
-        getFaturasCartao
-      };
-      
-      window.cartoesDebug = debugInfo;
-      console.log('🔧 useCartoes - Debug info atualizado:', {
-        totalCartoes: cartoes.length,
-        loading,
-        authLoading,
-        initialized,
-        isAuthenticated
-      });
-    }
-  }, [cartoes, loading, error, authLoading, initialized, isAuthenticated, user, getLimiteTotal, fetchCartoes, addCartao, updateCartao, deleteCartao, getFaturasCartao]);
 
   return {
     cartoes,

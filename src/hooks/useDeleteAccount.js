@@ -4,9 +4,6 @@ import useAuth from './useAuth';
 
 /**
  * Hook personalizado para gerenciar exclusão de conta
- * Inclui validações, backup de dados e processo seguro de exclusão
- * 
- * @returns {Object} - Objeto com funções e estados para exclusão de conta
  */
 const useDeleteAccount = () => {
   // Estados locais
@@ -35,48 +32,23 @@ const useDeleteAccount = () => {
         data_backup: new Date().toISOString()
       };
       
-      // Busca perfil do usuário
-      const { data: perfil } = await supabase
-        .from('perfil_usuario')
-        .select('*')
-        .eq('id', userId)
-        .single();
+      // Lista de tabelas para fazer backup
+      const tables = ['perfil_usuario', 'contas', 'cartoes', 'categorias', 'subcategorias', 'dividas', 'amigos'];
       
-      if (perfil) backup.perfil = perfil;
+      for (const table of tables) {
+        let query = supabase.from(table).select('*');
+        
+        if (table === 'amigos') {
+          query = query.or(`usuario_proprietario.eq.${userId},usuario_convidado.eq.${userId}`);
+        } else {
+          query = query.eq('usuario_id', userId);
+        }
+        
+        const { data } = await query;
+        if (data) backup[table] = data;
+      }
       
-      // Busca contas
-      const { data: contas } = await supabase
-        .from('contas')
-        .select('*')
-        .eq('usuario_id', userId);
-      
-      if (contas) backup.contas = contas;
-      
-      // Busca cartões
-      const { data: cartoes } = await supabase
-        .from('cartoes')
-        .select('*')
-        .eq('usuario_id', userId);
-      
-      if (cartoes) backup.cartoes = cartoes;
-      
-      // Busca categorias
-      const { data: categorias } = await supabase
-        .from('categorias')
-        .select('*')
-        .eq('usuario_id', userId);
-      
-      if (categorias) backup.categorias = categorias;
-      
-      // Busca subcategorias
-      const { data: subcategorias } = await supabase
-        .from('subcategorias')
-        .select('*')
-        .eq('usuario_id', userId);
-      
-      if (subcategorias) backup.subcategorias = subcategorias;
-      
-      // Busca transações (limitado aos últimos 12 meses para não sobrecarregar)
+      // Busca transações dos últimos 12 meses
       const umAnoAtras = new Date();
       umAnoAtras.setFullYear(umAnoAtras.getFullYear() - 1);
       
@@ -87,22 +59,6 @@ const useDeleteAccount = () => {
         .gte('data', umAnoAtras.toISOString());
       
       if (transacoes) backup.transacoes = transacoes;
-      
-      // Busca dívidas
-      const { data: dividas } = await supabase
-        .from('dividas')
-        .select('*')
-        .eq('usuario_id', userId);
-      
-      if (dividas) backup.dividas = dividas;
-      
-      // Busca amigos
-      const { data: amigos } = await supabase
-        .from('amigos')
-        .select('*')
-        .or(`usuario_proprietario.eq.${userId},usuario_convidado.eq.${userId}`);
-      
-      if (amigos) backup.amigos = amigos;
       
       setBackupData(backup);
       return { success: true, data: backup };
@@ -149,52 +105,38 @@ const useDeleteAccount = () => {
       const userId = user.id;
       const issues = [];
       
-      // Verifica se há transações compartilhadas ativas
-      const { data: transacoesCompartilhadas } = await supabase
-        .from('transacoes')
-        .select('id, descricao')
-        .eq('usuario_id', userId)
-        .not('compartilhada_com', 'is', null)
-        .limit(5);
+      // Verificações básicas
+      const checks = [
+        { table: 'transacoes', field: 'compartilhada_com', title: 'Transações compartilhadas' },
+        { table: 'dividas', field: 'situacao', title: 'Dívidas pendentes', condition: 'neq.quitada' },
+        { table: 'amigos', field: 'status', title: 'Relacionamentos ativos', condition: 'eq.aceito' }
+      ];
       
-      if (transacoesCompartilhadas && transacoesCompartilhadas.length > 0) {
-        issues.push({
-          type: 'warning',
-          title: 'Transações compartilhadas',
-          message: `Você possui ${transacoesCompartilhadas.length} transação(ões) compartilhada(s). Elas serão removidas dos amigos relacionados.`
-        });
-      }
-      
-      // Verifica se há dívidas pendentes
-      const { data: dividasPendentes } = await supabase
-        .from('dividas')
-        .select('id, descricao, valor_total')
-        .eq('usuario_id', userId)
-        .neq('situacao', 'quitada')
-        .limit(5);
-      
-      if (dividasPendentes && dividasPendentes.length > 0) {
-        issues.push({
-          type: 'warning',
-          title: 'Dívidas pendentes',
-          message: `Você possui ${dividasPendentes.length} dívida(s) pendente(s). Certifique-se de quitar ou transferir para outro controle.`
-        });
-      }
-      
-      // Verifica se é proprietário de grupos de amigos
-      const { data: gruposProprietario } = await supabase
-        .from('amigos')
-        .select('id')
-        .eq('usuario_proprietario', userId)
-        .eq('status', 'aceito')
-        .limit(1);
-      
-      if (gruposProprietario && gruposProprietario.length > 0) {
-        issues.push({
-          type: 'warning',
-          title: 'Relacionamentos ativos',
-          message: 'Você possui relacionamentos ativos que serão removidos.'
-        });
+      for (const check of checks) {
+        let query = supabase.from(check.table).select('id');
+        
+        if (check.table === 'amigos') {
+          query = query.eq('usuario_proprietario', userId);
+        } else {
+          query = query.eq('usuario_id', userId);
+        }
+        
+        if (check.condition) {
+          const [operator, value] = check.condition.split('.');
+          query = query[operator](check.field, value);
+        } else if (check.field) {
+          query = query.not(check.field, 'is', null);
+        }
+        
+        const { data } = await query.limit(5);
+        
+        if (data && data.length > 0) {
+          issues.push({
+            type: 'warning',
+            title: check.title,
+            message: `Você possui ${data.length} item(ns) que serão afetados.`
+          });
+        }
       }
       
       return { success: true, issues };
@@ -220,14 +162,13 @@ const useDeleteAccount = () => {
         'dividas',
         'cartoes',
         'contas',
-        'amigos', // Remove relacionamentos onde é proprietário ou convidado
+        'amigos',
         'perfil_usuario'
       ];
       
       // Remove dados de cada tabela
       for (const table of tablesToClean) {
         if (table === 'amigos') {
-          // Para amigos, remove onde é proprietário ou convidado
           await supabase
             .from(table)
             .delete()
@@ -272,8 +213,6 @@ const useDeleteAccount = () => {
       
       if (authError) {
         console.error('Erro ao excluir conta de autenticação:', authError);
-        // Mesmo com erro na exclusão da auth, continua o processo
-        // pois os dados já foram removidos
       }
       
       // Faz logout

@@ -3,9 +3,6 @@ import { supabase } from '../lib/supabaseClient';
 
 /**
  * Hook personalizado para gerenciar amigos e familiares
- * Permite adicionar pessoas para despesas compartilhadas
- * 
- * @returns {Object} - Objeto com dados e funções de manipulação de amigos
  */
 const useAmigos = () => {
   // Estado para armazenar os amigos
@@ -222,5 +219,4 @@ const useAmigos = () => {
     getConvitesPendentes
   };
 };
-
 export default useAmigos;

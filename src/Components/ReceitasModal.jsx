@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { 
   TrendingUp, 
@@ -10,15 +10,17 @@ import {
   Building, 
   DollarSign, 
   MessageSquare, 
-  Search 
+  Search,
+  PlusCircle
 } from 'lucide-react';
 import InputMoney from './ui/InputMoney';
 import useCategorias from '../hooks/useCategorias';
 import useContas from '../hooks/useContas';
 import { supabase } from '../lib/supabaseClient';
 import useAuth from '../hooks/useAuth';
+import './FormsModal.css';
 
-const ReceitasModal = ({ isOpen, onClose }) => {
+const ReceitasModal = ({ isOpen, onClose, onSave }) => {
   const valorInputRef = useRef(null);
   const categoriaInputRef = useRef(null);
   const subcategoriaInputRef = useRef(null);
@@ -27,7 +29,17 @@ const ReceitasModal = ({ isOpen, onClose }) => {
   const { categorias, loading: categoriasLoading, addCategoria, addSubcategoria } = useCategorias();
   const { contas, loading: contasLoading } = useContas();
   
-  const categoriasReceita = categorias.filter(cat => cat.tipo === 'receita');
+  // Memoizar categorias de receita para evitar recalculos desnecessários
+  const categoriasReceita = useMemo(() => 
+    categorias.filter(cat => cat.tipo === 'receita'), 
+    [categorias]
+  );
+  
+  // Função para obter data atual - memoizada para evitar recalculos
+  const getCurrentDate = useCallback(() => {
+    const hoje = new Date();
+    return hoje.toISOString().split('T')[0];
+  }, []);
   
   const [formData, setFormData] = useState({
     valor: 0,
@@ -55,14 +67,14 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     categoriaId: ''
   });
   
-  function getCurrentDate() {
-    const hoje = new Date();
-    return hoje.toISOString().split('T')[0];
-  }
+  // Memoizar categoria selecionada
+  const categoriaSelecionada = useMemo(() => 
+    categoriasReceita.find(cat => cat.id === formData.categoria),
+    [categoriasReceita, formData.categoria]
+  );
   
-  const categoriaSelecionada = categoriasReceita.find(cat => cat.id === formData.categoria);
-  
-  useEffect(() => {
+  // Filtrar categorias - useCallback para evitar recriação da função
+  const filtrarCategorias = useCallback(() => {
     if (formData.categoriaTexto) {
       const filtradas = categoriasReceita.filter(cat =>
         cat.nome.toLowerCase().includes(formData.categoriaTexto.toLowerCase())
@@ -73,7 +85,8 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     }
   }, [formData.categoriaTexto, categoriasReceita]);
   
-  useEffect(() => {
+  // Filtrar subcategorias - useCallback para evitar recriação da função
+  const filtrarSubcategorias = useCallback(() => {
     if (categoriaSelecionada && formData.subcategoriaTexto) {
       const filtradas = (categoriaSelecionada.subcategorias || []).filter(sub =>
         sub.nome.toLowerCase().includes(formData.subcategoriaTexto.toLowerCase())
@@ -86,39 +99,72 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     }
   }, [formData.subcategoriaTexto, categoriaSelecionada]);
   
+  // UseEffect para filtrar categorias
+  useEffect(() => {
+    filtrarCategorias();
+  }, [filtrarCategorias]);
+  
+  // UseEffect para filtrar subcategorias
+  useEffect(() => {
+    filtrarSubcategorias();
+  }, [filtrarSubcategorias]);
+  
+  // Reset form quando modal abre
+  const resetForm = useCallback(() => {
+    setFormData({
+      valor: 0,
+      data: getCurrentDate(),
+      descricao: '',
+      categoria: '',
+      categoriaTexto: '',
+      subcategoria: '',
+      subcategoriaTexto: '',
+      contaDeposito: '',
+      observacoes: ''
+    });
+    setErrors({});
+    setFeedback({ visible: false, message: '', type: '' });
+    setCategoriaDropdownOpen(false);
+    setSubcategoriaDropdownOpen(false);
+    setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
+  }, [getCurrentDate]);
+  
+  // UseEffect para quando o modal abre
   useEffect(() => {
     if (isOpen) {
       resetForm();
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         valorInputRef.current?.focus();
       }, 150);
+      return () => clearTimeout(timer);
     }
-  }, [isOpen]);
+  }, [isOpen, resetForm]);
   
-  const showFeedback = (message, type = 'success') => {
+  const showFeedback = useCallback((message, type = 'success') => {
     setFeedback({ visible: true, message, type });
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       setFeedback({ visible: false, message: '', type: '' });
     }, 3000);
-  };
+    return () => clearTimeout(timer);
+  }, []);
   
-  const handleInputChange = (e) => {
+  const handleInputChange = useCallback((e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: null }));
     }
-  };
+  }, [errors]);
   
-  const handleValorChange = (value) => {
+  const handleValorChange = useCallback((value) => {
     setFormData(prev => ({ ...prev, valor: value }));
     if (errors.valor) {
       setErrors(prev => ({ ...prev, valor: null }));
     }
-  };
+  }, [errors.valor]);
   
-  const handleCategoriaChange = (e) => {
+  const handleCategoriaChange = useCallback((e) => {
     const { value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -132,9 +178,9 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     if (errors.categoria) {
       setErrors(prev => ({ ...prev, categoria: null }));
     }
-  };
+  }, [errors.categoria]);
   
-  const handleSelecionarCategoria = (categoria) => {
+  const handleSelecionarCategoria = useCallback((categoria) => {
     setFormData(prev => ({
       ...prev,
       categoria: categoria.id,
@@ -144,13 +190,14 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     }));
     
     setCategoriaDropdownOpen(false);
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       subcategoriaInputRef.current?.focus();
     }, 100);
-  };
+    return () => clearTimeout(timer);
+  }, []);
   
-  const handleCategoriaBlur = () => {
-    setTimeout(() => {
+  const handleCategoriaBlur = useCallback(() => {
+    const timer = setTimeout(() => {
       setCategoriaDropdownOpen(false);
       
       if (formData.categoriaTexto && !formData.categoria) {
@@ -168,9 +215,10 @@ const ReceitasModal = ({ isOpen, onClose }) => {
         }
       }
     }, 200);
-  };
+    return () => clearTimeout(timer);
+  }, [formData.categoriaTexto, formData.categoria, categoriasReceita]);
   
-  const handleSubcategoriaChange = (e) => {
+  const handleSubcategoriaChange = useCallback((e) => {
     const { value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -181,9 +229,9 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     if (categoriaSelecionada) {
       setSubcategoriaDropdownOpen(true);
     }
-  };
+  }, [categoriaSelecionada]);
   
-  const handleSelecionarSubcategoria = (subcategoria) => {
+  const handleSelecionarSubcategoria = useCallback((subcategoria) => {
     setFormData(prev => ({
       ...prev,
       subcategoria: subcategoria.id,
@@ -191,10 +239,10 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     }));
     
     setSubcategoriaDropdownOpen(false);
-  };
+  }, []);
   
-  const handleSubcategoriaBlur = () => {
-    setTimeout(() => {
+  const handleSubcategoriaBlur = useCallback(() => {
+    const timer = setTimeout(() => {
       setSubcategoriaDropdownOpen(false);
       
       if (formData.subcategoriaTexto && !formData.subcategoria && categoriaSelecionada) {
@@ -212,9 +260,10 @@ const ReceitasModal = ({ isOpen, onClose }) => {
         }
       }
     }, 200);
-  };
+    return () => clearTimeout(timer);
+  }, [formData.subcategoriaTexto, formData.subcategoria, formData.categoria, categoriaSelecionada]);
   
-  const handleConfirmarCriacao = async () => {
+  const handleConfirmarCriacao = useCallback(async () => {
     try {
       if (confirmacao.type === 'categoria') {
         const result = await addCategoria({
@@ -230,9 +279,9 @@ const ReceitasModal = ({ isOpen, onClose }) => {
             categoriaTexto: result.data.nome
           }));
           
-          showFeedback(`Categoria "${confirmacao.nome}" criada!`);
+          showFeedback(`Categoria "${confirmacao.nome}" criada com sucesso!`);
         } else {
-          showFeedback('Erro ao criar categoria.', 'error');
+          showFeedback('Erro ao criar categoria. Tente novamente.', 'error');
         }
       } else if (confirmacao.type === 'subcategoria') {
         const result = await addSubcategoria(confirmacao.categoriaId, {
@@ -246,20 +295,20 @@ const ReceitasModal = ({ isOpen, onClose }) => {
             subcategoriaTexto: result.data.nome
           }));
           
-          showFeedback(`Subcategoria "${confirmacao.nome}" criada!`);
+          showFeedback(`Subcategoria "${confirmacao.nome}" criada com sucesso!`);
         } else {
-          showFeedback('Erro ao criar subcategoria.', 'error');
+          showFeedback('Erro ao criar subcategoria. Tente novamente.', 'error');
         }
       }
     } catch (error) {
       console.error('Erro ao criar categoria/subcategoria:', error);
-      showFeedback('Erro inesperado.', 'error');
+      showFeedback('Erro inesperado. Tente novamente.', 'error');
     }
     
     setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
-  };
+  }, [confirmacao, addCategoria, addSubcategoria, showFeedback]);
   
-  const validateForm = () => {
+  const validateForm = useCallback(() => {
     const newErrors = {};
     
     if (!formData.valor || formData.valor === 0) {
@@ -283,9 +332,9 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+  }, [formData]);
   
-  const handleSubmit = async (e) => {
+  const handleSubmit = useCallback(async (e, criarNova = false) => {
     e.preventDefault();
     
     if (!validateForm()) return;
@@ -317,13 +366,34 @@ const ReceitasModal = ({ isOpen, onClose }) => {
       if (error) throw error;
       
       console.log("✅ Receita salva com sucesso:", data);
-      
-      showFeedback('Receita registrada com sucesso!');
-      
-      setTimeout(() => {
-        resetForm();
-        onClose();
-      }, 1500);
+      if (onSave) {
+        onSave(); // Notifica o Dashboard para atualizar
+      }
+              
+      if (criarNova) {
+        showFeedback('Receita salva! Pronto para a próxima.');
+        // Reset apenas os campos principais, mantendo categoria e conta
+        setFormData(prev => ({
+          ...prev,
+          valor: 0,
+          data: getCurrentDate(),
+          descricao: '',
+          observacoes: ''
+        }));
+        setErrors({});
+        // Foca no campo de valor para facilitar entrada rápida
+        const timer = setTimeout(() => {
+          valorInputRef.current?.focus();
+        }, 100);
+        return () => clearTimeout(timer);
+      } else {
+        showFeedback('Receita registrada com sucesso!');
+        const timer = setTimeout(() => {
+          resetForm();
+          onClose();
+        }, 1500);
+        return () => clearTimeout(timer);
+      }
       
     } catch (error) {
       console.error('❌ Erro ao salvar receita:', error);
@@ -331,338 +401,62 @@ const ReceitasModal = ({ isOpen, onClose }) => {
     } finally {
       setSubmitting(false);
     }
-  };
+  }, [validateForm, user.id, formData, onSave, showFeedback, getCurrentDate, resetForm, onClose]);
   
-  const resetForm = () => {
-    setFormData({
-      valor: 0,
-      data: getCurrentDate(),
-      descricao: '',
-      categoria: '',
-      categoriaTexto: '',
-      subcategoria: '',
-      subcategoriaTexto: '',
-      contaDeposito: '',
-      observacoes: ''
-    });
-    setErrors({});
-    setFeedback({ visible: false, message: '', type: '' });
-    setCategoriaDropdownOpen(false);
-    setSubcategoriaDropdownOpen(false);
+  const handleObservacoesChange = useCallback((e) => {
+    if (e.target.value.length <= 300) {
+      handleInputChange(e);
+    }
+  }, [handleInputChange]);
+  
+  const handleCancelar = useCallback(() => {
+    resetForm();
+    onClose();
+  }, [resetForm, onClose]);
+  
+  const handleCancelarConfirmacao = useCallback(() => {
     setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
-  };
+  }, []);
   
   if (!isOpen) return null;
   
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '16px'
-    }}>
-      <div style={{
-        background: 'white',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '420px',
-        maxHeight: '90vh',
-        overflow: 'hidden',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-      }}>
+    <div className="receitas-modal-overlay">
+      <div className="receitas-modal-container">
         {/* Header compacto */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '16px 20px',
-          borderBottom: '1px solid #f3f4f6'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="receitas-modal-header">
+          <h2 className="receitas-modal-title">
             <TrendingUp size={18} style={{ color: '#10b981' }} />
-            <h2 style={{ 
-              margin: 0, 
-              fontSize: '1.125rem', 
-              fontWeight: '600', 
-              color: '#111827' 
-            }}>
-              Lançamento de Receitas
-            </h2>
-          </div>
-          <button 
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '4px',
-              borderRadius: '6px',
-              color: '#6b7280',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-            onMouseEnter={(e) => e.target.style.backgroundColor = '#f3f4f6'}
-            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-          >
+            Lançamento de Receitas
+          </h2>
+          <button className="receitas-modal-close" onClick={onClose} aria-label="Fechar">
             <X size={18} />
           </button>
         </div>
         
         {/* Content */}
-        <div style={{ 
-          padding: '20px',
-          overflowY: 'auto',
-          maxHeight: 'calc(90vh - 100px)'
-        }}>
+        <div className="receitas-modal-content">
           {/* Feedback */}
           {feedback.visible && (
-            <div style={{
-              padding: '10px 14px',
-              borderRadius: '8px',
-              marginBottom: '16px',
-              fontSize: '0.875rem',
-              fontWeight: '500',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              backgroundColor: feedback.type === 'success' ? '#dcfce7' : '#fee2e2',
-              color: feedback.type === 'success' ? '#166534' : '#991b1b',
-              border: `1px solid ${feedback.type === 'success' ? '#bbf7d0' : '#fecaca'}`
-            }}>
+            <div className={`receitas-feedback ${feedback.type}`}>
               {feedback.type === 'success' ? '✅' : '❌'} {feedback.message}
             </div>
           )}
           
           {/* Loading */}
           {(categoriasLoading || contasLoading) ? (
-            <div style={{ textAlign: 'center', padding: '30px' }}>
-              <div style={{
-                width: '28px',
-                height: '28px',
-                border: '3px solid #f3f4f6',
-                borderTop: '3px solid #10b981',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite',
-                margin: '0 auto 12px'
-              }}></div>
+            <div className="receitas-loading">
+              <div className="receitas-loading-spinner"></div>
               <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>
                 Carregando dados...
               </p>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <form onSubmit={(e) => handleSubmit(e, false)} className="receitas-form">
               {/* Valor e Data - Layout horizontal compacto */}
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ 
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  fontSize: '0.75rem', 
-                  color: '#9ca3af',
-                  marginTop: '4px'
-                }}>
-                  <span></span>
-                  <span>{formData.observacoes.length}/300</span>
-                </div>
-                {errors.observacoes && (
-                  <div style={{ 
-                    fontSize: '0.75rem', 
-                    color: '#ef4444', 
-                    marginTop: '4px' 
-                  }}>
-                    {errors.observacoes}
-                  </div>
-                )}
-              </div>
-              
-              {/* Botões de ação compactos */}
-              <div style={{ 
-                display: 'flex', 
-                gap: '10px', 
-                marginTop: '8px',
-                paddingTop: '16px',
-                borderTop: '1px solid #f3f4f6'
-              }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetForm();
-                    onClose();
-                  }}
-                  disabled={submitting}
-                  style={{
-                    flex: 1,
-                    padding: '12px 16px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '8px',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    cursor: submitting ? 'not-allowed' : 'pointer',
-                    backgroundColor: 'white',
-                    color: '#6b7280',
-                    opacity: submitting ? 0.6 : 1
-                  }}
-                  onMouseEnter={(e) => !submitting && (e.target.style.borderColor = '#10b981', e.target.style.color = '#10b981')}
-                  onMouseLeave={(e) => !submitting && (e.target.style.borderColor = '#d1d5db', e.target.style.color = '#6b7280')}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  style={{
-                    flex: 2,
-                    padding: '12px 16px',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '0.875rem',
-                    fontWeight: '600',
-                    cursor: submitting ? 'not-allowed' : 'pointer',
-                    backgroundColor: '#10b981',
-                    color: 'white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    opacity: submitting ? 0.8 : 1
-                  }}
-                  onMouseEnter={(e) => !submitting && (e.target.style.backgroundColor = '#059669')}
-                  onMouseLeave={(e) => !submitting && (e.target.style.backgroundColor = '#10b981')}
-                >
-                  {submitting ? (
-                    <>
-                      <div style={{
-                        width: '14px',
-                        height: '14px',
-                        border: '2px solid transparent',
-                        borderTop: '2px solid white',
-                        borderRadius: '50%',
-                        animation: 'spin 1s linear infinite'
-                      }}></div>
-                      Salvando...
-                    </>
-                  ) : (
-                    <>
-                      <Plus size={14} />
-                      Salvar Receita
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
-      </div>
-      
-      {/* Modal de Confirmação */}
-      {confirmacao.show && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.6)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1100
-        }}>
-          <div style={{
-            background: 'white',
-            borderRadius: '12px',
-            padding: '20px',
-            maxWidth: '360px',
-            width: '90%',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-          }}>
-            <h3 style={{
-              margin: '0 0 12px 0',
-              fontSize: '1.125rem',
-              fontWeight: '600',
-              color: '#111827'
-            }}>
-              Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
-            </h3>
-            <p style={{
-              margin: '0 0 20px 0',
-              color: '#6b7280',
-              lineHeight: '1.5',
-              fontSize: '0.875rem'
-            }}>
-              {confirmacao.type === 'categoria' ? 'A categoria' : 'A subcategoria'}{' '}
-              <strong>"{confirmacao.nome}"</strong> não existe. Deseja criá-la?
-            </p>
-            <div style={{
-              display: 'flex',
-              gap: '10px',
-              justifyContent: 'flex-end'
-            }}>
-              <button 
-                onClick={() => setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' })}
-                style={{
-                  padding: '8px 16px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '6px',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  backgroundColor: 'white',
-                  color: '#6b7280'
-                }}
-                onMouseEnter={(e) => (e.target.style.borderColor = '#10b981', e.target.style.color = '#10b981')}
-                onMouseLeave={(e) => (e.target.style.borderColor = '#d1d5db', e.target.style.color = '#6b7280')}
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={handleConfirmarCriacao}
-                style={{
-                  padding: '8px 16px',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '0.875rem',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  backgroundColor: '#10b981',
-                  color: 'white'
-                }}
-                onMouseEnter={(e) => (e.target.style.backgroundColor = '#059669')}
-                onMouseLeave={(e) => (e.target.style.backgroundColor = '#10b981')}
-              >
-                Criar {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-ReceitasModal.propTypes = {
-  isOpen: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired
-};
-
-export default ReceitasModal;={{ flex: '1.5' }}>
-                  <label style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    marginBottom: '6px',
-                    color: '#374151'
-                  }}>
+              <div className="receitas-form-row">
+                <div className="receitas-form-group">
+                  <label className="receitas-form-label">
                     <DollarSign size={14} />
                     Valor *
                   </label>
@@ -672,38 +466,15 @@ export default ReceitasModal;={{ flex: '1.5' }}>
                     onChange={handleValorChange}
                     placeholder="R$ 0,00"
                     disabled={submitting}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      border: `1px solid ${errors.valor ? '#ef4444' : '#d1d5db'}`,
-                      borderRadius: '8px',
-                      fontSize: '1rem',
-                      fontWeight: '600',
-                      color: '#10b981',
-                      backgroundColor: 'white'
-                    }}
+                    className={`receitas-form-input receitas-valor-input ${errors.valor ? 'error' : ''}`}
                   />
                   {errors.valor && (
-                    <div style={{ 
-                      fontSize: '0.75rem', 
-                      color: '#ef4444', 
-                      marginTop: '4px' 
-                    }}>
-                      {errors.valor}
-                    </div>
+                    <div className="receitas-form-error">{errors.valor}</div>
                   )}
                 </div>
                 
-                <div style={{ flex: '1' }}>
-                  <label style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    marginBottom: '6px',
-                    color: '#374151'
-                  }}>
+                <div className="receitas-form-group">
+                  <label className="receitas-form-label">
                     <Calendar size={14} />
                     Data *
                   </label>
@@ -713,38 +484,17 @@ export default ReceitasModal;={{ flex: '1.5' }}>
                     value={formData.data}
                     onChange={handleInputChange}
                     disabled={submitting}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      border: `1px solid ${errors.data ? '#ef4444' : '#d1d5db'}`,
-                      borderRadius: '8px',
-                      fontSize: '0.875rem',
-                      backgroundColor: 'white'
-                    }}
+                    className={`receitas-form-input ${errors.data ? 'error' : ''}`}
                   />
                   {errors.data && (
-                    <div style={{ 
-                      fontSize: '0.75rem', 
-                      color: '#ef4444', 
-                      marginTop: '4px' 
-                    }}>
-                      {errors.data}
-                    </div>
+                    <div className="receitas-form-error">{errors.data}</div>
                   )}
                 </div>
               </div>
               
               {/* Descrição */}
-              <div>
-                <label style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  marginBottom: '6px',
-                  color: '#374151'
-                }}>
+              <div className="receitas-form-group receitas-form-full">
+                <label className="receitas-form-label">
                   <FileText size={14} />
                   Descrição *
                 </label>
@@ -755,214 +505,100 @@ export default ReceitasModal;={{ flex: '1.5' }}>
                   value={formData.descricao}
                   onChange={handleInputChange}
                   disabled={submitting}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    border: `1px solid ${errors.descricao ? '#ef4444' : '#d1d5db'}`,
-                    borderRadius: '8px',
-                    fontSize: '0.875rem',
-                    backgroundColor: 'white'
-                  }}
+                  className={`receitas-form-input ${errors.descricao ? 'error' : ''}`}
                 />
                 {errors.descricao && (
-                  <div style={{ 
-                    fontSize: '0.75rem', 
-                    color: '#ef4444', 
-                    marginTop: '4px' 
-                  }}>
-                    {errors.descricao}
-                  </div>
+                  <div className="receitas-form-error">{errors.descricao}</div>
                 )}
               </div>
               
-              {/* Categoria e Subcategoria */}
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    marginBottom: '6px',
-                    color: '#374151'
-                  }}>
-                    <Tag size={14} />
-                    Categoria *
-                  </label>
-                  <div style={{ position: 'relative' }}>
-                    <input
-                      ref={categoriaInputRef}
-                      type="text"
-                      value={formData.categoriaTexto}
-                      onChange={handleCategoriaChange}
-                      onBlur={handleCategoriaBlur}
-                      onFocus={() => setCategoriaDropdownOpen(true)}
-                      placeholder="Digite ou selecione"
-                      disabled={submitting}
-                      autoComplete="off"
-                      style={{
-                        width: '100%',
-                        padding: '10px 32px 10px 12px',
-                        border: `1px solid ${errors.categoria ? '#ef4444' : '#d1d5db'}`,
-                        borderRadius: '8px',
-                        fontSize: '0.875rem',
-                        backgroundColor: 'white'
-                      }}
-                    />
-                    <Search size={14} style={{
-                      position: 'absolute',
-                      right: '10px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      color: '#9ca3af',
-                      pointerEvents: 'none'
-                    }} />
-                    
-                    {categoriaDropdownOpen && categoriasFiltradas.length > 0 && (
-                      <div style={{
-                        position: 'absolute',
-                        top: '100%',
-                        left: 0,
-                        right: 0,
-                        background: 'white',
-                        border: '1px solid #d1d5db',
-                        borderTop: 'none',
-                        borderRadius: '0 0 6px 6px',
-                        maxHeight: '160px',
-                        overflowY: 'auto',
-                        zIndex: 1000,
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                      }}>
-                        {categoriasFiltradas.map(categoria => (
-                          <div
-                            key={categoria.id}
-                            style={{
-                              padding: '8px 12px',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              borderBottom: '1px solid #f3f4f6',
-                              fontSize: '0.875rem'
-                            }}
-                            onMouseDown={() => handleSelecionarCategoria(categoria)}
-                            onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
-                            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-                          >
-                            <div style={{ 
-                              width: '10px', 
-                              height: '10px', 
-                              borderRadius: '50%',
-                              backgroundColor: categoria.cor,
-                              marginRight: '8px'
-                            }}></div>
-                            {categoria.nome}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  {errors.categoria && (
-                    <div style={{ 
-                      fontSize: '0.75rem', 
-                      color: '#ef4444', 
-                      marginTop: '4px' 
-                    }}>
-                      {errors.categoria}
+              {/* Categoria */}
+              <div className="receitas-form-group receitas-form-full">
+                <label className="receitas-form-label">
+                  <Tag size={14} />
+                  Categoria *
+                </label>
+                <div className="receitas-dropdown-container">
+                  <input
+                    ref={categoriaInputRef}
+                    type="text"
+                    value={formData.categoriaTexto}
+                    onChange={handleCategoriaChange}
+                    onBlur={handleCategoriaBlur}
+                    onFocus={() => setCategoriaDropdownOpen(true)}
+                    placeholder="Digite ou selecione uma categoria"
+                    disabled={submitting}
+                    autoComplete="off"
+                    className={`receitas-form-input receitas-dropdown-input ${errors.categoria ? 'error' : ''}`}
+                  />
+                  <Search size={14} className="receitas-search-icon" />
+                  
+                  {categoriaDropdownOpen && categoriasFiltradas.length > 0 && (
+                    <div className="receitas-dropdown-options">
+                      {categoriasFiltradas.map(categoria => (
+                        <div
+                          key={categoria.id}
+                          className="receitas-dropdown-option"
+                          onMouseDown={() => handleSelecionarCategoria(categoria)}
+                        >
+                          <div 
+                            className="receitas-categoria-cor"
+                            style={{ backgroundColor: categoria.cor }}
+                          ></div>
+                          {categoria.nome}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
-                
-                <div style={{ flex: 1 }}>
-                  <label style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    marginBottom: '6px',
-                    color: '#374151'
-                  }}>
-                    <Tag size={14} />
-                    Subcategoria
-                  </label>
-                  <div style={{ position: 'relative' }}>
-                    <input
-                      ref={subcategoriaInputRef}
-                      type="text"
-                      value={formData.subcategoriaTexto}
-                      onChange={handleSubcategoriaChange}
-                      onBlur={handleSubcategoriaBlur}
-                      onFocus={() => categoriaSelecionada && setSubcategoriaDropdownOpen(true)}
-                      placeholder={!formData.categoria ? "Escolha categoria" : "Digite ou selecione"}
-                      disabled={!formData.categoria || submitting}
-                      autoComplete="off"
-                      style={{
-                        width: '100%',
-                        padding: '10px 32px 10px 12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '8px',
-                        fontSize: '0.875rem',
-                        backgroundColor: !formData.categoria ? '#f9fafb' : 'white'
-                      }}
-                    />
-                    <Search size={14} style={{
-                      position: 'absolute',
-                      right: '10px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      color: '#9ca3af',
-                      pointerEvents: 'none'
-                    }} />
-                    
-                    {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
-                      <div style={{
-                        position: 'absolute',
-                        top: '100%',
-                        left: 0,
-                        right: 0,
-                        background: 'white',
-                        border: '1px solid #d1d5db',
-                        borderTop: 'none',
-                        borderRadius: '0 0 6px 6px',
-                        maxHeight: '160px',
-                        overflowY: 'auto',
-                        zIndex: 1000,
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                      }}>
-                        {subcategoriasFiltradas.map(subcategoria => (
-                          <div
-                            key={subcategoria.id}
-                            style={{
-                              padding: '8px 12px',
-                              cursor: 'pointer',
-                              borderBottom: '1px solid #f3f4f6',
-                              fontSize: '0.875rem'
-                            }}
-                            onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
-                            onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
-                            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-                          >
-                            {subcategoria.nome}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                {errors.categoria && (
+                  <div className="receitas-form-error">{errors.categoria}</div>
+                )}
+              </div>
+              
+              {/* Subcategoria */}
+              <div className="receitas-form-group receitas-form-full">
+                <label className="receitas-form-label">
+                  <Tag size={14} />
+                  Subcategoria <small>(opcional)</small>
+                </label>
+                <div className="receitas-dropdown-container">
+                  <input
+                    ref={subcategoriaInputRef}
+                    type="text"
+                    value={formData.subcategoriaTexto}
+                    onChange={handleSubcategoriaChange}
+                    onBlur={handleSubcategoriaBlur}
+                    onFocus={() => categoriaSelecionada && setSubcategoriaDropdownOpen(true)}
+                    placeholder={!formData.categoria ? "Escolha categoria primeiro" : "Digite ou selecione uma subcategoria"}
+                    disabled={!formData.categoria || submitting}
+                    autoComplete="off"
+                    className={`receitas-form-input receitas-dropdown-input ${errors.subcategoria ? 'error' : ''}`}
+                    style={{
+                      backgroundColor: !formData.categoria ? '#f9fafb' : 'white'
+                    }}
+                  />
+                  <Search size={14} className="receitas-search-icon" />
+                  
+                  {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
+                    <div className="receitas-dropdown-options">
+                      {subcategoriasFiltradas.map(subcategoria => (
+                        <div
+                          key={subcategoria.id}
+                          className="receitas-dropdown-option"
+                          onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
+                        >
+                          {subcategoria.nome}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               
               {/* Conta de Depósito */}
-              <div>
-                <label style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  marginBottom: '6px',
-                  color: '#374151'
-                }}>
+              <div className="receitas-form-group receitas-form-full">
+                <label className="receitas-form-label">
                   <Building size={14} />
                   Conta de Depósito *
                 </label>
@@ -971,14 +607,7 @@ export default ReceitasModal;={{ flex: '1.5' }}>
                   value={formData.contaDeposito}
                   onChange={handleInputChange}
                   disabled={submitting}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    border: `1px solid ${errors.contaDeposito ? '#ef4444' : '#d1d5db'}`,
-                    borderRadius: '8px',
-                    fontSize: '0.875rem',
-                    backgroundColor: 'white'
-                  }}
+                  className={`receitas-form-input ${errors.contaDeposito ? 'error' : ''}`}
                 >
                   <option value="">Selecione uma conta</option>
                   {contas.map(conta => (
@@ -988,138 +617,70 @@ export default ReceitasModal;={{ flex: '1.5' }}>
                   ))}
                 </select>
                 {errors.contaDeposito && (
-                  <div style={{ 
-                    fontSize: '0.75rem', 
-                    color: '#ef4444', 
-                    marginTop: '4px' 
-                  }}>
-                    {errors.contaDeposito}
-                  </div>
+                  <div className="receitas-form-error">{errors.contaDeposito}</div>
                 )}
               </div>
               
               {/* Observações */}
-              <div>
-                <label style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  marginBottom: '6px',
-                  color: '#374151'
-                }}>
+              <div className="receitas-form-group receitas-form-full">
+                <label className="receitas-form-label">
                   <MessageSquare size={14} />
-                  Observações <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>(máx. 300)</span>
+                  Observações <small>(máx. 300)</small>
                 </label>
                 <textarea
                   name="observacoes"
                   value={formData.observacoes}
-                  onChange={(e) => {
-                    if (e.target.value.length <= 300) {
-                      handleInputChange(e);
-                    }
-                  }}
-                  placeholder="Informações extras sobre esta receita"
+                  onChange={handleObservacoesChange}
+                  placeholder="Adicione informações extras sobre esta receita"
                   rows="2"
                   disabled={submitting}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    border: `1px solid ${errors.observacoes ? '#ef4444' : '#d1d5db'}`,
-                    borderRadius: '8px',
-                    fontSize: '0.875rem',
-                    backgroundColor: 'white',
-                    resize: 'none',
-                    fontFamily: 'inherit'
-                  }}
+                  className={`receitas-form-input receitas-form-textarea ${errors.observacoes ? 'error' : ''}`}
                 />
-               <div style={{ 
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  fontSize: '0.75rem', 
-                  color: '#9ca3af',
-                  marginTop: '4px'
-                }}>
+                <div className="receitas-char-counter">
                   <span></span>
                   <span>{formData.observacoes.length}/300</span>
                 </div>
                 {errors.observacoes && (
-                  <div style={{ 
-                    fontSize: '0.75rem', 
-                    color: '#ef4444', 
-                    marginTop: '4px' 
-                  }}>
-                    {errors.observacoes}
-                  </div>
+                  <div className="receitas-form-error">{errors.observacoes}</div>
                 )}
               </div>
               
               {/* Botões de ação compactos */}
-              <div style={{ 
-                display: 'flex', 
-                gap: '10px', 
-                marginTop: '8px',
-                paddingTop: '16px',
-                borderTop: '1px solid #f3f4f6'
-              }}>
+              <div className="receitas-form-actions">
                 <button
                   type="button"
-                  onClick={() => {
-                    resetForm();
-                    onClose();
-                  }}
+                  onClick={handleCancelar}
                   disabled={submitting}
-                  style={{
-                    flex: 1,
-                    padding: '12px 16px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '8px',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    cursor: submitting ? 'not-allowed' : 'pointer',
-                    backgroundColor: 'white',
-                    color: '#6b7280',
-                    opacity: submitting ? 0.6 : 1
-                  }}
-                  onMouseEnter={(e) => !submitting && (e.target.style.borderColor = '#10b981', e.target.style.color = '#10b981')}
-                  onMouseLeave={(e) => !submitting && (e.target.style.borderColor = '#d1d5db', e.target.style.color = '#6b7280')}
+                  className="receitas-btn receitas-btn-secondary"
                 >
                   Cancelar
                 </button>
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={(e) => handleSubmit(e, true)}
                   disabled={submitting}
-                  style={{
-                    flex: 2,
-                    padding: '12px 16px',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '0.875rem',
-                    fontWeight: '600',
-                    cursor: submitting ? 'not-allowed' : 'pointer',
-                    backgroundColor: '#10b981',
-                    color: 'white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    opacity: submitting ? 0.8 : 1
-                  }}
-                  onMouseEnter={(e) => !submitting && (e.target.style.backgroundColor = '#059669')}
-                  onMouseLeave={(e) => !submitting && (e.target.style.backgroundColor = '#10b981')}
+                  className="receitas-btn receitas-btn-tertiary"
                 >
                   {submitting ? (
                     <>
-                      <div style={{
-                        width: '14px',
-                        height: '14px',
-                        border: '2px solid transparent',
-                        borderTop: '2px solid white',
-                        borderRadius: '50%',
-                        animation: 'spin 1s linear infinite'
-                      }}></div>
+                      <div className="receitas-btn-spinner"></div>
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <PlusCircle size={14} />
+                      Salvar e Nova
+                    </>
+                  )}
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="receitas-btn receitas-btn-primary"
+                >
+                  {submitting ? (
+                    <>
+                      <div className="receitas-btn-spinner"></div>
                       Salvando...
                     </>
                   ) : (
@@ -1137,79 +698,25 @@ export default ReceitasModal;={{ flex: '1.5' }}>
       
       {/* Modal de Confirmação */}
       {confirmacao.show && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.6)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1100
-        }}>
-          <div style={{
-            background: 'white',
-            borderRadius: '12px',
-            padding: '20px',
-            maxWidth: '360px',
-            width: '90%',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-          }}>
-            <h3 style={{
-              margin: '0 0 12px 0',
-              fontSize: '1.125rem',
-              fontWeight: '600',
-              color: '#111827'
-            }}>
+        <div className="receitas-confirmation-overlay">
+          <div className="receitas-confirmation-container">
+            <h3 className="receitas-confirmation-title">
               Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
             </h3>
-            <p style={{
-              margin: '0 0 20px 0',
-              color: '#6b7280',
-              lineHeight: '1.5',
-              fontSize: '0.875rem'
-            }}>
+            <p className="receitas-confirmation-message">
               {confirmacao.type === 'categoria' ? 'A categoria' : 'A subcategoria'}{' '}
               <strong>"{confirmacao.nome}"</strong> não existe. Deseja criá-la?
             </p>
-            <div style={{
-              display: 'flex',
-              gap: '10px',
-              justifyContent: 'flex-end'
-            }}>
+            <div className="receitas-confirmation-actions">
               <button 
-                onClick={() => setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' })}
-                style={{
-                  padding: '8px 16px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '6px',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  backgroundColor: 'white',
-                  color: '#6b7280'
-                }}
-                onMouseEnter={(e) => (e.target.style.borderColor = '#10b981', e.target.style.color = '#10b981')}
-                onMouseLeave={(e) => (e.target.style.borderColor = '#d1d5db', e.target.style.color = '#6b7280')}
+                onClick={handleCancelarConfirmacao}
+                className="receitas-confirmation-btn receitas-confirmation-btn-secondary"
               >
                 Cancelar
               </button>
               <button 
                 onClick={handleConfirmarCriacao}
-                style={{
-                  padding: '8px 16px',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '0.875rem',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  backgroundColor: '#10b981',
-                  color: 'white'
-                }}
-                onMouseEnter={(e) => (e.target.style.backgroundColor = '#059669')}
-                onMouseLeave={(e) => (e.target.style.backgroundColor = '#10b981')}
+                className="receitas-confirmation-btn receitas-confirmation-btn-primary"
               >
                 Criar {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
               </button>
@@ -1223,7 +730,8 @@ export default ReceitasModal;={{ flex: '1.5' }}>
 
 ReceitasModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired
+  onClose: PropTypes.func.isRequired,
+  onSave: PropTypes.func
 };
 
 export default ReceitasModal;

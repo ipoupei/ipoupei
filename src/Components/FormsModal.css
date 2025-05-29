@@ -1,0 +1,1112 @@
+/* ===== FORMS MODAL STYLES ===== */
+/* Arquivo CSS reutilizável para todos os modais de formulário com layout compacto */
+
+/* Overlay e container principal */
+.receitas-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.receitas-modal-container {
+  background: white;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Header compacto */
+.receitas-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.receitas-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.receitas-modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+.receitas-modal-close:hover {
+  background-color: #f3f4f6;
+}
+
+/* Content */
+.receitas-modal-content {
+  padding: 20px;
+  overflow-y: auto;
+  max-height: calc(90vh - 100px);
+}
+
+/* Formulário compacto */
+.receitas-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Layout horizontal para campos principais */
+.receitas-form-row {
+  display: flex;
+  gap: 12px;
+}
+
+.receitas-form-row .receitas-form-group:first-child {
+  flex: 1.5; /* Valor ocupa mais espaço */
+}
+
+.receitas-form-row .receitas-form-group:last-child {
+  flex: 1; /* Data ocupa menos espaço */
+}
+
+/* Layout full-width para campos únicos */
+.receitas-form-full {
+  width: 100%;
+}
+
+/* Grupos de campos */
+.receitas-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Labels com ícones */
+.receitas-form-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.receitas-form-label small {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+/* Inputs base */
+.receitas-form-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  background: white;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.receitas-form-input:focus {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.receitas-form-input.error {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.receitas-form-input:disabled {
+  background-color: #f9fafb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+/* Input de valor destacado */
+.receitas-valor-input {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #10b981;
+}
+
+/* Inputs com dropdown (categoria/subcategoria) */
+.receitas-dropdown-container {
+  position: relative;
+}
+
+.receitas-dropdown-input {
+  padding-right: 32px; /* Espaço para o ícone de busca */
+}
+
+.receitas-search-icon {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+/* Dropdown de opções */
+.receitas-dropdown-options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  max-height: 160px;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.receitas-dropdown-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 0.875rem;
+  transition: background-color 0.15s ease;
+}
+
+.receitas-dropdown-option:hover {
+  background-color: #f9fafb;
+}
+
+.receitas-dropdown-option:last-child {
+  border-bottom: none;
+}
+
+/* Indicador de cor da categoria */
+.receitas-categoria-cor {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+/* Textarea */
+.receitas-form-textarea {
+  resize: none;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+/* Contador de caracteres */
+.receitas-char-counter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+
+/* Mensagens de erro */
+.receitas-form-error {
+  font-size: 0.75rem;
+  color: #ef4444;
+  margin-top: 4px;
+}
+
+/* Feedback */
+.receitas-feedback {
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.receitas-feedback.success {
+  background-color: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.receitas-feedback.error {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+/* Loading spinner */
+.receitas-loading {
+  text-align: center;
+  padding: 30px;
+}
+
+.receitas-loading-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #f3f4f6;
+  border-top: 3px solid #10b981;
+  border-radius: 50%;
+  animation: receitas-spin 1s linear infinite;
+  margin: 0 auto 12px;
+}
+
+/* Ações do formulário */
+.receitas-form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid #f3f4f6;
+}
+
+/* Botões */
+.receitas-btn {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+}
+
+.receitas-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.receitas-btn-secondary {
+  flex: 1;
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #6b7280;
+}
+
+.receitas-btn-secondary:hover:not(:disabled) {
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.receitas-btn-primary {
+  flex: 2;
+  background: #10b981;
+  color: white;
+  font-weight: 600;
+}
+
+.receitas-btn-primary:hover:not(:disabled) {
+  background: #059669;
+}
+
+.receitas-btn-tertiary {
+  flex: 1.5;
+  background: #059669;
+  color: white;
+  font-weight: 500;
+}
+
+.receitas-btn-tertiary:hover:not(:disabled) {
+  background: #047857;
+}
+
+/* Loading spinner nos botões */
+.receitas-btn-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: receitas-spin 1s linear infinite;
+}
+
+/* Modal de confirmação */
+.receitas-confirmation-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+}
+
+.receitas-confirmation-container {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 360px;
+  width: 90%;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.receitas-confirmation-title {
+  margin: 0 0 12px 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.receitas-confirmation-message {
+  margin: 0 0 20px 0;
+  color: #6b7280;
+  line-height: 1.5;
+  font-size: 0.875rem;
+}
+
+.receitas-confirmation-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.receitas-confirmation-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.receitas-confirmation-btn-secondary {
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #6b7280;
+}
+
+.receitas-confirmation-btn-secondary:hover {
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.receitas-confirmation-btn-primary {
+  background: #10b981;
+  color: white;
+  font-weight: 600;
+}
+
+.receitas-confirmation-btn-primary:hover {
+  background: #059669;
+}
+
+/* Animações */
+@keyframes receitas-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsividade */
+@media (max-width: 640px) {
+  .receitas-modal-overlay {
+    padding: 10px;
+  }
+  
+  .receitas-modal-container {
+    width: 100%;
+    max-height: 95vh;
+  }
+  
+  .receitas-modal-header {
+    padding: 14px 16px;
+  }
+  
+  .receitas-modal-content {
+    padding: 16px;
+  }
+  
+  .receitas-form-row {
+    flex-direction: column;
+  }
+  
+  .receitas-form-actions {
+    flex-direction: column;
+  }
+  
+  .receitas-btn {
+    flex: 1;
+  }
+  
+  .receitas-dropdown-options {
+    max-height: 120px;
+  }
+  
+  .receitas-confirmation-container {
+    margin: 0 20px;
+  }
+  
+  .receitas-confirmation-actions {
+    flex-direction: column-reverse;
+  }
+  
+  .receitas-confirmation-btn {
+    width: 100%;
+  }
+}
+/* ===== EXTENSÕES ESPECÍFICAS PARA CARTÃO ===== */
+/* Adicionar estas regras ao arquivo FormsModal.css existente */
+
+/* Cores específicas para cartão (roxo) */
+.receitas-btn-cartao {
+  background: #8b5cf6;
+  color: white;
+  font-weight: 600;
+}
+
+.receitas-btn-cartao:hover:not(:disabled) {
+  background: #7c3aed;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(139, 92, 246, 0.3);
+}
+
+.receitas-confirmation-btn-cartao {
+  background: #8b5cf6;
+  color: white;
+  font-weight: 600;
+}
+
+.receitas-confirmation-btn-cartao:hover {
+  background: #7c3aed;
+}
+
+/* Preview COMPACTO do parcelamento - versão reduzida */
+.cartao-preview-compacto {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(139, 92, 246, 0.03) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.preview-texto {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #8b5cf6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* Preview do parcelamento - específico do cartão (MANTIDO para compatibilidade) */
+.cartao-preview {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.05) 0%, rgba(139, 92, 246, 0.02) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.cartao-preview-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.cartao-preview-label {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.cartao-preview-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #8b5cf6;
+}
+
+/* Responsividade para preview do cartão */
+@media (max-width: 640px) {
+  .cartao-preview {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .cartao-preview-item {
+    flex-direction: row;
+    justify-content: space-between;
+    width: 100%;
+  }
+  
+  .cartao-preview-compacto {
+    padding: 6px 10px;
+  }
+  
+  .preview-texto {
+    font-size: 0.75rem;
+    flex-direction: column;
+    gap: 2px;
+  }
+}
+  /* ===== CARTÃO MODAL STYLES ===== */
+/* Arquivo CSS específico para modal de despesas com cartão de crédito */
+/* Cores: Roxo (#8b5cf6) como primária, vermelho (#ef4444) como secundária */
+
+/* Overlay e container principal */
+.cartao-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.cartao-modal-container {
+  background: white;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.1);
+}
+
+/* Header compacto */
+.cartao-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f3f4f6;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.05) 0%, rgba(139, 92, 246, 0.02) 100%);
+}
+
+.cartao-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.cartao-modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+.cartao-modal-close:hover {
+  background-color: rgba(139, 92, 246, 0.1);
+}
+
+/* Content */
+.cartao-modal-content {
+  padding: 20px;
+  overflow-y: auto;
+  max-height: calc(90vh - 100px);
+}
+
+/* Formulário compacto */
+.cartao-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Layout horizontal para campos principais */
+.cartao-form-row {
+  display: flex;
+  gap: 12px;
+}
+
+.cartao-form-row .cartao-form-group:first-child {
+  flex: 1.5; /* Valor ocupa mais espaço */
+}
+
+.cartao-form-row .cartao-form-group:last-child {
+  flex: 1; /* Data/Parcelas ocupam menos espaço */
+}
+
+/* Layout full-width para campos únicos */
+.cartao-form-full {
+  width: 100%;
+}
+
+/* Grupos de campos */
+.cartao-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Labels com ícones */
+.cartao-form-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.cartao-form-label small {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+/* Inputs base */
+.cartao-form-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  background: white;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cartao-form-input:focus {
+  outline: none;
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.cartao-form-input.error {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.cartao-form-input:disabled {
+  background-color: #f9fafb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+/* Input de valor destacado */
+.cartao-valor-input {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #8b5cf6;
+}
+
+/* Inputs com dropdown (categoria/subcategoria) */
+.cartao-dropdown-container {
+  position: relative;
+}
+
+.cartao-dropdown-input {
+  padding-right: 32px; /* Espaço para o ícone de busca */
+}
+
+.cartao-search-icon {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+/* Dropdown de opções */
+.cartao-dropdown-options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  max-height: 160px;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.cartao-dropdown-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 0.875rem;
+  transition: background-color 0.15s ease;
+}
+
+.cartao-dropdown-option:hover {
+  background-color: rgba(139, 92, 246, 0.05);
+}
+
+.cartao-dropdown-option:last-child {
+  border-bottom: none;
+}
+
+/* Indicador de cor da categoria */
+.cartao-categoria-cor {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+/* Textarea */
+.cartao-form-textarea {
+  resize: none;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+/* Preview do parcelamento */
+.cartao-preview {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.05) 0%, rgba(139, 92, 246, 0.02) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.cartao-preview-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.cartao-preview-label {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.cartao-preview-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #8b5cf6;
+}
+
+/* Contador de caracteres */
+.cartao-char-counter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+
+/* Mensagens de erro */
+.cartao-form-error {
+  font-size: 0.75rem;
+  color: #ef4444;
+  margin-top: 4px;
+}
+
+/* Feedback */
+.cartao-feedback {
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cartao-feedback.success {
+  background-color: rgba(139, 92, 246, 0.1);
+  color: #6b21a8;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.cartao-feedback.error {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+/* Loading spinner */
+.cartao-loading {
+  text-align: center;
+  padding: 30px;
+}
+
+.cartao-loading-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #f3f4f6;
+  border-top: 3px solid #8b5cf6;
+  border-radius: 50%;
+  animation: cartao-spin 1s linear infinite;
+  margin: 0 auto 12px;
+}
+
+/* Ações do formulário */
+.cartao-form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid #f3f4f6;
+}
+
+/* Botões */
+.cartao-btn {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+}
+
+.cartao-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cartao-btn-secondary {
+  flex: 1;
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #6b7280;
+}
+
+.cartao-btn-secondary:hover:not(:disabled) {
+  border-color: #8b5cf6;
+  color: #8b5cf6;
+}
+
+.cartao-btn-primary {
+  flex: 2;
+  background: #8b5cf6;
+  color: white;
+  font-weight: 600;
+}
+
+.cartao-btn-primary:hover:not(:disabled) {
+  background: #7c3aed;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(139, 92, 246, 0.3);
+}
+
+.cartao-btn-tertiary {
+  flex: 1.5;
+  background: #a855f7;
+  color: white;
+  font-weight: 500;
+}
+
+.cartao-btn-tertiary:hover:not(:disabled) {
+  background: #9333ea;
+}
+
+/* Loading spinner nos botões */
+.cartao-btn-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: cartao-spin 1s linear infinite;
+}
+
+/* Modal de confirmação */
+.cartao-confirmation-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+}
+
+.cartao-confirmation-container {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 360px;
+  width: 90%;
+  box-shadow: 0 25px 50px -12px rgba(139, 92, 246, 0.25);
+  border: 1px solid rgba(139, 92, 246, 0.1);
+}
+
+.cartao-confirmation-title {
+  margin: 0 0 12px 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.cartao-confirmation-message {
+  margin: 0 0 20px 0;
+  color: #6b7280;
+  line-height: 1.5;
+  font-size: 0.875rem;
+}
+
+.cartao-confirmation-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.cartao-confirmation-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.cartao-confirmation-btn-secondary {
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #6b7280;
+}
+
+.cartao-confirmation-btn-secondary:hover {
+  border-color: #8b5cf6;
+  color: #8b5cf6;
+}
+
+.cartao-confirmation-btn-primary {
+  background: #8b5cf6;
+  color: white;
+  font-weight: 600;
+}
+
+.cartao-confirmation-btn-primary:hover {
+  background: #7c3aed;
+}
+
+/* Animações */
+@keyframes cartao-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsividade */
+@media (max-width: 640px) {
+  .cartao-modal-overlay {
+    padding: 10px;
+  }
+  
+  .cartao-modal-container {
+    width: 100%;
+    max-height: 95vh;
+  }
+  
+  .cartao-modal-header {
+    padding: 14px 16px;
+  }
+  
+  .cartao-modal-content {
+    padding: 16px;
+  }
+  
+  .cartao-form-row {
+    flex-direction: column;
+  }
+  
+  .cartao-form-actions {
+    flex-direction: column;
+  }
+  
+  .cartao-btn {
+    flex: 1;
+  }
+  
+  .cartao-dropdown-options {
+    max-height: 120px;
+  }
+  
+  .cartao-confirmation-container {
+    margin: 0 20px;
+  }
+  
+  .cartao-confirmation-actions {
+    flex-direction: column-reverse;
+  }
+  
+  .cartao-confirmation-btn {
+    width: 100%;
+  }
+  
+  .cartao-preview {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .cartao-preview-item {
+    flex-direction: row;
+    justify-content: space-between;
+    width: 100%;
+  }
+}

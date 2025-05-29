@@ -1,64 +1,85 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import { TrendingDown, Plus, X, Calendar, FileText, Tag, Building, DollarSign, MessageSquare, Search } from 'lucide-react';
+import { 
+  TrendingDown, 
+  Plus, 
+  X, 
+  Calendar, 
+  FileText, 
+  Tag, 
+  Building, 
+  DollarSign, 
+  MessageSquare, 
+  Search,
+  PlusCircle
+} from 'lucide-react';
 import InputMoney from './ui/InputMoney';
 import useCategorias from '../hooks/useCategorias';
 import useContas from '../hooks/useContas';
+import { supabase } from '../lib/supabaseClient';
+import useAuth from '../hooks/useAuth';
+import './FormsModal.css';
 
 /**
  * Modal moderno para lançamento de despesas
- * Com busca inteligente e criação automática de categorias/subcategorias
+ * VERSÃO CORRIGIDA - sem loops de re-renderização
  */
-const DespesasModal = ({ isOpen, onClose }) => {
-  // Referências para os campos
-  const dataInputRef = useRef(null);
+const DespesasModal = ({ isOpen, onClose, onSave }) => {
+  const valorInputRef = useRef(null);
   const categoriaInputRef = useRef(null);
   const subcategoriaInputRef = useRef(null);
   
-  // Hooks para obter categorias e contas
+  const { user } = useAuth();
   const { categorias, loading: categoriasLoading, addCategoria, addSubcategoria } = useCategorias();
   const { contas, loading: contasLoading } = useContas();
   
-  // Filtrar apenas categorias do tipo "despesa"
-  const categoriasDespesa = categorias.filter(cat => cat.tipo === 'despesa');
+  // MEMOIZAÇÃO das categorias filtradas para evitar re-renders
+  const categoriasDespesa = useMemo(() => 
+    categorias.filter(cat => cat.tipo === 'despesa'), 
+    [categorias]
+  );
   
-  // Estados para os campos do formulário
   const [formData, setFormData] = useState({
-    data: formatarDataAtual(),
+    valor: 0,
+    data: getCurrentDate(),
     descricao: '',
     categoria: '',
     categoriaTexto: '',
     subcategoria: '',
     subcategoriaTexto: '',
     contaDebito: '',
-    valor: 0,
     observacoes: ''
   });
-
-  // Estados para controle dos dropdowns e busca
-  const [categoriaDropdownAberto, setCategoriaDropdownAberto] = useState(false);
-  const [subcategoriaDropdownAberto, setSubcategoriaDropdownAberto] = useState(false);
+  
+  const [errors, setErrors] = useState({});
+  const [feedback, setFeedback] = useState({ visible: false, message: '', type: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [categoriaDropdownOpen, setCategoriaDropdownOpen] = useState(false);
+  const [subcategoriaDropdownOpen, setSubcategoriaDropdownOpen] = useState(false);
   const [categoriasFiltradas, setCategoriasFiltradas] = useState([]);
   const [subcategoriasFiltradas, setSubcategoriasFiltradas] = useState([]);
+  const [confirmacao, setConfirmacao] = useState({
+    show: false,
+    type: '',
+    nome: '',
+    categoriaId: ''
+  });
   
-  // Estados para controle de criação de novas categorias
-  const [confirmacaoCategoria, setConfirmacaoCategoria] = useState({ show: false, nome: '' });
-  const [confirmacaoSubcategoria, setConfirmacaoSubcategoria] = useState({ show: false, nome: '', categoriaId: '' });
+  function getCurrentDate() {
+    const hoje = new Date();
+    return hoje.toISOString().split('T')[0];
+  }
   
-  // Estado para controlar erros de validação
-  const [errors, setErrors] = useState({});
+  // MEMOIZAÇÃO da categoria selecionada
+  const categoriaSelecionada = useMemo(() =>
+    categoriasDespesa.find(cat => cat.id === formData.categoria),
+    [categoriasDespesa, formData.categoria]
+  );
   
-  // Estado para exibir mensagem de sucesso
-  const [feedback, setFeedback] = useState({ visible: false, message: '', type: '' });
-  
-  // Estado para loading do formulário
-  const [submitting, setSubmitting] = useState(false);
-  
-  // Obter categoria selecionada
-  const categoriaSelecionada = categoriasDespesa.find(cat => cat.id === formData.categoria);
-  
-  // Efeito para filtrar categorias conforme o usuário digita
+  // USEEFFECT OTIMIZADO - apenas quando necessário
   useEffect(() => {
+    if (!categoriasDespesa.length) return;
+    
     if (formData.categoriaTexto) {
       const filtradas = categoriasDespesa.filter(cat =>
         cat.nome.toLowerCase().includes(formData.categoriaTexto.toLowerCase())
@@ -69,740 +90,586 @@ const DespesasModal = ({ isOpen, onClose }) => {
     }
   }, [formData.categoriaTexto, categoriasDespesa]);
   
-  // Efeito para filtrar subcategorias conforme o usuário digita
+  // USEEFFECT OTIMIZADO para subcategorias
   useEffect(() => {
-    if (categoriaSelecionada && formData.subcategoriaTexto) {
+    if (!categoriaSelecionada) {
+      setSubcategoriasFiltradas([]);
+      return;
+    }
+    
+    if (formData.subcategoriaTexto) {
       const filtradas = (categoriaSelecionada.subcategorias || []).filter(sub =>
         sub.nome.toLowerCase().includes(formData.subcategoriaTexto.toLowerCase())
       );
       setSubcategoriasFiltradas(filtradas);
-    } else if (categoriaSelecionada) {
-      setSubcategoriasFiltradas(categoriaSelecionada.subcategorias || []);
     } else {
-      setSubcategoriasFiltradas([]);
+      setSubcategoriasFiltradas(categoriaSelecionada.subcategorias || []);
     }
   }, [formData.subcategoriaTexto, categoriaSelecionada]);
   
-  // Efeito para autofoco no primeiro campo quando o modal abre
+  // USEEFFECT apenas para abertura do modal
   useEffect(() => {
-    if (isOpen && dataInputRef.current) {
-      setTimeout(() => {
-        dataInputRef.current.focus();
-      }, 100);
-    }
-    
-    // Resetar o formulário quando o modal é aberto
     if (isOpen) {
       resetForm();
+      setTimeout(() => {
+        valorInputRef.current?.focus();
+      }, 150);
     }
   }, [isOpen]);
   
-  // Função para obter a data atual no formato yyyy-MM-dd (para input date)
-  function formatarDataAtual() {
-    const hoje = new Date();
-    const ano = hoje.getFullYear();
-    const mes = String(hoje.getMonth() + 1).padStart(2, '0');
-    const dia = String(hoje.getDate()).padStart(2, '0');
-    return `${ano}-${mes}-${dia}`;
-  }
-
-  // Função para mostrar feedback
-  const showFeedback = (message, type = 'success') => {
+  // CALLBACKS MEMOIZADOS para evitar re-criação
+  const showFeedback = useCallback((message, type = 'success') => {
     setFeedback({ visible: true, message, type });
     setTimeout(() => {
       setFeedback({ visible: false, message: '', type: '' });
     }, 3000);
-  };
-
-  // Handler para mudanças nos inputs normais
-  const handleChange = (e) => {
+  }, []);
+  
+  const handleInputChange = useCallback((e) => {
     const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
     
-    setFormData(prevData => ({
-      ...prevData,
-      [name]: value
-    }));
-    
-    // Limpa o erro deste campo se existir
     if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: null
-      }));
+      setErrors(prev => ({ ...prev, [name]: null }));
     }
-  };
+  }, [errors]);
   
-  // Handler para mudanças no campo de categoria (com busca)
-  const handleCategoriaChange = (e) => {
+  const handleValorChange = useCallback((value) => {
+    setFormData(prev => ({ ...prev, valor: value }));
+    if (errors.valor) {
+      setErrors(prev => ({ ...prev, valor: null }));
+    }
+  }, [errors.valor]);
+  
+  const handleCategoriaChange = useCallback((e) => {
     const { value } = e.target;
-    
-    setFormData(prevData => ({
-      ...prevData,
+    setFormData(prev => ({
+      ...prev,
       categoriaTexto: value,
-      categoria: '', // Limpa a categoria selecionada
-      subcategoria: '', // Limpa a subcategoria
-      subcategoriaTexto: '' // Limpa o texto da subcategoria
-    }));
-    
-    setCategoriaDropdownAberto(true);
-    
-    // Limpa erros
-    if (errors.categoria) {
-      setErrors(prev => ({ ...prev, categoria: null }));
-    }
-  };
-  
-  // Handler para seleção de categoria do dropdown
-  const handleSelecionarCategoria = (categoria) => {
-    setFormData(prevData => ({
-      ...prevData,
-      categoria: categoria.id,
-      categoriaTexto: categoria.nome,
-      subcategoria: '', // Limpa a subcategoria quando muda categoria
+      categoria: '',
+      subcategoria: '',
       subcategoriaTexto: ''
     }));
     
-    setCategoriaDropdownAberto(false);
+    setCategoriaDropdownOpen(true);
+    if (errors.categoria) {
+      setErrors(prev => ({ ...prev, categoria: null }));
+    }
+  }, [errors.categoria]);
+  
+  const handleSelecionarCategoria = useCallback((categoria) => {
+    setFormData(prev => ({
+      ...prev,
+      categoria: categoria.id,
+      categoriaTexto: categoria.nome,
+      subcategoria: '',
+      subcategoriaTexto: ''
+    }));
     
-    // Foca no próximo campo
+    setCategoriaDropdownOpen(false);
     setTimeout(() => {
       subcategoriaInputRef.current?.focus();
     }, 100);
-  };
+  }, []);
   
-  // Handler para quando o usuário sai do campo categoria (onBlur)
-  const handleCategoriaBlur = () => {
+  const handleCategoriaBlur = useCallback(() => {
     setTimeout(() => {
-      setCategoriaDropdownAberto(false);
+      setCategoriaDropdownOpen(false);
       
-      // Se há texto mas nenhuma categoria selecionada, verificar se precisa criar
       if (formData.categoriaTexto && !formData.categoria) {
-        const categoriaExistente = categoriasDespesa.find(cat =>
+        const existe = categoriasDespesa.find(cat =>
           cat.nome.toLowerCase() === formData.categoriaTexto.toLowerCase()
         );
         
-        if (!categoriaExistente) {
-          // Perguntar se quer criar nova categoria
-          setConfirmacaoCategoria({
+        if (!existe) {
+          setConfirmacao({
             show: true,
-            nome: formData.categoriaTexto
+            type: 'categoria',
+            nome: formData.categoriaTexto,
+            categoriaId: ''
           });
         }
       }
     }, 200);
-  };
+  }, [formData.categoriaTexto, formData.categoria, categoriasDespesa]);
   
-  // Handler para mudanças no campo de subcategoria (com busca)
-  const handleSubcategoriaChange = (e) => {
+  const handleSubcategoriaChange = useCallback((e) => {
     const { value } = e.target;
-    
-    setFormData(prevData => ({
-      ...prevData,
+    setFormData(prev => ({
+      ...prev,
       subcategoriaTexto: value,
-      subcategoria: '' // Limpa a subcategoria selecionada
+      subcategoria: ''
     }));
     
     if (categoriaSelecionada) {
-      setSubcategoriaDropdownAberto(true);
+      setSubcategoriaDropdownOpen(true);
     }
-    
-    // Limpa erros
-    if (errors.subcategoria) {
-      setErrors(prev => ({ ...prev, subcategoria: null }));
-    }
-  };
+  }, [categoriaSelecionada]);
   
-  // Handler para seleção de subcategoria do dropdown
-  const handleSelecionarSubcategoria = (subcategoria) => {
-    setFormData(prevData => ({
-      ...prevData,
+  const handleSelecionarSubcategoria = useCallback((subcategoria) => {
+    setFormData(prev => ({
+      ...prev,
       subcategoria: subcategoria.id,
       subcategoriaTexto: subcategoria.nome
     }));
     
-    setSubcategoriaDropdownAberto(false);
-  };
+    setSubcategoriaDropdownOpen(false);
+  }, []);
   
-  // Handler para quando o usuário sai do campo subcategoria (onBlur)
-  const handleSubcategoriaBlur = () => {
+  const handleSubcategoriaBlur = useCallback(() => {
     setTimeout(() => {
-      setSubcategoriaDropdownAberto(false);
+      setSubcategoriaDropdownOpen(false);
       
-      // Se há texto mas nenhuma subcategoria selecionada, verificar se precisa criar
       if (formData.subcategoriaTexto && !formData.subcategoria && categoriaSelecionada) {
-        const subcategoriaExistente = (categoriaSelecionada.subcategorias || []).find(sub =>
+        const existe = (categoriaSelecionada.subcategorias || []).find(sub =>
           sub.nome.toLowerCase() === formData.subcategoriaTexto.toLowerCase()
         );
         
-        if (!subcategoriaExistente) {
-          // Perguntar se quer criar nova subcategoria
-          setConfirmacaoSubcategoria({
+        if (!existe) {
+          setConfirmacao({
             show: true,
+            type: 'subcategoria',
             nome: formData.subcategoriaTexto,
             categoriaId: formData.categoria
           });
         }
       }
     }, 200);
-  };
+  }, [formData.subcategoriaTexto, formData.subcategoria, formData.categoria, categoriaSelecionada]);
   
-  // Handler para confirmar criação de nova categoria
-  const handleConfirmarNovaCategoria = async () => {
+  const handleConfirmarCriacao = useCallback(async () => {
     try {
-      const novaCategoria = {
-        nome: confirmacaoCategoria.nome,
-        tipo: 'despesa', // SEMPRE despesa neste modal
-        cor: '#EF4444' // Vermelho para despesas
-      };
-      
-      const result = await addCategoria(novaCategoria);
-      
-      if (result.success) {
-        // Selecionar a nova categoria
-        setFormData(prevData => ({
-          ...prevData,
-          categoria: result.data.id,
-          categoriaTexto: result.data.nome
-        }));
+      if (confirmacao.type === 'categoria') {
+        const result = await addCategoria({
+          nome: confirmacao.nome,
+          tipo: 'despesa',
+          cor: '#EF4444'
+        });
         
-        showFeedback(`Categoria "${confirmacaoCategoria.nome}" criada com sucesso!`, 'success');
-      } else {
-        showFeedback('Erro ao criar categoria. Tente novamente.', 'error');
+        if (result.success) {
+          setFormData(prev => ({
+            ...prev,
+            categoria: result.data.id,
+            categoriaTexto: result.data.nome
+          }));
+          
+          showFeedback(`Categoria "${confirmacao.nome}" criada com sucesso!`);
+        } else {
+          showFeedback('Erro ao criar categoria. Tente novamente.', 'error');
+        }
+      } else if (confirmacao.type === 'subcategoria') {
+        const result = await addSubcategoria(confirmacao.categoriaId, {
+          nome: confirmacao.nome
+        });
+        
+        if (result.success) {
+          setFormData(prev => ({
+            ...prev,
+            subcategoria: result.data.id,
+            subcategoriaTexto: result.data.nome
+          }));
+          
+          showFeedback(`Subcategoria "${confirmacao.nome}" criada com sucesso!`);
+        } else {
+          showFeedback('Erro ao criar subcategoria. Tente novamente.', 'error');
+        }
       }
     } catch (error) {
-      console.error('Erro ao criar categoria:', error);
-      showFeedback('Erro ao criar categoria. Tente novamente.', 'error');
+      console.error('Erro ao criar categoria/subcategoria:', error);
+      showFeedback('Erro inesperado. Tente novamente.', 'error');
     }
     
-    setConfirmacaoCategoria({ show: false, nome: '' });
-  };
+    setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
+  }, [confirmacao, addCategoria, addSubcategoria, showFeedback]);
   
-  // Handler para confirmar criação de nova subcategoria
-  const handleConfirmarNovaSubcategoria = async () => {
-    try {
-      const novaSubcategoria = {
-        nome: confirmacaoSubcategoria.nome
-      };
-      
-      const result = await addSubcategoria(confirmacaoSubcategoria.categoriaId, novaSubcategoria);
-      
-      if (result.success) {
-        // Selecionar a nova subcategoria
-        setFormData(prevData => ({
-          ...prevData,
-          subcategoria: result.data.id,
-          subcategoriaTexto: result.data.nome
-        }));
-        
-        showFeedback(`Subcategoria "${confirmacaoSubcategoria.nome}" criada com sucesso!`, 'success');
-      } else {
-        showFeedback('Erro ao criar subcategoria. Tente novamente.', 'error');
-      }
-    } catch (error) {
-      console.error('Erro ao criar subcategoria:', error);
-      showFeedback('Erro ao criar subcategoria. Tente novamente.', 'error');
-    }
-    
-    setConfirmacaoSubcategoria({ show: false, nome: '', categoriaId: '' });
-  };
-  
-  // Handler específico para o campo de valor
-  const handleValorChange = (value) => {
-    setFormData(prevData => ({
-      ...prevData,
-      valor: value
-    }));
-    
-    // Limpa o erro se existir
-    if (errors.valor) {
-      setErrors(prev => ({
-        ...prev,
-        valor: null
-      }));
-    }
-  };
-  
-  // Handler para controlar o contador de caracteres nas observações
-  const handleObservacoesChange = (e) => {
-    const { value } = e.target;
-    
-    // Limita a 300 caracteres
-    if (value.length <= 300) {
-      setFormData(prevData => ({
-        ...prevData,
-        observacoes: value
-      }));
-      
-      // Limpa o erro se existir
-      if (errors.observacoes) {
-        setErrors(prev => ({
-          ...prev,
-          observacoes: null
-        }));
-      }
-    }
-  };
-
-  // Validação do formulário
-  const validateForm = () => {
+  const validateForm = useCallback(() => {
     const newErrors = {};
     
-    // Validação dos campos obrigatórios
-    if (!formData.data) newErrors.data = "Data é obrigatória";
-    if (!formData.descricao.trim()) newErrors.descricao = "Descrição é obrigatória";
-    if (!formData.categoria && !formData.categoriaTexto.trim()) newErrors.categoria = "Categoria é obrigatória";
-    if (!formData.contaDebito) newErrors.contaDebito = "Conta é obrigatória";
-    if (!formData.valor || formData.valor === 0) newErrors.valor = "Valor é obrigatório";
-    
-    // Limite de caracteres para observações
+    if (!formData.valor || formData.valor === 0) {
+      newErrors.valor = "Valor é obrigatório";
+    }
+    if (!formData.data) {
+      newErrors.data = "Data é obrigatória";
+    }
+    if (!formData.descricao.trim()) {
+      newErrors.descricao = "Descrição é obrigatória";
+    }
+    if (!formData.categoria && !formData.categoriaTexto.trim()) {
+      newErrors.categoria = "Categoria é obrigatória";
+    }
+    if (!formData.contaDebito) {
+      newErrors.contaDebito = "Conta é obrigatória";
+    }
     if (formData.observacoes.length > 300) {
       newErrors.observacoes = "Máximo de 300 caracteres";
     }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
-
-  // Handler para o envio do formulário
-  const handleSubmit = async (e) => {
+  }, [formData]);
+  
+  const handleSubmit = useCallback(async (e, criarNova = false) => {
     e.preventDefault();
     
-    if (validateForm()) {
-      try {
-        setSubmitting(true);
-        
-        // Preparar dados para envio
-        const dadosDespesa = {
-          data: formData.data,
-          descricao: formData.descricao.trim(),
-          categoria_id: formData.categoria,
-          subcategoria_id: formData.subcategoria || null, // Subcategoria é opcional
-          conta_id: formData.contaDebito,
-          valor: formData.valor,
-          observacoes: formData.observacoes.trim(),
-          tipo: 'despesa'
-        };
-        
-        // Debug dos dados a serem enviados
-        console.log("💸 DespesasModal - Dados da despesa a serem enviados:", dadosDespesa);
-        
-        // TODO: Aqui você implementará a função para salvar a despesa no Supabase
-        // const result = await addDespesa(dadosDespesa);
-        
-        // Mock da função addDespesa por enquanto
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Simula delay da API
-        
-        // Exibe o feedback de sucesso
-        showFeedback('Despesa registrada com sucesso!', 'success');
-        
-        // Limpa o formulário e fecha após 2 segundos
+    if (!validateForm()) return;
+    
+    try {
+      setSubmitting(true);
+      
+      const dadosDespesa = {
+        usuario_id: user.id,
+        data: formData.data,
+        descricao: formData.descricao.trim(),
+        categoria_id: formData.categoria,
+        subcategoria_id: formData.subcategoria || null,
+        conta_id: formData.contaDebito,
+        valor: formData.valor,
+        observacoes: formData.observacoes.trim(),
+        tipo: 'despesa',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      const { data, error } = await supabase
+        .from('transacoes')
+        .insert([dadosDespesa])
+        .select();
+      
+      if (error) throw error;
+      
+      if (onSave) {
+        onSave(); // Notifica o Dashboard para atualizar
+      }
+      
+      if (criarNova) {
+        showFeedback('Despesa salva! Pronto para a próxima.');
+        // Reset apenas os campos principais, mantendo categoria e conta
+        setFormData(prev => ({
+          ...prev,
+          valor: 0,
+          data: getCurrentDate(),
+          descricao: '',
+          observacoes: ''
+        }));
+        setErrors({});
+        // Foca no campo de valor para facilitar entrada rápida
+        setTimeout(() => {
+          valorInputRef.current?.focus();
+        }, 100);
+      } else {
+        showFeedback('Despesa registrada com sucesso!');
         setTimeout(() => {
           resetForm();
           onClose();
-        }, 2000);
-        
-      } catch (error) {
-        console.error('❌ DespesasModal - Erro ao salvar despesa:', error);
-        showFeedback('Erro ao salvar despesa. Tente novamente.', 'error');
-      } finally {
-        setSubmitting(false);
+        }, 1500);
       }
+      
+    } catch (error) {
+      console.error('❌ Erro ao salvar despesa:', error);
+      showFeedback(`Erro ao salvar despesa: ${error.message}`, 'error');
+    } finally {
+      setSubmitting(false);
     }
-  };
-
-  // Função para resetar o formulário
-  const resetForm = () => {
+  }, [validateForm, user, formData, onSave, showFeedback, onClose]);
+  
+  const resetForm = useCallback(() => {
     setFormData({
-      data: formatarDataAtual(),
+      valor: 0,
+      data: getCurrentDate(),
       descricao: '',
       categoria: '',
       categoriaTexto: '',
       subcategoria: '',
       subcategoriaTexto: '',
       contaDebito: '',
-      valor: 0,
       observacoes: ''
     });
     setErrors({});
     setFeedback({ visible: false, message: '', type: '' });
-    setCategoriaDropdownAberto(false);
-    setSubcategoriaDropdownAberto(false);
-    setConfirmacaoCategoria({ show: false, nome: '' });
-    setConfirmacaoSubcategoria({ show: false, nome: '', categoriaId: '' });
-  };
-
-  // Se não estiver aberto, não renderiza
+    setCategoriaDropdownOpen(false);
+    setSubcategoriaDropdownOpen(false);
+    setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
+  }, []);
+  
+  // EARLY RETURN - se não estiver aberto
   if (!isOpen) return null;
-
+  
   return (
-    <div className="contas-modal-overlay">
-      <div className="contas-modal-container">
-        {/* Cabeçalho do modal */}
-        <div className="contas-modal-header">
-          <h2>
-            <TrendingDown size={20} className="icon-header" style={{ color: '#ef4444' }} />
-            <span>Lançamento de Despesas</span>
+    <div className="receitas-modal-overlay">
+      <div className="receitas-modal-container">
+        {/* Header compacto */}
+        <div className="receitas-modal-header">
+          <h2 className="receitas-modal-title">
+            <TrendingDown size={18} style={{ color: '#ef4444' }} />
+            Lançamento de Despesas
           </h2>
-          <button 
-            className="btn-fechar" 
-            onClick={onClose}
-            aria-label="Fechar"
-          >
-            <X size={20} />
+          <button className="receitas-modal-close" onClick={onClose} aria-label="Fechar">
+            <X size={18} />
           </button>
         </div>
         
-        {/* Conteúdo do modal */}
-        <div className="contas-modal-content">
-          {/* Feedback de sucesso/erro */}
+        {/* Content */}
+        <div className="receitas-modal-content">
+          {/* Feedback */}
           {feedback.visible && (
-            <div className={`feedback-message ${feedback.type}`}>
-              <span style={{ marginRight: '8px' }}>
-                {feedback.type === 'success' ? '✅' : '❌'}
-              </span>
-              {feedback.message}
+            <div className={`receitas-feedback ${feedback.type}`}>
+              {feedback.type === 'success' ? '✅' : '❌'} {feedback.message}
             </div>
           )}
           
-          {/* Modal de confirmação para nova categoria */}
-          {confirmacaoCategoria.show && (
-            <div className="confirmacao-overlay">
-              <div className="confirmacao-container">
-                <h3>Criar Nova Categoria</h3>
-                <p>A categoria <strong>"{confirmacaoCategoria.nome}"</strong> não existe. Deseja criá-la?</p>
-                <div className="confirmacao-actions">
-                  <button 
-                    className="btn-secondary"
-                    onClick={() => setConfirmacaoCategoria({ show: false, nome: '' })}
-                  >
-                    Cancelar
-                  </button>
-                  <button 
-                    className="btn-primary"
-                    onClick={handleConfirmarNovaCategoria}
-                    style={{ backgroundColor: '#ef4444' }}
-                  >
-                    Criar Categoria
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Modal de confirmação para nova subcategoria */}
-          {confirmacaoSubcategoria.show && (
-            <div className="confirmacao-overlay">
-              <div className="confirmacao-container">
-                <h3>Criar Nova Subcategoria</h3>
-                <p>A subcategoria <strong>"{confirmacaoSubcategoria.nome}"</strong> não existe. Deseja criá-la?</p>
-                <div className="confirmacao-actions">
-                  <button 
-                    className="btn-secondary"
-                    onClick={() => setConfirmacaoSubcategoria({ show: false, nome: '', categoriaId: '' })}
-                  >
-                    Cancelar
-                  </button>
-                  <button 
-                    className="btn-primary"
-                    onClick={handleConfirmarNovaSubcategoria}
-                    style={{ backgroundColor: '#ef4444' }}
-                  >
-                    Criar Subcategoria
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Verificação se está carregando dados */}
+          {/* Loading */}
           {(categoriasLoading || contasLoading) ? (
-            <div className="loading" style={{ textAlign: 'center', padding: '40px' }}>
-              <div className="loading-spinner" style={{
-                width: '32px',
-                height: '32px',
-                border: '3px solid #f3f4f6',
-                borderTop: '3px solid #ef4444',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite',
-                margin: '0 auto 16px'
-              }}></div>
-              <p>Carregando categorias e contas...</p>
+            <div className="receitas-loading">
+              <div className="receitas-loading-spinner" style={{ borderTopColor: '#ef4444' }}></div>
+              <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>
+                Carregando dados...
+              </p>
             </div>
           ) : (
-            /* Formulário de despesa */
-            <form onSubmit={handleSubmit} className="conta-form">
-              <h3>Nova Despesa</h3>
-              
-              {/* Data */}
-              <div className="form-group">
-                <label htmlFor="data">
-                  <Calendar size={16} />
-                  Data *
-                </label>
-                <input
-                  ref={dataInputRef}
-                  type="date"
-                  id="data"
-                  name="data"
-                  value={formData.data}
-                  onChange={handleChange}
-                  className={errors.data ? 'error' : ''}
-                  disabled={submitting}
-                />
-                {errors.data && (
-                  <div className="form-error">{errors.data}</div>
-                )}
-              </div>
-              
-              {/* Descrição */}
-              <div className="form-group">
-                <label htmlFor="descricao">
-                  <FileText size={16} />
-                  Descrição *
-                </label>
-                <input
-                  type="text"
-                  id="descricao"
-                  name="descricao"
-                  placeholder="Ex: Almoço no restaurante"
-                  value={formData.descricao}
-                  onChange={handleChange}
-                  className={errors.descricao ? 'error' : ''}
-                  disabled={submitting}
-                />
-                {errors.descricao && (
-                  <div className="form-error">{errors.descricao}</div>
-                )}
-              </div>
-              
-              {/* Categoria e Subcategoria */}
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="categoria">
-                    <Tag size={16} />
-                    Categoria *
-                  </label>
-                  <div className="categoria-input-container" style={{ position: 'relative' }}>
-                    <input
-                      ref={categoriaInputRef}
-                      type="text"
-                      id="categoria"
-                      name="categoriaTexto"
-                      placeholder="Digite ou selecione uma categoria"
-                      value={formData.categoriaTexto}
-                      onChange={handleCategoriaChange}
-                      onBlur={handleCategoriaBlur}
-                      onFocus={() => setCategoriaDropdownAberto(true)}
-                      className={errors.categoria ? 'error' : ''}
-                      disabled={submitting}
-                      autoComplete="off"
-                    />
-                    <Search size={16} style={{
-                      position: 'absolute',
-                      right: '12px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      color: '#6b7280',
-                      pointerEvents: 'none'
-                    }} />
-                    
-                    {/* Dropdown de categorias */}
-                    {categoriaDropdownAberto && categoriasFiltradas.length > 0 && (
-                      <div className="dropdown-options">
-                        {categoriasFiltradas.map(categoria => (
-                          <div
-                            key={categoria.id}
-                            className="dropdown-option"
-                            onMouseDown={() => handleSelecionarCategoria(categoria)}
-                          >
-                            <div 
-                              className="categoria-cor"
-                              style={{ 
-                                width: '12px', 
-                                height: '12px', 
-                                borderRadius: '50%',
-                                backgroundColor: categoria.cor,
-                                marginRight: '8px'
-                              }}
-                            ></div>
-                            {categoria.nome}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  {errors.categoria && (
-                    <div className="form-error">{errors.categoria}</div>
-                  )}
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="subcategoria">
-                    <Tag size={16} />
-                    Subcategoria <small>(opcional)</small>
-                  </label>
-                  <div className="subcategoria-input-container" style={{ position: 'relative' }}>
-                    <input
-                      ref={subcategoriaInputRef}
-                      type="text"
-                      id="subcategoria"
-                      name="subcategoriaTexto"
-                      placeholder={!formData.categoria ? "Selecione uma categoria primeiro" : "Digite ou selecione uma subcategoria"}
-                      value={formData.subcategoriaTexto}
-                      onChange={handleSubcategoriaChange}
-                      onBlur={handleSubcategoriaBlur}
-                      onFocus={() => categoriaSelecionada && setSubcategoriaDropdownAberto(true)}
-                      disabled={!formData.categoria || submitting}
-                      className={errors.subcategoria ? 'error' : ''}
-                      style={{
-                        backgroundColor: !formData.categoria ? '#f9fafb' : 'white'
-                      }}
-                      autoComplete="off"
-                    />
-                    <Search size={16} style={{
-                      position: 'absolute',
-                      right: '12px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      color: '#6b7280',
-                      pointerEvents: 'none'
-                    }} />
-                    
-                    {/* Dropdown de subcategorias */}
-                    {subcategoriaDropdownAberto && subcategoriasFiltradas.length > 0 && (
-                      <div className="dropdown-options">
-                        {subcategoriasFiltradas.map(subcategoria => (
-                          <div
-                            key={subcategoria.id}
-                            className="dropdown-option"
-                            onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
-                          >
-                            {subcategoria.nome}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  {errors.subcategoria && (
-                    <div className="form-error">{errors.subcategoria}</div>
-                  )}
-                </div>
-              </div>
-              
-              {/* Conta Débito e Valor */}
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="contaDebito">
-                    <Building size={16} />
-                    Conta Débito *
-                  </label>
-                  <select
-                    id="contaDebito"
-                    name="contaDebito"
-                    value={formData.contaDebito}
-                    onChange={handleChange}
-                    className={errors.contaDebito ? 'error' : ''}
-                    disabled={submitting}
-                  >
-                    <option value="">Selecione uma conta</option>
-                    {contas.map(conta => (
-                      <option key={conta.id} value={conta.id}>
-                        {conta.nome}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.contaDebito && (
-                    <div className="form-error">{errors.contaDebito}</div>
-                  )}
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="valor">
-                    <DollarSign size={16} />
+            <form onSubmit={(e) => handleSubmit(e, false)} className="receitas-form">
+              {/* Valor e Data - Layout horizontal compacto */}
+              <div className="receitas-form-row">
+                <div className="receitas-form-group">
+                  <label className="receitas-form-label">
+                    <DollarSign size={14} />
                     Valor *
                   </label>
                   <InputMoney
-                    id="valor"
-                    name="valor"
+                    ref={valorInputRef}
                     value={formData.valor}
                     onChange={handleValorChange}
                     placeholder="R$ 0,00"
                     disabled={submitting}
-                    style={{
-                      borderColor: errors.valor ? '#ef4444' : '#d1d5db'
-                    }}
+                    className={`receitas-form-input receitas-valor-input ${errors.valor ? 'error' : ''}`}
+                    style={{ color: '#ef4444' }}
                   />
                   {errors.valor && (
-                    <div className="form-error">{errors.valor}</div>
+                    <div className="receitas-form-error">{errors.valor}</div>
+                  )}
+                </div>
+                
+                <div className="receitas-form-group">
+                  <label className="receitas-form-label">
+                    <Calendar size={14} />
+                    Data *
+                  </label>
+                  <input
+                    type="date"
+                    name="data"
+                    value={formData.data}
+                    onChange={handleInputChange}
+                    disabled={submitting}
+                    className={`receitas-form-input ${errors.data ? 'error' : ''}`}
+                  />
+                  {errors.data && (
+                    <div className="receitas-form-error">{errors.data}</div>
                   )}
                 </div>
               </div>
               
-              {/* Observações */}
-              <div className="form-group">
-                <label htmlFor="observacoes">
-                  <MessageSquare size={16} />
-                  Observações
-                  <small>(opcional, máx. 300 caracteres)</small>
+              {/* Descrição */}
+              <div className="receitas-form-group receitas-form-full">
+                <label className="receitas-form-label">
+                  <FileText size={14} />
+                  Descrição *
                 </label>
-                <textarea
-                  id="observacoes"
-                  name="observacoes"
-                  value={formData.observacoes}
-                  onChange={handleObservacoesChange}
-                  placeholder="Adicione informações extras sobre esta despesa"
-                  rows="3"
-                  className={errors.observacoes ? 'error' : ''}
+                <input
+                  type="text"
+                  name="descricao"
+                  placeholder="Ex: Almoço no restaurante, Compras no supermercado"
+                  value={formData.descricao}
+                  onChange={handleInputChange}
                   disabled={submitting}
-                  style={{ resize: 'vertical' }}
+                  className={`receitas-form-input ${errors.descricao ? 'error' : ''}`}
                 />
-                <div style={{ 
-                  textAlign: 'right', 
-                  fontSize: '12px', 
-                  color: '#6b7280',
-                  marginTop: '4px'
-                }}>
-                  {formData.observacoes.length}/300
-                </div>
-                {errors.observacoes && (
-                  <div className="form-error">{errors.observacoes}</div>
+                {errors.descricao && (
+                  <div className="receitas-form-error">{errors.descricao}</div>
                 )}
               </div>
               
-              {/* Botões de ação */}
-              <div className="form-actions">
+              {/* Categoria */}
+              <div className="receitas-form-group receitas-form-full">
+                <label className="receitas-form-label">
+                  <Tag size={14} />
+                  Categoria *
+                </label>
+                <div className="receitas-dropdown-container">
+                  <input
+                    ref={categoriaInputRef}
+                    type="text"
+                    value={formData.categoriaTexto}
+                    onChange={handleCategoriaChange}
+                    onBlur={handleCategoriaBlur}
+                    onFocus={() => setCategoriaDropdownOpen(true)}
+                    placeholder="Digite ou selecione uma categoria"
+                    disabled={submitting}
+                    autoComplete="off"
+                    className={`receitas-form-input receitas-dropdown-input ${errors.categoria ? 'error' : ''}`}
+                  />
+                  <Search size={14} className="receitas-search-icon" />
+                  
+                  {categoriaDropdownOpen && categoriasFiltradas.length > 0 && (
+                    <div className="receitas-dropdown-options">
+                      {categoriasFiltradas.map(categoria => (
+                        <div
+                          key={categoria.id}
+                          className="receitas-dropdown-option"
+                          onMouseDown={() => handleSelecionarCategoria(categoria)}
+                        >
+                          <div 
+                            className="receitas-categoria-cor"
+                            style={{ backgroundColor: categoria.cor }}
+                          ></div>
+                          {categoria.nome}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {errors.categoria && (
+                  <div className="receitas-form-error">{errors.categoria}</div>
+                )}
+              </div>
+              
+              {/* Subcategoria */}
+              <div className="receitas-form-group receitas-form-full">
+                <label className="receitas-form-label">
+                  <Tag size={14} />
+                  Subcategoria <small>(opcional)</small>
+                </label>
+                <div className="receitas-dropdown-container">
+                  <input
+                    ref={subcategoriaInputRef}
+                    type="text"
+                    value={formData.subcategoriaTexto}
+                    onChange={handleSubcategoriaChange}
+                    onBlur={handleSubcategoriaBlur}
+                    onFocus={() => categoriaSelecionada && setSubcategoriaDropdownOpen(true)}
+                    placeholder={!formData.categoria ? "Escolha categoria primeiro" : "Digite ou selecione uma subcategoria"}
+                    disabled={!formData.categoria || submitting}
+                    autoComplete="off"
+                    className={`receitas-form-input receitas-dropdown-input ${errors.subcategoria ? 'error' : ''}`}
+                    style={{
+                      backgroundColor: !formData.categoria ? '#f9fafb' : 'white'
+                    }}
+                  />
+                  <Search size={14} className="receitas-search-icon" />
+                  
+                  {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
+                    <div className="receitas-dropdown-options">
+                      {subcategoriasFiltradas.map(subcategoria => (
+                        <div
+                          key={subcategoria.id}
+                          className="receitas-dropdown-option"
+                          onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
+                        >
+                          {subcategoria.nome}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Conta Débito */}
+              <div className="receitas-form-group receitas-form-full">
+                <label className="receitas-form-label">
+                  <Building size={14} />
+                  Conta Débito *
+                </label>
+                <select
+                  name="contaDebito"
+                  value={formData.contaDebito}
+                  onChange={handleInputChange}
+                  disabled={submitting}
+                  className={`receitas-form-input ${errors.contaDebito ? 'error' : ''}`}
+                >
+                  <option value="">Selecione uma conta</option>
+                  {contas.map(conta => (
+                    <option key={conta.id} value={conta.id}>
+                      {conta.nome}
+                    </option>
+                  ))}
+                </select>
+                {errors.contaDebito && (
+                  <div className="receitas-form-error">{errors.contaDebito}</div>
+                )}
+              </div>
+              
+              {/* Observações */}
+              <div className="receitas-form-group receitas-form-full">
+                <label className="receitas-form-label">
+                  <MessageSquare size={14} />
+                  Observações <small>(máx. 300)</small>
+                </label>
+                <textarea
+                  name="observacoes"
+                  value={formData.observacoes}
+                  onChange={(e) => {
+                    if (e.target.value.length <= 300) {
+                      handleInputChange(e);
+                    }
+                  }}
+                  placeholder="Adicione informações extras sobre esta despesa"
+                  rows="2"
+                  disabled={submitting}
+                  className={`receitas-form-input receitas-form-textarea ${errors.observacoes ? 'error' : ''}`}
+                />
+                <div className="receitas-char-counter">
+                  <span></span>
+                  <span>{formData.observacoes.length}/300</span>
+                </div>
+                {errors.observacoes && (
+                  <div className="receitas-form-error">{errors.observacoes}</div>
+                )}
+              </div>
+              
+              {/* Botões de ação compactos */}
+              <div className="receitas-form-actions">
                 <button
                   type="button"
                   onClick={() => {
                     resetForm();
                     onClose();
                   }}
-                  className="btn-secondary"
                   disabled={submitting}
+                  className="receitas-btn receitas-btn-secondary"
                 >
                   Cancelar
                 </button>
                 <button
-                  type="submit"
-                  className="btn-primary"
+                  type="button"
+                  onClick={(e) => handleSubmit(e, true)}
                   disabled={submitting}
-                  style={{ backgroundColor: '#ef4444' }}
+                  className="receitas-btn receitas-btn-tertiary"
+                  style={{ backgroundColor: '#dc2626' }}
                 >
                   {submitting ? (
                     <>
-                      <div className="loading-spinner" style={{
-                        width: '16px',
-                        height: '16px',
-                        border: '2px solid transparent',
-                        borderTop: '2px solid white',
-                        borderRadius: '50%',
-                        animation: 'spin 1s linear infinite'
-                      }}></div>
+                      <div className="receitas-btn-spinner"></div>
                       Salvando...
                     </>
                   ) : (
                     <>
-                      <Plus size={16} />
+                      <PlusCircle size={14} />
+                      Salvar e Nova
+                    </>
+                  )}
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="receitas-btn receitas-btn-primary"
+                  style={{ backgroundColor: '#ef4444' }}
+                >
+                  {submitting ? (
+                    <>
+                      <div className="receitas-btn-spinner"></div>
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={14} />
                       Salvar Despesa
                     </>
                   )}
@@ -813,135 +680,43 @@ const DespesasModal = ({ isOpen, onClose }) => {
         </div>
       </div>
       
-      <style jsx>{`
-        .categoria-input-container,
-        .subcategoria-input-container {
-          position: relative;
-        }
-        
-        .dropdown-options {
-          position: absolute;
-          top: 100%;
-          left: 0;
-          right: 0;
-          background: white;
-          border: 1px solid #d1d5db;
-          border-top: none;
-          border-radius: 0 0 6px 6px;
-          max-height: 200px;
-          overflow-y: auto;
-          z-index: 1000;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
-        
-        .dropdown-option {
-          padding: 12px 16px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          border-bottom: 1px solid #f3f4f6;
-          transition: background-color 0.2s ease;
-        }
-        
-        .dropdown-option:hover {
-          background-color: #f9fafb;
-        }
-        
-        .dropdown-option:last-child {
-          border-bottom: none;
-        }
-        
-        .categoria-cor {
-          width: 12px;
-          height: 12px;
-          border-radius: 50%;
-          margin-right: 8px;
-          flex-shrink: 0;
-        }
-        
-        .confirmacao-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background-color: rgba(0, 0, 0, 0.5);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1100;
-        }
-        
-        .confirmacao-container {
-          background: white;
-          border-radius: 12px;
-          padding: 24px;
-          max-width: 400px;
-          width: 90%;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-        }
-        
-        .confirmacao-container h3 {
-          margin: 0 0 16px 0;
-          font-size: 1.25rem;
-          font-weight: 600;
-          color: #111827;
-        }
-        
-        .confirmacao-container p {
-          margin: 0 0 24px 0;
-          color: #6b7280;
-          line-height: 1.5;
-        }
-        
-        .confirmacao-actions {
-          display: flex;
-          gap: 12px;
-          justify-content: flex-end;
-        }
-        
-        .loading-spinner {
-          display: inline-block;
-          margin-right: 8px;
-        }
-        
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        
-        /* Ajustes para inputs com busca */
-        input[type="text"]:focus + .dropdown-options {
-          display: block;
-        }
-        
-        /* Responsividade */
-        @media (max-width: 640px) {
-          .dropdown-options {
-            max-height: 150px;
-          }
-          
-          .confirmacao-container {
-            margin: 20px;
-            width: calc(100% - 40px);
-          }
-          
-          .confirmacao-actions {
-            flex-direction: column-reverse;
-          }
-          
-          .confirmacao-actions button {
-            width: 100%;
-          }
-        }
-      `}</style>
+      {/* Modal de Confirmação */}
+      {confirmacao.show && (
+        <div className="receitas-confirmation-overlay">
+          <div className="receitas-confirmation-container">
+            <h3 className="receitas-confirmation-title">
+              Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
+            </h3>
+            <p className="receitas-confirmation-message">
+              {confirmacao.type === 'categoria' ? 'A categoria' : 'A subcategoria'}{' '}
+              <strong>"{confirmacao.nome}"</strong> não existe. Deseja criá-la?
+            </p>
+            <div className="receitas-confirmation-actions">
+              <button 
+                onClick={() => setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' })}
+                className="receitas-confirmation-btn receitas-confirmation-btn-secondary"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleConfirmarCriacao}
+                className="receitas-confirmation-btn receitas-confirmation-btn-primary"
+                style={{ backgroundColor: '#ef4444' }}
+              >
+                Criar {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 DespesasModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired
+  onClose: PropTypes.func.isRequired,
+  onSave: PropTypes.func
 };
 
 export default DespesasModal;

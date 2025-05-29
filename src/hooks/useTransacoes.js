@@ -25,8 +25,6 @@ const useTransacoes = () => {
       setLoading(true);
       setError(null);
       
-      console.log('💰 Buscando transações para usuário:', user.id);
-      
       // Busca transações com categorias
       const { data, error } = await supabase
         .from('transacoes')
@@ -37,8 +35,6 @@ const useTransacoes = () => {
         .eq('usuario_id', user.id)
         .order('data', { ascending: false })
         .limit(100);
-      
-      console.log('📊 Transações encontradas:', { data, error, total: data?.length || 0 });
       
       if (error) throw error;
       
@@ -121,21 +117,6 @@ const useTransacoes = () => {
     
     return Object.values(grupos);
   }, [getDespesas]);
-
-  // Debug
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      window.transacoesDebug = {
-        transacoes,
-        loading,
-        error,
-        totalReceitas: getTotalReceitas(),
-        totalDespesas: getTotalDespesas(),
-        receitasPorCategoria: getReceitasPorCategoria(),
-        despesasPorCategoria: getDespesasPorCategoria()
-      };
-    }
-  }, [transacoes, loading, error, getTotalReceitas, getTotalDespesas, getReceitasPorCategoria, getDespesasPorCategoria]);
 
   return {
     transacoes,

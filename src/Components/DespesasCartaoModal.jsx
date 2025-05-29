@@ -1,199 +1,457 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
-import { CreditCard, Plus, X, Calendar, FileText, Tag, DollarSign, MessageSquare, Hash, Info } from 'lucide-react';
+import { 
+  CreditCard, 
+  Plus, 
+  X, 
+  Calendar, 
+  FileText, 
+  Tag, 
+  DollarSign, 
+  MessageSquare, 
+  Hash, 
+  PlusCircle,
+  Search
+} from 'lucide-react';
 import InputMoney from './ui/InputMoney';
 import useCategorias from '../hooks/useCategorias';
 import useCartoes from '../hooks/useCartoes';
+import { supabase } from '../lib/supabaseClient';
+import useAuth from '../hooks/useAuth';
 import { formatCurrency } from '../utils/formatCurrency';
+import './FormsModal.css';
 
-/**
- * Modal moderno para lançamento de despesas com cartão de crédito
- * Seguindo o padrão visual dos outros modais do sistema
- */
-const DespesasCartaoModal = ({ isOpen, onClose }) => {
-  // Referência para o primeiro campo do formulário (autofoco)
-  const dataInputRef = useRef(null);
+const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
+  const valorInputRef = useRef(null);
+  const categoriaInputRef = useRef(null);
+  const subcategoriaInputRef = useRef(null);
   
-  // Hooks para obter categorias e cartões
-  const { categorias } = useCategorias();
-  const { cartoes } = useCartoes();
+  const { user } = useAuth();
+  const { categorias, loading: categoriasLoading, addCategoria, addSubcategoria } = useCategorias();
+  const { cartoes, loading: cartoesLoading } = useCartoes();
   
-  // Filtrar apenas categorias do tipo "despesa"
-  const categoriasDespesa = categorias.filter(cat => cat.tipo === 'despesa');
+  // Memoizar categorias de despesa para evitar recalculos desnecessários
+  const categoriasDespesa = useMemo(() => 
+    categorias.filter(cat => cat.tipo === 'despesa'), 
+    [categorias]
+  );
   
-  // Filtrar apenas cartões ativos
-  const cartoesAtivos = cartoes.filter(cartao => cartao.ativo);
+  // Memoizar cartões ativos
+  const cartoesAtivos = useMemo(() => 
+    cartoes.filter(cartao => cartao.ativo),
+    [cartoes]
+  );
   
-  // Estados para os campos do formulário
+  // Função para obter data atual - memoizada para evitar recalculos
+  const getCurrentDate = useCallback(() => {
+    const hoje = new Date();
+    return hoje.toISOString().split('T')[0];
+  }, []);
+  
   const [formData, setFormData] = useState({
-    dataCompra: formatarDataAtual(),
+    valorTotal: 0,
+    dataCompra: getCurrentDate(),
     descricao: '',
     categoria: '',
+    categoriaTexto: '',
     subcategoria: '',
+    subcategoriaTexto: '',
     cartaoId: '',
-    valorTotal: 0,
     numeroParcelas: 1,
+    faturaVencimento: '',
     observacoes: ''
   });
-
-  // Estado para controlar erros de validação
+  
   const [errors, setErrors] = useState({});
-  
-  // Estado para exibir mensagem de sucesso
   const [feedback, setFeedback] = useState({ visible: false, message: '', type: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [categoriaDropdownOpen, setCategoriaDropdownOpen] = useState(false);
+  const [subcategoriaDropdownOpen, setSubcategoriaDropdownOpen] = useState(false);
+  const [categoriasFiltradas, setCategoriasFiltradas] = useState([]);
+  const [subcategoriasFiltradas, setSubcategoriasFiltradas] = useState([]);
+  const [confirmacao, setConfirmacao] = useState({
+    show: false,
+    type: '',
+    nome: '',
+    categoriaId: ''
+  });
   
-  // Estado para armazenar o cartão selecionado
-  const [cartaoSelecionado, setCartaoSelecionado] = useState(null);
-  
-  // Obter subcategorias com base na categoria selecionada
-  const subcategoriasFiltradas = formData.categoria 
-    ? categoriasDespesa.find(cat => cat.id === formData.categoria)?.subcategorias || []
-    : [];
+  // Memoizar categoria selecionada
+  const categoriaSelecionada = useMemo(() => 
+    categoriasDespesa.find(cat => cat.id === formData.categoria),
+    [categoriasDespesa, formData.categoria]
+  );
   
   // Opções de parcelamento
-  const opcoesParcelamento = Array.from({ length: 24 }, (_, i) => ({
-    value: i + 1,
-    label: `${i + 1}x${i === 0 ? ' à vista' : ''}`
-  }));
+  const opcoesParcelamento = useMemo(() => 
+    Array.from({ length: 24 }, (_, i) => ({
+      value: i + 1,
+      label: `${i + 1}x${i === 0 ? ' à vista' : ''}`
+    })),
+    []
+  );
   
   // Calcula o valor da parcela
-  const valorParcela = formData.valorTotal > 0 && formData.numeroParcelas > 0
-    ? formData.valorTotal / formData.numeroParcelas
-    : 0;
+  const valorParcela = useMemo(() => 
+    formData.valorTotal > 0 && formData.numeroParcelas > 0
+      ? formData.valorTotal / formData.numeroParcelas
+      : 0,
+    [formData.valorTotal, formData.numeroParcelas]
+  );
   
-  // Efeito para autofoco no primeiro campo quando o modal abre
-  useEffect(() => {
-    if (isOpen && dataInputRef.current) {
-      setTimeout(() => {
-        dataInputRef.current.focus();
-      }, 100);
+  // Função para calcular opções de fatura baseada na data da compra e cartão selecionado
+  const calcularOpcoesFatura = useCallback(() => {
+    if (!formData.dataCompra || !formData.cartaoId) return [];
+    
+    const cartao = cartoesAtivos.find(c => c.id === formData.cartaoId);
+    if (!cartao) return [];
+    
+    const dataCompra = new Date(formData.dataCompra);
+    const diaFechamento = cartao.dia_fechamento || 1;
+    const diaVencimento = cartao.dia_vencimento || 10;
+    
+    const opcoes = [];
+    
+    // Gera 6 opções: 2 antes da calculada + calculada + 3 depois
+    for (let i = -2; i <= 3; i++) {
+      const dataFechamento = new Date(dataCompra.getFullYear(), dataCompra.getMonth() + i, diaFechamento);
+      const dataVencimento = new Date(dataCompra.getFullYear(), dataCompra.getMonth() + i, diaVencimento);
+      
+      // Se vencimento é antes do fechamento, é do mês seguinte
+      if (diaVencimento <= diaFechamento) {
+        dataVencimento.setMonth(dataVencimento.getMonth() + 1);
+      }
+      
+      const isCalculada = i === 0 || (i === 1 && dataCompra.getDate() > diaFechamento);
+      
+      opcoes.push({
+        value: dataVencimento.toISOString().split('T')[0],
+        label: `${dataVencimento.toLocaleDateString('pt-BR', { 
+          month: 'short', 
+          year: 'numeric' 
+        }).replace('.', '')} - Venc: ${dataVencimento.toLocaleDateString('pt-BR')}`,
+        fechamento: dataFechamento.toLocaleDateString('pt-BR'),
+        vencimento: dataVencimento.toLocaleDateString('pt-BR'),
+        isDefault: isCalculada
+      });
     }
     
-    // Resetar o formulário quando o modal é aberto
+    return opcoes;
+  }, [formData.dataCompra, formData.cartaoId, cartoesAtivos]);
+  
+  // Opções de fatura memoizadas
+  const opcoesFatura = useMemo(() => calcularOpcoesFatura(), [calcularOpcoesFatura]);
+  
+  // Filtrar categorias - useCallback para evitar recriação da função
+  const filtrarCategorias = useCallback(() => {
+    if (formData.categoriaTexto) {
+      const filtradas = categoriasDespesa.filter(cat =>
+        cat.nome.toLowerCase().includes(formData.categoriaTexto.toLowerCase())
+      );
+      setCategoriasFiltradas(filtradas);
+    } else {
+      setCategoriasFiltradas(categoriasDespesa);
+    }
+  }, [formData.categoriaTexto, categoriasDespesa]);
+  
+  // Filtrar subcategorias - useCallback para evitar recriação da função
+  const filtrarSubcategorias = useCallback(() => {
+    if (categoriaSelecionada && formData.subcategoriaTexto) {
+      const filtradas = (categoriaSelecionada.subcategorias || []).filter(sub =>
+        sub.nome.toLowerCase().includes(formData.subcategoriaTexto.toLowerCase())
+      );
+      setSubcategoriasFiltradas(filtradas);
+    } else if (categoriaSelecionada) {
+      setSubcategoriasFiltradas(categoriaSelecionada.subcategorias || []);
+    } else {
+      setSubcategoriasFiltradas([]);
+    }
+  }, [formData.subcategoriaTexto, categoriaSelecionada]);
+  
+  // UseEffect para filtrar categorias
+  useEffect(() => {
+    filtrarCategorias();
+  }, [filtrarCategorias]);
+  
+  // UseEffect para filtrar subcategorias
+  useEffect(() => {
+    filtrarSubcategorias();
+  }, [filtrarSubcategorias]);
+  
+  // Efeito para definir fatura padrão quando cartão ou data mudam
+  useEffect(() => {
+    if (formData.cartaoId && formData.dataCompra && opcoesFatura.length > 0) {
+      const faturaDefault = opcoesFatura.find(opcao => opcao.isDefault);
+      if (faturaDefault && !formData.faturaVencimento) {
+        setFormData(prev => ({
+          ...prev,
+          faturaVencimento: faturaDefault.value
+        }));
+      }
+    }
+  }, [formData.cartaoId, formData.dataCompra, opcoesFatura, formData.faturaVencimento]);
+  
+  // Reset form quando modal abre
+  const resetForm = useCallback(() => {
+    setFormData({
+      valorTotal: 0,
+      dataCompra: getCurrentDate(),
+      descricao: '',
+      categoria: '',
+      categoriaTexto: '',
+      subcategoria: '',
+      subcategoriaTexto: '',
+      cartaoId: '',
+      numeroParcelas: 1,
+      faturaVencimento: '',
+      observacoes: ''
+    });
+    setErrors({});
+    setFeedback({ visible: false, message: '', type: '' });
+    setCategoriaDropdownOpen(false);
+    setSubcategoriaDropdownOpen(false);
+    setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
+  }, [getCurrentDate]);
+  
+  // UseEffect para quando o modal abre
+  useEffect(() => {
     if (isOpen) {
       resetForm();
+      const timer = setTimeout(() => {
+        valorInputRef.current?.focus();
+      }, 150);
+      return () => clearTimeout(timer);
     }
-  }, [isOpen]);
+  }, [isOpen, resetForm]);
   
-  // Atualiza o cartão selecionado quando o ID muda
-  useEffect(() => {
-    if (formData.cartaoId) {
-      const cartao = cartoes.find(c => c.id === formData.cartaoId);
-      setCartaoSelecionado(cartao);
-    } else {
-      setCartaoSelecionado(null);
-    }
-  }, [formData.cartaoId, cartoes]);
-  
-  // Função para obter a data atual no formato yyyy-MM-dd (para input date)
-  function formatarDataAtual() {
-    const hoje = new Date();
-    const ano = hoje.getFullYear();
-    const mes = String(hoje.getMonth() + 1).padStart(2, '0');
-    const dia = String(hoje.getDate()).padStart(2, '0');
-    return `${ano}-${mes}-${dia}`;
-  }
-
-  // Função para mostrar feedback
-  const showFeedback = (message, type = 'success') => {
+  const showFeedback = useCallback((message, type = 'success') => {
     setFeedback({ visible: true, message, type });
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       setFeedback({ visible: false, message: '', type: '' });
     }, 3000);
-  };
-
-  // Handler para mudanças nos inputs
-  const handleChange = (e) => {
+    return () => clearTimeout(timer);
+  }, []);
+  
+  const handleInputChange = useCallback((e) => {
     const { name, value } = e.target;
     
-    // Lógica especial para campos específicos
+    // Lógica especial para categoria
     if (name === 'categoria') {
-      // Se a categoria mudou, resetar a subcategoria
-      setFormData(prevData => ({
-        ...prevData,
+      setFormData(prev => ({
+        ...prev,
         [name]: value,
         subcategoria: '' // Reseta a subcategoria
       }));
     } else if (name === 'numeroParcelas') {
       // Garantir que o número de parcelas seja pelo menos 1
       const parcelas = Math.max(1, parseInt(value) || 1);
-      setFormData(prevData => ({
-        ...prevData,
+      setFormData(prev => ({
+        ...prev,
         [name]: parcelas
       }));
-    } else {
-      // Comportamento padrão para outros campos
-      setFormData(prevData => ({
-        ...prevData,
-        [name]: value
+    } else if (name === 'cartaoId') {
+      // Quando muda o cartão, recalcula a fatura automaticamente
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        faturaVencimento: '' // Será recalculado no próximo useEffect
       }));
+    } else if (name === 'dataCompra') {
+      // Quando muda a data, recalcula a fatura automaticamente
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        faturaVencimento: '' // Será recalculado no próximo useEffect
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
     }
     
-    // Limpa o erro deste campo se existir
     if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: null
-      }));
+      setErrors(prev => ({ ...prev, [name]: null }));
     }
-  };
+  }, [errors]);
   
-  // Handler específico para o campo de valor total
-  const handleValorTotalChange = (value) => {
-    setFormData(prevData => ({
-      ...prevData,
-      valorTotal: value
+  const handleValorChange = useCallback((value) => {
+    setFormData(prev => ({ ...prev, valorTotal: value }));
+    if (errors.valorTotal) {
+      setErrors(prev => ({ ...prev, valorTotal: null }));
+    }
+  }, [errors.valorTotal]);
+  
+  const handleCategoriaChange = useCallback((e) => {
+    const { value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      categoriaTexto: value,
+      categoria: '',
+      subcategoria: '',
+      subcategoriaTexto: ''
     }));
     
-    // Limpa o erro se existir
-    if (errors.valorTotal) {
-      setErrors(prev => ({
-        ...prev,
-        valorTotal: null
-      }));
+    setCategoriaDropdownOpen(true);
+    if (errors.categoria) {
+      setErrors(prev => ({ ...prev, categoria: null }));
     }
-  };
+  }, [errors.categoria]);
   
-  // Handler para controlar o contador de caracteres nas observações
-  const handleObservacoesChange = (e) => {
-    const { value } = e.target;
+  const handleSelecionarCategoria = useCallback((categoria) => {
+    setFormData(prev => ({
+      ...prev,
+      categoria: categoria.id,
+      categoriaTexto: categoria.nome,
+      subcategoria: '',
+      subcategoriaTexto: ''
+    }));
     
-    // Limita a 300 caracteres
-    if (value.length <= 300) {
-      setFormData(prevData => ({
-        ...prevData,
-        observacoes: value
-      }));
+    setCategoriaDropdownOpen(false);
+    const timer = setTimeout(() => {
+      subcategoriaInputRef.current?.focus();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+  
+  const handleCategoriaBlur = useCallback(() => {
+    const timer = setTimeout(() => {
+      setCategoriaDropdownOpen(false);
       
-      // Limpa o erro se existir
-      if (errors.observacoes) {
-        setErrors(prev => ({
-          ...prev,
-          observacoes: null
-        }));
+      if (formData.categoriaTexto && !formData.categoria) {
+        const existe = categoriasDespesa.find(cat =>
+          cat.nome.toLowerCase() === formData.categoriaTexto.toLowerCase()
+        );
+        
+        if (!existe) {
+          setConfirmacao({
+            show: true,
+            type: 'categoria',
+            nome: formData.categoriaTexto,
+            categoriaId: ''
+          });
+        }
       }
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [formData.categoriaTexto, formData.categoria, categoriasDespesa]);
+  
+  const handleSubcategoriaChange = useCallback((e) => {
+    const { value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      subcategoriaTexto: value,
+      subcategoria: ''
+    }));
+    
+    if (categoriaSelecionada) {
+      setSubcategoriaDropdownOpen(true);
     }
-  };
-
-  // Validação do formulário
-  const validateForm = () => {
+  }, [categoriaSelecionada]);
+  
+  const handleSelecionarSubcategoria = useCallback((subcategoria) => {
+    setFormData(prev => ({
+      ...prev,
+      subcategoria: subcategoria.id,
+      subcategoriaTexto: subcategoria.nome
+    }));
+    
+    setSubcategoriaDropdownOpen(false);
+  }, []);
+  
+  const handleSubcategoriaBlur = useCallback(() => {
+    const timer = setTimeout(() => {
+      setSubcategoriaDropdownOpen(false);
+      
+      if (formData.subcategoriaTexto && !formData.subcategoria && categoriaSelecionada) {
+        const existe = (categoriaSelecionada.subcategorias || []).find(sub =>
+          sub.nome.toLowerCase() === formData.subcategoriaTexto.toLowerCase()
+        );
+        
+        if (!existe) {
+          setConfirmacao({
+            show: true,
+            type: 'subcategoria',
+            nome: formData.subcategoriaTexto,
+            categoriaId: formData.categoria
+          });
+        }
+      }
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [formData.subcategoriaTexto, formData.subcategoria, formData.categoria, categoriaSelecionada]);
+  
+  const handleConfirmarCriacao = useCallback(async () => {
+    try {
+      if (confirmacao.type === 'categoria') {
+        const result = await addCategoria({
+          nome: confirmacao.nome,
+          tipo: 'despesa',
+          cor: '#EF4444'
+        });
+        
+        if (result.success) {
+          setFormData(prev => ({
+            ...prev,
+            categoria: result.data.id,
+            categoriaTexto: result.data.nome
+          }));
+          
+          showFeedback(`Categoria "${confirmacao.nome}" criada com sucesso!`);
+        } else {
+          showFeedback('Erro ao criar categoria. Tente novamente.', 'error');
+        }
+      } else if (confirmacao.type === 'subcategoria') {
+        const result = await addSubcategoria(confirmacao.categoriaId, {
+          nome: confirmacao.nome
+        });
+        
+        if (result.success) {
+          setFormData(prev => ({
+            ...prev,
+            subcategoria: result.data.id,
+            subcategoriaTexto: result.data.nome
+          }));
+          
+          showFeedback(`Subcategoria "${confirmacao.nome}" criada com sucesso!`);
+        } else {
+          showFeedback('Erro ao criar subcategoria. Tente novamente.', 'error');
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao criar categoria/subcategoria:', error);
+      showFeedback('Erro inesperado. Tente novamente.', 'error');
+    }
+    
+    setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
+  }, [confirmacao, addCategoria, addSubcategoria, showFeedback]);
+  
+  const validateForm = useCallback(() => {
     const newErrors = {};
     
-    // Validação dos campos obrigatórios
-    if (!formData.dataCompra) newErrors.dataCompra = "Data é obrigatória";
-    if (!formData.descricao.trim()) newErrors.descricao = "Descrição é obrigatória";
-    if (!formData.categoria) newErrors.categoria = "Categoria é obrigatória";
-    if (!formData.subcategoria) newErrors.subcategoria = "Subcategoria é obrigatória";
-    if (!formData.cartaoId) newErrors.cartaoId = "Cartão é obrigatório";
-    if (!formData.valorTotal || formData.valorTotal === 0) newErrors.valorTotal = "Valor é obrigatório";
-    
-    // Validações específicas para parcelamento
+    if (!formData.valorTotal || formData.valorTotal === 0) {
+      newErrors.valorTotal = "Valor é obrigatório";
+    }
+    if (!formData.dataCompra) {
+      newErrors.dataCompra = "Data é obrigatória";
+    }
+    if (!formData.descricao.trim()) {
+      newErrors.descricao = "Descrição é obrigatória";
+    }
+    if (!formData.categoria && !formData.categoriaTexto.trim()) {
+      newErrors.categoria = "Categoria é obrigatória";
+    }
+    if (!formData.cartaoId) {
+      newErrors.cartaoId = "Cartão é obrigatório";
+    }
+    if (!formData.faturaVencimento) {
+      newErrors.faturaVencimento = "Fatura é obrigatória";
+    }
     if (formData.numeroParcelas < 1) {
       newErrors.numeroParcelas = "Número de parcelas deve ser pelo menos 1";
     }
-    
     if (formData.numeroParcelas > 1 && formData.valorTotal < 10) {
       newErrors.numeroParcelas = "Para parcelar, valor mínimo deve ser R$ 10,00";
+    }
+    if (formData.observacoes.length > 300) {
+      newErrors.observacoes = "Máximo de 300 caracteres";
     }
     
     // Verifica se o cartão está ativo
@@ -202,349 +460,478 @@ const DespesasCartaoModal = ({ isOpen, onClose }) => {
       newErrors.cartaoId = "Este cartão está inativo";
     }
     
-    // Limite de caracteres para observações
-    if (formData.observacoes.length > 300) {
-      newErrors.observacoes = "Máximo de 300 caracteres";
-    }
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
-
-  // Handler para o envio do formulário
-  const handleSubmit = (e) => {
+  }, [formData, cartoes]);
+  
+  const handleSubmit = useCallback(async (e, criarNova = false) => {
     e.preventDefault();
     
-    if (validateForm()) {
-      // Calcula o valor de cada parcela
-      const valorParcelaFinal = formData.valorTotal / formData.numeroParcelas;
+    if (!validateForm()) return;
+    
+    try {
+      setSubmitting(true);
       
-      // Constrói o objeto de despesa com cartão
-      const despesaCartao = {
-        ...formData,
-        valorParcela: valorParcelaFinal,
-        dataRegistro: new Date().toISOString(),
-        status: 'aberto'
-      };
+      // *** NOVA IMPLEMENTAÇÃO COM FUNÇÃO DO BANCO ***
+      // Usar a função do banco para gerar automaticamente todas as parcelas
+      const { data, error } = await supabase
+        .rpc('gerar_parcelas_cartao', {
+          p_usuario_id: user.id,
+          p_cartao_id: formData.cartaoId,
+          p_categoria_id: formData.categoria,
+          p_subcategoria_id: formData.subcategoria || null,
+          p_descricao: formData.descricao.trim(),
+          p_valor_total: formData.valorTotal,
+          p_numero_parcelas: formData.numeroParcelas,
+          p_data_compra: formData.dataCompra,
+          p_fatura_vencimento: formData.faturaVencimento,
+          p_observacoes: formData.observacoes.trim() || null
+        });
       
-      // Mock da função addDespesaCartao
-      console.log("Dados da despesa de cartão enviados:", despesaCartao);
+      if (error) {
+        // Se a função do banco não existir ainda, usar método alternativo
+        if (error.message.includes('function') && error.message.includes('does not exist')) {
+          console.log('⚠️ Função do banco não encontrada, usando método alternativo...');
+          await salvarComMetodoAlternativo();
+        } else {
+          throw error;
+        }
+      } else {
+        console.log("✅ Parcelas criadas com sucesso. Grupo ID:", data);
+      }
       
-      // Exibe o feedback de sucesso
-      showFeedback('Despesa de cartão registrada com sucesso!', 'success');
+      if (onSave) {
+        onSave(); // Notifica o Dashboard para atualizar
+      }
       
-      // Limpa o formulário e fecha após 2 segundos
-      setTimeout(() => {
-        resetForm();
-        onClose();
-      }, 2000);
+      if (criarNova) {
+        showFeedback('Despesa parcelada salva! Pronto para a próxima.');
+        // Reset apenas os campos principais, mantendo categoria e cartão
+        setFormData(prev => ({
+          ...prev,
+          valorTotal: 0,
+          dataCompra: getCurrentDate(),
+          descricao: '',
+          numeroParcelas: 1,
+          faturaVencimento: '',
+          observacoes: ''
+        }));
+        setErrors({});
+        // Foca no campo de valor para facilitar entrada rápida
+        const timer = setTimeout(() => {
+          valorInputRef.current?.focus();
+        }, 100);
+        return () => clearTimeout(timer);
+      } else {
+        showFeedback('Despesa de cartão registrada com sucesso!');
+        const timer = setTimeout(() => {
+          resetForm();
+          onClose();
+        }, 1500);
+        return () => clearTimeout(timer);
+      }
+      
+    } catch (error) {
+      console.error('❌ Erro ao salvar despesa de cartão:', error);
+      showFeedback(`Erro ao salvar despesa: ${error.message}`, 'error');
+    } finally {
+      setSubmitting(false);
     }
-  };
-
-  // Função para resetar o formulário
-  const resetForm = () => {
-    setFormData({
-      dataCompra: formatarDataAtual(),
-      descricao: '',
-      categoria: '',
-      subcategoria: '',
-      cartaoId: '',
-      valorTotal: 0,
-      numeroParcelas: 1,
-      observacoes: ''
-    });
-    setErrors({});
-    setFeedback({ visible: false, message: '', type: '' });
-    setCartaoSelecionado(null);
-  };
-
-  // Se não estiver aberto, não renderiza
+  }, [validateForm, user.id, formData, onSave, showFeedback, getCurrentDate, resetForm, onClose]);
+  
+  // Método alternativo caso a função do banco não exista ainda
+  const salvarComMetodoAlternativo = useCallback(async () => {
+    const valorParcelaCalc = formData.valorTotal / formData.numeroParcelas;
+    const grupoParcelamento = crypto.randomUUID();
+    
+    const parcelas = [];
+    
+    for (let i = 1; i <= formData.numeroParcelas; i++) {
+      // Calcular data de vencimento para cada parcela
+      const dataVencimento = new Date(formData.faturaVencimento);
+      dataVencimento.setMonth(dataVencimento.getMonth() + (i - 1));
+      
+      parcelas.push({
+        usuario_id: user.id,
+        data: formData.dataCompra,
+        descricao: formData.descricao.trim() + (formData.numeroParcelas > 1 ? ` (${i}/${formData.numeroParcelas})` : ''),
+        categoria_id: formData.categoria,
+        subcategoria_id: formData.subcategoria || null,
+        cartao_id: formData.cartaoId,
+        valor: formData.valorTotal, // Valor total para referência
+        valor_parcela: valorParcelaCalc,
+        numero_parcelas: formData.numeroParcelas,
+        parcela_atual: i,
+        fatura_vencimento: dataVencimento.toISOString().split('T')[0],
+        grupo_parcelamento: grupoParcelamento,
+        observacoes: formData.observacoes.trim() || null,
+        tipo: 'despesa',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+    }
+    
+    const { data, error } = await supabase
+      .from('transacoes')
+      .insert(parcelas)
+      .select();
+    
+    if (error) throw error;
+    
+    console.log("✅ Parcelas salvas com método alternativo:", data);
+  }, [formData, user.id]);
+  
+  const handleObservacoesChange = useCallback((e) => {
+    if (e.target.value.length <= 300) {
+      handleInputChange(e);
+    }
+  }, [handleInputChange]);
+  
+  const handleCancelar = useCallback(() => {
+    resetForm();
+    onClose();
+  }, [resetForm, onClose]);
+  
+  const handleCancelarConfirmacao = useCallback(() => {
+    setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
+  }, []);
+  
   if (!isOpen) return null;
-
+  
   return (
-    <div className="contas-modal-overlay">
-      <div className="contas-modal-container" style={{ maxWidth: '600px' }}>
-        {/* Cabeçalho do modal */}
-        <div className="contas-modal-header">
-          <h2>
-            <CreditCard size={20} className="icon-header" style={{ color: '#8b5cf6' }} />
-            <span>Despesa com Cartão de Crédito</span>
+    <div className="receitas-modal-overlay">
+      <div className="receitas-modal-container">
+        {/* Header compacto */}
+        <div className="receitas-modal-header">
+          <h2 className="receitas-modal-title">
+            <CreditCard size={18} style={{ color: '#8b5cf6' }} />
+            Despesa com Cartão de Crédito
           </h2>
-          <button 
-            className="btn-fechar" 
-            onClick={onClose}
-            aria-label="Fechar"
-          >
-            <X size={20} />
+          <button className="receitas-modal-close" onClick={onClose} aria-label="Fechar">
+            <X size={18} />
           </button>
         </div>
         
-        {/* Conteúdo do modal */}
-        <div className="contas-modal-content">
-          {/* Feedback de sucesso/erro */}
+        {/* Content */}
+        <div className="receitas-modal-content">
+          {/* Feedback */}
           {feedback.visible && (
-            <div className={`feedback-message ${feedback.type}`}>
-              <span style={{ marginRight: '8px' }}>
-                {feedback.type === 'success' ? '✅' : '❌'}
-              </span>
-              {feedback.message}
+            <div className={`receitas-feedback ${feedback.type}`}>
+              {feedback.type === 'success' ? '✅' : '❌'} {feedback.message}
             </div>
           )}
           
-          {/* Formulário de despesa com cartão */}
-          <form onSubmit={handleSubmit} className="conta-form">
-            <h3>Nova Despesa com Cartão</h3>
-            
-            {/* Data da Compra */}
-            <div className="form-group">
-              <label htmlFor="dataCompra">
-                <Calendar size={16} />
-                Data da Compra *
-              </label>
-              <input
-                ref={dataInputRef}
-                type="date"
-                id="dataCompra"
-                name="dataCompra"
-                value={formData.dataCompra}
-                onChange={handleChange}
-                className={errors.dataCompra ? 'error' : ''}
-              />
-              {errors.dataCompra && (
-                <div className="form-error">{errors.dataCompra}</div>
-              )}
+          {/* Loading */}
+          {(categoriasLoading || cartoesLoading) ? (
+            <div className="receitas-loading">
+              <div className="receitas-loading-spinner"></div>
+              <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>
+                Carregando dados...
+              </p>
             </div>
-            
-            {/* Descrição */}
-            <div className="form-group">
-              <label htmlFor="descricao">
-                <FileText size={16} />
-                Descrição *
-              </label>
-              <input
-                type="text"
-                id="descricao"
-                name="descricao"
-                placeholder="Ex: Compra na Amazon"
-                value={formData.descricao}
-                onChange={handleChange}
-                className={errors.descricao ? 'error' : ''}
-              />
-              {errors.descricao && (
-                <div className="form-error">{errors.descricao}</div>
-              )}
-            </div>
-            
-            {/* Categoria e Subcategoria */}
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="categoria">
-                  <Tag size={16} />
+          ) : (
+            <form onSubmit={(e) => handleSubmit(e, false)} className="receitas-form">
+              {/* Valor e Data - Layout horizontal compacto */}
+              <div className="receitas-form-row">
+                <div className="receitas-form-group">
+                  <label className="receitas-form-label">
+                    <DollarSign size={14} />
+                    Valor Total *
+                  </label>
+                  <InputMoney
+                    ref={valorInputRef}
+                    value={formData.valorTotal}
+                    onChange={handleValorChange}
+                    placeholder="R$ 0,00"
+                    disabled={submitting}
+                    className={`receitas-form-input receitas-valor-input ${errors.valorTotal ? 'error' : ''}`}
+                  />
+                  {errors.valorTotal && (
+                    <div className="receitas-form-error">{errors.valorTotal}</div>
+                  )}
+                </div>
+                
+                <div className="receitas-form-group">
+                  <label className="receitas-form-label">
+                    <Calendar size={14} />
+                    Data *
+                  </label>
+                  <input
+                    type="date"
+                    name="dataCompra"
+                    value={formData.dataCompra}
+                    onChange={handleInputChange}
+                    disabled={submitting}
+                    className={`receitas-form-input ${errors.dataCompra ? 'error' : ''}`}
+                  />
+                  {errors.dataCompra && (
+                    <div className="receitas-form-error">{errors.dataCompra}</div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Descrição */}
+              <div className="receitas-form-group receitas-form-full">
+                <label className="receitas-form-label">
+                  <FileText size={14} />
+                  Descrição *
+                </label>
+                <input
+                  type="text"
+                  name="descricao"
+                  placeholder="Ex: Compra na Amazon, Mercado, Combustível"
+                  value={formData.descricao}
+                  onChange={handleInputChange}
+                  disabled={submitting}
+                  className={`receitas-form-input ${errors.descricao ? 'error' : ''}`}
+                />
+                {errors.descricao && (
+                  <div className="receitas-form-error">{errors.descricao}</div>
+                )}
+              </div>
+              
+              {/* Categoria */}
+              <div className="receitas-form-group receitas-form-full">
+                <label className="receitas-form-label">
+                  <Tag size={14} />
                   Categoria *
                 </label>
-                <select
-                  id="categoria"
-                  name="categoria"
-                  value={formData.categoria}
-                  onChange={handleChange}
-                  className={errors.categoria ? 'error' : ''}
-                >
-                  <option value="">Selecione uma categoria</option>
-                  {categoriasDespesa.map(categoria => (
-                    <option key={categoria.id} value={categoria.id}>
-                      {categoria.nome}
-                    </option>
-                  ))}
-                </select>
-                {errors.categoria && (
-                  <div className="form-error">{errors.categoria}</div>
-                )}
+                <div className="receitas-dropdown-container">
+                  <input
+                    ref={categoriaInputRef}
+                    type="text"
+                    value={formData.categoriaTexto}
+                    onChange={handleCategoriaChange}
+                    onBlur={handleCategoriaBlur}
+                    onFocus={() => setCategoriaDropdownOpen(true)}
+                    placeholder="Digite ou selecione uma categoria"
+                    disabled={submitting}
+                    autoComplete="off"
+                    className={`receitas-form-input receitas-dropdown-input ${errors.subcategoria ? 'error' : ''}`}
+                    style={{
+                      backgroundColor: !formData.categoria ? '#f9fafb' : 'white'
+                    }}
+                  />
+                  <Search size={14} className="receitas-search-icon" />
+                  
+                  {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
+                    <div className="receitas-dropdown-options">
+                      {subcategoriasFiltradas.map(subcategoria => (
+                        <div
+                          key={subcategoria.id}
+                          className="receitas-dropdown-option"
+                          onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
+                        >
+                          {subcategoria.nome}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               
-              <div className="form-group">
-                <label htmlFor="subcategoria">
-                  <Tag size={16} />
-                  Subcategoria *
-                </label>
-                <select
-                  id="subcategoria"
-                  name="subcategoria"
-                  value={formData.subcategoria}
-                  onChange={handleChange}
-                  disabled={!formData.categoria}
-                  className={errors.subcategoria ? 'error' : ''}
-                  style={{
-                    backgroundColor: !formData.categoria ? '#f9fafb' : 'white'
-                  }}
-                >
-                  <option value="">Selecione uma subcategoria</option>
-                  {subcategoriasFiltradas.map(subcategoria => (
-                    <option key={subcategoria.id} value={subcategoria.id}>
-                      {subcategoria.nome}
-                    </option>
-                  ))}
-                </select>
-                {errors.subcategoria && (
-                  <div className="form-error">{errors.subcategoria}</div>
-                )}
-              </div>
-            </div>
-            
-            {/* Cartão de Crédito */}
-            <div className="form-group">
-              <label htmlFor="cartaoId">
-                <CreditCard size={16} />
-                Cartão de Crédito *
-              </label>
-              <select
-                id="cartaoId"
-                name="cartaoId"
-                value={formData.cartaoId}
-                onChange={handleChange}
-                className={errors.cartaoId ? 'error' : ''}
-              >
-                <option value="">Selecione um cartão</option>
-                {cartoes.map(cartao => (
-                  <option 
-                    key={cartao.id} 
-                    value={cartao.id}
-                    disabled={!cartao.ativo}
+              {/* Cartão e Parcelas */}
+              <div className="receitas-form-row">
+                <div className="receitas-form-group">
+                  <label className="receitas-form-label">
+                    <CreditCard size={14} />
+                    Cartão *
+                  </label>
+                  <select
+                    name="cartaoId"
+                    value={formData.cartaoId}
+                    onChange={handleInputChange}
+                    disabled={submitting}
+                    className={`receitas-form-input ${errors.cartaoId ? 'error' : ''}`}
                   >
-                    {cartao.nome} {!cartao.ativo ? '(Inativo)' : ''}
-                  </option>
-                ))}
-              </select>
-              {errors.cartaoId && (
-                <div className="form-error">{errors.cartaoId}</div>
-              )}
-            </div>
-            
-            {/* Valor Total e Parcelas */}
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="valorTotal">
-                  <DollarSign size={16} />
-                  Valor Total *
-                </label>
-                <InputMoney
-                  id="valorTotal"
-                  name="valorTotal"
-                  value={formData.valorTotal}
-                  onChange={handleValorTotalChange}
-                  placeholder="R$ 0,00"
-                  style={{
-                    borderColor: errors.valorTotal ? '#ef4444' : '#d1d5db'
-                  }}
-                />
-                {errors.valorTotal && (
-                  <div className="form-error">{errors.valorTotal}</div>
-                )}
+                    <option value="">Selecione um cartão</option>
+                    {cartoesAtivos.map(cartao => (
+                      <option key={cartao.id} value={cartao.id}>
+                        {cartao.nome}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.cartaoId && (
+                    <div className="receitas-form-error">{errors.cartaoId}</div>
+                  )}
+                </div>
+                
+                <div className="receitas-form-group">
+                  <label className="receitas-form-label">
+                    <Hash size={14} />
+                    Parcelas *
+                  </label>
+                  <select
+                    name="numeroParcelas"
+                    value={formData.numeroParcelas}
+                    onChange={handleInputChange}
+                    disabled={submitting}
+                    className={`receitas-form-input ${errors.numeroParcelas ? 'error' : ''}`}
+                  >
+                    {opcoesParcelamento.map(opcao => (
+                      <option key={opcao.value} value={opcao.value}>
+                        {opcao.label}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.numeroParcelas && (
+                    <div className="receitas-form-error">{errors.numeroParcelas}</div>
+                  )}
+                </div>
               </div>
               
-              <div className="form-group">
-                <label htmlFor="numeroParcelas">
-                  <Hash size={16} />
-                  Parcelas *
-                  <Info size={12} style={{ marginLeft: '4px', color: '#6b7280' }} />
+              {/* Fatura de Vencimento */}
+              <div className="receitas-form-group receitas-form-full">
+                <label className="receitas-form-label">
+                  <Calendar size={14} />
+                  Fatura de Vencimento *
+                  <small>(primeira parcela)</small>
                 </label>
                 <select
-                  id="numeroParcelas"
-                  name="numeroParcelas"
-                  value={formData.numeroParcelas}
-                  onChange={handleChange}
-                  className={errors.numeroParcelas ? 'error' : ''}
+                  name="faturaVencimento"
+                  value={formData.faturaVencimento}
+                  onChange={handleInputChange}
+                  disabled={submitting || !formData.cartaoId}
+                  className={`receitas-form-input ${errors.faturaVencimento ? 'error' : ''}`}
+                  style={{
+                    backgroundColor: !formData.cartaoId ? '#f9fafb' : 'white'
+                  }}
                 >
-                  {opcoesParcelamento.map(opcao => (
+                  <option value="">
+                    {!formData.cartaoId ? "Selecione um cartão primeiro" : "Selecione a fatura"}
+                  </option>
+                  {opcoesFatura.map(opcao => (
                     <option key={opcao.value} value={opcao.value}>
                       {opcao.label}
                     </option>
                   ))}
                 </select>
-                {errors.numeroParcelas && (
-                  <div className="form-error">{errors.numeroParcelas}</div>
+                {errors.faturaVencimento && (
+                  <div className="receitas-form-error">{errors.faturaVencimento}</div>
                 )}
               </div>
-            </div>
-            
-            {/* Preview do Parcelamento */}
-            {formData.valorTotal > 0 && formData.numeroParcelas > 0 && (
-              <div className="contas-resumo" style={{ marginBottom: '16px' }}>
-                <div className="resumo-item">
-                  <div className="resumo-label">Valor por parcela</div>
-                  <div className="resumo-valor" style={{ color: '#8b5cf6' }}>
-                    {formatCurrency(valorParcela)}
-                  </div>
+              
+              {/* Preview Compacto do Parcelamento */}
+              {formData.valorTotal > 0 && formData.numeroParcelas > 0 && (
+                <div className="cartao-preview-compacto">
+                  <span className="preview-texto">
+                    💳 {formData.numeroParcelas}x de {formatCurrency(valorParcela)}
+                    {formData.numeroParcelas > 1 && ` = ${formatCurrency(formData.valorTotal)}`}
+                  </span>
                 </div>
-                <div className="resumo-item">
-                  <div className="resumo-label">Total de parcelas</div>
-                  <div className="resumo-valor">
-                    {formData.numeroParcelas}x
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {/* Observações */}
-            <div className="form-group">
-              <label htmlFor="observacoes">
-                <MessageSquare size={16} />
-                Observações
-                <small>(opcional, máx. 300 caracteres)</small>
-              </label>
-              <textarea
-                id="observacoes"
-                name="observacoes"
-                value={formData.observacoes}
-                onChange={handleObservacoesChange}
-                placeholder="Adicione informações extras sobre esta compra"
-                rows="3"
-                className={errors.observacoes ? 'error' : ''}
-                style={{ resize: 'vertical' }}
-              />
-              <div style={{ 
-                textAlign: 'right', 
-                fontSize: '12px', 
-                color: '#6b7280',
-                marginTop: '4px'
-              }}>
-                {formData.observacoes.length}/300
-              </div>
-              {errors.observacoes && (
-                <div className="form-error">{errors.observacoes}</div>
               )}
-            </div>
-            
-            {/* Botões de ação */}
-            <div className="form-actions">
-              <button
-                type="button"
-                onClick={() => {
-                  resetForm();
-                  onClose();
-                }}
-                className="btn-secondary"
+              
+              {/* Observações */}
+              <div className="receitas-form-group receitas-form-full">
+                <label className="receitas-form-label">
+                  <MessageSquare size={14} />
+                  Observações <small>(máx. 300)</small>
+                </label>
+                <textarea
+                  name="observacoes"
+                  value={formData.observacoes}
+                  onChange={handleObservacoesChange}
+                  placeholder="Adicione informações extras sobre esta compra"
+                  rows="2"
+                  disabled={submitting}
+                  className={`receitas-form-input receitas-form-textarea ${errors.observacoes ? 'error' : ''}`}
+                />
+                <div className="receitas-char-counter">
+                  <span></span>
+                  <span>{formData.observacoes.length}/300</span>
+                </div>
+                {errors.observacoes && (
+                  <div className="receitas-form-error">{errors.observacoes}</div>
+                )}
+              </div>
+              
+              {/* Botões de ação compactos */}
+              <div className="receitas-form-actions">
+                <button
+                  type="button"
+                  onClick={handleCancelar}
+                  disabled={submitting}
+                  className="receitas-btn receitas-btn-secondary"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => handleSubmit(e, true)}
+                  disabled={submitting}
+                  className="receitas-btn receitas-btn-cartao"
+                >
+                  {submitting ? (
+                    <>
+                      <div className="receitas-btn-spinner"></div>
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <PlusCircle size={14} />
+                      Salvar e Nova
+                    </>
+                  )}
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="receitas-btn receitas-btn-cartao"
+                >
+                  {submitting ? (
+                    <>
+                      <div className="receitas-btn-spinner"></div>
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={14} />
+                      Salvar Despesa
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+      
+      {/* Modal de Confirmação */}
+      {confirmacao.show && (
+        <div className="receitas-confirmation-overlay">
+          <div className="receitas-confirmation-container">
+            <h3 className="receitas-confirmation-title">
+              Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
+            </h3>
+            <p className="receitas-confirmation-message">
+              {confirmacao.type === 'categoria' ? 'A categoria' : 'A subcategoria'}{' '}
+              <strong>"{confirmacao.nome}"</strong> não existe. Deseja criá-la?
+            </p>
+            <div className="receitas-confirmation-actions">
+              <button 
+                onClick={handleCancelarConfirmacao}
+                className="receitas-confirmation-btn receitas-confirmation-btn-secondary"
               >
                 Cancelar
               </button>
-              <button
-                type="submit"
-                className="btn-primary"
-                style={{ backgroundColor: '#8b5cf6' }}
+              <button 
+                onClick={handleConfirmarCriacao}
+                className="receitas-confirmation-btn receitas-confirmation-btn-cartao"
               >
-                <Plus size={16} />
-                Salvar Despesa
+                Criar {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
               </button>
             </div>
-          </form>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
 
 DespesasCartaoModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired
+  onClose: PropTypes.func.isRequired,
+  onSave: PropTypes.func
 };
 
-export default DespesasCartaoModal;
+export default DespesasCartaoModal; 

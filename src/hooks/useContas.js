@@ -15,29 +15,14 @@ const useContas = () => {
   // Hook de autenticação com novo campo initialized
   const { user, isAuthenticated, loading: authLoading, initialized } = useAuth();
 
-  // Debug do estado da autenticação
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      console.log('🏦 useContas - Estado da autenticação:', {
-        isAuthenticated,
-        hasUser: !!user,
-        authLoading,
-        initialized,
-        userId: user?.id?.substring(0, 8)
-      });
-    }
-  }, [isAuthenticated, user, authLoading, initialized]);
-
   // Busca todas as contas do usuário logado
   const fetchContas = useCallback(async () => {
     // Aguarda a inicialização da autenticação terminar
     if (authLoading || !initialized) {
-      console.log('⏳ useContas - Aguardando inicialização da auth...');
       return { success: false, error: 'Aguardando autenticação' };
     }
 
     if (!isAuthenticated || !user) {
-      console.log('❌ useContas - Usuário não autenticado');
       setContas([]);
       return { success: false, error: 'Usuário não autenticado' };
     }
@@ -45,8 +30,6 @@ const useContas = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      console.log('🔍 useContas - Buscando contas para usuário:', user.id);
       
       // Busca as contas do usuário
       const { data, error, count } = await supabase
@@ -56,17 +39,9 @@ const useContas = () => {
         .eq('ativo', true)
         .order('created_at', { ascending: true });
       
-      console.log('📊 useContas - Resultado da busca:', {
-        data,
-        error,
-        count,
-        dataLength: data?.length
-      });
-      
       if (error) throw error;
       
       setContas(data || []);
-      console.log('✅ useContas - Contas carregadas:', data?.length || 0);
       return { success: true, data };
     } catch (err) {
       console.error('❌ useContas - Erro ao buscar contas:', err);
@@ -80,20 +55,11 @@ const useContas = () => {
 
   // Carrega as contas quando a autenticação estiver pronta
   useEffect(() => {
-    console.log('🔄 useContas - Effect disparado:', {
-      authLoading,
-      initialized,
-      isAuthenticated,
-      hasUser: !!user
-    });
-    
     // Só executa quando a autenticação terminou de inicializar
     if (!authLoading && initialized) {
       if (isAuthenticated && user) {
-        console.log('🚀 useContas - Executando fetchContas...');
         fetchContas();
       } else {
-        console.log('🧹 useContas - Limpando contas (usuário não autenticado)');
         setContas([]);
         setLoading(false);
         setError(null);
@@ -111,8 +77,6 @@ const useContas = () => {
       setLoading(true);
       setError(null);
       
-      console.log('➕ useContas - Adicionando conta:', novaConta);
-      
       // Prepara os dados para inserção
       const dadosConta = {
         usuario_id: user.id,
@@ -128,28 +92,19 @@ const useContas = () => {
         updated_at: new Date().toISOString()
       };
       
-      console.log('📝 useContas - Dados preparados:', dadosConta);
-      
       // Chama a API para adicionar a conta
       const { data, error } = await supabase
         .from('contas')
         .insert([dadosConta])
         .select();
       
-      console.log('📊 useContas - Resultado da inserção:', { data, error });
-      
       if (error) throw error;
       
       // Adiciona a nova conta ao estado local
       if (data && data.length > 0) {
         const novaContaCompleta = data[0];
-        setContas(prev => {
-          const novaLista = [...prev, novaContaCompleta];
-          console.log('📋 useContas - Lista atualizada:', novaLista.length, 'contas');
-          return novaLista;
-        });
+        setContas(prev => [...prev, novaContaCompleta]);
         
-        console.log('✅ useContas - Conta adicionada com sucesso');
         return { success: true, data: novaContaCompleta };
       } else {
         throw new Error('Erro ao adicionar conta: dados não retornados');
@@ -173,8 +128,6 @@ const useContas = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      console.log('✏️ useContas - Atualizando conta:', contaId, dadosAtualizados);
       
       // Prepara os dados para atualização
       const dadosConta = {
@@ -203,7 +156,6 @@ const useContas = () => {
           conta.id === contaId ? data[0] : conta
         ));
         
-        console.log('✅ useContas - Conta atualizada com sucesso');
         return { success: true, data: data[0] };
       } else {
         throw new Error('Erro ao atualizar conta: dados não retornados');
@@ -228,8 +180,6 @@ const useContas = () => {
       setLoading(true);
       setError(null);
       
-      console.log('🗑️ useContas - Excluindo conta:', contaId);
-      
       // Verifica se a conta tem transações associadas
       const { data: transacoes, error: errorTransacoes } = await supabase
         .from('transacoes')
@@ -244,7 +194,6 @@ const useContas = () => {
       
       // Se tem transações, apenas desativa; senão, exclui fisicamente
       if (transacoes && transacoes.length > 0) {
-        console.log('📝 useContas - Conta tem transações, desativando...');
         const { error: errorUpdate } = await supabase
           .from('contas')
           .update({ ativo: false, updated_at: new Date().toISOString() })
@@ -253,7 +202,6 @@ const useContas = () => {
         
         if (errorUpdate) throw errorUpdate;
       } else {
-        console.log('🗑️ useContas - Conta sem transações, excluindo fisicamente...');
         const { error } = await supabase
           .from('contas')
           .delete()
@@ -266,11 +214,9 @@ const useContas = () => {
       // Atualiza o estado local
       setContas(prev => {
         const novaLista = prev.filter(conta => conta.id !== contaId);
-        console.log('📋 useContas - Lista após exclusão:', novaLista.length, 'contas');
         return novaLista;
       });
       
-      console.log('✅ useContas - Conta excluída com sucesso');
       return { success: true };
       
     } catch (err) {
@@ -293,8 +239,6 @@ const useContas = () => {
       setLoading(true);
       setError(null);
       
-      console.log('💰 useContas - Atualizando saldo da conta:', contaId, novoSaldo);
-      
       // Chama a API para atualizar apenas o saldo
       const { data, error } = await supabase
         .from('contas')
@@ -314,7 +258,6 @@ const useContas = () => {
           conta.id === contaId ? { ...conta, saldo: novoSaldo } : conta
         ));
         
-        console.log('✅ useContas - Saldo atualizado com sucesso');
         return { success: true, data: data[0] };
       } else {
         throw new Error('Erro ao atualizar saldo: dados não retornados');
@@ -331,11 +274,7 @@ const useContas = () => {
 
   // Funções auxiliares
   const getSaldoTotal = useCallback(() => {
-    const total = contas.reduce((sum, conta) => sum + (Number(conta.saldo) || 0), 0);
-    if (import.meta.env.DEV) {
-      console.log('💰 useContas - Saldo total calculado:', total, 'de', contas.length, 'contas');
-    }
-    return total;
+    return contas.reduce((sum, conta) => sum + (Number(conta.saldo) || 0), 0);
   }, [contas]);
 
   const getContaById = useCallback((id) => {
@@ -349,36 +288,6 @@ const useContas = () => {
   const getContasAtivas = useCallback(() => {
     return contas.filter(conta => conta.ativo);
   }, [contas]);
-
-  // Debug em desenvolvimento
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      const debugInfo = {
-        contas,
-        loading,
-        error,
-        authLoading,
-        initialized,
-        isAuthenticated,
-        user: user ? { id: user.id, email: user.email } : null,
-        totalContas: contas.length,
-        saldoTotal: getSaldoTotal(),
-        fetchContas,
-        addConta,
-        updateConta,
-        deleteConta
-      };
-      
-      window.contasDebug = debugInfo;
-      console.log('🔧 useContas - Debug info atualizado:', {
-        totalContas: contas.length,
-        loading,
-        authLoading,
-        initialized,
-        isAuthenticated
-      });
-    }
-  }, [contas, loading, error, authLoading, initialized, isAuthenticated, user, getSaldoTotal, fetchContas, addConta, updateConta, deleteConta]);
 
   return {
     contas,

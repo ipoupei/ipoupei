@@ -18,29 +18,14 @@ const useCategorias = () => {
   // Hook de autenticação
   const { user, isAuthenticated, loading: authLoading, initialized } = useAuth();
 
-  // Debug do estado da autenticação
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      console.log('📊 useCategorias - Estado da autenticação:', {
-        isAuthenticated,
-        hasUser: !!user,
-        authLoading,
-        initialized,
-        userId: user?.id?.substring(0, 8)
-      });
-    }
-  }, [isAuthenticated, user, authLoading, initialized]);
-
   // Busca todas as categorias e subcategorias do usuário logado
   const fetchCategorias = useCallback(async () => {
     // Aguarda a inicialização da autenticação terminar
     if (authLoading || !initialized) {
-      console.log('⏳ useCategorias - Aguardando inicialização da auth...');
       return { success: false, error: 'Aguardando autenticação' };
     }
 
     if (!isAuthenticated || !user) {
-      console.log('❌ useCategorias - Usuário não autenticado');
       setCategorias([]);
       return { success: false, error: 'Usuário não autenticado' };
     }
@@ -48,8 +33,6 @@ const useCategorias = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      console.log('🔍 useCategorias - Buscando categorias para usuário:', user.id);
       
       // Busca as categorias principais do usuário
       const { data: dataCategoria, error: errorCategoria } = await supabase
@@ -84,14 +67,7 @@ const useCategorias = () => {
         };
       });
       
-      console.log('📊 useCategorias - Resultado da busca:', {
-        categorias: dataCategoria?.length || 0,
-        subcategorias: dataSubcategorias?.length || 0,
-        combinadas: categoriasCombinadas.length
-      });
-      
       setCategorias(categoriasCombinadas);
-      console.log('✅ useCategorias - Categorias carregadas:', categoriasCombinadas.length);
       return { success: true, data: categoriasCombinadas };
     } catch (err) {
       console.error('❌ useCategorias - Erro ao buscar categorias:', err);
@@ -105,20 +81,11 @@ const useCategorias = () => {
 
   // Carrega as categorias quando a autenticação estiver pronta
   useEffect(() => {
-    console.log('🔄 useCategorias - Effect disparado:', {
-      authLoading,
-      initialized,
-      isAuthenticated,
-      hasUser: !!user
-    });
-    
     // Só executa quando a autenticação terminou de inicializar
     if (!authLoading && initialized) {
       if (isAuthenticated && user) {
-        console.log('🚀 useCategorias - Executando fetchCategorias...');
         fetchCategorias();
       } else {
-        console.log('🧹 useCategorias - Limpando categorias (usuário não autenticado)');
         setCategorias([]);
         setLoading(false);
         setError(null);
@@ -130,21 +97,15 @@ const useCategorias = () => {
   useEffect(() => {
     if (!isAuthenticated || !user) return;
 
-    console.log('👂 useCategorias - Configurando listener da store');
-    
     const unsubscribe = categoriasStore.subscribe((event) => {
-      console.log('🔔 useCategorias - Evento recebido da store:', event);
-      
       // Sempre recarrega os dados quando há mudanças
       // Pequeno delay para garantir que o banco foi atualizado
       setTimeout(() => {
-        console.log('🔄 useCategorias - Recarregando dados devido a mudança');
         fetchCategorias();
       }, 100);
     });
 
     return () => {
-      console.log('🚫 useCategorias - Removendo listener da store');
       unsubscribe();
     };
   }, [isAuthenticated, user, fetchCategorias]);
@@ -158,8 +119,6 @@ const useCategorias = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      console.log('➕ useCategorias - Adicionando categoria:', novaCategoria);
       
       // Prepara os dados para inserção
       const dadosCategoria = {
@@ -190,7 +149,6 @@ const useCategorias = () => {
         };
         
         setCategorias(prev => [...prev, novaCategoriaCompleta]);
-        console.log('✅ useCategorias - Categoria adicionada com sucesso');
         
         // Notifica a store sobre a mudança
         categoriasStore.categoriaAdicionada(novaCategoriaCompleta);
@@ -218,8 +176,6 @@ const useCategorias = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      console.log('✏️ useCategorias - Atualizando categoria:', categoriaId, dadosAtualizados);
       
       // Prepara os dados para atualização
       const dadosCategoria = {
@@ -255,8 +211,6 @@ const useCategorias = () => {
           return categoria;
         }));
         
-        console.log('✅ useCategorias - Categoria atualizada com sucesso');
-        
         // Notifica a store sobre a mudança
         categoriasStore.categoriaAtualizada(data[0]);
         
@@ -284,8 +238,6 @@ const useCategorias = () => {
       setLoading(true);
       setError(null);
       
-      console.log('🗑️ useCategorias - Excluindo categoria:', categoriaId);
-      
       // Verifica se a categoria tem transações associadas
       const { data: transacoes, error: errorTransacoes } = await supabase
         .from('transacoes')
@@ -300,7 +252,6 @@ const useCategorias = () => {
       
       // Se tem transações, apenas desativa; senão, exclui fisicamente
       if (transacoes && transacoes.length > 0) {
-        console.log('📝 useCategorias - Categoria tem transações, desativando...');
         // Desativa categoria
         const { error: errorUpdate } = await supabase
           .from('categorias')
@@ -321,7 +272,6 @@ const useCategorias = () => {
           console.warn('⚠️ useCategorias - Erro ao desativar subcategorias:', errorSubcategorias);
         }
       } else {
-        console.log('🗑️ useCategorias - Categoria sem transações, excluindo fisicamente...');
         // Exclui subcategorias fisicamente
         const { error: errorSubcategorias } = await supabase
           .from('subcategorias')
@@ -346,11 +296,8 @@ const useCategorias = () => {
       // Atualiza o estado local
       setCategorias(prev => {
         const novaLista = prev.filter(categoria => categoria.id !== categoriaId);
-        console.log('📋 useCategorias - Lista após exclusão:', novaLista.length, 'categorias');
         return novaLista;
       });
-      
-      console.log('✅ useCategorias - Categoria excluída com sucesso');
       
       // Notifica a store sobre a mudança
       categoriasStore.categoriaRemovida(categoriaId);
@@ -377,8 +324,6 @@ const useCategorias = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      console.log('➕ useCategorias - Adicionando subcategoria:', categoriaId, novaSubcategoria);
       
       // Prepara os dados para inserção
       const dadosSubcategoria = {
@@ -412,8 +357,6 @@ const useCategorias = () => {
           return categoria;
         }));
         
-        console.log('✅ useCategorias - Subcategoria adicionada com sucesso');
-        
         // Notifica a store sobre a mudança
         categoriasStore.subcategoriaAdicionada(categoriaId, novaSubcategoriaCompleta);
         
@@ -440,8 +383,6 @@ const useCategorias = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      console.log('✏️ useCategorias - Atualizando subcategoria:', categoriaId, subcategoriaId, dadosAtualizados);
       
       // Prepara os dados para atualização
       const dadosSubcategoria = {
@@ -482,8 +423,6 @@ const useCategorias = () => {
           return categoria;
         }));
         
-        console.log('✅ useCategorias - Subcategoria atualizada com sucesso');
-        
         // Notifica a store sobre a mudança
         categoriasStore.subcategoriaAtualizada(categoriaId, subcategoriaAtualizada);
         
@@ -511,8 +450,6 @@ const useCategorias = () => {
       setLoading(true);
       setError(null);
       
-      console.log('🗑️ useCategorias - Excluindo subcategoria:', categoriaId, subcategoriaId);
-      
       // Verifica se a subcategoria tem transações associadas
       const { data: transacoes, error: errorTransacoes } = await supabase
         .from('transacoes')
@@ -527,7 +464,6 @@ const useCategorias = () => {
       
       // Se tem transações, apenas desativa; senão, exclui fisicamente
       if (transacoes && transacoes.length > 0) {
-        console.log('📝 useCategorias - Subcategoria tem transações, desativando...');
         const { error: errorUpdate } = await supabase
           .from('subcategorias')
           .update({ ativo: false, updated_at: new Date().toISOString() })
@@ -537,7 +473,6 @@ const useCategorias = () => {
         
         if (errorUpdate) throw errorUpdate;
       } else {
-        console.log('🗑️ useCategorias - Subcategoria sem transações, excluindo fisicamente...');
         const { error } = await supabase
           .from('subcategorias')
           .delete()
@@ -558,8 +493,6 @@ const useCategorias = () => {
         }
         return categoria;
       }));
-      
-      console.log('✅ useCategorias - Subcategoria excluída com sucesso');
       
       // Notifica a store sobre a mudança
       categoriasStore.subcategoriaRemovida(categoriaId, subcategoriaId);
@@ -603,55 +536,6 @@ const useCategorias = () => {
   const refreshCategorias = useCallback(() => {
     return fetchCategorias();
   }, [fetchCategorias]);
-
-  // Debug em desenvolvimento
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      const debugInfo = {
-        categorias,
-        loading,
-        error,
-        authLoading,
-        initialized,
-        isAuthenticated,
-        user: user ? { id: user.id, email: user.email } : null,
-        totalCategorias: categorias.length,
-        totalSubcategorias: categorias.reduce((total, cat) => total + (cat.subcategorias?.length || 0), 0),
-        updateCategoria,
-        deleteCategoria,
-        addCategoria,
-        addSubcategoria,
-        updateSubcategoria,
-        deleteSubcategoria,
-        refreshCategorias
-      };
-      
-      window.categoriasDebug = debugInfo;
-      console.log('🔧 useCategorias - Debug info atualizado:', {
-        totalCategorias: categorias.length,
-        totalSubcategorias: categorias.reduce((total, cat) => total + (cat.subcategorias?.length || 0), 0),
-        loading,
-        authLoading,
-        initialized,
-        isAuthenticated
-      });
-    }
-  }, [
-    categorias, 
-    loading, 
-    error, 
-    authLoading, 
-    initialized, 
-    isAuthenticated, 
-    user, 
-    updateCategoria, 
-    deleteCategoria, 
-    addCategoria,
-    addSubcategoria,
-    updateSubcategoria,
-    deleteSubcategoria,
-    refreshCategorias
-  ]);
 
   // Retorna os dados e funções
   return {
