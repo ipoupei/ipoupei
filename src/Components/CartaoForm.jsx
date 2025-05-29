@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { CreditCard, Calendar, DollarSign, Landmark, Check, AlertCircle } from 'lucide-react';
 import InputMoney from './ui/InputMoney';
-import './CartoesModal.css';
+import './FormsModal.css'; // CSS unificado
 
 /**
  * Formulário para cadastro e edição de cartões de crédito
- * Versão melhorada mantendo as qualidades do original + integração Supabase
+ * Versão atualizada usando CSS unificado
  */
 const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
   // Estado do formulário - campos ajustados para o Supabase
@@ -28,7 +28,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
   // Estado para controle do botão de preview
   const [mostrarPreview, setMostrarPreview] = useState(false);
   
-  // Bandeiras de cartão disponíveis - Mantendo as opções do original
+  // Bandeiras de cartão disponíveis
   const BANDEIRAS = [
     { id: 'visa', nome: 'Visa', icon: '💳' },
     { id: 'mastercard', nome: 'Mastercard', icon: '💳' },
@@ -48,17 +48,17 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
     label: `${i + 1}`
   }));
   
-  // Preenche o formulário quando receber um cartão para edição - campos corrigidos
+  // Preenche o formulário quando receber um cartão para edição
   useEffect(() => {
     if (cartao) {
       setFormData({
         nome: cartao.nome || '',
         limite: cartao.limite || 0,
-        dia_fechamento: cartao.dia_fechamento || 1, // Campo corrigido
-        dia_vencimento: cartao.dia_vencimento || 10, // Campo corrigido
+        dia_fechamento: cartao.dia_fechamento || 1,
+        dia_vencimento: cartao.dia_vencimento || 10,
         bandeira: cartao.bandeira || '',
-        banco: cartao.banco || '', // Campo adicional
-        conta_debito_id: cartao.conta_debito_id || '', // Campo corrigido
+        banco: cartao.banco || '',
+        conta_debito_id: cartao.conta_debito_id || '',
         ativo: cartao.ativo !== undefined ? cartao.ativo : true,
         cor: cartao.cor || '#8A05BE'
       });
@@ -177,7 +177,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
   };
 
   return (
-    <div className="cartao-form">
+    <div className="form form--cartoes">
       {/* Preview do cartão */}
       {mostrarPreview && (
         <div className="cartao-preview-container">
@@ -210,7 +210,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
           </div>
           <button 
             type="button" 
-            className="btn-secondary btn-sm"
+            className="btn btn--secondary btn--sm"
             onClick={() => setMostrarPreview(false)}
           >
             Fechar Preview
@@ -218,16 +218,16 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
         </div>
       )}
       
-      <h3 className="cartao-form-title">
+      <h3 className="form-title">
         {cartao ? 'Editar Cartão' : 'Novo Cartão de Crédito'}
       </h3>
       
-      <form className="cartao-form-container">
+      <form className="form-container">
         {/* Nome do Cartão */}
-        <div className="form-group">
-          <label htmlFor="nome">
+        <div className="form-group form-full">
+          <label htmlFor="nome" className="form-label form-label--required">
             <CreditCard size={16} />
-            <span>Nome do Cartão*</span>
+            <span>Nome do Cartão</span>
           </label>
           <input 
             type="text"
@@ -236,16 +236,16 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
             value={formData.nome}
             onChange={handleChange}
             placeholder="Ex: Nubank, Itaú Visa"
-            className={errors.nome ? 'input-error' : ''}
+            className={`form-input ${errors.nome ? 'form-input--error' : ''}`}
           />
-          {errors.nome && <div className="error-message">{errors.nome}</div>}
+          {errors.nome && <div className="form-error">{errors.nome}</div>}
         </div>
         
-        {/* Limite do Cartão - Mantendo InputMoney */}
-        <div className="form-group">
-          <label htmlFor="limite">
+        {/* Limite do Cartão */}
+        <div className="form-group form-full">
+          <label htmlFor="limite" className="form-label form-label--required">
             <DollarSign size={16} />
-            <span>Limite Total*</span>
+            <span>Limite Total</span>
           </label>
           <InputMoney
             id="limite"
@@ -253,14 +253,14 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
             value={formData.limite}
             onChange={handleLimiteChange}
             placeholder="R$ 0,00"
-            className={errors.limite ? 'input-error' : ''}
+            className={`form-input form-input--value ${errors.limite ? 'form-input--error' : ''}`}
           />
-          {errors.limite && <div className="error-message">{errors.limite}</div>}
+          {errors.limite && <div className="form-error">{errors.limite}</div>}
         </div>
         
-        {/* Banco (campo adicional do DB) */}
-        <div className="form-group">
-          <label htmlFor="banco">
+        {/* Banco */}
+        <div className="form-group form-full">
+          <label htmlFor="banco" className="form-label">
             <Landmark size={16} />
             <span>Banco</span>
           </label>
@@ -271,20 +271,21 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
             value={formData.banco}
             onChange={handleChange}
             placeholder="Ex: Nubank, Itaú, Santander"
+            className="form-input"
           />
         </div>
         
-        {/* Bandeira do Cartão - Layout melhorado mantido */}
-        <div className="form-group">
-          <label htmlFor="bandeira">
+        {/* Bandeira do Cartão */}
+        <div className="form-group form-full">
+          <label htmlFor="bandeira" className="form-label form-label--required">
             <CreditCard size={16} />
-            <span>Bandeira*</span>
+            <span>Bandeira</span>
           </label>
           <div className="bandeiras-selector">
             {BANDEIRAS.map(bandeira => (
               <div 
                 key={bandeira.id}
-                className={`bandeira-option ${formData.bandeira === bandeira.id ? 'selected' : ''}`}
+                className={`bandeira-option ${formData.bandeira === bandeira.id ? 'bandeira-option--selected' : ''}`}
                 onClick={() => {
                   setFormData(prev => ({ ...prev, bandeira: bandeira.id }));
                   if (errors.bandeira) {
@@ -295,22 +296,20 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
                 <span className="bandeira-icon">{bandeira.icon}</span>
                 <span className="bandeira-nome">{bandeira.nome}</span>
                 {formData.bandeira === bandeira.id && (
-                  <div className="check-icon-container">
-                    <Check size={14} className="check-icon" />
-                  </div>
+                  <Check size={14} className="check-icon" />
                 )}
               </div>
             ))}
           </div>
-          {errors.bandeira && <div className="error-message">{errors.bandeira}</div>}
+          {errors.bandeira && <div className="form-error">{errors.bandeira}</div>}
         </div>
         
-        {/* Dia de Fechamento e Vencimento - campos corrigidos */}
+        {/* Dia de Fechamento e Vencimento */}
         <div className="form-row">
           <div className="form-group">
-            <label htmlFor="dia_fechamento">
+            <label htmlFor="dia_fechamento" className="form-label form-label--required">
               <Calendar size={16} />
-              <span>Dia do Fechamento*</span>
+              <span>Dia do Fechamento</span>
               <div className="tooltip">
                 <AlertCircle size={14} />
                 <span className="tooltiptext">Dia em que a fatura é fechada</span>
@@ -321,7 +320,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
               name="dia_fechamento"
               value={formData.dia_fechamento}
               onChange={handleChange}
-              className={errors.dia_fechamento ? 'input-error' : ''}
+              className={`form-input form-select ${errors.dia_fechamento ? 'form-input--error' : ''}`}
             >
               {DIAS_MES.map(dia => (
                 <option key={`fechamento-${dia.value}`} value={dia.value}>
@@ -329,13 +328,13 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
                 </option>
               ))}
             </select>
-            {errors.dia_fechamento && <div className="error-message">{errors.dia_fechamento}</div>}
+            {errors.dia_fechamento && <div className="form-error">{errors.dia_fechamento}</div>}
           </div>
           
           <div className="form-group">
-            <label htmlFor="dia_vencimento">
+            <label htmlFor="dia_vencimento" className="form-label form-label--required">
               <Calendar size={16} />
-              <span>Dia do Vencimento*</span>
+              <span>Dia do Vencimento</span>
               <div className="tooltip">
                 <AlertCircle size={14} />
                 <span className="tooltiptext">Dia em que a fatura deve ser paga</span>
@@ -346,7 +345,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
               name="dia_vencimento"
               value={formData.dia_vencimento}
               onChange={handleChange}
-              className={errors.dia_vencimento ? 'input-error' : ''}
+              className={`form-input form-select ${errors.dia_vencimento ? 'form-input--error' : ''}`}
             >
               {DIAS_MES.map(dia => (
                 <option key={`vencimento-${dia.value}`} value={dia.value}>
@@ -354,13 +353,13 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
                 </option>
               ))}
             </select>
-            {errors.dia_vencimento && <div className="error-message">{errors.dia_vencimento}</div>}
+            {errors.dia_vencimento && <div className="form-error">{errors.dia_vencimento}</div>}
           </div>
         </div>
         
-        {/* Conta para Pagamento - campo corrigido */}
-        <div className="form-group">
-          <label htmlFor="conta_debito_id">
+        {/* Conta para Pagamento */}
+        <div className="form-group form-full">
+          <label htmlFor="conta_debito_id" className="form-label">
             <Landmark size={16} />
             <span>Conta para Pagamento</span>
             <div className="tooltip">
@@ -373,6 +372,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
             name="conta_debito_id"
             value={formData.conta_debito_id}
             onChange={handleChange}
+            className="form-input form-select"
           >
             <option value="">Selecione uma conta</option>
             {contas && contas.map(conta => (
@@ -384,71 +384,72 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
         </div>
         
         {/* Status Ativo */}
-        <div className="form-group checkbox-group">
-          <label htmlFor="ativo" className="checkbox-label">
+        <div className="form-group form-checkbox-group">
+          <label htmlFor="ativo" className="form-checkbox-label">
             <input
               type="checkbox"
               id="ativo"
               name="ativo"
               checked={formData.ativo}
               onChange={handleChange}
+              className="form-checkbox"
             />
             <span>Cartão ativo</span>
           </label>
-          <div className="helper-text">
+          <small className="form-helper">
             Desmarque para arquivar este cartão sem excluí-lo
-          </div>
+          </small>
         </div>
         
         {/* Cor do Cartão */}
-        <div className="form-group">
-          <label htmlFor="cor">
+        <div className="form-group form-full">
+          <label htmlFor="cor" className="form-label">
             <span>Cor do Cartão</span>
           </label>
-          <input
-            type="color"
-            id="cor"
-            name="cor"
-            value={formData.cor}
-            onChange={handleChange}
-            className="color-picker"
-          />
-          <button
-            type="button"
-            className="btn-secondary btn-sm"
-            onClick={() => setMostrarPreview(!mostrarPreview)}
-          >
-            {mostrarPreview ? 'Esconder Preview' : 'Ver Preview do Cartão'}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <input
+              type="color"
+              id="cor"
+              name="cor"
+              value={formData.cor}
+              onChange={handleChange}
+              className="form-color-picker"
+            />
+            <button
+              type="button"
+              className="btn btn--secondary btn--sm"
+              onClick={() => setMostrarPreview(!mostrarPreview)}
+            >
+              {mostrarPreview ? 'Esconder Preview' : 'Ver Preview do Cartão'}
+            </button>
+          </div>
         </div>
         
-        {/* Botões de Ação - Mantendo "Salvar e Criar Novo" */}
+        {/* Botões de Ação */}
         <div className="form-actions">
           <button
             type="button"
-            className="btn-secondary"
+            className="btn btn--secondary"
             onClick={onCancel}
           >
             Cancelar
           </button>
           
-          <div>
-            <button
-              type="button"
-              className="btn-primary btn-save-and-new"
-              onClick={(e) => handleSubmit(e, true)}
-            >
-              Salvar e Criar Novo
-            </button>
-            
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={(e) => handleSubmit(e, false)}
-            >
-              Salvar
-            </button>
-          </div>
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={(e) => handleSubmit(e, true)}
+          >
+            Salvar e Criar Novo
+          </button>
+          
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={(e) => handleSubmit(e, false)}
+          >
+            Salvar
+          </button>
         </div>
       </form>
     </div>

@@ -7,17 +7,21 @@ import {
   Calendar, 
   FileText, 
   Tag, 
-  Building, 
   DollarSign, 
   MessageSquare, 
+  PlusCircle,
   Search,
-  PlusCircle
+  CheckCircle,
+  Clock,
+  Repeat,
+  Hash
 } from 'lucide-react';
 import InputMoney from './ui/InputMoney';
 import useCategorias from '../hooks/useCategorias';
 import useContas from '../hooks/useContas';
 import { supabase } from '../lib/supabaseClient';
 import useAuth from '../hooks/useAuth';
+import { formatCurrency } from '../utils/formatCurrency';
 import './FormsModal.css';
 
 const ReceitasModal = ({ isOpen, onClose, onSave }) => {
@@ -35,21 +39,44 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
     [categorias]
   );
   
+  // Memoizar contas ativas
+  const contasAtivas = useMemo(() => 
+    contas.filter(conta => conta.ativo),
+    [contas]
+  );
+  
   // Função para obter data atual - memoizada para evitar recalculos
   const getCurrentDate = useCallback(() => {
     const hoje = new Date();
     return hoje.toISOString().split('T')[0];
   }, []);
   
+  // Função para verificar se data é futura
+  const isDataFutura = useCallback((data) => {
+    if (!data) return false;
+    const hoje = new Date();
+    const dataTransacao = new Date(data);
+    hoje.setHours(0, 0, 0, 0);
+    dataTransacao.setHours(0, 0, 0, 0);
+    return dataTransacao > hoje;
+  }, []);
+  
   const [formData, setFormData] = useState({
     valor: 0,
     data: getCurrentDate(),
+    // *** CAMPOS PARA RECORRÊNCIA ***
+    isRecorrente: false,
+    totalRecorrencias: 12,
+    tipoRecorrencia: 'mensal',
+    primeiroEfetivado: true,
+    // *** CAMPOS RESTANTES ***
     descricao: '',
     categoria: '',
     categoriaTexto: '',
     subcategoria: '',
     subcategoriaTexto: '',
-    contaDeposito: '',
+    contaId: '',
+    efetivado: true,
     observacoes: ''
   });
   
@@ -72,6 +99,56 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
     categoriasReceita.find(cat => cat.id === formData.categoria),
     [categoriasReceita, formData.categoria]
   );
+  
+  // Opções de recorrência
+  const opcoesRecorrencia = useMemo(() => [
+    { value: 'semanal', label: 'Semanal' },
+    { value: 'quinzenal', label: 'Quinzenal' },
+    { value: 'mensal', label: 'Mensal' },
+    { value: 'anual', label: 'Anual' }
+  ], []);
+  
+  // Opções de quantidade de recorrências
+  const opcoesQuantidade = useMemo(() => 
+    Array.from({ length: 60 }, (_, i) => ({
+      value: i + 1,
+      label: `${i + 1} ${i === 0 ? 'vez' : 'vezes'}`
+    })),
+    []
+  );
+  
+  // Calcula valor total da recorrência
+  const valorTotalRecorrencia = useMemo(() => 
+    formData.isRecorrente ? formData.valor * formData.totalRecorrencias : formData.valor,
+    [formData.valor, formData.totalRecorrencias, formData.isRecorrente]
+  );
+  
+  // Calcula data final estimada (só para recorrentes)
+  const dataFinalEstimada = useMemo(() => {
+    if (!formData.isRecorrente || !formData.data || !formData.totalRecorrencias) return null;
+    
+    const dataInicio = new Date(formData.data);
+    let dataFinal = new Date(dataInicio);
+    
+    switch (formData.tipoRecorrencia) {
+      case 'semanal':
+        dataFinal.setDate(dataFinal.getDate() + (7 * (formData.totalRecorrencias - 1)));
+        break;
+      case 'quinzenal':
+        dataFinal.setDate(dataFinal.getDate() + (14 * (formData.totalRecorrencias - 1)));
+        break;
+      case 'mensal':
+        dataFinal.setMonth(dataFinal.getMonth() + (formData.totalRecorrencias - 1));
+        break;
+      case 'anual':
+        dataFinal.setFullYear(dataFinal.getFullYear() + (formData.totalRecorrencias - 1));
+        break;
+      default:
+        dataFinal.setMonth(dataFinal.getMonth() + (formData.totalRecorrencias - 1));
+    }
+    
+    return dataFinal.toLocaleDateString('pt-BR');
+  }, [formData.isRecorrente, formData.data, formData.totalRecorrencias, formData.tipoRecorrencia]);
   
   // Filtrar categorias - useCallback para evitar recriação da função
   const filtrarCategorias = useCallback(() => {
@@ -109,17 +186,37 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
     filtrarSubcategorias();
   }, [filtrarSubcategorias]);
   
+  // Efeito para definir status efetivado baseado na data
+  useEffect(() => {
+    if (formData.data) {
+      const dataFutura = isDataFutura(formData.data);
+      setFormData(prev => ({
+        ...prev,
+        efetivado: !dataFutura, // Se não é futura, está efetivado
+        primeiroEfetivado: !dataFutura // Para recorrentes também
+      }));
+    }
+  }, [formData.data, isDataFutura]);
+  
   // Reset form quando modal abre
   const resetForm = useCallback(() => {
+    const dataAtual = getCurrentDate();
     setFormData({
       valor: 0,
-      data: getCurrentDate(),
+      data: dataAtual,
+      // Campos de recorrência
+      isRecorrente: false,
+      totalRecorrencias: 12,
+      tipoRecorrencia: 'mensal',
+      primeiroEfetivado: true,
+      // Outros campos
       descricao: '',
       categoria: '',
       categoriaTexto: '',
       subcategoria: '',
       subcategoriaTexto: '',
-      contaDeposito: '',
+      contaId: '',
+      efetivado: true,
       observacoes: ''
     });
     setErrors({});
@@ -149,13 +246,50 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
   }, []);
   
   const handleInputChange = useCallback((e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    
+    // Para checkbox, usa o valor checked
+    const inputValue = type === 'checkbox' ? checked : value;
+    
+    // Lógica especial para categoria
+    if (name === 'categoria') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: inputValue,
+        subcategoria: '' // Reseta a subcategoria
+      }));
+    } else if (name === 'data') {
+      // Quando muda a data, atualiza também o status efetivado
+      const dataFutura = isDataFutura(inputValue);
+      setFormData(prev => ({
+        ...prev,
+        [name]: inputValue,
+        efetivado: !dataFutura, // Se não é futura, está efetivado
+        primeiroEfetivado: !dataFutura // Para recorrentes também
+      }));
+    } else if (name === 'totalRecorrencias') {
+      // Garantir que seja pelo menos 1
+      const quantidade = Math.max(1, parseInt(inputValue) || 1);
+      setFormData(prev => ({
+        ...prev,
+        [name]: quantidade
+      }));
+    } else if (name === 'isRecorrente') {
+      // Quando ativa/desativa recorrência, reset alguns campos
+      setFormData(prev => ({
+        ...prev,
+        [name]: inputValue,
+        totalRecorrencias: inputValue ? 12 : 1,
+        tipoRecorrencia: inputValue ? 'mensal' : 'mensal'
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: inputValue }));
+    }
     
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: null }));
     }
-  }, [errors]);
+  }, [errors, isDataFutura]);
   
   const handleValorChange = useCallback((value) => {
     setFormData(prev => ({ ...prev, valor: value }));
@@ -323,16 +457,32 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
     if (!formData.categoria && !formData.categoriaTexto.trim()) {
       newErrors.categoria = "Categoria é obrigatória";
     }
-    if (!formData.contaDeposito) {
-      newErrors.contaDeposito = "Conta é obrigatória";
+    if (!formData.contaId) {
+      newErrors.contaId = "Conta é obrigatória";
     }
     if (formData.observacoes.length > 300) {
       newErrors.observacoes = "Máximo de 300 caracteres";
     }
     
+    // Validações específicas para recorrentes
+    if (formData.isRecorrente) {
+      if (formData.totalRecorrencias < 1) {
+        newErrors.totalRecorrencias = "Quantidade deve ser pelo menos 1";
+      }
+      if (formData.totalRecorrencias > 60) {
+        newErrors.totalRecorrencias = "Máximo de 60 recorrências";
+      }
+    }
+    
+    // Verifica se a conta está ativa
+    const conta = contas.find(c => c.id === formData.contaId);
+    if (conta && !conta.ativo) {
+      newErrors.contaId = "Esta conta está inativa";
+    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [formData]);
+  }, [formData, contas]);
   
   const handleSubmit = useCallback(async (e, criarNova = false) => {
     e.preventDefault();
@@ -342,52 +492,85 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
     try {
       setSubmitting(true);
       
-      const dadosReceita = {
-        usuario_id: user.id,
-        data: formData.data,
-        descricao: formData.descricao.trim(),
-        categoria_id: formData.categoria,
-        subcategoria_id: formData.subcategoria || null,
-        conta_id: formData.contaDeposito,
-        valor: formData.valor,
-        observacoes: formData.observacoes.trim(),
-        tipo: 'receita',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      
-      console.log("💰 Salvando receita:", dadosReceita);
-      
-      const { data, error } = await supabase
-        .from('transacoes')
-        .insert([dadosReceita])
-        .select();
-      
-      if (error) throw error;
-      
-      console.log("✅ Receita salva com sucesso:", data);
-      if (onSave) {
-        onSave(); // Notifica o Dashboard para atualizar
+      if (formData.isRecorrente) {
+        // *** USAR FUNÇÃO DE RECORRÊNCIA ***
+        const { data, error } = await supabase
+          .rpc('criar_transacoes_recorrentes', {
+            p_usuario_id: user.id,
+            p_tipo: 'receita',
+            p_descricao: formData.descricao.trim(),
+            p_valor: formData.valor,
+            p_categoria_id: formData.categoria,
+            p_subcategoria_id: formData.subcategoria || null,
+            p_conta_id: formData.contaId,
+            p_data_inicio: formData.data,
+            p_total_recorrencias: formData.totalRecorrencias,
+            p_tipo_recorrencia: formData.tipoRecorrencia,
+            p_primeiro_efetivado: formData.primeiroEfetivado,
+            p_observacoes: formData.observacoes.trim() || null
+          });
+        
+        if (error) throw error;
+        
+        console.log("✅ Receitas recorrentes criadas. Grupo ID:", data);
+        
+        if (onSave) onSave();
+        
+        const mensagem = `${formData.totalRecorrencias} receitas recorrentes criadas com sucesso!`;
+        showFeedback(mensagem);
+        
+      } else {
+        // *** TRANSAÇÃO SIMPLES (CÓDIGO ORIGINAL) ***
+        const transacaoData = {
+          usuario_id: user.id,
+          data: formData.data,
+          descricao: formData.descricao.trim(),
+          categoria_id: formData.categoria,
+          subcategoria_id: formData.subcategoria || null,
+          conta_id: formData.contaId,
+          valor: formData.valor,
+          tipo: 'receita',
+          efetivado: formData.efetivado,
+          observacoes: formData.observacoes.trim() || null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        const { data, error } = await supabase
+          .from('transacoes')
+          .insert([transacaoData])
+          .select();
+        
+        if (error) throw error;
+        
+        console.log("✅ Receita simples salva:", data);
+        
+        if (onSave) onSave();
+        
+        showFeedback('Receita registrada com sucesso!');
       }
-              
+      
       if (criarNova) {
-        showFeedback('Receita salva! Pronto para a próxima.');
-        // Reset apenas os campos principais, mantendo categoria e conta
-        setFormData(prev => ({
-          ...prev,
-          valor: 0,
-          data: getCurrentDate(),
-          descricao: '',
-          observacoes: ''
-        }));
+        // Reset campos principais mantendo categoria e conta
+        setFormData(prev => {
+          const dataAtual = getCurrentDate();
+          return {
+            ...prev,
+            valor: 0,
+            data: dataAtual,
+            descricao: '',
+            efetivado: true,
+            isRecorrente: false,
+            totalRecorrencias: 12,
+            observacoes: ''
+          };
+        });
         setErrors({});
-        // Foca no campo de valor para facilitar entrada rápida
         const timer = setTimeout(() => {
           valorInputRef.current?.focus();
         }, 100);
         return () => clearTimeout(timer);
       } else {
-        showFeedback('Receita registrada com sucesso!');
         const timer = setTimeout(() => {
           resetForm();
           onClose();
@@ -426,8 +609,8 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
         {/* Header compacto */}
         <div className="receitas-modal-header">
           <h2 className="receitas-modal-title">
-            <TrendingUp size={18} style={{ color: '#10b981' }} />
-            Lançamento de Receitas
+            {formData.isRecorrente ? <Repeat size={18} style={{ color: '#10b981' }} /> : <TrendingUp size={18} style={{ color: '#10b981' }} />}
+            {formData.isRecorrente ? 'Receitas Recorrentes' : 'Nova Receita'}
           </h2>
           <button className="receitas-modal-close" onClick={onClose} aria-label="Fechar">
             <X size={18} />
@@ -453,12 +636,14 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
             </div>
           ) : (
             <form onSubmit={(e) => handleSubmit(e, false)} className="receitas-form">
-              {/* Valor e Data - Layout horizontal compacto */}
+              {/* ===== ORDEM REORGANIZADA ===== */}
+              
+              {/* 1. VALOR E DATA - Layout horizontal compacto */}
               <div className="receitas-form-row">
                 <div className="receitas-form-group">
                   <label className="receitas-form-label">
                     <DollarSign size={14} />
-                    Valor *
+                    Valor {formData.isRecorrente ? '(cada)' : ''} *
                   </label>
                   <InputMoney
                     ref={valorInputRef}
@@ -476,7 +661,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
                 <div className="receitas-form-group">
                   <label className="receitas-form-label">
                     <Calendar size={14} />
-                    Data *
+                    {formData.isRecorrente ? 'Início' : 'Data'} *
                   </label>
                   <input
                     type="date"
@@ -492,16 +677,209 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
                 </div>
               </div>
               
-              {/* Descrição */}
+              {/* 2. TOGGLE RECORRENTE */}
+              <div className="receitas-form-group receitas-form-full">
+                <label style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '8px', 
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  color: '#374151'
+                }}>
+                  <input
+                    type="checkbox"
+                    name="isRecorrente"
+                    checked={formData.isRecorrente}
+                    onChange={handleInputChange}
+                    disabled={submitting}
+                  />
+                  <Repeat size={16} />
+                  Receita recorrente (repetir automaticamente)
+                </label>
+                <small style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '4px' }}>
+                  💡 Marque para criar múltiplas receitas (salário, freelance, etc.)
+                </small>
+              </div>
+              
+              {/* 3. CAMPOS ESPECÍFICOS DE RECORRÊNCIA - Aparecem apenas se isRecorrente = true */}
+              {formData.isRecorrente && (
+                <>
+                  <div className="receitas-form-row">
+                    <div className="receitas-form-group">
+                      <label className="receitas-form-label">
+                        <Repeat size={14} />
+                        Frequência *
+                      </label>
+                      <select
+                        name="tipoRecorrencia"
+                        value={formData.tipoRecorrencia}
+                        onChange={handleInputChange}
+                        disabled={submitting}
+                        className={`receitas-form-input ${errors.tipoRecorrencia ? 'error' : ''}`}
+                      >
+                        {opcoesRecorrencia.map(opcao => (
+                          <option key={opcao.value} value={opcao.value}>
+                            {opcao.label}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.tipoRecorrencia && (
+                        <div className="receitas-form-error">{errors.tipoRecorrencia}</div>
+                      )}
+                    </div>
+                    
+                    <div className="receitas-form-group">
+                      <label className="receitas-form-label">
+                        <Hash size={14} />
+                        Quantidade *
+                      </label>
+                      <select
+                        name="totalRecorrencias"
+                        value={formData.totalRecorrencias}
+                        onChange={handleInputChange}
+                        disabled={submitting}
+                        className={`receitas-form-input ${errors.totalRecorrencias ? 'error' : ''}`}
+                      >
+                        {opcoesQuantidade.map(opcao => (
+                          <option key={opcao.value} value={opcao.value}>
+                            {opcao.label}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.totalRecorrencias && (
+                        <div className="receitas-form-error">{errors.totalRecorrencias}</div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Preview da Recorrência */}
+                  {formData.valor > 0 && formData.totalRecorrencias > 0 && (
+                    <div className="cartao-preview-compacto" style={{ backgroundColor: 'rgba(16, 185, 129, 0.08)', borderColor: 'rgba(16, 185, 129, 0.15)' }}>
+                      <div className="preview-texto" style={{ color: '#10b981', flexDirection: 'column', gap: '4px' }}>
+                        <span>🔄 {formData.totalRecorrencias}x de {formatCurrency(formData.valor)} ({formData.tipoRecorrencia})</span>
+                        <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>
+                          Total: {formatCurrency(valorTotalRecorrencia)}
+                          {dataFinalEstimada && ` • Até: ${dataFinalEstimada}`}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+              
+              {/* 4. STATUS DE EFETIVAÇÃO */}
+              <div className="receitas-form-group receitas-form-full">
+                <label className="receitas-form-label">
+                  {formData.isRecorrente ? 
+                    (formData.primeiroEfetivado ? <CheckCircle size={14} /> : <Clock size={14} />) :
+                    (formData.efetivado ? <CheckCircle size={14} /> : <Clock size={14} />)
+                  }
+                  Status {formData.isRecorrente ? 'do Primeiro Lançamento' : 'da Transação'}
+                </label>
+                
+                {formData.isRecorrente ? (
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <label style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '6px', 
+                      cursor: 'pointer',
+                      fontSize: '0.875rem',
+                      color: formData.primeiroEfetivado ? '#10b981' : '#6b7280'
+                    }}>
+                      <input
+                        type="radio"
+                        name="primeiroEfetivado"
+                        checked={formData.primeiroEfetivado === true}
+                        onChange={() => setFormData(prev => ({ ...prev, primeiroEfetivado: true }))}
+                        disabled={submitting}
+                      />
+                      <CheckCircle size={16} />
+                      Primeira já recebida
+                    </label>
+                    <label style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '6px', 
+                      cursor: 'pointer',
+                      fontSize: '0.875rem',
+                      color: !formData.primeiroEfetivado ? '#f59e0b' : '#6b7280'
+                    }}>
+                      <input
+                        type="radio"
+                        name="primeiroEfetivado"
+                        checked={formData.primeiroEfetivado === false}
+                        onChange={() => setFormData(prev => ({ ...prev, primeiroEfetivado: false }))}
+                        disabled={submitting}
+                      />
+                      <Clock size={16} />
+                      Todas planejadas
+                    </label>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <label style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '6px', 
+                      cursor: 'pointer',
+                      fontSize: '0.875rem',
+                      color: formData.efetivado ? '#10b981' : '#6b7280'
+                    }}>
+                      <input
+                        type="radio"
+                        name="efetivado"
+                        checked={formData.efetivado === true}
+                        onChange={() => setFormData(prev => ({ ...prev, efetivado: true }))}
+                        disabled={submitting}
+                      />
+                      <CheckCircle size={16} />
+                      Receita já recebida
+                    </label>
+                    <label style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '6px', 
+                      cursor: 'pointer',
+                      fontSize: '0.875rem',
+                      color: !formData.efetivado ? '#f59e0b' : '#6b7280'
+                    }}>
+                      <input
+                        type="radio"
+                        name="efetivado"
+                        checked={formData.efetivado === false}
+                        onChange={() => setFormData(prev => ({ ...prev, efetivado: false }))}
+                        disabled={submitting}
+                      />
+                      <Clock size={16} />
+                      Receita planejada
+                    </label>
+                  </div>
+                )}
+                
+                <small style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '4px' }}>
+                  💡 {formData.isRecorrente ? 
+                    'Define se o primeiro lançamento já foi recebido ou está planejado' :
+                    'Receitas futuras são automaticamente marcadas como planejadas'
+                  }
+                </small>
+              </div>
+              
+              {/* ===== DEMAIS CAMPOS ===== */}
+              
+              {/* 5. DESCRIÇÃO */}
               <div className="receitas-form-group receitas-form-full">
                 <label className="receitas-form-label">
                   <FileText size={14} />
                   Descrição *
+                  {formData.isRecorrente && <small>(será numerada automaticamente)</small>}
                 </label>
                 <input
                   type="text"
                   name="descricao"
-                  placeholder="Ex: Salário, Freelance, Rendimentos"
+                  placeholder={formData.isRecorrente ? "Ex: Salário, Freelance, Aluguel recebido" : "Ex: Salário, Freelance, Venda"}
                   value={formData.descricao}
                   onChange={handleInputChange}
                   disabled={submitting}
@@ -510,9 +888,14 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
                 {errors.descricao && (
                   <div className="receitas-form-error">{errors.descricao}</div>
                 )}
+                {formData.isRecorrente && formData.descricao && (
+                  <small style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '4px' }}>
+                    💡 Será salvo como: "{formData.descricao} (1/{formData.totalRecorrencias})", "{formData.descricao} (2/{formData.totalRecorrencias})", etc.
+                  </small>
+                )}
               </div>
               
-              {/* Categoria */}
+              {/* 6. CATEGORIA */}
               <div className="receitas-form-group receitas-form-full">
                 <label className="receitas-form-label">
                   <Tag size={14} />
@@ -530,6 +913,9 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
                     disabled={submitting}
                     autoComplete="off"
                     className={`receitas-form-input receitas-dropdown-input ${errors.categoria ? 'error' : ''}`}
+                    style={{
+                      backgroundColor: !formData.categoria ? '#f9fafb' : 'white'
+                    }}
                   />
                   <Search size={14} className="receitas-search-icon" />
                   
@@ -543,8 +929,8 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
                         >
                           <div 
                             className="receitas-categoria-cor"
-                            style={{ backgroundColor: categoria.cor }}
-                          ></div>
+                            style={{ backgroundColor: categoria.cor || '#10b981' }}
+                          />
                           {categoria.nome}
                         </div>
                       ))}
@@ -556,72 +942,71 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
                 )}
               </div>
               
-              {/* Subcategoria */}
-              <div className="receitas-form-group receitas-form-full">
-                <label className="receitas-form-label">
-                  <Tag size={14} />
-                  Subcategoria <small>(opcional)</small>
-                </label>
-                <div className="receitas-dropdown-container">
-                  <input
-                    ref={subcategoriaInputRef}
-                    type="text"
-                    value={formData.subcategoriaTexto}
-                    onChange={handleSubcategoriaChange}
-                    onBlur={handleSubcategoriaBlur}
-                    onFocus={() => categoriaSelecionada && setSubcategoriaDropdownOpen(true)}
-                    placeholder={!formData.categoria ? "Escolha categoria primeiro" : "Digite ou selecione uma subcategoria"}
-                    disabled={!formData.categoria || submitting}
-                    autoComplete="off"
-                    className={`receitas-form-input receitas-dropdown-input ${errors.subcategoria ? 'error' : ''}`}
-                    style={{
-                      backgroundColor: !formData.categoria ? '#f9fafb' : 'white'
-                    }}
-                  />
-                  <Search size={14} className="receitas-search-icon" />
-                  
-                  {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
-                    <div className="receitas-dropdown-options">
-                      {subcategoriasFiltradas.map(subcategoria => (
-                        <div
-                          key={subcategoria.id}
-                          className="receitas-dropdown-option"
-                          onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
-                        >
-                          {subcategoria.nome}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+              {/* 7. SUBCATEGORIA */}
+              {categoriaSelecionada && (
+                <div className="receitas-form-group receitas-form-full">
+                  <label className="receitas-form-label">
+                    <Tag size={14} />
+                    Subcategoria
+                  </label>
+                  <div className="receitas-dropdown-container">
+                    <input
+                      ref={subcategoriaInputRef}
+                      type="text"
+                      value={formData.subcategoriaTexto}
+                      onChange={handleSubcategoriaChange}
+                      onBlur={handleSubcategoriaBlur}
+                      onFocus={() => setSubcategoriaDropdownOpen(true)}
+                      placeholder="Digite ou selecione uma subcategoria"
+                      disabled={submitting}
+                      autoComplete="off"
+                      className="receitas-form-input receitas-dropdown-input"
+                    />
+                    <Search size={14} className="receitas-search-icon" />
+                    
+                    {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
+                      <div className="receitas-dropdown-options">
+                        {subcategoriasFiltradas.map(subcategoria => (
+                          <div
+                            key={subcategoria.id}
+                            className="receitas-dropdown-option"
+                            onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
+                          >
+                            {subcategoria.nome}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
               
-              {/* Conta de Depósito */}
+              {/* 8. CONTA */}
               <div className="receitas-form-group receitas-form-full">
                 <label className="receitas-form-label">
-                  <Building size={14} />
-                  Conta de Depósito *
+                  <DollarSign size={14} />
+                  Conta *
                 </label>
                 <select
-                  name="contaDeposito"
-                  value={formData.contaDeposito}
+                  name="contaId"
+                  value={formData.contaId}
                   onChange={handleInputChange}
                   disabled={submitting}
-                  className={`receitas-form-input ${errors.contaDeposito ? 'error' : ''}`}
+                  className={`receitas-form-input ${errors.contaId ? 'error' : ''}`}
                 >
                   <option value="">Selecione uma conta</option>
-                  {contas.map(conta => (
+                  {contasAtivas.map(conta => (
                     <option key={conta.id} value={conta.id}>
-                      {conta.nome}
+                      {conta.nome} - {formatCurrency(conta.saldo)}
                     </option>
                   ))}
                 </select>
-                {errors.contaDeposito && (
-                  <div className="receitas-form-error">{errors.contaDeposito}</div>
+                {errors.contaId && (
+                  <div className="receitas-form-error">{errors.contaId}</div>
                 )}
               </div>
               
-              {/* Observações */}
+              {/* 9. OBSERVAÇÕES */}
               <div className="receitas-form-group receitas-form-full">
                 <label className="receitas-form-label">
                   <MessageSquare size={14} />
@@ -631,7 +1016,10 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
                   name="observacoes"
                   value={formData.observacoes}
                   onChange={handleObservacoesChange}
-                  placeholder="Adicione informações extras sobre esta receita"
+                  placeholder={formData.isRecorrente ? 
+                    "Adicione informações extras sobre estas receitas recorrentes" :
+                    "Adicione informações extras sobre esta receita"
+                  }
                   rows="2"
                   disabled={submitting}
                   className={`receitas-form-input receitas-form-textarea ${errors.observacoes ? 'error' : ''}`}
@@ -664,12 +1052,12 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
                   {submitting ? (
                     <>
                       <div className="receitas-btn-spinner"></div>
-                      Salvando...
+                      {formData.isRecorrente ? 'Criando...' : 'Salvando...'}
                     </>
                   ) : (
                     <>
                       <PlusCircle size={14} />
-                      Salvar e Nova
+                      {formData.isRecorrente ? 'Criar e Nova' : 'Salvar e Nova'}
                     </>
                   )}
                 </button>
@@ -681,12 +1069,12 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
                   {submitting ? (
                     <>
                       <div className="receitas-btn-spinner"></div>
-                      Salvando...
+                      {formData.isRecorrente ? `Criando ${formData.totalRecorrencias} receitas...` : 'Salvando...'}
                     </>
                   ) : (
                     <>
                       <Plus size={14} />
-                      Salvar Receita
+                      {formData.isRecorrente ? `Criar ${formData.totalRecorrencias} Receitas` : 'Salvar Receita'}
                     </>
                   )}
                 </button>
