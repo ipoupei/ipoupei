@@ -2,24 +2,25 @@ import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { CreditCard, Calendar, DollarSign, Landmark, Check, AlertCircle } from 'lucide-react';
 import InputMoney from './ui/InputMoney';
-import './FormsModal.css'; // CSS unificado
+import '../styles/BaseModal.css';
+import './CartaoForm.css';
 
 /**
  * Formulário para cadastro e edição de cartões de crédito
- * Versão atualizada usando CSS unificado
+ * Versão atualizada com sistema CSS unificado
  */
 const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
   // Estado do formulário - campos ajustados para o Supabase
   const [formData, setFormData] = useState({
     nome: '',
     limite: 0,
-    dia_fechamento: 1, // Campo corrigido para o DB
-    dia_vencimento: 10, // Campo corrigido para o DB
+    dia_fechamento: 1,
+    dia_vencimento: 10,
     bandeira: '',
-    banco: '', // Campo adicional do DB
-    conta_debito_id: '', // Campo corrigido para o DB
+    banco: '',
+    conta_debito_id: '',
     ativo: true,
-    cor: '#8A05BE' // Cor padrão Nubank
+    cor: '#8A05BE'
   });
   
   // Estado de erros do formulário
@@ -224,7 +225,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
       
       <form className="form-container">
         {/* Nome do Cartão */}
-        <div className="form-group form-full">
+        <div className="form-group">
           <label htmlFor="nome" className="form-label form-label--required">
             <CreditCard size={16} />
             <span>Nome do Cartão</span>
@@ -242,7 +243,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
         </div>
         
         {/* Limite do Cartão */}
-        <div className="form-group form-full">
+        <div className="form-group">
           <label htmlFor="limite" className="form-label form-label--required">
             <DollarSign size={16} />
             <span>Limite Total</span>
@@ -253,13 +254,13 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
             value={formData.limite}
             onChange={handleLimiteChange}
             placeholder="R$ 0,00"
-            className={`form-input form-input--value ${errors.limite ? 'form-input--error' : ''}`}
+            className={`form-input ${errors.limite ? 'form-input--error' : ''}`}
           />
           {errors.limite && <div className="form-error">{errors.limite}</div>}
         </div>
         
         {/* Banco */}
-        <div className="form-group form-full">
+        <div className="form-group">
           <label htmlFor="banco" className="form-label">
             <Landmark size={16} />
             <span>Banco</span>
@@ -276,16 +277,16 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
         </div>
         
         {/* Bandeira do Cartão */}
-        <div className="form-group form-full">
+        <div className="form-group">
           <label htmlFor="bandeira" className="form-label form-label--required">
             <CreditCard size={16} />
             <span>Bandeira</span>
           </label>
-          <div className="bandeiras-selector">
+          <div className="cartao-bandeiras-selector">
             {BANDEIRAS.map(bandeira => (
               <div 
                 key={bandeira.id}
-                className={`bandeira-option ${formData.bandeira === bandeira.id ? 'bandeira-option--selected' : ''}`}
+                className={`cartao-bandeira-option ${formData.bandeira === bandeira.id ? 'cartao-bandeira-option--selected' : ''}`}
                 onClick={() => {
                   setFormData(prev => ({ ...prev, bandeira: bandeira.id }));
                   if (errors.bandeira) {
@@ -296,7 +297,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
                 <span className="bandeira-icon">{bandeira.icon}</span>
                 <span className="bandeira-nome">{bandeira.nome}</span>
                 {formData.bandeira === bandeira.id && (
-                  <Check size={14} className="check-icon" />
+                  <Check size={14} className="cartao-check-icon" />
                 )}
               </div>
             ))}
@@ -310,9 +311,9 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
             <label htmlFor="dia_fechamento" className="form-label form-label--required">
               <Calendar size={16} />
               <span>Dia do Fechamento</span>
-              <div className="tooltip">
+              <div className="cartao-tooltip">
                 <AlertCircle size={14} />
-                <span className="tooltiptext">Dia em que a fatura é fechada</span>
+                <span className="cartao-tooltiptext">Dia em que a fatura é fechada</span>
               </div>
             </label>
             <select
@@ -320,7 +321,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
               name="dia_fechamento"
               value={formData.dia_fechamento}
               onChange={handleChange}
-              className={`form-input form-select ${errors.dia_fechamento ? 'form-input--error' : ''}`}
+              className={`form-input ${errors.dia_fechamento ? 'form-input--error' : ''}`}
             >
               {DIAS_MES.map(dia => (
                 <option key={`fechamento-${dia.value}`} value={dia.value}>
@@ -335,9 +336,9 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
             <label htmlFor="dia_vencimento" className="form-label form-label--required">
               <Calendar size={16} />
               <span>Dia do Vencimento</span>
-              <div className="tooltip">
+              <div className="cartao-tooltip">
                 <AlertCircle size={14} />
-                <span className="tooltiptext">Dia em que a fatura deve ser paga</span>
+                <span className="cartao-tooltiptext">Dia em que a fatura deve ser paga</span>
               </div>
             </label>
             <select
@@ -345,7 +346,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
               name="dia_vencimento"
               value={formData.dia_vencimento}
               onChange={handleChange}
-              className={`form-input form-select ${errors.dia_vencimento ? 'form-input--error' : ''}`}
+              className={`form-input ${errors.dia_vencimento ? 'form-input--error' : ''}`}
             >
               {DIAS_MES.map(dia => (
                 <option key={`vencimento-${dia.value}`} value={dia.value}>
@@ -358,13 +359,13 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
         </div>
         
         {/* Conta para Pagamento */}
-        <div className="form-group form-full">
+        <div className="form-group">
           <label htmlFor="conta_debito_id" className="form-label">
             <Landmark size={16} />
             <span>Conta para Pagamento</span>
-            <div className="tooltip">
+            <div className="cartao-tooltip">
               <AlertCircle size={14} />
-              <span className="tooltiptext">Conta bancária utilizada para pagar a fatura</span>
+              <span className="cartao-tooltiptext">Conta bancária utilizada para pagar a fatura</span>
             </div>
           </label>
           <select
@@ -372,7 +373,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
             name="conta_debito_id"
             value={formData.conta_debito_id}
             onChange={handleChange}
-            className="form-input form-select"
+            className="form-input"
           >
             <option value="">Selecione uma conta</option>
             {contas && contas.map(conta => (
@@ -384,15 +385,15 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
         </div>
         
         {/* Status Ativo */}
-        <div className="form-group form-checkbox-group">
-          <label htmlFor="ativo" className="form-checkbox-label">
+        <div className="form-group">
+          <label htmlFor="ativo" className="cartao-checkbox-label">
             <input
               type="checkbox"
               id="ativo"
               name="ativo"
               checked={formData.ativo}
               onChange={handleChange}
-              className="form-checkbox"
+              className="cartao-checkbox"
             />
             <span>Cartão ativo</span>
           </label>
@@ -402,18 +403,18 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
         </div>
         
         {/* Cor do Cartão */}
-        <div className="form-group form-full">
+        <div className="form-group">
           <label htmlFor="cor" className="form-label">
             <span>Cor do Cartão</span>
           </label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div className="cartao-cor-controls">
             <input
               type="color"
               id="cor"
               name="cor"
               value={formData.cor}
               onChange={handleChange}
-              className="form-color-picker"
+              className="cartao-color-picker"
             />
             <button
               type="button"
@@ -437,7 +438,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
           
           <button
             type="button"
-            className="btn btn--primary"
+            className="btn btn--primary cartao-btn-salvar-novo"
             onClick={(e) => handleSubmit(e, true)}
           >
             Salvar e Criar Novo
@@ -445,7 +446,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
           
           <button
             type="button"
-            className="btn btn--primary"
+            className="btn btn--primary cartao-btn-salvar"
             onClick={(e) => handleSubmit(e, false)}
           >
             Salvar
