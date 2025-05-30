@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { format, subMonths, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar, ChevronLeft, ChevronRight, Plus, User, LogOut, ChevronDown } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Plus, User, LogOut, ChevronDown, ArrowLeftRight, CreditCard, Wallet } from 'lucide-react';
 import './Dashboard.css';
 
 // Componentes
@@ -21,6 +21,7 @@ import ReceitasModal from '../Components/ReceitasModal';
 import DespesasCartaoModal from '../Components/DespesasCartaoModal';
 import CategoriasModal from '../Components/CategoriasModal';
 import CartoesModal from '../Components/CartoesModal';
+import TransferenciasModal from '../Components/TransferenciasModal';
 
 /**
  * Função para formatar valores em moeda brasileira
@@ -40,7 +41,7 @@ const formatCurrency = (value) => {
 
 /**
  * Dashboard principal da aplicação de finanças pessoais
- * Versão corrigida com formatação adequada
+ * Versão corrigida com botões limpos e organizados
  */
 const Dashboard = () => {
   // Hooks
@@ -66,6 +67,7 @@ const Dashboard = () => {
   const [showDespesasCartaoModal, setShowDespesasCartaoModal] = useState(false);
   const [showCartaoModal, setShowCartaoModal] = useState(false);
   const [showCategoriasModal, setShowCategoriasModal] = useState(false);
+  const [showTransferenciasModal, setShowTransferenciasModal] = useState(false);
   
   // Estado para controlar o modal de detalhes do dia
   const [showDetalhesDiaModal, setShowDetalhesDiaModal] = useState(false);
@@ -124,7 +126,7 @@ const Dashboard = () => {
   const mesAnoSelecionado = format(selectedDate, 'MMMM yyyy', { locale: ptBR });
   const mesAnoSelecionadoCapitalizado = mesAnoSelecionado.charAt(0).toUpperCase() + mesAnoSelecionado.slice(1);
   
-  // Ações principais
+  // Ações principais - VERSÃO LIMPA E ORGANIZADA
   const mainActions = [
     {
       id: 'add-receita',
@@ -141,30 +143,36 @@ const Dashboard = () => {
       action: () => setShowDespesasModal(true)
     },
     {
-      id: 'add-cartao',
+      id: 'add-cartao-compra',
       label: 'Cartão',
       icon: '💳',
       color: 'purple',
       action: () => setShowDespesasCartaoModal(true)
     },
     {
-      id: 'contas',
-      label: 'Contas',
-      icon: '🏦',
+      id: 'transferencia',
+      label: 'Transferir',
+      icon: <ArrowLeftRight size={16} />,
       color: 'blue',
-      action: () => setShowContasModal(true)
+      action: () => setShowTransferenciasModal(true)
     },
     {
-      id: 'cartoes',
-      label: 'Cartões', 
-      icon: '💳',
-      color: 'orange',
-      action: () => setShowCartaoModal(true)
+      id: 'contas',
+      label: 'Contas',
+      icon: <Wallet size={16} />,
+      color: 'green',
+      action: () => setShowContasModal(true)
     }
   ];
 
-  // Ações secundárias
+  // Ações secundárias - sempre no menu "Mais"
   const moreActions = [
+    {
+      id: 'cartoes-gerenciar',
+      label: 'Meus Cartões',
+      icon: <CreditCard size={16} />,
+      action: () => setShowCartaoModal(true)
+    },
     {
       id: 'categorias',
       label: 'Categorias',
@@ -250,19 +258,6 @@ const Dashboard = () => {
   const getUserAvatar = () => {
     return data?.usuario?.avatar_url || user?.user_metadata?.avatar_url || null;
   };
-
-  // Debug dos dados para verificar o problema
-  console.log('🔍 Dashboard Data Debug:', {
-    loading,
-    error,
-    data: data ? {
-      saldo: data.saldo,
-      receitas: data.receitas,
-      despesas: data.despesas,
-      cartaoCredito: data.cartaoCredito,
-      resumo: data.resumo
-    } : null
-  });
 
   return (
     <div className="dashboard-wrapper">
@@ -411,7 +406,7 @@ const Dashboard = () => {
           </button>
         </div>
         
-        {/* Barra de ações rápidas */}
+        {/* Barra de ações rápidas - VERSÃO CORRIGIDA */}
         <div className="quick-actions-bar">
           <div className="main-actions">
             {mainActions.map((action) => (
@@ -419,9 +414,11 @@ const Dashboard = () => {
                 key={action.id}
                 onClick={action.action}
                 className={`action-btn action-btn-${action.color}`}
-                title={`${action.label}`}
+                title={action.label}
               >
-                <span className="action-icon">{action.icon}</span>
+                <span className="action-icon">
+                  {typeof action.icon === 'string' ? action.icon : action.icon}
+                </span>
                 <span className="action-label">{action.label}</span>
               </button>
             ))}
@@ -448,7 +445,9 @@ const Dashboard = () => {
                     }}
                     className="dropdown-action"
                   >
-                    <span className="dropdown-icon">{action.icon}</span>
+                    <span className="dropdown-icon">
+                      {typeof action.icon === 'string' ? action.icon : action.icon}
+                    </span>
                     <span>{action.label}</span>
                   </button>
                 ))}
@@ -457,13 +456,12 @@ const Dashboard = () => {
           </div>
         </div>
         
-        {/* Cards Grid - VERSÃO CORRIGIDA */}
+        {/* Cards Grid - VERSÃO LIMPA SEM DICAS */}
         <div className="cards-grid">
           {/* Card de Saldo */}
           <div 
             className={`summary-card card-green ${flippedCards.saldo ? 'flipped' : ''}`}
             onClick={() => handleCardFlip('saldo')}
-            title={flippedCards.saldo ? "Clique para voltar" : "Clique para ver detalhamento"}
           >
             <div className="card-inner">
               <div className="card-front">
@@ -483,10 +481,6 @@ const Dashboard = () => {
                   <div className="card-value-sm">
                     {loading ? 'Carregando...' : formatCurrency(data?.saldo?.previsto || 0)}
                   </div>
-                </div>
-                
-                <div className="card-footer">
-                  <span>💡 Clique para ver detalhes das contas</span>
                 </div>
               </div>
               
@@ -519,7 +513,6 @@ const Dashboard = () => {
           <div 
             className={`summary-card card-blue ${flippedCards.receitas ? 'flipped' : ''}`}
             onClick={() => handleCardFlip('receitas')}
-            title={flippedCards.receitas ? "Clique para voltar" : "Clique para ver detalhamento"}
           >
             <div className="card-inner">
               <div className="card-front">
@@ -539,10 +532,6 @@ const Dashboard = () => {
                   <div className="card-value-sm">
                     {loading ? 'Carregando...' : formatCurrency(data?.receitas?.previsto || 0)}
                   </div>
-                </div>
-                
-                <div className="card-footer">
-                  <span>💰 Clique para ver receitas por categoria</span>
                 </div>
               </div>
               
@@ -575,7 +564,6 @@ const Dashboard = () => {
           <div 
             className={`summary-card card-amber ${flippedCards.despesas ? 'flipped' : ''}`}
             onClick={() => handleCardFlip('despesas')}
-            title={flippedCards.despesas ? "Clique para voltar" : "Clique para ver detalhamento"}
           >
             <div className="card-inner">
               <div className="card-front">
@@ -595,10 +583,6 @@ const Dashboard = () => {
                   <div className="card-value-sm">
                     {loading ? 'Carregando...' : formatCurrency(data?.despesas?.previsto || 0)}
                   </div>
-                </div>
-                
-                <div className="card-footer">
-                  <span>💸 Clique para ver despesas por categoria</span>
                 </div>
               </div>
               
@@ -631,7 +615,6 @@ const Dashboard = () => {
           <div 
             className={`summary-card card-purple ${flippedCards.cartaoCredito ? 'flipped' : ''}`}
             onClick={() => handleCardFlip('cartaoCredito')}
-            title={flippedCards.cartaoCredito ? "Clique para voltar" : "Clique para ver detalhamento"}
           >
             <div className="card-inner">
               <div className="card-front">
@@ -651,10 +634,6 @@ const Dashboard = () => {
                   <div className="card-value-sm">
                     {loading ? 'Carregando...' : formatCurrency(data?.cartaoCredito?.limite || 0)}
                   </div>
-                </div>
-                
-                <div className="card-footer">
-                  <span>💳 Clique para ver detalhes dos cartões</span>
                 </div>
               </div>
               
@@ -783,6 +762,11 @@ const Dashboard = () => {
         <CategoriasModal
           isOpen={showCategoriasModal}
           onClose={() => setShowCategoriasModal(false)}
+        />
+
+        <TransferenciasModal
+          isOpen={showTransferenciasModal}
+          onClose={() => setShowTransferenciasModal(false)}
         />
 
         <DetalhesDoDiaModal

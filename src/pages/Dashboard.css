@@ -1726,3 +1726,296 @@
   word-wrap: break-word;
   overflow-wrap: break-word;
 }
+/* ===== CSS ADICIONAL PARA O DASHBOARD ===== */
+/* Adicione estas regras ao final do seu Dashboard.css existente */
+
+/* ===== CORREÇÕES PARA OS BOTÕES DE AÇÃO ===== */
+
+/* Garantir que os ícones SVG dos botões tenham a cor correta */
+.action-btn .action-icon svg {
+  color: inherit;
+  stroke: currentColor;
+}
+
+/* Botão de transferir com animação especial */
+.action-btn[title="Transferir"]:hover .action-icon {
+  animation: transferHover 0.6s ease-in-out;
+}
+
+@keyframes transferHover {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+
+/* Melhorar espaçamento dos ícones SVG no dropdown */
+.dropdown-action .dropdown-icon svg {
+  color: inherit;
+  stroke: currentColor;
+}
+
+/* ===== CORREÇÕES NO CALENDÁRIO PARA TOOLTIPS ===== */
+
+/* Garantir que o tooltip não cause sobreposição */
+.calendario-dia {
+  position: relative;
+  z-index: 1;
+}
+
+.calendario-dia:hover {
+  z-index: 10;
+}
+
+/* Ajustar o tooltip para não sobrepor outros elementos */
+.dia-tooltip {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-100%);
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  border-radius: 6px;
+  padding: 8px 12px;
+  z-index: 1000;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.dia-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: rgba(0, 0, 0, 0.9);
+}
+
+.calendario-dia:hover .dia-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Prevenir overflow do tooltip */
+.calendar-container {
+  position: relative;
+  overflow: visible;
+}
+
+.calendario-financeiro {
+  position: relative;
+  overflow: visible;
+}
+
+/* ===== REMOÇÃO DAS DICAS DOS CARDS ===== */
+
+/* Esconder completamente as dicas de clique dos cards */
+.summary-card .card-footer {
+  display: none !important;
+}
+
+/* Ajustar espaçamento dos cards sem o footer */
+.card-front {
+  padding-bottom: 0;
+}
+
+/* ===== MELHORIAS VISUAIS GERAIS ===== */
+
+/* Melhorar o hover dos cards */
+.summary-card {
+  transition: transform 0.2s ease, box-shadow 0.3s ease;
+}
+
+.summary-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+}
+
+/* Animação suave para os botões de ação */
+.action-btn {
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.action-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.action-btn:hover::before {
+  left: 100%;
+}
+
+/* ===== RESPONSIVIDADE ESPECÍFICA ===== */
+
+@media (max-width: 768px) {
+  /* Melhorar tooltips em mobile */
+  .dia-tooltip {
+    position: fixed;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    z-index: 9999;
+    width: 200px;
+    max-width: 90vw;
+  }
+  
+  .dia-tooltip::after {
+    display: none;
+  }
+  
+  /* Botões de ação em mobile */
+  .main-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 8px;
+  }
+  
+  .action-btn {
+    min-height: 60px;
+    padding: 8px 4px;
+  }
+  
+  .action-label {
+    font-size: 0.75rem;
+    line-height: 1.2;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Layout mais compacto em telas muito pequenas */
+  .main-actions {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .action-btn {
+    min-height: 50px;
+    font-size: 0.7rem;
+  }
+  
+  .action-icon {
+    font-size: 14px;
+  }
+  
+  .action-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+/* ===== MELHORIAS DE ACESSIBILIDADE ===== */
+
+/* Focus states melhorados */
+.action-btn:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.calendario-dia:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+
+/* ===== OTIMIZAÇÕES DE PERFORMANCE ===== */
+
+/* Usar transform para animações em vez de propriedades que causam reflow */
+.summary-card,
+.action-btn {
+  will-change: transform;
+}
+
+.summary-card:hover,
+.action-btn:hover {
+  will-change: auto;
+}
+
+/* ===== ESTADOS ESPECIAIS ===== */
+
+/* Loading state para botões */
+.action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.action-btn:disabled::before {
+  display: none;
+}
+
+/* Estado ativo para botões */
+.action-btn:active {
+  transform: translateY(1px) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* ===== CORREÇÕES ESPECÍFICAS PARA ÍCONES ===== */
+
+/* Garantir que todos os ícones SVG tenham o tamanho correto */
+.action-icon svg,
+.dropdown-icon svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* Centralizar ícones nos botões */
+.action-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+.dropdown-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+/* ===== DARK MODE SUPPORT (OPCIONAL) ===== */
+@media (prefers-color-scheme: dark) {
+  .dia-tooltip {
+    background: rgba(255, 255, 255, 0.95);
+    color: #1f2937;
+  }
+  
+  .dia-tooltip::after {
+    border-top-color: rgba(255, 255, 255, 0.95);
+  }
+}
+
+/* ===== PRINT STYLES ===== */
+@media print {
+  .quick-actions-bar,
+  .user-menu-container,
+  .month-selector {
+    display: none;
+  }
+  
+  .summary-card {
+    break-inside: avoid;
+    box-shadow: none;
+    border: 1px solid #e5e7eb;
+  }
+  
+  .calendar-section,
+  .projection-section {
+    break-inside: avoid;
+  }
+}
