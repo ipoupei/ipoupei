@@ -15,13 +15,12 @@ import {
   ChevronUp,
   Info
 } from 'lucide-react';
-import { PieChart as RechartsPieChart, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { PieChart as RechartsPieChart, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Pie } from 'recharts';
 import PageContainer from '../Components/layout/PageContainer';
 import Card from '../Components/ui/Card';
 import Button from '../Components/ui/Button';
 import { useReports } from '../context/ReportsContext';
 import { formatCurrency } from '../utils/formatCurrency';
-import { categoriasData } from '../data/categorias';
 
 /**
  * Relatório detalhado por categorias e subcategorias
@@ -450,6 +449,8 @@ const RelatorioCategoria = () => {
           </div>
         </div>
       </Card>
+    </PageContainer>
+  );
 };
 
 export default RelatorioCategoria;

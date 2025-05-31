@@ -1,0 +1,798 @@
+/* === MELHORIAS NA LISTA DE TRANSAÇÕES === */
+.list-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-bottom: 1.5rem !important;
+  padding-bottom: 1rem !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+.results-count {
+  font-size: 0.875rem !important;
+  color: #6b7280 !important;
+  font-weight: 500 !important;
+}
+
+.btn-toggle {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  padding: 0.5rem 0.75rem !important;
+  background: white !important;
+  color: #374151 !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 0.5rem !important;
+  font-size: 0.875rem !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  font-weight: 500 !important;
+}
+
+.btn-toggle:hover {
+  background: #f9fafb !important;
+  border-color: #9ca3af !important;
+}
+
+.btn-toggle.active {
+  background: #3b82f6 !important;
+  color: white !important;
+  border-color: #3b82f6 !important;
+}
+
+/* === ITENS DE TRANSAÇÃO MELHORADOS === */
+.transaction-item {
+  border: 1px solid #e5e7eb !important;
+  border-radius: 0.75rem !important;
+  padding: 1rem !important;
+  transition: all 0.2s ease !important;
+  background: white !important;
+  margin-bottom: 0.75rem !important;
+}
+
+.transaction-item:hover {
+  border-color: #d1d5db !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+  transform: translateY(-1px) !important;
+}
+
+.transaction-main {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 1rem !important;
+}
+
+.transaction-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
+  flex: 1 !important;
+}
+
+.transaction-icon {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 0.5rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #f3f4f6 !important;
+  flex-shrink: 0 !important;
+}
+
+.transaction-info {
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+
+.transaction-description {
+  font-weight: 600 !important;
+  color: #1f2937 !important;
+  margin-bottom: 0.25rem !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  font-size: 0.875rem !important;
+}
+
+.fatura-badge {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.25rem !important;
+  background: #8b5cf6 !important;
+  color: white !important;
+  font-size: 0.6875rem !important;
+  padding: 0.125rem 0.375rem !important;
+  border-radius: 0.25rem !important;
+  font-weight: 500 !important;
+}
+
+.transaction-details {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  flex-wrap: wrap !important;
+}
+
+.category-tag {
+  font-size: 0.6875rem !important;
+  padding: 0.125rem 0.375rem !important;
+  border-radius: 0.25rem !important;
+  font-weight: 500 !important;
+  border: 1px solid currentColor !important;
+  opacity: 0.8 !important;
+}
+
+.account-info {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.25rem !important;
+  font-size: 0.6875rem !important;
+  color: #6b7280 !important;
+  font-weight: 500 !important;
+}
+
+.transaction-right {
+  display: flex !important;
+  align-items: center !important;
+  gap: 1rem !important;
+  flex-shrink: 0 !important;
+}
+
+.transaction-value {
+  text-align: right !important;
+}
+
+.value {
+  font-size: 1rem !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+.value.positive {
+  color: #10b981 !important;
+}
+
+.value.negative {
+  color: #ef4444 !important;
+}
+
+.transaction-meta {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  margin-top: 0.25rem !important;
+  justify-content: flex-end !important;
+}
+
+.transaction-date {
+  font-size: 0.6875rem !important;
+  color: #6b7280 !important;
+  font-weight: 500 !important;
+}
+
+.transaction-status {
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* === BOTÕES DE AÇÃO DAS TRANSAÇÕES === */
+.transaction-actions {
+  display: flex !important;
+  gap: 0.25rem !important;
+}
+
+.action-btn {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 0.375rem !important;
+  border: none !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s ease !important;
+  background: white !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+}
+
+.action-btn.edit {
+  color: #374151 !important;
+  border: 1px solid #e5e7eb !important;
+}
+
+.action-btn.edit:hover {
+  background: #3b82f6 !important;
+  color: white !important;
+  border-color: #3b82f6 !important;
+  transform: translateY(-1px) !important;
+}
+
+.action-btn.complete {
+  color: #166534 !important;
+  border: 1px solid #d1fae5 !important;
+  background: #f0fdf4 !important;
+}
+
+.action-btn.complete:hover {
+  background: #10b981 !important;
+  color: white !important;
+  border-color: #10b981 !important;
+  transform: translateY(-1px) !important;
+}
+
+.action-btn.delete {
+  color: #dc2626 !important;
+  border: 1px solid #fecaca !important;
+  background: #fef2f2 !important;
+}
+
+.action-btn.delete:hover {
+  background: #ef4444 !important;
+  color: white !important;
+  border-color: #ef4444 !important;
+  transform: translateY(-1px) !important;
+}
+
+/* === ESTADOS VAZIOS E LOADING === */
+.loading-state,
+.empty-state {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 3rem 1rem !important;
+  text-align: center !important;
+  color: #6b7280 !important;
+}
+
+.loading-state p,
+.empty-state h3 {
+  margin: 1rem 0 0.5rem 0 !important;
+  font-size: 1.125rem !important;
+  font-weight: 600 !important;
+  color: #374151 !important;
+}
+
+.empty-state p {
+  margin: 0 !important;
+  color: #6b7280 !important;
+  font-size: 0.875rem !important;
+  line-height: 1.5 !important;
+}
+
+.empty-state-actions {
+  display: flex !important;
+  gap: 0.75rem !important;
+  margin-top: 1.5rem !important;
+  justify-content: center !important;
+  flex-wrap: wrap !important;
+}
+
+.empty-action-btn {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  padding: 0.75rem 1rem !important;
+  border-radius: 0.5rem !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  color: white !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+}
+
+.empty-action-btn.receita {
+  background: linear-gradient(135deg, #10b981, #059669) !important;
+}
+
+.empty-action-btn.receita:hover {
+  background: linear-gradient(135deg, #059669, #047857) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
+}
+
+.empty-action-btn.despesa {
+  background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+}
+
+.empty-action-btn.despesa:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3) !important;
+}
+
+/* === FILTROS SIDEBAR MELHORADO === */
+.filters-sidebar {
+  width: 280px !important;
+  background: white !important;
+  border-radius: 0.75rem !important;
+  padding: 1.5rem !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  flex-shrink: 0 !important;
+  max-height: calc(100vh - 200px) !important;
+  overflow-y: auto !important;
+  border: 1px solid #f1f5f9 !important;
+}
+
+.filters-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-bottom: 1.5rem !important;
+  padding-bottom: 1rem !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+.filters-title {
+  font-size: 1.125rem !important;
+  font-weight: 600 !important;
+  color: #1f2937 !important;
+  margin: 0 !important;
+}
+
+.btn-clear-filters {
+  font-size: 0.875rem !important;
+  color: #ef4444 !important;
+  background: none !important;
+  border: none !important;
+  cursor: pointer !important;
+  padding: 0.25rem 0.5rem !important;
+  border-radius: 0.375rem !important;
+  transition: background-color 0.2s ease !important;
+  font-weight: 500 !important;
+}
+
+.btn-clear-filters:hover {
+  background: #fee2e2 !important;
+}
+
+/* === NOTAS DE TRANSAÇÃO === */
+.transaction-notes {
+  margin-top: 0.75rem !important;
+  padding-top: 0.75rem !important;
+  border-top: 1px solid #f3f4f6 !important;
+  font-size: 0.8125rem !important;
+  color: #6b7280 !important;
+  font-style: italic !important;
+  line-height: 1.4 !important;
+}
+
+/* === MELHORIAS DE ACESSIBILIDADE === */
+.quick-action-btn:focus,
+.action-btn:focus,
+.btn-toggle:focus {
+  outline: 2px solid #2563eb !important;
+  outline-offset: 2px !important;
+  z-index: 10 !important;
+}
+
+/* === OTIMIZAÇÕES DE PERFORMANCE === */
+.transaction-item,
+.quick-action-btn,
+.summary-card {
+  will-change: transform !important;
+}
+
+.transaction-item:hover,
+.quick-action-btn:hover,
+.summary-card:hover {
+  will-change: auto !important;
+}
+
+/* === MODO ESCURO (PREPARAÇÃO) === */
+@media (prefers-color-scheme: dark) {
+  .quick-action-btn.receita {
+    background: linear-gradient(135deg, #065f46 0%, #047857 100%) !important;
+  }
+  
+  .quick-action-btn.despesa {
+    background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%) !important;
+  }
+  
+  .quick-action-btn.cartao {
+    background: linear-gradient(135deg, #581c87 0%, #6b21a8 100%) !important;
+  }
+  
+  .quick-action-btn.transferencia {
+    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%) !important;
+  }
+  
+  .quick-action-btn.conta {
+    background: linear-gradient(135deg, #064e3b 0%, #065f46 100%) !important;
+  }
+}
+
+/* === CORREÇÕES ESPECÍFICAS PARA SAFARI === */
+@supports (-webkit-appearance: none) {
+  .quick-action-btn,
+  .summary-card,
+  .transaction-item {
+    -webkit-transform: translateZ(0) !important;
+    transform: translateZ(0) !important;
+  }
+}
+
+/* === PRINT STYLES === */
+@media print {
+  .quick-actions-bar,
+  .transaction-actions,
+  .filters-sidebar {
+    display: none !important;
+  }
+  
+  .transaction-item {
+    break-inside: avoid !important;
+    box-shadow: none !important;
+    border: 1px solid #e5e7eb !important;
+  }
+  
+  .summary-card {
+    break-inside: avoid !important;
+    box-shadow: none !important;
+    border: 1px solid #e5e7eb !important;
+  }
+}== CORREÇÕES ESPECÍFICAS PARA TRANSACOESPAGE.CSS ===== */
+/* Substitua ou adicione estas regras ao seu TransacoesPage.css existente */
+
+/* === OVERRIDE DOS ESTILOS ANTIGOS === */
+.quick-actions-bar {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
+  border-radius: 0.75rem !important;
+  padding: 1rem !important;
+  margin-bottom: 1.5rem !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid #e5e7eb !important;
+}
+
+.quick-actions-content {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1rem !important;
+}
+
+.quick-actions-title {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+  color: #374151 !important;
+  margin-bottom: 0 !important;
+}
+
+.quick-actions-buttons {
+  display: flex !important;
+  gap: 0.75rem !important;
+  flex-wrap: wrap !important;
+}
+
+/* === BOTÕES DE AÇÃO CORRIGIDOS === */
+.quick-action-btn {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  padding: 0.75rem 1rem !important;
+  border-radius: 0.5rem !important;
+  border: none !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  white-space: nowrap !important;
+  background: white !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.quick-action-btn:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* === CORES ESPECÍFICAS CORRIGIDAS === */
+
+/* Receita - Verde */
+.quick-action-btn.receita {
+  color: #059669 !important;
+  border: 1px solid #d1fae5 !important;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%) !important;
+}
+
+.quick-action-btn.receita:hover {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%) !important;
+  border-color: #a7f3d0 !important;
+  color: #047857 !important;
+}
+
+/* Despesa - Vermelho */
+.quick-action-btn.despesa {
+  color: #dc2626 !important;
+  border: 1px solid #fecaca !important;
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%) !important;
+}
+
+.quick-action-btn.despesa:hover {
+  background: linear-gradient(135deg, #fee2e2 0%, #fca5a5 100%) !important;
+  border-color: #fca5a5 !important;
+  color: #b91c1c !important;
+}
+
+/* Cartão - Roxo */
+.quick-action-btn.cartao {
+  color: #7c3aed !important;
+  border: 1px solid #e9d5ff !important;
+  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%) !important;
+}
+
+.quick-action-btn.cartao:hover {
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%) !important;
+  border-color: #ddd6fe !important;
+  color: #6d28d9 !important;
+}
+
+/* Transferência - Azul */
+.quick-action-btn.transferencia {
+  color: #2563eb !important;
+  border: 1px solid #bfdbfe !important;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%) !important;
+}
+
+.quick-action-btn.transferencia:hover {
+  background: linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%) !important;
+  border-color: #93c5fd !important;
+  color: #1d4ed8 !important;
+}
+
+/* Contas - Verde escuro */
+.quick-action-btn.conta {
+  color: #0f766e !important;
+  border: 1px solid #a7f3d0 !important;
+  background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%) !important;
+}
+
+.quick-action-btn.conta:hover {
+  background: linear-gradient(135deg, #ccfbf1 0%, #99f6e4 100%) !important;
+  border-color: #5eead4 !important;
+  color: #0d9488 !important;
+}
+
+/* === ANIMAÇÕES === */
+.quick-action-btn::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: -100% !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent) !important;
+  transition: left 0.5s ease !important;
+}
+
+.quick-action-btn:hover::before {
+  left: 100% !important;
+}
+
+/* Animação especial para transferir */
+.quick-action-btn.transferencia:hover svg {
+  animation: transferAnimation 0.6s ease-in-out !important;
+}
+
+@keyframes transferAnimation {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+
+/* === ÍCONES DOS BOTÕES === */
+.quick-action-btn svg {
+  width: 16px !important;
+  height: 16px !important;
+  flex-shrink: 0 !important;
+}
+
+/* === CARDS DE RESUMO MELHORADOS === */
+.summary-cards {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)) !important;
+  gap: 1rem !important;
+  margin-bottom: 1.5rem !important;
+}
+
+.summary-card {
+  background: white !important;
+  border-radius: 0.75rem !important;
+  padding: 1.25rem !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 1rem !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+  border: 1px solid #f1f5f9 !important;
+}
+
+.summary-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+.card-icon {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+
+.summary-card.receitas .card-icon {
+  background: linear-gradient(135deg, #10b981, #059669) !important;
+  color: white !important;
+}
+
+.summary-card.despesas .card-icon {
+  background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+  color: white !important;
+}
+
+.summary-card.saldo.positive .card-icon {
+  background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+  color: white !important;
+}
+
+.summary-card.saldo.negative .card-icon {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  color: white !important;
+}
+
+.summary-card.transacoes .card-icon {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed) !important;
+  color: white !important;
+}
+
+.card-content {
+  flex: 1 !important;
+}
+
+.card-label {
+  font-size: 0.75rem !important;
+  color: #6b7280 !important;
+  font-weight: 500 !important;
+  margin-bottom: 0.25rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.025em !important;
+}
+
+.card-value {
+  font-size: 1.5rem !important;
+  font-weight: 700 !important;
+  color: #111827 !important;
+  line-height: 1.2 !important;
+  margin: 0 !important;
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: "tnum" !important;
+}
+
+/* === HEADER MELHORADO === */
+.transacoes-header {
+  background: white !important;
+  border-radius: 1rem !important;
+  padding: 1.5rem 2rem !important;
+  margin-bottom: 1.5rem !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid #f1f5f9 !important;
+}
+
+.page-title {
+  font-size: 1.75rem !important;
+  font-weight: 700 !important;
+  color: #1f2937 !important;
+  margin: 0 0 0.25rem 0 !important;
+}
+
+.page-subtitle {
+  color: #6b7280 !important;
+  margin: 0 !important;
+  font-size: 0.875rem !important;
+  opacity: 0.8 !important;
+}
+
+/* === RESPONSIVIDADE CORRIGIDA === */
+@media (max-width: 768px) {
+  .quick-actions-buttons {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 0.75rem !important;
+    width: 100% !important;
+  }
+
+  .quick-action-btn {
+    flex: 1 !important;
+    justify-content: center !important;
+    padding: 0.875rem 0.5rem !important;
+    min-height: 48px !important;
+  }
+
+  .summary-cards {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.75rem !important;
+  }
+
+  .summary-card {
+    padding: 1rem !important;
+  }
+
+  .card-icon {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .card-value {
+    font-size: 1.25rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .quick-actions-buttons {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+  }
+
+  .quick-action-btn {
+    flex-direction: column !important;
+    gap: 0.25rem !important;
+    padding: 0.75rem 0.5rem !important;
+    min-height: 64px !important;
+  }
+
+  .quick-action-btn svg {
+    margin-bottom: 0.25rem !important;
+  }
+
+  .quick-action-btn span {
+    font-size: 0.75rem !important;
+    line-height: 1.2 !important;
+    text-align: center !important;
+  }
+
+  .summary-cards {
+    grid-template-columns: 1fr !important;
+  }
+
+  .summary-card {
+    padding: 0.875rem !important;
+  }
+
+  .card-value {
+    font-size: 1.125rem !important;
+  }
+
+  .card-label {
+    font-size: 0.6875rem !important;
+  }
+}
+
+/* === MELHORIAS NO CONTAINER PRINCIPAL === */
+.transacoes-page {
+  background-color: #f5f7fa !important;
+  min-height: 100vh !important;
+  padding: 1.5rem !important;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+}
+
+/* === LISTA DE TRANSAÇÕES MELHORADA === */
+.transactions-list {
+  background: white !important;
+  border-radius: 0.75rem !important;
+  padding: 1.5rem !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  border: 1px solid #f1f5f9 !important;
+}
+
+/* ===

@@ -1,7 +1,13 @@
+// src/pages/Dashboard.jsx - Versão atualizada com link para transações
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { format, subMonths, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar, ChevronLeft, ChevronRight, Plus, User, LogOut, ChevronDown, ArrowLeftRight, CreditCard, Wallet } from 'lucide-react';
+import { 
+  Calendar, ChevronLeft, ChevronRight, Plus, 
+  ChevronDown, ArrowLeftRight, CreditCard, Wallet,
+  List, Eye
+} from 'lucide-react';
 import './Dashboard.css';
 
 // CORRIGIDO: Zustand stores
@@ -33,8 +39,10 @@ import TransferenciasModal from '../Components/TransferenciasModal';
  * CORRIGIDO: Refatorado para usar Zustand stores
  */
 const Dashboard = () => {
+  const navigate = useNavigate();
+  
   // CORRIGIDO: Zustand stores
-  const { user, signOut, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const { 
     data, 
     loading, 
@@ -54,7 +62,6 @@ const Dashboard = () => {
   // Estados locais para UI
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showMoreActions, setShowMoreActions] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
   const [diaDetalhes, setDiaDetalhes] = useState(null);
   const [flippedCards, setFlippedCards] = useState({
     saldo: false,
@@ -66,7 +73,6 @@ const Dashboard = () => {
   // Referências para os dropdowns
   const datePickerRef = useRef(null);
   const moreActionsRef = useRef(null);
-  const userMenuRef = useRef(null);
 
   // CORRIGIDO: Carregar dados do dashboard quando componente monta
   useEffect(() => {
@@ -84,9 +90,6 @@ const Dashboard = () => {
       }
       if (moreActionsRef.current && !moreActionsRef.current.contains(event.target)) {
         setShowMoreActions(false);
-      }
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
-        setShowUserMenu(false);
       }
     }
     
@@ -165,6 +168,12 @@ const Dashboard = () => {
   // Ações secundárias
   const moreActions = [
     {
+      id: 'ver-transacoes',
+      label: 'Ver Transações',
+      icon: <List size={16} />,
+      action: () => navigate('/transacoes')
+    },
+    {
       id: 'cartoes-gerenciar',
       label: 'Meus Cartões',
       icon: <CreditCard size={16} />,
@@ -186,7 +195,7 @@ const Dashboard = () => {
       id: 'relatorios',
       label: 'Relatórios',
       icon: '📈',
-      action: () => window.location.href = '/relatorios'
+      action: () => navigate('/relatorios')
     }
   ];
 
@@ -204,53 +213,9 @@ const Dashboard = () => {
     openModal('detalhesDia');
   };
 
-  // Função de logout
-  const handleLogout = async () => {
-    try {
-      console.log('🚪 Logout iniciado...');
-      await signOut();
-      showNotification('Logout realizado com sucesso!', 'success');
-      window.location.replace('/login');
-    } catch (err) {
-      console.error('❌ Erro no logout:', err);
-      showNotification('Erro ao fazer logout', 'error');
-      // Força logout mesmo com erro
-      localStorage.clear();
-      sessionStorage.clear();
-      window.location.replace('/login');
-    }
-  };
-
-  // Handler para ir ao perfil
-  const handleGoToProfile = () => {
-    window.location.href = '/profile';
-    setShowUserMenu(false);
-  };
-
-  // CORRIGIDO: Funções auxiliares para dados do usuário
-  const getUserDisplayName = () => {
-    if (user?.user_metadata?.nome) return user.user_metadata.nome;
-    if (user?.user_metadata?.full_name) return user.user_metadata.full_name;
-    if (user?.email) return user.email.split('@')[0];
-    return 'Usuário';
-  };
-
-  const getUserInitial = () => {
-    const name = getUserDisplayName();
-    return name.charAt(0).toUpperCase();
-  };
-
-  const getUserEmail = () => {
-    return user?.email || 'usuario@exemplo.com';
-  };
-
-  const getUserAvatar = () => {
-    return user?.user_metadata?.avatar_url || null;
-  };
-
   // Se não estiver autenticado, redireciona
   if (!isAuthenticated) {
-    window.location.replace('/login');
+    navigate('/login');
     return null;
   }
 
@@ -267,87 +232,6 @@ const Dashboard = () => {
   return (
     <div className="dashboard-wrapper">
       <div className="dashboard-container">
-        {/* Header com navegação do usuário */}
-        <header className="dashboard-header-with-user">
-          <div className="header-content">
-            <div className="header-left">
-              <h1 className="dashboard-title">iPoupei</h1>
-              <p className="dashboard-subtitle">Acompanhamento mensal</p>
-            </div>
-            
-            {/* Menu do usuário */}
-            <div className="header-right" ref={userMenuRef}>
-              <div className="user-menu-container">
-                <button 
-                  className="user-menu-trigger"
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  aria-label="Menu do usuário"
-                >
-                  <div className="user-avatar">
-                    {getUserAvatar() ? (
-                      <img 
-                        src={getUserAvatar()} 
-                        alt="Avatar do usuário" 
-                        className="avatar-image"
-                      />
-                    ) : (
-                      <span className="avatar-initial">{getUserInitial()}</span>
-                    )}
-                  </div>
-                  <div className="user-info">
-                    <span className="user-name">{getUserDisplayName()}</span>
-                    <span className="user-greeting">Bem-vindo de volta!</span>
-                  </div>
-                  <ChevronDown 
-                    size={16} 
-                    className={`chevron ${showUserMenu ? 'rotated' : ''}`} 
-                  />
-                </button>
-                
-                {showUserMenu && (
-                  <div className="user-menu-dropdown">
-                    <div className="dropdown-header">
-                      <div className="user-avatar-large">
-                        {getUserAvatar() ? (
-                          <img 
-                            src={getUserAvatar()} 
-                            alt="Avatar do usuário" 
-                          />
-                        ) : (
-                          <span className="avatar-initial-large">{getUserInitial()}</span>
-                        )}
-                      </div>
-                      <div className="user-details">
-                        <strong>{getUserDisplayName()}</strong>
-                        <span className="user-email">{getUserEmail()}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="dropdown-divider"></div>
-                    
-                    <button 
-                      className="dropdown-item"
-                      onClick={handleGoToProfile}
-                    >
-                      <User size={16} />
-                      <span>Meu Perfil</span>
-                    </button>
-                    
-                    <div className="dropdown-divider"></div>
-                    
-                    <button 
-                      className="dropdown-item logout"
-                      onClick={handleLogout}
-                    >
-                      <LogOut size={16} />
-                      <span>Sair</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </header>
         
         {/* Seletor de mês */}
         <div className="month-selector">
@@ -673,13 +557,36 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
+
+        {/* Link rápido para transações */}
+        <div className="quick-access-section">
+          <div className="quick-access-card" onClick={() => navigate('/transacoes')}>
+            <div className="quick-access-icon">
+              <Eye size={24} />
+            </div>
+            <div className="quick-access-content">
+              <h3 className="quick-access-title">Ver Todas as Transações</h3>
+              <p className="quick-access-description">
+                Visualize, filtre e gerencie todas as suas movimentações financeiras
+              </p>
+            </div>
+            <div className="quick-access-arrow">
+              <ChevronRight size={20} />
+            </div>
+          </div>
+        </div>
         
         {/* Seção de gráficos */}
         <div className="charts-grid">
           <div className="chart-card">
             <div className="chart-header">
               <h3 className="chart-title">Receitas por categoria</h3>
-              <button className="chart-action">Ver todas</button>
+              <button 
+                className="chart-action"
+                onClick={() => navigate('/relatorios/categorias')}
+              >
+                Ver todas
+              </button>
             </div>
             
             <div className="chart-container">
@@ -694,7 +601,12 @@ const Dashboard = () => {
           <div className="chart-card">
             <div className="chart-header">
               <h3 className="chart-title">Despesas por categoria</h3>
-              <button className="chart-action red">Ver todas</button>
+              <button 
+                className="chart-action red"
+                onClick={() => navigate('/relatorios/categorias')}
+              >
+                Ver todas
+              </button>
             </div>
             
             <div className="chart-container">

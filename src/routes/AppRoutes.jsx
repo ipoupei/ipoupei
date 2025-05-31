@@ -4,13 +4,18 @@ import Login from '../pages/Login';
 import Dashboard from '../pages/Dashboard';
 import ResetPassword from '../pages/ResetPassword';
 import UserProfile from '../pages/UserProfile';
-import Transacoes from '../pages/Transacoes';
+import TransacoesPage from '../pages/TransacoesPage';
+import RelatoriosHome from '../pages/RelatoriosHome';
+import RelatorioCategoria from '../pages/RelatorioCategoria';
+import RelatorioEvolucao from '../pages/RelatorioEvolucao';
+import RelatorioProjecao from '../pages/RelatorioProjecao';
 import AuthCallback from '../pages/AuthCallback';
 import ProtectedRoute from '../Components/ProtectedRoute';
 
 /**
  * Componente para gerenciar as rotas da aplicação
  * Incluindo callback do Google OAuth e todas as telas
+ * ATUALIZADO: Rotas de transações e relatórios corrigidas
  */
 const AppRoutes = () => {
   return (
@@ -42,12 +47,49 @@ const AppRoutes = () => {
           } 
         />
         
-        {/* Rota de transações */}
+        {/* Nova rota de transações - usando a TransacoesPage completa */}
         <Route 
           path="/transacoes" 
           element={
             <ProtectedRoute>
-              <Transacoes />
+              <TransacoesPage />
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Rotas de Relatórios */}
+        <Route 
+          path="/relatorios" 
+          element={
+            <ProtectedRoute>
+              <RelatoriosHome />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/relatorios/categorias" 
+          element={
+            <ProtectedRoute>
+              <RelatorioCategoria />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/relatorios/evolucao" 
+          element={
+            <ProtectedRoute>
+              <RelatorioEvolucao />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/relatorios/projecoes" 
+          element={
+            <ProtectedRoute>
+              <RelatorioProjecao />
             </ProtectedRoute>
           } 
         />
@@ -60,6 +102,12 @@ const AppRoutes = () => {
         
         <Route 
           path="/configuracoes" 
+          element={<Navigate to="/profile" replace />}
+        />
+        
+        {/* Alias para manter compatibilidade */}
+        <Route 
+          path="/perfil" 
           element={<Navigate to="/profile" replace />}
         />
         

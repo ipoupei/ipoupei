@@ -2046,3 +2046,780 @@
 .chart-action.red:hover {
   background-color: rgba(239, 68, 68, 0.2);
 }
+
+/* Adicionar ao arquivo Dashboard.css existente */
+
+/* Quick Access Section */
+.quick-access-section {
+  margin: 24px 0;
+}
+
+.quick-access-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.quick-access-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.quick-access-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 30px rgba(102, 126, 234, 0.25);
+}
+
+.quick-access-card:hover::before {
+  opacity: 1;
+}
+
+.quick-access-icon {
+  width: 60px;
+  height: 60px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.quick-access-content {
+  flex: 1;
+  color: white;
+}
+
+.quick-access-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  color: white;
+}
+
+.quick-access-description {
+  margin: 0;
+  opacity: 0.9;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.quick-access-arrow {
+  color: white;
+  opacity: 0.7;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.quick-access-card:hover .quick-access-arrow {
+  opacity: 1;
+  transform: translateX(4px);
+}
+
+/* Responsive adjustments for quick access */
+@media (max-width: 768px) {
+  .quick-access-card {
+    padding: 20px;
+    gap: 16px;
+  }
+
+  .quick-access-icon {
+    width: 50px;
+    height: 50px;
+  }
+
+  .quick-access-title {
+    font-size: 1.125rem;
+  }
+
+  .quick-access-description {
+    font-size: 0.8125rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .quick-access-card {
+    padding: 16px;
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+  }
+
+  .quick-access-arrow {
+    transform: rotate(90deg);
+  }
+
+  .quick-access-card:hover .quick-access-arrow {
+    transform: rotate(90deg) translateX(4px);
+  }
+}
+
+/* Melhorias nos gráficos para incluir links */
+.chart-action {
+  background: none;
+  border: none;
+  color: #3b82f6;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.chart-action:hover {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.chart-action.red {
+  color: #ef4444;
+}
+
+.chart-action.red:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+/* Animação para os cards do dashboard */
+@keyframes cardFlip {
+  0% {
+    transform: rotateY(0);
+  }
+  50% {
+    transform: rotateY(90deg);
+  }
+  100% {
+    transform: rotateY(0);
+  }
+}
+
+.summary-card.flipped .card-inner {
+  animation: cardFlip 0.6s ease-in-out;
+}
+
+/* Melhorias na responsividade do menu de ações */
+.more-actions-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  padding: 8px;
+  min-width: 200px;
+  z-index: 50;
+  margin-top: 4px;
+}
+
+.dropdown-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #374151;
+  font-size: 0.875rem;
+  text-align: left;
+  transition: background-color 0.2s ease;
+}
+
+.dropdown-action:hover {
+  background: #f8fafc;
+}
+
+.dropdown-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Estados de loading melhorados */
+.loading-skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Melhoria nos estados vazios */
+.empty-chart {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: #9ca3af;
+  text-align: center;
+}
+
+.empty-chart svg {
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-chart h4 {
+  margin: 0 0 8px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.empty-chart p {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+/* Melhorias na acessibilidade */
+.action-btn:focus,
+.quick-access-card:focus,
+.chart-action:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Modo escuro (preparação futura) */
+@media (prefers-color-scheme: dark) {
+  .quick-access-card {
+    background: linear-gradient(135deg, #4c1d95 0%, #581c87 100%);
+  }
+
+  .chart-action {
+    color: #60a5fa;
+  }
+
+  .chart-action:hover {
+    background: #1e3a8a;
+    color: #93c5fd;
+  }
+
+  .chart-action.red {
+    color: #f87171;
+  }
+
+  .chart-action.red:hover {
+    background: #7f1d1d;
+    color: #fca5a5;
+  }
+}
+/* ===== SISTEMA UNIFICADO DE BOTÕES DE AÇÃO ===== */
+/* Adicione este CSS ao final do seu Dashboard.css E TransacoesPage.css para unificar os estilos */
+
+/* === BARRA DE AÇÕES RÁPIDAS UNIFICADA === */
+.quick-actions-bar,
+.quick-actions-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e5e7eb;
+}
+
+.main-actions,
+.quick-actions-buttons {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* === ESTILO UNIFICADO DOS BOTÕES DE AÇÃO === */
+.action-btn,
+.quick-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.action-btn:hover,
+.quick-action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* === CORES ESPECÍFICAS PARA CADA TIPO === */
+
+/* Receita - Verde */
+.action-btn-green,
+.quick-action-btn.receita,
+.action-btn[title*="Receita"],
+.quick-action-btn:has(.lucide-arrow-up) {
+  color: #059669;
+  border: 1px solid #d1fae5;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+}
+
+.action-btn-green:hover,
+.quick-action-btn.receita:hover,
+.action-btn[title*="Receita"]:hover {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  border-color: #a7f3d0;
+  color: #047857;
+}
+
+/* Despesa - Vermelho */
+.action-btn-red,
+.quick-action-btn.despesa,
+.action-btn[title*="Despesa"],
+.quick-action-btn:has(.lucide-arrow-down) {
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+}
+
+.action-btn-red:hover,
+.quick-action-btn.despesa:hover,
+.action-btn[title*="Despesa"]:hover {
+  background: linear-gradient(135deg, #fee2e2 0%, #fca5a5 100%);
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+/* Cartão - Roxo */
+.action-btn-purple,
+.quick-action-btn.cartao,
+.action-btn[title*="Cartão"],
+.quick-action-btn:has(.lucide-credit-card) {
+  color: #7c3aed;
+  border: 1px solid #e9d5ff;
+  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+}
+
+.action-btn-purple:hover,
+.quick-action-btn.cartao:hover,
+.action-btn[title*="Cartão"]:hover {
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  border-color: #ddd6fe;
+  color: #6d28d9;
+}
+
+/* Transferir - Azul */
+.action-btn-blue,
+.quick-action-btn.transferencia,
+.action-btn[title*="Transferir"],
+.quick-action-btn:has(.lucide-arrow-left-right) {
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+}
+
+.action-btn-blue:hover,
+.quick-action-btn.transferencia:hover,
+.action-btn[title*="Transferir"]:hover {
+  background: linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%);
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+/* Contas - Verde escuro */
+.action-btn-teal,
+.quick-action-btn.conta,
+.action-btn[title*="Conta"],
+.quick-action-btn:has(.lucide-wallet) {
+  color: #0f766e;
+  border: 1px solid #a7f3d0;
+  background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%);
+}
+
+.action-btn-teal:hover,
+.quick-action-btn.conta:hover,
+.action-btn[title*="Conta"]:hover {
+  background: linear-gradient(135deg, #ccfbf1 0%, #99f6e4 100%);
+  border-color: #5eead4;
+  color: #0d9488;
+}
+
+/* Mais/Outros - Cinza */
+.action-btn-more,
+.action-btn-gray {
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+}
+
+.action-btn-more:hover,
+.action-btn-gray:hover {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  border-color: #9ca3af;
+  color: #4b5563;
+}
+
+/* === ÍCONES DOS BOTÕES === */
+.action-icon,
+.quick-action-btn svg {
+  font-size: 1rem;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.action-label {
+  font-weight: 500;
+}
+
+/* === SEÇÃO DE TÍTULO DAS AÇÕES RÁPIDAS === */
+.quick-actions-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.75rem;
+}
+
+.quick-actions-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* === ANIMAÇÕES ESPECIAIS === */
+.action-btn::before,
+.quick-action-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.action-btn:hover::before,
+.quick-action-btn:hover::before {
+  left: 100%;
+}
+
+/* Animação especial para o botão de transferir */
+.action-btn[title*="Transferir"]:hover .action-icon,
+.quick-action-btn.transferencia:hover svg {
+  animation: transferAnimation 0.6s ease-in-out;
+}
+
+@keyframes transferAnimation {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+
+/* === DROPDOWN DE MAIS AÇÕES === */
+.more-actions-container {
+  position: relative;
+}
+
+.more-actions-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  min-width: 200px;
+  background: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e5e7eb;
+  z-index: 40;
+  overflow: hidden;
+  animation: dropdownFadeIn 0.2s ease-out;
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.dropdown-action {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: none;
+  border: none;
+  color: #374151;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.dropdown-action:hover {
+  background: #f3f4f6;
+  color: #1f2937;
+}
+
+.dropdown-icon {
+  font-size: 1rem;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* === RESPONSIVIDADE UNIFICADA === */
+@media (max-width: 768px) {
+  .quick-actions-bar,
+  .quick-actions-container {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+    padding: 1rem;
+  }
+
+  .main-actions,
+  .quick-actions-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    width: 100%;
+  }
+
+  .action-btn,
+  .quick-action-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 0.875rem 0.5rem;
+    min-height: 48px;
+  }
+
+  .action-label {
+    font-size: 0.8125rem;
+    text-align: center;
+  }
+
+  .more-actions-dropdown {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90vw;
+    max-width: 300px;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-actions,
+  .quick-actions-buttons {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+
+  .action-btn,
+  .quick-action-btn {
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.75rem 0.5rem;
+    min-height: 64px;
+  }
+
+  .action-icon,
+  .quick-action-btn svg {
+    margin-bottom: 0.25rem;
+  }
+
+  .action-label {
+    font-size: 0.75rem;
+    line-height: 1.2;
+  }
+}
+
+/* === ESTADOS ESPECIAIS === */
+
+/* Estado desabilitado */
+.action-btn:disabled,
+.quick-action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+}
+
+.action-btn:disabled::before,
+.quick-action-btn:disabled::before {
+  display: none;
+}
+
+/* Estado ativo/pressionado */
+.action-btn:active,
+.quick-action-btn:active {
+  transform: translateY(1px) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* === LOADING STATES === */
+.action-btn.loading,
+.quick-action-btn.loading {
+  position: relative;
+}
+
+.action-btn.loading::after,
+.quick-action-btn.loading::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* === ACESSIBILIDADE === */
+.action-btn:focus,
+.quick-action-btn:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  z-index: 10;
+}
+
+.dropdown-action:focus {
+  background-color: #eff6ff;
+  outline: none;
+}
+
+/* === HIGH CONTRAST MODE === */
+@media (prefers-contrast: high) {
+  .action-btn,
+  .quick-action-btn {
+    border: 2px solid currentColor;
+  }
+
+  .dropdown-action:hover {
+    background: #000;
+    color: #fff;
+  }
+}
+
+/* === REDUCED MOTION === */
+@media (prefers-reduced-motion: reduce) {
+  .action-btn,
+  .quick-action-btn,
+  .dropdown-action {
+    transition: none;
+  }
+
+  .action-btn:hover,
+  .quick-action-btn:hover {
+    transform: none;
+  }
+
+  .action-btn::before,
+  .quick-action-btn::before {
+    display: none;
+  }
+
+  @keyframes transferAnimation {
+    from { transform: translateX(0); }
+    to { transform: translateX(0); }
+  }
+}
+
+/* === OTIMIZAÇÕES DE PERFORMANCE === */
+.action-btn,
+.quick-action-btn {
+  will-change: transform;
+}
+
+.action-btn:hover,
+.quick-action-btn:hover {
+  will-change: auto;
+}
+
+/* === CORES ADICIONAIS PARA CASOS ESPECÍFICOS === */
+
+/* Laranja para relatórios/análises */
+.action-btn-orange {
+  color: #ea580c;
+  border: 1px solid #fed7aa;
+  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+}
+
+.action-btn-orange:hover {
+  background: linear-gradient(135deg, #ffedd5 0%, #fdba74 100%);
+  border-color: #fdba74;
+  color: #c2410c;
+}
+
+/* Índigo para configurações */
+.action-btn-indigo {
+  color: #4f46e5;
+  border: 1px solid #c7d2fe;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0e7ff 100%);
+}
+
+.action-btn-indigo:hover {
+  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+  border-color: #a5b4fc;
+  color: #3730a3;
+}
+
+/* Rosa para favoritos/especiais */
+.action-btn-pink {
+  color: #ec4899;
+  border: 1px solid #fce7f3;
+  background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+}
+
+.action-btn-pink:hover {
+  background: linear-gradient(135deg, #fce7f3 0%, #f9a8d4 100%);
+  border-color: #f9a8d4;
+  color: #be185d;
+}
