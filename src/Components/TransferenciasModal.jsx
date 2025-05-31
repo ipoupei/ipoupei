@@ -1,4 +1,4 @@
-// src/components/TransferenciasModal.jsx - VERSÃO ULTRA COMPACTA
+// src/components/TransferenciasModal.jsx - VERSÃO CORRIGIDA
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -18,8 +18,8 @@ import { supabase } from '../lib/supabaseClient';
 import './FormsModal.css';
 
 /**
- * Modal de Transferências - Versão Ultra Compacta
- * Reduzido de ~700 para ~250 linhas (65% menos código)
+ * Modal de Transferências - Versão Corrigida
+ * Corrige problemas de formatação de moeda, layout e lógica
  */
 const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
   const { user } = useAuthStore();
@@ -54,6 +54,7 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
       if (error) throw error;
       setContas(data || []);
     } catch (error) {
+      console.error('Erro ao carregar contas:', error);
       showNotification('Erro ao carregar contas', 'error');
     } finally {
       setLoading(false);
@@ -66,23 +67,42 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
     }
   }, [isOpen, user, carregarContas]);
 
-  // Formatação de valor
+  // Formatação de valor ULTRA CORRIGIDA
   const formatarValor = useCallback((valor) => {
-    const valorLimpo = valor.toString().replace(/\D/g, '');
-    const valorNumerico = parseFloat(valorLimpo) / 100;
-    if (isNaN(valorNumerico) || valorNumerico === 0) return '';
-    return valorNumerico.toLocaleString('pt-BR', { 
+    // Remove tudo que não é dígito
+    const apenasNumeros = valor.toString().replace(/\D/g, '');
+    
+    // Se não tem números, retorna vazio
+    if (!apenasNumeros || apenasNumeros === '0') return '';
+    
+    // Converte para centavos e depois para reais
+    const valorEmCentavos = parseInt(apenasNumeros, 10);
+    const valorEmReais = valorEmCentavos / 100;
+    
+    // Formata com vírgula decimal brasileira
+    return valorEmReais.toLocaleString('pt-BR', { 
       minimumFractionDigits: 2, 
       maximumFractionDigits: 2 
     });
   }, []);
 
+  // Valor numérico ULTRA CORRIGIDO
   const valorNumerico = useMemo(() => {
-    const valor = parseFloat(formData.valor.toString().replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
-    return valor;
+    if (!formData.valor) return 0;
+    
+    // Remove formatação brasileira e converte para número decimal
+    const valorString = formData.valor.toString();
+    
+    // Remove pontos de milhares e substitui vírgula por ponto
+    const valorLimpo = valorString
+      .replace(/\./g, '') // Remove pontos (separadores de milhares)
+      .replace(',', '.'); // Substitui vírgula por ponto decimal
+      
+    const numero = parseFloat(valorLimpo);
+    return isNaN(numero) ? 0 : Math.round(numero * 100) / 100; // Arredonda para 2 casas decimais
   }, [formData.valor]);
 
-  // Dados derivados
+  // Dados das contas
   const contaOrigem = useMemo(() => 
     contas.find(c => c.id === formData.contaOrigemId),
     [contas, formData.contaOrigemId]
@@ -93,9 +113,10 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
     [contas, formData.contaDestinoId]
   );
 
+  // Cálculo do aviso de saldo negativo corrigido
   const avisoSaldoNegativo = useMemo(() => {
     if (contaOrigem && valorNumerico > 0) {
-      const novoSaldo = contaOrigem.saldo - valorNumerico;
+      const novoSaldo = Number(contaOrigem.saldo) - valorNumerico;
       return novoSaldo < 0 ? { conta: contaOrigem.nome, novoSaldo } : null;
     }
     return null;
@@ -146,7 +167,7 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
     return Object.keys(newErrors).length === 0;
   }, [formData, valorNumerico]);
 
-  // Executar transferência
+  // Executar transferência ULTRA CORRIGIDA
   const executarTransferencia = useCallback(async () => {
     if (!validateForm()) {
       showNotification('Corrija os erros no formulário', 'error');
@@ -156,22 +177,65 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
     try {
       setSubmitting(true);
       
+      console.log('=== DEBUG TRANSFERÊNCIA ===');
+      console.log('Valor original:', formData.valor);
+      console.log('Valor numérico calculado:', valorNumerico);
+      console.log('Conta origem ID:', formData.contaOrigemId);
+      console.log('Conta destino ID:', formData.contaDestinoId);
+      
+      // Verificar se as contas ainda existem
+      const { data: contasAtualizadas, error: contasError } = await supabase
+        .from('contas')
+        .select('*')
+        .in('id', [formData.contaOrigemId, formData.contaDestinoId])
+        .eq('usuario_id', user.id)
+        .eq('ativo', true);
+
+      if (contasError) {
+        console.error('Erro ao buscar contas:', contasError);
+        throw new Error('Erro ao acessar dados das contas');
+      }
+
+      if (!contasAtualizadas || contasAtualizadas.length !== 2) {
+        throw new Error('Uma ou ambas as contas não foram encontradas');
+      }
+
+      const contaOrigemAtualizada = contasAtualizadas.find(c => c.id === formData.contaOrigemId);
+      const contaDestinoAtualizada = contasAtualizadas.find(c => c.id === formData.contaDestinoId);
+
+      if (!contaOrigemAtualizada || !contaDestinoAtualizada) {
+        throw new Error('Erro ao identificar as contas');
+      }
+
+      console.log('Conta origem:', contaOrigemAtualizada.nome, 'Saldo atual:', contaOrigemAtualizada.saldo);
+      console.log('Conta destino:', contaDestinoAtualizada.nome, 'Saldo atual:', contaDestinoAtualizada.saldo);
+      
       const grupoTransferencia = crypto.randomUUID();
       const dataAtual = new Date().toISOString().split('T')[0];
       const timestamp = new Date().toISOString();
       
-      // Criar transações
+      // Garantir que o valor é um número válido
+      const valorFinal = Math.round(valorNumerico * 100) / 100; // Arredonda para 2 casas decimais
+      
+      if (valorFinal <= 0) {
+        throw new Error('Valor da transferência deve ser maior que zero');
+      }
+      
+      console.log('Valor final da transferência:', valorFinal);
+      
+      // Criar transações SEM grupo_transferencia (que não existe na tabela)
+      const identificadorTransferencia = `TRANS_${timestamp.replace(/[-:.T]/g, '')}_${Math.random().toString(36).substr(2, 5)}`;
+      
       const transacoes = [
         {
           usuario_id: user.id,
           data: dataAtual,
-          descricao: `Transferência para ${contaDestino.nome}${formData.descricao ? ` - ${formData.descricao}` : ''}`,
+          descricao: `Transferência para ${contaDestinoAtualizada.nome}${formData.descricao ? ` - ${formData.descricao}` : ''} [${identificadorTransferencia}]`,
           conta_id: formData.contaOrigemId,
-          valor: valorNumerico,
+          valor: valorFinal,
           tipo: 'despesa',
           efetivado: true,
           transferencia: true,
-          grupo_transferencia: grupoTransferencia,
           observacoes: formData.descricao || null,
           created_at: timestamp,
           updated_at: timestamp
@@ -179,41 +243,96 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
         {
           usuario_id: user.id,
           data: dataAtual,
-          descricao: `Transferência de ${contaOrigem.nome}${formData.descricao ? ` - ${formData.descricao}` : ''}`,
+          descricao: `Transferência de ${contaOrigemAtualizada.nome}${formData.descricao ? ` - ${formData.descricao}` : ''} [${identificadorTransferencia}]`,
           conta_id: formData.contaDestinoId,
-          valor: valorNumerico,
+          valor: valorFinal,
           tipo: 'receita',
           efetivado: true,
           transferencia: true,
-          grupo_transferencia: grupoTransferencia,
           observacoes: formData.descricao || null,
           created_at: timestamp,
           updated_at: timestamp
         }
       ];
       
-      // Inserir transações
-      const { error: transacoesError } = await supabase.from('transacoes').insert(transacoes);
-      if (transacoesError) throw transacoesError;
+      console.log('Transações a serem inseridas:', transacoes);
       
-      // Atualizar saldos
-      await Promise.all([
-        supabase.from('contas').update({ 
-          saldo: contaOrigem.saldo - valorNumerico,
+      // Inserir transações
+      const { data: transacoesInseridas, error: transacoesError } = await supabase
+        .from('transacoes')
+        .insert(transacoes)
+        .select();
+      
+      if (transacoesError) {
+        console.error('Erro ao inserir transações:', transacoesError);
+        throw new Error('Erro ao registrar transações: ' + transacoesError.message);
+      }
+      
+      console.log('Transações inseridas com sucesso:', transacoesInseridas);
+      
+      // Calcular novos saldos com MÁXIMA PRECISÃO
+      const saldoOrigemAtual = parseFloat(contaOrigemAtualizada.saldo);
+      const saldoDestinoAtual = parseFloat(contaDestinoAtualizada.saldo);
+      
+      console.log('Saldos atuais EXATOS:');
+      console.log('- Origem:', saldoOrigemAtual, typeof saldoOrigemAtual);
+      console.log('- Destino:', saldoDestinoAtual, typeof saldoDestinoAtual);
+      console.log('- Valor transferência:', valorFinal, typeof valorFinal);
+      
+      // Calcula com precisão máxima
+      const novoSaldoOrigem = Number((saldoOrigemAtual - valorFinal).toFixed(2));
+      const novoSaldoDestino = Number((saldoDestinoAtual + valorFinal).toFixed(2));
+      
+      console.log('Novos saldos calculados:');
+      console.log('- Origem:', saldoOrigemAtual, '-', valorFinal, '=', novoSaldoOrigem);
+      console.log('- Destino:', saldoDestinoAtual, '+', valorFinal, '=', novoSaldoDestino);
+      
+      // Atualizar saldos das contas INDIVIDUALMENTE para garantir sucesso
+      console.log('Atualizando conta origem...');
+      const { data: contaOrigemAtualizada2, error: origemError } = await supabase
+        .from('contas')
+        .update({ 
+          saldo: novoSaldoOrigem,
           updated_at: timestamp
-        }).eq('id', formData.contaOrigemId),
-        
-        supabase.from('contas').update({ 
-          saldo: contaDestino.saldo + valorNumerico,
+        })
+        .eq('id', formData.contaOrigemId)
+        .eq('usuario_id', user.id)
+        .select();
+      
+      if (origemError) {
+        console.error('Erro ao atualizar conta origem:', origemError);
+        throw new Error('Erro ao atualizar saldo da conta de origem: ' + origemError.message);
+      }
+      
+      console.log('Conta origem atualizada:', contaOrigemAtualizada2);
+      
+      console.log('Atualizando conta destino...');
+      const { data: contaDestinoAtualizada2, error: destinoError } = await supabase
+        .from('contas')
+        .update({ 
+          saldo: novoSaldoDestino,
           updated_at: timestamp
-        }).eq('id', formData.contaDestinoId)
-      ]);
+        })
+        .eq('id', formData.contaDestinoId)
+        .eq('usuario_id', user.id)
+        .select();
+      
+      if (destinoError) {
+        console.error('Erro ao atualizar conta destino:', destinoError);
+        throw new Error('Erro ao atualizar saldo da conta de destino: ' + destinoError.message);
+      }
+      
+      console.log('Conta destino atualizada:', contaDestinoAtualizada2);
+      
+      console.log('Saldos atualizados com sucesso!');
+      
+      const avisoSaldo = novoSaldoOrigem < 0;
       
       showNotification(
-        avisoSaldoNegativo 
-          ? `Transferência realizada! ${contaOrigem.nome} ficou com saldo negativo.`
+        avisoSaldo 
+          ? `Transferência realizada! ${contaOrigemAtualizada.nome} ficou com saldo negativo.`
           : 'Transferência realizada com sucesso!',
-        avisoSaldoNegativo ? 'warning' : 'success'
+        avisoSaldo ? 'warning' : 'success'
       );
       
       resetForm();
@@ -222,12 +341,18 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
       setTimeout(() => onClose(), 1500);
       
     } catch (error) {
-      console.error('Erro na transferência:', error);
-      showNotification('Erro ao realizar transferência', 'error');
+      console.error('=== ERRO NA TRANSFERÊNCIA ===');
+      console.error('Detalhes do erro:', error);
+      console.error('Stack trace:', error.stack);
+      
+      showNotification(
+        `Erro ao realizar transferência: ${error.message}`, 
+        'error'
+      );
     } finally {
       setSubmitting(false);
     }
-  }, [validateForm, user.id, contaOrigem, contaDestino, formData, valorNumerico, avisoSaldoNegativo, showNotification, resetForm, carregarContas, onSave, onClose]);
+  }, [validateForm, user.id, formData, valorNumerico, showNotification, resetForm, carregarContas, onSave, onClose]);
 
   if (!isOpen) return null;
 
@@ -320,9 +445,9 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
                 {errors.valor && <div className="receitas-form-error">{errors.valor}</div>}
               </div>
 
-              {/* Contas */}
+              {/* Contas - Tamanhos iguais */}
               <div className="receitas-form-row">
-                <div className="receitas-form-group">
+                <div className="receitas-form-group" style={{ flex: 1 }}>
                   <label className="receitas-form-label">
                     <Building size={14} />
                     De *
@@ -334,7 +459,7 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
                     disabled={submitting}
                     className={`receitas-form-input ${errors.contaOrigemId ? 'error' : ''}`}
                   >
-                    <option value="">Origem</option>
+                    <option value="">Selecione origem</option>
                     {contas.map(conta => (
                       <option key={conta.id} value={conta.id}>
                         {conta.nome} - {formatCurrency(conta.saldo)}
@@ -344,7 +469,7 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
                   {errors.contaOrigemId && <div className="receitas-form-error">{errors.contaOrigemId}</div>}
                 </div>
                 
-                <div className="receitas-form-group">
+                <div className="receitas-form-group" style={{ flex: 1 }}>
                   <label className="receitas-form-label">
                     <Building size={14} />
                     Para *
@@ -356,7 +481,7 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
                     disabled={submitting}
                     className={`receitas-form-input ${errors.contaDestinoId ? 'error' : ''}`}
                   >
-                    <option value="">Destino</option>
+                    <option value="">Selecione destino</option>
                     {contas.filter(c => c.id !== formData.contaOrigemId).map(conta => (
                       <option key={conta.id} value={conta.id}>
                         {conta.nome} - {formatCurrency(conta.saldo)}
@@ -404,8 +529,8 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
                 </div>
               )}
 
-              {/* Preview */}
-              {formData.contaOrigemId && formData.contaDestinoId && valorNumerico > 0 && (
+              {/* Preview com nomes das contas */}
+              {formData.contaOrigemId && formData.contaDestinoId && valorNumerico > 0 && contaOrigem && contaDestino && (
                 <div style={{
                   background: avisoSaldoNegativo ? '#fef3c7' : '#f0f9ff',
                   border: `1px solid ${avisoSaldoNegativo ? '#f59e0b' : '#10b981'}`,
@@ -413,16 +538,24 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
                   padding: '12px',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
+                  justifyContent: 'space-between',
                   gap: '8px',
                   fontSize: '0.875rem',
                   color: avisoSaldoNegativo ? '#92400e' : '#065f46',
                   fontWeight: '500'
                 }}>
-                  <span>{avisoSaldoNegativo ? '⚠️' : '💸'}</span>
-                  <span>{formatCurrency(valorNumerico)}</span>
-                  <ArrowRight size={16} />
-                  <span>{avisoSaldoNegativo ? '⚠️' : '💰'}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
+                    <span>{avisoSaldoNegativo ? '⚠️' : '💸'}</span>
+                    <span style={{ fontSize: '0.75rem' }}>{contaOrigem.nome}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontWeight: '600' }}>{formatCurrency(valorNumerico)}</span>
+                    <ArrowRight size={16} />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, justifyContent: 'flex-end' }}>
+                    <span style={{ fontSize: '0.75rem' }}>{contaDestino.nome}</span>
+                    <span>{avisoSaldoNegativo ? '⚠️' : '💰'}</span>
+                  </div>
                 </div>
               )}
 
