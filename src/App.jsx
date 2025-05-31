@@ -4,11 +4,10 @@ import './App.css';
 import { testarLeituraContas, verificarAutenticacao } from './lib/supabaseClient';
 import './index.css';
 import { AuthProvider } from './context/AuthContext';
-import { useAuthStore } from './store/authStore';
 
 /**
  * Componente principal da aplicação
- * Sistema híbrido: mantém AuthProvider para compatibilidade + Zustand
+ * Integrado com sistema de rotas do React Router e AuthProvider
  */
 function App() {
   // Estado para informações de teste
@@ -18,22 +17,22 @@ function App() {
     mensagem: ""
   });
 
-  // Inicializar Zustand auth
-  const initAuth = useAuthStore(state => state.initAuth);
-
   // Teste de conexão com o Supabase (apenas em desenvolvimento)
   const executarTestesConexao = async () => {
+    // Primeiro testa a autenticação
     const authResult = await verificarAutenticacao();
     
+    // Se não estiver autenticado, não continua os testes
     if (!authResult.isAuthenticated) {
       setTesteConexao({
         executado: true,
-        resultado: true,
+        resultado: true, // Mudando para true pois é normal não estar autenticado inicialmente
         mensagem: "Supabase conectado - pronto para autenticação."
       });
       return;
     }
     
+    // Testa a leitura de contas se autenticado
     const testResult = await testarLeituraContas();
     
     if (testResult.success) {
@@ -53,12 +52,6 @@ function App() {
 
   // Hook de inicialização
   useEffect(() => {
-    // Inicializar autenticação do Zustand
-    if (initAuth) {
-      console.log('🔄 Inicializando Zustand Auth...');
-      initAuth();
-    }
-
     const inicializar = async () => {
       // Executa testes apenas em desenvolvimento
       if (import.meta.env.DEV) {
@@ -67,7 +60,7 @@ function App() {
     };
 
     inicializar();
-  }, [initAuth]);
+  }, []);
 
   return (
     <AuthProvider>
@@ -90,7 +83,7 @@ function App() {
             fontSize: '14px'
           }}
         >
-          <span>🔧 DEV: {testeConexao.mensagem}</span>
+          {testeConexao.mensagem}
           <button 
             style={{
               marginLeft: '10px',
@@ -109,6 +102,7 @@ function App() {
       
       {/* Sistema de rotas */}
       <AppRoutes />
+      
     </AuthProvider>
   );
 }

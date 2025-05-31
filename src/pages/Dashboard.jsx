@@ -4,20 +4,15 @@ import { ptBR } from 'date-fns/locale';
 import { Calendar, ChevronLeft, ChevronRight, Plus, User, LogOut, ChevronDown, ArrowLeftRight, CreditCard, Wallet } from 'lucide-react';
 import './Dashboard.css';
 
-// CORRIGIDO: Zustand stores
-import { useAuthStore } from '../store/authStore';
-import { useDashboardStore } from '../store/dashboardStore';
-import { useUIStore } from '../store/uiStore';
-
-// Utilitários
-import { formatCurrency } from '../utils/formatCurrency';
-
 // Componentes
 import DonutChartCategoria from '../Components/DonutChartCategoria';
 import CalendarioFinanceiro from '../Components/CalendarioFinanceiro';
 import ProjecaoSaldoGraph from '../Components/ProjecaoSaldoGraph';
 import DetalhesDoDiaModal from '../Components/DetalhesDoDiaModal';
-import NotificationContainer from '../Components/NotificationContainer';
+
+// Hooks e utilitários
+import useDashboardData from '../hooks/useDashboardData';
+import useAuth from '../hooks/useAuth';
 
 // Modais
 import ContasModal from '../Components/ContasModal';
@@ -29,33 +24,56 @@ import CartoesModal from '../Components/CartoesModal';
 import TransferenciasModal from '../Components/TransferenciasModal';
 
 /**
+ * Função para formatar valores em moeda brasileira
+ * Versão corrigida e consistente
+ */
+const formatCurrency = (value) => {
+  // Garantir que o valor é um número
+  const numericValue = Number(value) || 0;
+  
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(numericValue);
+};
+
+/**
  * Dashboard principal da aplicação de finanças pessoais
- * CORRIGIDO: Refatorado para usar Zustand stores
+ * Versão corrigida com botões limpos e organizados
  */
 const Dashboard = () => {
-  // CORRIGIDO: Zustand stores
-  const { user, signOut, isAuthenticated } = useAuthStore();
-  const { 
-    data, 
-    loading, 
-    error, 
-    selectedDate,
-    setSelectedDate,
-    fetchDashboardData,
-    refreshData
-  } = useDashboardStore();
-  const { 
-    modals, 
-    openModal, 
-    closeModal, 
-    showNotification 
-  } = useUIStore();
+  // Hooks
+  const { data, loading, error } = useDashboardData();
+  const { user, signOut } = useAuth();
   
-  // Estados locais para UI
+  // Função para atualizar dados após salvar transação
+  const handleTransacaoSalva = () => {
+    console.log('🔄 Transação salva com sucesso!');
+  };
+  
+  // Estado local para a data atual e selecionada
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showMoreActions, setShowMoreActions] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  
+  // Estado para controlar a exibição dos modais
+  const [showContasModal, setShowContasModal] = useState(false);
+  const [showDespesasModal, setShowDespesasModal] = useState(false);
+  const [showReceitasModal, setShowReceitasModal] = useState(false);
+  const [showDespesasCartaoModal, setShowDespesasCartaoModal] = useState(false);
+  const [showCartaoModal, setShowCartaoModal] = useState(false);
+  const [showCategoriasModal, setShowCategoriasModal] = useState(false);
+  const [showTransferenciasModal, setShowTransferenciasModal] = useState(false);
+  
+  // Estado para controlar o modal de detalhes do dia
+  const [showDetalhesDiaModal, setShowDetalhesDiaModal] = useState(false);
   const [diaDetalhes, setDiaDetalhes] = useState(null);
+  
+  // Estados para controlar a animação de flip dos cards
   const [flippedCards, setFlippedCards] = useState({
     saldo: false,
     receitas: false,
@@ -67,14 +85,6 @@ const Dashboard = () => {
   const datePickerRef = useRef(null);
   const moreActionsRef = useRef(null);
   const userMenuRef = useRef(null);
-
-  // CORRIGIDO: Carregar dados do dashboard quando componente monta
-  useEffect(() => {
-    if (isAuthenticated) {
-      console.log('🔄 Dashboard montado, carregando dados...');
-      fetchDashboardData();
-    }
-  }, [isAuthenticated, selectedDate, fetchDashboardData]);
 
   // Efeito para fechar dropdowns ao clicar fora
   useEffect(() => {
@@ -96,13 +106,6 @@ const Dashboard = () => {
     };
   }, []);
   
-  // CORRIGIDO: Função para atualizar dados após salvar transação
-  const handleTransacaoSalva = () => {
-    console.log('🔄 Transação salva com sucesso!');
-    refreshData();
-    showNotification('Transação salva com sucesso!', 'success');
-  };
-  
   // Função para navegar para o mês anterior
   const handlePreviousMonth = () => {
     setSelectedDate(subMonths(selectedDate, 1));
@@ -123,58 +126,58 @@ const Dashboard = () => {
   const mesAnoSelecionado = format(selectedDate, 'MMMM yyyy', { locale: ptBR });
   const mesAnoSelecionadoCapitalizado = mesAnoSelecionado.charAt(0).toUpperCase() + mesAnoSelecionado.slice(1);
   
-  // Ações principais
+  // Ações principais - VERSÃO LIMPA E ORGANIZADA
   const mainActions = [
     {
       id: 'add-receita',
       label: 'Receita',
       icon: '💰',
       color: 'green',
-      action: () => openModal('receitas')
+      action: () => setShowReceitasModal(true)
     },
     {
       id: 'add-despesa', 
       label: 'Despesa',
       icon: '💸',
       color: 'red',
-      action: () => openModal('despesas')
+      action: () => setShowDespesasModal(true)
     },
     {
       id: 'add-cartao-compra',
       label: 'Cartão',
       icon: '💳',
       color: 'purple',
-      action: () => openModal('despesasCartao')
+      action: () => setShowDespesasCartaoModal(true)
     },
     {
       id: 'transferencia',
       label: 'Transferir',
       icon: <ArrowLeftRight size={16} />,
       color: 'blue',
-      action: () => openModal('transferencias')
+      action: () => setShowTransferenciasModal(true)
     },
     {
       id: 'contas',
       label: 'Contas',
       icon: <Wallet size={16} />,
       color: 'green',
-      action: () => openModal('contas')
+      action: () => setShowContasModal(true)
     }
   ];
 
-  // Ações secundárias
+  // Ações secundárias - sempre no menu "Mais"
   const moreActions = [
     {
       id: 'cartoes-gerenciar',
       label: 'Meus Cartões',
       icon: <CreditCard size={16} />,
-      action: () => openModal('cartoes')
+      action: () => setShowCartaoModal(true)
     },
     {
       id: 'categorias',
       label: 'Categorias',
       icon: '📊',
-      action: () => openModal('categorias')
+      action: () => setShowCategoriasModal(true)
     },
     {
       id: 'diagnostico',
@@ -201,20 +204,27 @@ const Dashboard = () => {
   // Handler para quando um dia é clicado no calendário
   const handleDiaClick = (dia) => {
     setDiaDetalhes(dia);
-    openModal('detalhesDia');
+    setShowDetalhesDiaModal(true);
   };
 
   // Função de logout
   const handleLogout = async () => {
     try {
       console.log('🚪 Logout iniciado...');
-      await signOut();
-      showNotification('Logout realizado com sucesso!', 'success');
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      if (typeof signOut === 'function') {
+        try {
+          await signOut();
+        } catch (err) {
+          console.warn('⚠️ Erro no logout Supabase:', err);
+        }
+      }
+      
       window.location.replace('/login');
     } catch (err) {
       console.error('❌ Erro no logout:', err);
-      showNotification('Erro ao fazer logout', 'error');
-      // Força logout mesmo com erro
       localStorage.clear();
       sessionStorage.clear();
       window.location.replace('/login');
@@ -227,8 +237,9 @@ const Dashboard = () => {
     setShowUserMenu(false);
   };
 
-  // CORRIGIDO: Funções auxiliares para dados do usuário
+  // Obter nome do usuário
   const getUserDisplayName = () => {
+    if (data?.usuario?.nome) return data.usuario.nome;
     if (user?.user_metadata?.nome) return user.user_metadata.nome;
     if (user?.user_metadata?.full_name) return user.user_metadata.full_name;
     if (user?.email) return user.email.split('@')[0];
@@ -241,28 +252,12 @@ const Dashboard = () => {
   };
 
   const getUserEmail = () => {
-    return user?.email || 'usuario@exemplo.com';
+    return data?.usuario?.email || user?.email || 'usuario@exemplo.com';
   };
 
   const getUserAvatar = () => {
-    return user?.user_metadata?.avatar_url || null;
+    return data?.usuario?.avatar_url || user?.user_metadata?.avatar_url || null;
   };
-
-  // Se não estiver autenticado, redireciona
-  if (!isAuthenticated) {
-    window.location.replace('/login');
-    return null;
-  }
-
-  // CORRIGIDO: Dados seguros para evitar erros
-  const dadosSegurosSaldo = data?.saldo || { atual: 0, previsto: 0 };
-  const dadosSegurosDespesas = data?.despesas || { atual: 0, previsto: 0, categorias: [] };
-  const dadosSeguroReceitas = data?.receitas || { atual: 0, previsto: 0, categorias: [] };
-  const dadosSeguroCartao = data?.cartaoCredito || { atual: 0, limite: 0 };
-  const contasDetalhadas = data?.contasDetalhadas || [];
-  const cartoesDetalhados = data?.cartoesDetalhados || [];
-  const receitasPorCategoria = data?.receitasPorCategoria || [];
-  const despesasPorCategoria = data?.despesasPorCategoria || [];
 
   return (
     <div className="dashboard-wrapper">
@@ -411,7 +406,7 @@ const Dashboard = () => {
           </button>
         </div>
         
-        {/* Barra de ações rápidas */}
+        {/* Barra de ações rápidas - VERSÃO CORRIGIDA */}
         <div className="quick-actions-bar">
           <div className="main-actions">
             {mainActions.map((action) => (
@@ -461,7 +456,7 @@ const Dashboard = () => {
           </div>
         </div>
         
-        {/* Cards Grid */}
+        {/* Cards Grid - VERSÃO LIMPA SEM DICAS */}
         <div className="cards-grid">
           {/* Card de Saldo */}
           <div 
@@ -477,14 +472,14 @@ const Dashboard = () => {
                 <div className="card-value-section">
                   <div className="card-label">Atual</div>
                   <div className="card-value">
-                    {loading ? 'Carregando...' : formatCurrency(dadosSegurosSaldo.atual)}
+                    {loading ? 'Carregando...' : formatCurrency(data?.saldo?.atual || 0)}
                   </div>
                 </div>
                 
                 <div className="card-value-section">
                   <div className="card-label">Previsto</div>
                   <div className="card-value-sm">
-                    {loading ? 'Carregando...' : formatCurrency(dadosSegurosSaldo.previsto)}
+                    {loading ? 'Carregando...' : formatCurrency(data?.saldo?.previsto || 0)}
                   </div>
                 </div>
               </div>
@@ -492,12 +487,12 @@ const Dashboard = () => {
               <div className="card-back">
                 <div className="card-detail-total">
                   <span>Saldo Total:</span>
-                  <span>{formatCurrency(dadosSegurosSaldo.atual)}</span>
+                  <span>{formatCurrency(data?.saldo?.atual || 0)}</span>
                 </div>
                 
                 <div className="card-details">
-                  {contasDetalhadas.length > 0 ? (
-                    contasDetalhadas.map((conta, index) => (
+                  {data?.contasDetalhadas?.length > 0 ? (
+                    data.contasDetalhadas.map((conta, index) => (
                       <div key={index} className="detail-item">
                         <span className="detail-name">{conta.nome}</span>
                         <span className="detail-value">{formatCurrency(conta.saldo)}</span>
@@ -528,14 +523,14 @@ const Dashboard = () => {
                 <div className="card-value-section">
                   <div className="card-label">Atual</div>
                   <div className="card-value">
-                    {loading ? 'Carregando...' : formatCurrency(dadosSeguroReceitas.atual)}
+                    {loading ? 'Carregando...' : formatCurrency(data?.receitas?.atual || 0)}
                   </div>
                 </div>
                 
                 <div className="card-value-section">
                   <div className="card-label">Previsto</div>
                   <div className="card-value-sm">
-                    {loading ? 'Carregando...' : formatCurrency(dadosSeguroReceitas.previsto)}
+                    {loading ? 'Carregando...' : formatCurrency(data?.receitas?.previsto || 0)}
                   </div>
                 </div>
               </div>
@@ -543,12 +538,12 @@ const Dashboard = () => {
               <div className="card-back">
                 <div className="card-detail-total">
                   <span>Total Receitas:</span>
-                  <span>{formatCurrency(dadosSeguroReceitas.atual)}</span>
+                  <span>{formatCurrency(data?.receitas?.atual || 0)}</span>
                 </div>
                 
                 <div className="card-details">
-                  {dadosSeguroReceitas.categorias.length > 0 ? (
-                    dadosSeguroReceitas.categorias.slice(0, 5).map((receita, index) => (
+                  {data?.receitas?.categorias?.length > 0 ? (
+                    data.receitas.categorias.slice(0, 5).map((receita, index) => (
                       <div key={index} className="detail-item">
                         <span className="detail-name">{receita.nome}</span>
                         <span className="detail-value">{formatCurrency(receita.valor)}</span>
@@ -579,14 +574,14 @@ const Dashboard = () => {
                 <div className="card-value-section">
                   <div className="card-label">Atual</div>
                   <div className="card-value">
-                    {loading ? 'Carregando...' : formatCurrency(dadosSegurosDespesas.atual)}
+                    {loading ? 'Carregando...' : formatCurrency(data?.despesas?.atual || 0)}
                   </div>
                 </div>
                 
                 <div className="card-value-section">
                   <div className="card-label">Previsto</div>
                   <div className="card-value-sm">
-                    {loading ? 'Carregando...' : formatCurrency(dadosSegurosDespesas.previsto)}
+                    {loading ? 'Carregando...' : formatCurrency(data?.despesas?.previsto || 0)}
                   </div>
                 </div>
               </div>
@@ -594,12 +589,12 @@ const Dashboard = () => {
               <div className="card-back">
                 <div className="card-detail-total">
                   <span>Total Despesas:</span>
-                  <span>{formatCurrency(dadosSegurosDespesas.atual)}</span>
+                  <span>{formatCurrency(data?.despesas?.atual || 0)}</span>
                 </div>
                 
                 <div className="card-details">
-                  {dadosSegurosDespesas.categorias.length > 0 ? (
-                    dadosSegurosDespesas.categorias.slice(0, 5).map((despesa, index) => (
+                  {data?.despesas?.categorias?.length > 0 ? (
+                    data.despesas.categorias.slice(0, 5).map((despesa, index) => (
                       <div key={index} className="detail-item">
                         <span className="detail-name">{despesa.nome}</span>
                         <span className="detail-value">{formatCurrency(despesa.valor)}</span>
@@ -630,14 +625,14 @@ const Dashboard = () => {
                 <div className="card-value-section">
                   <div className="card-label">Usado</div>
                   <div className="card-value">
-                    {loading ? 'Carregando...' : formatCurrency(dadosSeguroCartao.atual)}
+                    {loading ? 'Carregando...' : formatCurrency(data?.cartaoCredito?.atual || 0)}
                   </div>
                 </div>
                 
                 <div className="card-value-section">
                   <div className="card-label">Limite Total</div>
                   <div className="card-value-sm">
-                    {loading ? 'Carregando...' : formatCurrency(dadosSeguroCartao.limite)}
+                    {loading ? 'Carregando...' : formatCurrency(data?.cartaoCredito?.limite || 0)}
                   </div>
                 </div>
               </div>
@@ -645,12 +640,12 @@ const Dashboard = () => {
               <div className="card-back">
                 <div className="card-detail-total">
                   <span>Limite Usado:</span>
-                  <span>{formatCurrency(dadosSeguroCartao.atual)}</span>
+                  <span>{formatCurrency(data?.cartaoCredito?.atual || 0)}</span>
                 </div>
                 
                 <div className="card-details">
-                  {cartoesDetalhados.length > 0 ? (
-                    cartoesDetalhados.map((cartao, index) => (
+                  {data?.cartoesDetalhados?.length > 0 ? (
+                    data.cartoesDetalhados.map((cartao, index) => (
                       <div key={index} className="detail-item">
                         <span className="detail-name">{cartao.nome}</span>
                         <span className="detail-value">{formatCurrency(cartao.usado)}</span>
@@ -665,7 +660,7 @@ const Dashboard = () => {
                   <div className="detail-item">
                     <span className="detail-name">Disponível</span>
                     <span className="detail-value">
-                      {formatCurrency(dadosSeguroCartao.limite - dadosSeguroCartao.atual)}
+                      {formatCurrency((data?.cartaoCredito?.limite || 0) - (data?.cartaoCredito?.atual || 0))}
                     </span>
                   </div>
                 </div>
@@ -684,7 +679,7 @@ const Dashboard = () => {
             
             <div className="chart-container">
               <DonutChartCategoria 
-                data={receitasPorCategoria.length > 0 ? receitasPorCategoria : [
+                data={data?.receitasPorCategoria || [
                   { nome: "Sem receitas", valor: 0, color: "#E5E7EB" }
                 ]} 
               />
@@ -699,7 +694,7 @@ const Dashboard = () => {
             
             <div className="chart-container">
               <DonutChartCategoria 
-                data={despesasPorCategoria.length > 0 ? despesasPorCategoria : [
+                data={data?.despesasPorCategoria || [
                   { nome: "Sem despesas", valor: 0, color: "#E5E7EB" }
                 ]} 
               />
@@ -736,47 +731,47 @@ const Dashboard = () => {
           </div>
         </div>
         
-        {/* CORRIGIDO: Modais - Usando Zustand para controle */}
+        {/* Modais */}
         <ContasModal 
-          isOpen={modals.contas} 
-          onClose={() => closeModal('contas')} 
+          isOpen={showContasModal} 
+          onClose={() => setShowContasModal(false)} 
         />
         
         <DespesasModal
-          isOpen={modals.despesas}
-          onClose={() => closeModal('despesas')}
+          isOpen={showDespesasModal}
+          onClose={() => setShowDespesasModal(false)}
           onSave={handleTransacaoSalva}
         />
         
         <ReceitasModal
-          isOpen={modals.receitas}
-          onClose={() => closeModal('receitas')}
+          isOpen={showReceitasModal}
+          onClose={() => setShowReceitasModal(false)}
           onSave={handleTransacaoSalva}
         />
         
         <DespesasCartaoModal
-          isOpen={modals.despesasCartao}
-          onClose={() => closeModal('despesasCartao')}
+          isOpen={showDespesasCartaoModal}
+          onClose={() => setShowDespesasCartaoModal(false)}
         />
         
         <CartoesModal
-          isOpen={modals.cartoes}
-          onClose={() => closeModal('cartoes')}
+          isOpen={showCartaoModal}
+          onClose={() => setShowCartaoModal(false)}
         />
         
         <CategoriasModal
-          isOpen={modals.categorias}
-          onClose={() => closeModal('categorias')}
+          isOpen={showCategoriasModal}
+          onClose={() => setShowCategoriasModal(false)}
         />
 
         <TransferenciasModal
-          isOpen={modals.transferencias}
-          onClose={() => closeModal('transferencias')}
+          isOpen={showTransferenciasModal}
+          onClose={() => setShowTransferenciasModal(false)}
         />
 
         <DetalhesDoDiaModal
-          isOpen={modals.detalhesDia}
-          onClose={() => closeModal('detalhesDia')}
+          isOpen={showDetalhesDiaModal}
+          onClose={() => setShowDetalhesDiaModal(false)}
           dia={diaDetalhes}
         />
         
@@ -788,9 +783,6 @@ const Dashboard = () => {
           </div>
         )}
       </div>
-      
-      {/* NOVO: Container de notificações */}
-      <NotificationContainer />
     </div>
   );
 };
