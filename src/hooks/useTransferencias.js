@@ -1,261 +1,154 @@
+// src/hooks/useTransferencias.js
 import { useState, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import useAuth from './useAuth';
 
 /**
- * Hook personalizado para gerenciar transferências entre contas
- * VERSÃO ATUALIZADA - Permite saldo negativo e garante gravação no banco
+ * Hook para gerenciar transferências entre contas
+ * Permite saldos negativos e cria transações vinculadas
  */
 const useTransferencias = () => {
-  // Estados
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  // Hook de autenticação
+  
   const { user, isAuthenticated } = useAuth();
 
-  // Realiza uma transferência entre contas - VERSÃO COM SALDO NEGATIVO
+  // Realizar transferência entre contas
   const realizarTransferencia = useCallback(async (dadosTransferencia) => {
     if (!isAuthenticated || !user) {
       return { success: false, error: 'Usuário não autenticado' };
-    }
-
-    const { contaOrigemId, contaDestinoId, valor, descricao } = dadosTransferencia;
-
-    // Validações básicas
-    if (!contaOrigemId || !contaDestinoId) {
-      return { success: false, error: 'Contas de origem e destino são obrigatórias' };
-    }
-
-    if (contaOrigemId === contaDestinoId) {
-      return { success: false, error: 'Conta de origem e destino não podem ser iguais' };
-    }
-
-    if (!valor || valor <= 0) {
-      return { success: false, error: 'Valor deve ser maior que zero' };
     }
 
     try {
       setLoading(true);
       setError(null);
 
-      console.log('🔄 Iniciando transferência com saldo negativo permitido...', {
-        origem: contaOrigemId,
-        destino: contaDestinoId,
-        valor: valor,
-        usuario: user.id
-      });
+      const { contaOrigemId, contaDestinoId, valor, descricao } = dadosTransferencia;
 
-      // 1. BUSCA E VALIDA AS CONTAS
-      const { data: contas, error: contasError } = await supabase
-        .from('contas')
-        .select('id, nome, saldo, ativo')
-        .in('id', [contaOrigemId, contaDestinoId])
-        .eq('usuario_id', user.id);
-
-      if (contasError) {
-        console.error('❌ Erro ao buscar contas:', contasError);
-        throw new Error('Erro ao buscar contas: ' + contasError.message);
+      // Validações básicas
+      if (!contaOrigemId || !contaDestinoId || !valor || valor <= 0) {
+        return { success: false, error: 'Dados da transferência são obrigatórios' };
       }
 
+      if (contaOrigemId === contaDestinoId) {
+        return { success: false, error: 'Conta de origem e destino devem ser diferentes' };
+      }
+
+      // Buscar as contas
+      const { data: contas, error: contasError } = await supabase
+        .from('contas')
+        .select('*')
+        .in('id', [contaOrigemId, contaDestinoId])
+        .eq('usuario_id', user.id)
+        .eq('ativo', true);
+
+      if (contasError) throw contasError;
+
       if (!contas || contas.length !== 2) {
-        throw new Error('Uma ou ambas as contas não foram encontradas');
+        return { success: false, error: 'Uma ou ambas as contas não foram encontradas' };
       }
 
       const contaOrigem = contas.find(c => c.id === contaOrigemId);
       const contaDestino = contas.find(c => c.id === contaDestinoId);
 
       if (!contaOrigem || !contaDestino) {
-        throw new Error('Contas não encontradas');
+        return { success: false, error: 'Erro ao identificar as contas' };
       }
 
-      if (!contaOrigem.ativo || !contaDestino.ativo) {
-        throw new Error('Uma das contas está inativa');
-      }
+      // Gerar identificador único para o grupo de transferência
+      const grupoTransferencia = crypto.randomUUID();
+      const dataAtual = new Date().toISOString().split('T')[0];
+      const timestamp = new Date().toISOString();
 
-      console.log('✅ Contas validadas:', {
-        origem: { nome: contaOrigem.nome, saldo: contaOrigem.saldo },
-        destino: { nome: contaDestino.nome, saldo: contaDestino.saldo }
-      });
-
-      // 2. AVISO SOBRE SALDO NEGATIVO (mas não impede a transferência)
-      let avisoSaldoNegativo = null;
-      if (contaOrigem.saldo < valor) {
-        const novoSaldoOrigem = contaOrigem.saldo - valor;
-        avisoSaldoNegativo = `A conta ${contaOrigem.nome} ficará com saldo negativo: R$ ${novoSaldoOrigem.toFixed(2)}`;
-        console.log('⚠️ Aviso:', avisoSaldoNegativo);
-      }
-
-      // 3. EXECUTA A TRANSFERÊNCIA (SEMPRE MANUAL PARA GARANTIR GRAVAÇÃO)
-      console.log('🔄 Executando transferência manual garantida...');
-
-      const novoSaldoOrigem = contaOrigem.saldo - valor;
-      const novoSaldoDestino = contaDestino.saldo + valor;
-      const agora = new Date().toISOString();
-
-      // 3.1 Atualiza saldo da conta origem
-      console.log('📤 Atualizando conta origem...', { id: contaOrigemId, novoSaldo: novoSaldoOrigem });
-      
-      const { data: origemData, error: origemError } = await supabase
-        .from('contas')
-        .update({ 
-          saldo: novoSaldoOrigem,
-          updated_at: agora
-        })
-        .eq('id', contaOrigemId)
-        .eq('usuario_id', user.id)
-        .select();
-
-      if (origemError) {
-        console.error('❌ Erro ao atualizar conta origem:', origemError);
-        throw new Error('Erro ao debitar da conta origem: ' + origemError.message);
-      }
-
-      if (!origemData || origemData.length === 0) {
-        throw new Error('Falha ao atualizar conta origem - nenhum registro afetado');
-      }
-
-      console.log('✅ Conta origem atualizada:', origemData[0]);
-
-      // 3.2 Atualiza saldo da conta destino
-      console.log('📥 Atualizando conta destino...', { id: contaDestinoId, novoSaldo: novoSaldoDestino });
-
-      const { data: destinoData, error: destinoError } = await supabase
-        .from('contas')
-        .update({ 
-          saldo: novoSaldoDestino,
-          updated_at: agora
-        })
-        .eq('id', contaDestinoId)
-        .eq('usuario_id', user.id)
-        .select();
-
-      if (destinoError) {
-        console.error('❌ Erro ao atualizar conta destino:', destinoError);
-        
-        // ROLLBACK: Reverte a conta origem
-        console.log('🔄 Fazendo rollback da conta origem...');
-        await supabase
-          .from('contas')
-          .update({ 
-            saldo: contaOrigem.saldo,
-            updated_at: agora
-          })
-          .eq('id', contaOrigemId)
-          .eq('usuario_id', user.id);
-        
-        throw new Error('Erro ao creditar na conta destino: ' + destinoError.message);
-      }
-
-      if (!destinoData || destinoData.length === 0) {
-        // ROLLBACK: Reverte a conta origem
-        console.log('🔄 Fazendo rollback da conta origem...');
-        await supabase
-          .from('contas')
-          .update({ 
-            saldo: contaOrigem.saldo,
-            updated_at: agora
-          })
-          .eq('id', contaOrigemId)
-          .eq('usuario_id', user.id);
-          
-        throw new Error('Falha ao atualizar conta destino - nenhum registro afetado');
-      }
-
-      console.log('✅ Conta destino atualizada:', destinoData[0]);
-
-      // 3.3 FORÇA a gravação das transações de histórico
-      console.log('📝 Criando transações de histórico...');
-
+      // Criar as transações da transferência
       const transacoes = [
         {
           usuario_id: user.id,
+          data: dataAtual,
+          descricao: `Transferência para ${contaDestino.nome}${descricao ? ` - ${descricao}` : ''}`,
           conta_id: contaOrigemId,
-          tipo: 'despesa',
-          categoria: 'transferencia',
-          descricao: descricao || `Transferência para ${contaDestino.nome}`,
           valor: valor,
-          data: agora,
-          created_at: agora,
-          updated_at: agora
+          tipo: 'despesa',
+          efetivado: true,
+          transferencia: true,
+          grupo_transferencia: grupoTransferencia,
+          observacoes: descricao || null,
+          created_at: timestamp,
+          updated_at: timestamp
         },
         {
           usuario_id: user.id,
+          data: dataAtual,
+          descricao: `Transferência de ${contaOrigem.nome}${descricao ? ` - ${descricao}` : ''}`,
           conta_id: contaDestinoId,
-          tipo: 'receita',
-          categoria: 'transferencia',
-          descricao: descricao || `Transferência de ${contaOrigem.nome}`,
           valor: valor,
-          data: agora,
-          created_at: agora,
-          updated_at: agora
+          tipo: 'receita',
+          efetivado: true,
+          transferencia: true,
+          grupo_transferencia: grupoTransferencia,
+          observacoes: descricao || null,
+          created_at: timestamp,
+          updated_at: timestamp
         }
       ];
 
-      const { data: transacoesData, error: transacoesError } = await supabase
+      // Inserir as transações
+      const { error: transacoesError } = await supabase
         .from('transacoes')
-        .insert(transacoes)
-        .select();
+        .insert(transacoes);
 
-      if (transacoesError) {
-        console.error('⚠️ Erro ao criar transações de histórico:', transacoesError);
-        // Não falha a transferência por causa do histórico, mas avisa
-      } else {
-        console.log('✅ Transações de histórico criadas:', transacoesData?.length || 0, 'registros');
-      }
+      if (transacoesError) throw transacoesError;
 
-      // 3.4 OPCIONALMENTE, salva na tabela de transferências (se existir)
-      try {
-        console.log('📋 Tentando salvar registro de transferência...');
-        
-        const { data: transferData, error: transferError } = await supabase
-          .from('transferencias')
-          .insert([{
-            usuario_id: user.id,
-            conta_origem_id: contaOrigemId,
-            conta_destino_id: contaDestinoId,
-            valor: valor,
-            descricao: descricao || `Transferência de ${contaOrigem.nome} para ${contaDestino.nome}`,
-            data: agora,
-            created_at: agora,
-            updated_at: agora
-          }])
-          .select();
+      // Calcular novos saldos
+      const novoSaldoOrigem = contaOrigem.saldo - valor;
+      const novoSaldoDestino = contaDestino.saldo + valor;
 
-        if (transferError) {
-          console.log('⚠️ Tabela transferências não existe ou erro:', transferError.message);
-        } else {
-          console.log('✅ Registro de transferência salvo:', transferData?.[0]?.id);
-        }
-      } catch (transferErr) {
-        console.log('⚠️ Erro ao salvar na tabela transferências (ignorado):', transferErr.message);
-      }
+      // Atualizar saldo da conta de origem
+      const { error: origemError } = await supabase
+        .from('contas')
+        .update({ 
+          saldo: novoSaldoOrigem,
+          updated_at: timestamp
+        })
+        .eq('id', contaOrigemId)
+        .eq('usuario_id', user.id);
 
-      // 4. SUCESSO COMPLETO!
-      console.log('🎉 Transferência concluída com sucesso!');
+      if (origemError) throw origemError;
 
-      let mensagemSucesso = `Transferência de ${formatCurrency(valor)} realizada com sucesso!`;
-      if (avisoSaldoNegativo) {
-        mensagemSucesso += `\n⚠️ ${avisoSaldoNegativo}`;
-      }
+      // Atualizar saldo da conta de destino
+      const { error: destinoError } = await supabase
+        .from('contas')
+        .update({ 
+          saldo: novoSaldoDestino,
+          updated_at: timestamp
+        })
+        .eq('id', contaDestinoId)
+        .eq('usuario_id', user.id);
 
-      return {
-        success: true,
-        message: mensagemSucesso,
+      if (destinoError) throw destinoError;
+
+      // Verificar se ficou com saldo negativo
+      const avisoSaldoNegativo = novoSaldoOrigem < 0;
+
+      return { 
+        success: true, 
+        message: avisoSaldoNegativo 
+          ? `Transferência realizada! ${contaOrigem.nome} ficou com saldo negativo.`
+          : 'Transferência realizada com sucesso!',
         aviso: avisoSaldoNegativo,
-        data: {
+        dados: {
+          grupoTransferencia,
           contaOrigem: contaOrigem.nome,
           contaDestino: contaDestino.nome,
-          valor: valor,
-          novoSaldoOrigem: novoSaldoOrigem,
-          novoSaldoDestino: novoSaldoDestino,
-          saldoOrigemNegativo: novoSaldoOrigem < 0
+          valor,
+          novoSaldoOrigem,
+          novoSaldoDestino
         }
       };
 
     } catch (err) {
-      console.error('❌ Erro na transferência:', err);
-      const errorMessage = err.message || 'Não foi possível realizar a transferência. Tente novamente.';
+      console.error('❌ Erro ao realizar transferência:', err);
+      const errorMessage = err.message || 'Erro inesperado ao realizar transferência';
       setError(errorMessage);
       return { success: false, error: errorMessage };
     } finally {
@@ -263,16 +156,48 @@ const useTransferencias = () => {
     }
   }, [isAuthenticated, user]);
 
-  // Função auxiliar para formatar moeda
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
+  // Verificar se a transferência foi gravada corretamente
+  const verificarTransferencia = useCallback(async (contaOrigemId, contaDestinoId, valor) => {
+    if (!isAuthenticated || !user) {
+      return false;
+    }
 
-  // Busca histórico de transferências (das transações)
-  const buscarHistorico = useCallback(async (limite = 50) => {
+    try {
+      // Buscar transações da transferência (últimos 5 minutos)
+      const cincoMinutosAtras = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+
+      const { data: transacoes, error } = await supabase
+        .from('transacoes')
+        .select('*')
+        .eq('usuario_id', user.id)
+        .eq('transferencia', true)
+        .gte('created_at', cincoMinutosAtras)
+        .in('conta_id', [contaOrigemId, contaDestinoId]);
+
+      if (error) {
+        console.error('Erro ao verificar transferência:', error);
+        return false;
+      }
+
+      // Verificar se encontrou as duas transações
+      const transacaoOrigem = transacoes?.find(t => 
+        t.conta_id === contaOrigemId && t.tipo === 'despesa' && t.valor === valor
+      );
+      
+      const transacaoDestino = transacoes?.find(t => 
+        t.conta_id === contaDestinoId && t.tipo === 'receita' && t.valor === valor
+      );
+
+      return !!(transacaoOrigem && transacaoDestino);
+
+    } catch (err) {
+      console.error('❌ Erro ao verificar transferência:', err);
+      return false;
+    }
+  }, [isAuthenticated, user]);
+
+  // Buscar histórico de transferências
+  const buscarHistoricoTransferencias = useCallback(async (limite = 20) => {
     if (!isAuthenticated || !user) {
       return { success: false, error: 'Usuário não autenticado' };
     }
@@ -281,55 +206,57 @@ const useTransferencias = () => {
       setLoading(true);
       setError(null);
 
-      // Busca das transações de transferência
-      const { data: transacoes, error: transacoesError } = await supabase
+      const { data, error } = await supabase
         .from('transacoes')
         .select(`
           *,
-          conta:contas(id, nome, tipo)
+          conta:contas(id, nome, tipo, cor)
         `)
         .eq('usuario_id', user.id)
-        .eq('categoria', 'transferencia')
+        .eq('transferencia', true)
         .order('created_at', { ascending: false })
         .limit(limite);
 
-      if (transacoesError) {
-        throw transacoesError;
-      }
+      if (error) throw error;
 
-      // Tenta buscar da tabela de transferências também (se existir)
-      let transferenciasEspecificas = [];
-      try {
-        const { data: transfers, error: transfersError } = await supabase
-          .from('transferencias')
-          .select(`
-            *,
-            conta_origem:contas!transferencias_conta_origem_id_fkey(id, nome),
-            conta_destino:contas!transferencias_conta_destino_id_fkey(id, nome)
-          `)
-          .eq('usuario_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(limite);
-
-        if (!transfersError && transfers) {
-          transferenciasEspecificas = transfers;
-          console.log('✅ Encontradas transferências específicas:', transfers.length);
+      // Agrupar por grupo_transferencia
+      const transferenciasAgrupadas = {};
+      
+      data?.forEach(transacao => {
+        const grupo = transacao.grupo_transferencia;
+        if (!transferenciasAgrupadas[grupo]) {
+          transferenciasAgrupadas[grupo] = [];
         }
-      } catch (err) {
-        console.log('⚠️ Tabela transferências não disponível:', err.message);
-      }
+        transferenciasAgrupadas[grupo].push(transacao);
+      });
 
-      return { 
-        success: true, 
-        data: {
-          transacoes: transacoes || [],
-          transferencias: transferenciasEspecificas
-        }
-      };
+      // Converter para array de transferências completas
+      const transferencias = Object.values(transferenciasAgrupadas)
+        .map(grupo => {
+          const origem = grupo.find(t => t.tipo === 'despesa');
+          const destino = grupo.find(t => t.tipo === 'receita');
+          
+          if (origem && destino) {
+            return {
+              id: origem.grupo_transferencia,
+              data: origem.data,
+              valor: origem.valor,
+              descricao: origem.observacoes,
+              contaOrigem: origem.conta,
+              contaDestino: destino.conta,
+              created_at: origem.created_at
+            };
+          }
+          return null;
+        })
+        .filter(Boolean)
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+      return { success: true, data: transferencias };
 
     } catch (err) {
       console.error('❌ Erro ao buscar histórico:', err);
-      const errorMessage = 'Não foi possível carregar o histórico de transferências.';
+      const errorMessage = 'Erro ao buscar histórico de transferências';
       setError(errorMessage);
       return { success: false, error: errorMessage };
     } finally {
@@ -337,51 +264,114 @@ const useTransferencias = () => {
     }
   }, [isAuthenticated, user]);
 
-  // Função para verificar se uma transferência foi gravada corretamente
-  const verificarTransferencia = useCallback(async (contaOrigemId, contaDestinoId, valor) => {
-    if (!isAuthenticated || !user) return false;
+  // Cancelar transferência (reverter)
+  const cancelarTransferencia = useCallback(async (grupoTransferencia) => {
+    if (!isAuthenticated || !user) {
+      return { success: false, error: 'Usuário não autenticado' };
+    }
 
     try {
-      // Verifica se as contas foram atualizadas recentemente
-      const { data: contas, error } = await supabase
-        .from('contas')
-        .select('id, nome, saldo, updated_at')
-        .in('id', [contaOrigemId, contaDestinoId])
-        .eq('usuario_id', user.id);
+      setLoading(true);
+      setError(null);
 
-      if (error || !contas || contas.length !== 2) {
-        return false;
+      // Buscar as transações da transferência
+      const { data: transacoes, error: buscaError } = await supabase
+        .from('transacoes')
+        .select('*')
+        .eq('usuario_id', user.id)
+        .eq('grupo_transferencia', grupoTransferencia)
+        .eq('transferencia', true);
+
+      if (buscaError) throw buscaError;
+
+      if (!transacoes || transacoes.length !== 2) {
+        return { success: false, error: 'Transferência não encontrada ou incompleta' };
       }
 
-      // Verifica se foram atualizadas nos últimos 30 segundos
-      const agora = new Date();
-      const trinta_segundos_atras = new Date(agora.getTime() - 30000);
+      const origem = transacoes.find(t => t.tipo === 'despesa');
+      const destino = transacoes.find(t => t.tipo === 'receita');
 
-      const contasAtualizadas = contas.filter(conta => {
-        const updated = new Date(conta.updated_at);
-        return updated > trinta_segundos_atras;
-      });
+      if (!origem || !destino) {
+        return { success: false, error: 'Dados da transferência inconsistentes' };
+      }
 
-      console.log('🔍 Verificação de transferência:', {
-        contasEncontradas: contas.length,
-        contasAtualizadas: contasAtualizadas.length,
-        contas: contas.map(c => ({ nome: c.nome, saldo: c.saldo, updated: c.updated_at }))
-      });
+      // Buscar as contas para reverter os saldos
+      const { data: contas, error: contasError } = await supabase
+        .from('contas')
+        .select('*')
+        .in('id', [origem.conta_id, destino.conta_id])
+        .eq('usuario_id', user.id);
 
-      return contasAtualizadas.length === 2;
+      if (contasError) throw contasError;
+
+      const contaOrigem = contas.find(c => c.id === origem.conta_id);
+      const contaDestino = contas.find(c => c.id === destino.conta_id);
+
+      if (!contaOrigem || !contaDestino) {
+        return { success: false, error: 'Contas não encontradas' };
+      }
+
+      const timestamp = new Date().toISOString();
+
+      // Reverter os saldos
+      const { error: origemError } = await supabase
+        .from('contas')
+        .update({ 
+          saldo: contaOrigem.saldo + origem.valor, // Adiciona de volta
+          updated_at: timestamp
+        })
+        .eq('id', origem.conta_id);
+
+      if (origemError) throw origemError;
+
+      const { error: destinoError } = await supabase
+        .from('contas')
+        .update({ 
+          saldo: contaDestino.saldo - destino.valor, // Remove
+          updated_at: timestamp
+        })
+        .eq('id', destino.conta_id);
+
+      if (destinoError) throw destinoError;
+
+      // Marcar transações como canceladas (ou deletar)
+      const { error: deleteError } = await supabase
+        .from('transacoes')
+        .delete()
+        .eq('grupo_transferencia', grupoTransferencia)
+        .eq('usuario_id', user.id);
+
+      if (deleteError) throw deleteError;
+
+      return { 
+        success: true, 
+        message: 'Transferência cancelada e saldos revertidos com sucesso' 
+      };
+
     } catch (err) {
-      console.error('❌ Erro na verificação:', err);
-      return false;
+      console.error('❌ Erro ao cancelar transferência:', err);
+      const errorMessage = 'Erro ao cancelar transferência';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
     }
   }, [isAuthenticated, user]);
+
+  // Limpar erro
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
 
   return {
     loading,
     error,
     realizarTransferencia,
-    buscarHistorico,
     verificarTransferencia,
-    setError
+    buscarHistoricoTransferencias,
+    cancelarTransferencia,
+    setError: clearError,
+    clearError
   };
 };
 
