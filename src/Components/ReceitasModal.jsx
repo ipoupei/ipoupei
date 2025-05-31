@@ -1,4 +1,4 @@
-// src/components/ReceitasModal.jsx - VERSÃO ZUSTAND COMPATÍVEL
+// src/components/ReceitasModal.jsx - VERSÃO REFATORADA
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -15,7 +15,9 @@ import {
   Clock,
   PlusCircle,
   X,
-  Search
+  Search,
+  Info,
+  ArrowLeft
 } from 'lucide-react';
 
 // Imports compatíveis com Zustand
@@ -28,9 +30,8 @@ import { supabase } from '../lib/supabaseClient';
 import './FormsModal.css';
 
 /**
- * Modal de Receitas - Versão Zustand Compatível
- * Integrado com os stores do Zustand existentes
- * Remove dependências de hooks inexistentes
+ * Modal de Receitas - Versão Refatorada
+ * Design moderno, hierarquia visual clara e UX acolhedora
  */
 const ReceitasModal = ({ isOpen, onClose, onSave }) => {
   // Zustand stores
@@ -66,7 +67,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
 
   // Estado do formulário
   const [formData, setFormData] = useState({
-    valor: 0,
+    valor: '',
     data: new Date().toISOString().split('T')[0],
     descricao: '',
     categoria: '',
@@ -156,12 +157,17 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
   );
 
   // Cálculos derivados
+  const valorNumerico = useMemo(() => {
+    const valor = parseFloat(formData.valor.toString().replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
+    return valor;
+  }, [formData.valor]);
+
   const valorTotal = useMemo(() => {
     if (formData.isRecorrente) {
-      return formData.valor * formData.totalRecorrencias;
+      return valorNumerico * formData.totalRecorrencias;
     }
-    return formData.valor;
-  }, [formData.valor, formData.totalRecorrencias, formData.isRecorrente]);
+    return valorNumerico;
+  }, [valorNumerico, formData.totalRecorrencias, formData.isRecorrente]);
 
   const dataFinal = useMemo(() => {
     if (formData.isRecorrente && formData.data) {
@@ -245,7 +251,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
   const resetForm = useCallback(() => {
     const dataAtual = new Date().toISOString().split('T')[0];
     setFormData({
-      valor: 0,
+      valor: '',
       data: dataAtual,
       descricao: '',
       categoria: '',
@@ -276,14 +282,27 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
     }
   }, [isOpen, resetForm]);
 
+  // Formatação de valor monetário
+  const formatarValor = useCallback((valor) => {
+    const valorLimpo = valor.toString().replace(/\D/g, '');
+    const valorNumerico = parseFloat(valorLimpo) / 100;
+    
+    if (isNaN(valorNumerico) || valorNumerico === 0) return '';
+    
+    return valorNumerico.toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }, []);
+
   // Handlers
   const handleInputChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
     let inputValue = type === 'checkbox' ? checked : value;
     
     // Converter números quando necessário
-    if (name === 'valor' || name === 'totalRecorrencias') {
-      inputValue = parseFloat(value) || 0;
+    if (name === 'totalRecorrencias') {
+      inputValue = Math.max(1, parseInt(value) || 1);
     }
     
     if (name === 'categoria') {
@@ -299,12 +318,6 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
         [name]: inputValue,
         efetivado: !dataFutura,
         primeiroEfetivado: !dataFutura
-      }));
-    } else if (name === 'totalRecorrencias') {
-      const quantidade = Math.max(1, parseInt(inputValue) || 1);
-      setFormData(prev => ({
-        ...prev,
-        [name]: quantidade
       }));
     } else if (name === 'isRecorrente') {
       setFormData(prev => ({
@@ -322,12 +335,13 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
     }
   }, [errors, isDataFutura]);
 
-  const handleValorChange = useCallback((value) => {
-    setFormData(prev => ({ ...prev, valor: value }));
+  const handleValorChange = useCallback((e) => {
+    const valorFormatado = formatarValor(e.target.value);
+    setFormData(prev => ({ ...prev, valor: valorFormatado }));
     if (errors.valor) {
       setErrors(prev => ({ ...prev, valor: null }));
     }
-  }, [errors.valor]);
+  }, [formatarValor, errors.valor]);
 
   const handleCategoriaChange = useCallback((e) => {
     const { value } = e.target;
@@ -453,9 +467,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
           categoriaTexto: data.nome
         }));
         
-        // Atualizar lista de categorias
         setCategorias(prev => [...prev, data]);
-        
         showNotification(`Categoria "${confirmacao.nome}" criada com sucesso!`, 'success');
         
       } else if (confirmacao.type === 'subcategoria') {
@@ -494,7 +506,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
   const validateForm = useCallback(() => {
     const newErrors = {};
     
-    if (!formData.valor || formData.valor === 0) {
+    if (!valorNumerico || valorNumerico === 0) {
       newErrors.valor = "Valor é obrigatório";
     }
     if (!formData.data) {
@@ -525,7 +537,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [formData]);
+  }, [formData, valorNumerico]);
 
   // Submissão do formulário
   const handleSubmit = useCallback(async (e, criarNova = false) => {
@@ -569,7 +581,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
             categoria_id: formData.categoria,
             subcategoria_id: formData.subcategoria || null,
             conta_id: formData.conta,
-            valor: formData.valor,
+            valor: valorNumerico,
             tipo: 'receita',
             efetivado: i === 0 ? formData.primeiroEfetivado : false,
             observacoes: formData.observacoes.trim() || null,
@@ -596,7 +608,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
           categoria_id: formData.categoria,
           subcategoria_id: formData.subcategoria || null,
           conta_id: formData.conta,
-          valor: formData.valor,
+          valor: valorNumerico,
           tipo: 'receita',
           efetivado: formData.efetivado,
           observacoes: formData.observacoes.trim() || null,
@@ -619,7 +631,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
       if (criarNova) {
         setFormData(prev => ({
           ...prev,
-          valor: 0,
+          valor: '',
           data: new Date().toISOString().split('T')[0],
           descricao: '',
           efetivado: true,
@@ -646,7 +658,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
     } finally {
       setSubmitting(false);
     }
-  }, [validateForm, user.id, formData, onSave, showNotification, resetForm, onClose]);
+  }, [validateForm, user.id, formData, valorNumerico, onSave, showNotification, resetForm, onClose]);
 
   const handleObservacoesChange = useCallback((e) => {
     if (e.target.value.length <= 300) {
@@ -664,27 +676,65 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
   return (
     <div className="receitas-modal-overlay">
       <div className="receitas-modal-container">
-        {/* Header */}
-        <div className="receitas-modal-header">
-          <h2 className="receitas-modal-title">
+        {/* Header Moderno */}
+        <div className="receitas-modal-header" style={{ 
+          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.02) 100%)',
+          borderBottom: '1px solid rgba(16, 185, 129, 0.1)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {formData.isRecorrente ? (
-              <Repeat size={18} style={{ color: '#10b981' }} />
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                width: '40px',
+                height: '40px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                color: 'white'
+              }}>
+                <Repeat size={20} />
+              </div>
             ) : (
-              <TrendingUp size={18} style={{ color: '#10b981' }} />
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                width: '40px',
+                height: '40px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                color: 'white'
+              }}>
+                <TrendingUp size={20} />
+              </div>
             )}
-            {formData.isRecorrente ? 'Receitas Recorrentes' : 'Nova Receita'}
-          </h2>
-          <button className="receitas-modal-close" onClick={onClose} aria-label="Fechar">
-            <X size={18} />
+            <div>
+              <h2 className="receitas-modal-title" style={{ margin: 0, fontSize: '1.25rem', fontWeight: '600' }}>
+                {formData.isRecorrente ? 'Receitas Recorrentes' : 'Nova Receita'}
+              </h2>
+              <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280', fontWeight: '400' }}>
+                {formData.isRecorrente ? 
+                  'Configure receitas que se repetem automaticamente' : 
+                  'Registre uma nova fonte de renda'
+                }
+              </p>
+            </div>
+          </div>
+          <button className="receitas-modal-close" onClick={onClose} aria-label="Fechar" style={{
+            borderRadius: '8px',
+            padding: '8px'
+          }}>
+            <X size={20} />
           </button>
         </div>
         
         {/* Content */}
-        <div className="receitas-modal-content">
+        <div className="receitas-modal-content" style={{ padding: '24px' }}>
           {/* Loading */}
           {loading ? (
             <div className="receitas-loading">
-              <div className="receitas-loading-spinner"></div>
+              <div className="receitas-loading-spinner" style={{ borderTopColor: '#10b981' }}></div>
               <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>
                 Carregando dados...
               </p>
@@ -692,78 +742,126 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
           ) : (
             <form onSubmit={(e) => handleSubmit(e, false)} className="receitas-form">
               
-              {/* Valor e Data */}
-              <div className="receitas-form-row">
-                <div className="receitas-form-group">
-                  <label className="receitas-form-label">
-                    <DollarSign size={14} />
-                    Valor {formData.isRecorrente ? '(cada)' : ''} *
-                  </label>
-                  <input
-                    ref={valorInputRef}
-                    type="number"
-                    name="valor"
-                    step="0.01"
-                    min="0"
-                    value={formData.valor}
-                    onChange={handleInputChange}
-                    placeholder="0.00"
-                    disabled={submitting}
-                    className={`receitas-form-input receitas-valor-input ${errors.valor ? 'error' : ''}`}
-                  />
-                  {errors.valor && (
-                    <div className="receitas-form-error">{errors.valor}</div>
-                  )}
+              {/* BLOCO 1: Valor e Data - Hierarquia Principal */}
+              <div style={{ 
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.03) 0%, rgba(16, 185, 129, 0.01) 100%)',
+                border: '1px solid rgba(16, 185, 129, 0.1)',
+                borderRadius: '16px',
+                padding: '20px',
+                marginBottom: '24px'
+              }}>
+                <div className="receitas-form-row">
+                  <div className="receitas-form-group">
+                    <label className="receitas-form-label" style={{ fontWeight: '600', color: '#374151' }}>
+                      <DollarSign size={16} style={{ color: '#10b981' }} />
+                      Valor {formData.isRecorrente ? '(cada)' : ''} *
+                    </label>
+                    <input
+                      ref={valorInputRef}
+                      type="text"
+                      name="valor"
+                      value={formData.valor}
+                      onChange={handleValorChange}
+                      placeholder="0,00"
+                      disabled={submitting}
+                      className={`receitas-form-input receitas-valor-input ${errors.valor ? 'error' : ''}`}
+                      style={{ 
+                        fontSize: '1.125rem',
+                        fontWeight: '700',
+                        color: '#10b981',
+                        textAlign: 'center',
+                        letterSpacing: '-0.025em'
+                      }}
+                    />
+                    {errors.valor && (
+                      <div className="receitas-form-error">{errors.valor}</div>
+                    )}
+                  </div>
+                  
+                  <div className="receitas-form-group">
+                    <label className="receitas-form-label" style={{ fontWeight: '600', color: '#374151' }}>
+                      <Calendar size={16} style={{ color: '#10b981' }} />
+                      {formData.isRecorrente ? 'Data de Início' : 'Data'} *
+                    </label>
+                    <input
+                      type="date"
+                      name="data"
+                      value={formData.data}
+                      onChange={handleInputChange}
+                      disabled={submitting}
+                      className={`receitas-form-input ${errors.data ? 'error' : ''}`}
+                      style={{ 
+                        fontSize: '0.95rem',
+                        fontWeight: '500'
+                      }}
+                    />
+                    {errors.data && (
+                      <div className="receitas-form-error">{errors.data}</div>
+                    )}
+                  </div>
                 </div>
-                
-                <div className="receitas-form-group">
-                  <label className="receitas-form-label">
-                    <Calendar size={14} />
-                    {formData.isRecorrente ? 'Início' : 'Data'} *
+
+                {/* Toggle Recorrente */}
+                <div style={{ marginTop: '16px', padding: '16px', background: 'rgba(16, 185, 129, 0.05)', borderRadius: '12px' }}>
+                  <label style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '12px', 
+                    cursor: 'pointer',
+                    fontSize: '0.95rem',
+                    fontWeight: '500',
+                    color: '#374151'
+                  }}>
+                    <input
+                      type="checkbox"
+                      name="isRecorrente"
+                      checked={formData.isRecorrente}
+                      onChange={handleInputChange}
+                      disabled={submitting}
+                      style={{ 
+                        width: '18px', 
+                        height: '18px',
+                        accentColor: '#10b981'
+                      }}
+                    />
+                    <Repeat size={18} style={{ color: '#10b981' }} />
+                    <span>Receita recorrente (repetir automaticamente)</span>
                   </label>
-                  <input
-                    type="date"
-                    name="data"
-                    value={formData.data}
-                    onChange={handleInputChange}
-                    disabled={submitting}
-                    className={`receitas-form-input ${errors.data ? 'error' : ''}`}
-                  />
-                  {errors.data && (
-                    <div className="receitas-form-error">{errors.data}</div>
+                  {formData.isRecorrente && (
+                    <div style={{ 
+                      marginTop: '8px', 
+                      padding: '8px 12px', 
+                      background: 'rgba(16, 185, 129, 0.1)', 
+                      borderRadius: '6px',
+                      border: '1px solid rgba(16, 185, 129, 0.2)'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Info size={14} style={{ color: '#10b981' }} />
+                        <span style={{ fontSize: '0.8rem', color: '#059669', fontWeight: '500' }}>
+                          Ideal para salários, freelances e rendas fixas
+                        </span>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
               
-              {/* Toggle Recorrente */}
-              <div className="receitas-form-group receitas-form-full">
-                <label style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '8px', 
-                  cursor: 'pointer',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  color: '#374151'
-                }}>
-                  <input
-                    type="checkbox"
-                    name="isRecorrente"
-                    checked={formData.isRecorrente}
-                    onChange={handleInputChange}
-                    disabled={submitting}
-                  />
-                  <Repeat size={16} />
-                  Receita recorrente (repetir automaticamente)
-                </label>
-                <small style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '4px' }}>
-                  💡 Marque para criar múltiplas receitas (salário, freelance, etc.)
-                </small>
-              </div>
-              
-              {/* Campos de Recorrência */}
+              {/* BLOCO 2: Campos de Recorrência (se ativo) */}
               {formData.isRecorrente && (
-                <>
+                <div style={{ 
+                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0.02) 100%)',
+                  border: '1px solid rgba(16, 185, 129, 0.15)',
+                  borderRadius: '16px',
+                  padding: '20px',
+                  marginBottom: '24px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                    <Repeat size={16} style={{ color: '#10b981' }} />
+                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '600', color: '#374151' }}>
+                      Configuração da Recorrência
+                    </h3>
+                  </div>
+
                   <div className="receitas-form-row">
                     <div className="receitas-form-group">
                       <label className="receitas-form-label">
@@ -807,33 +905,50 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
                   </div>
                   
                   {/* Preview da Recorrência */}
-                  {formData.valor > 0 && formData.totalRecorrencias > 0 && (
-                    <div className="cartao-preview-compacto" style={{ backgroundColor: 'rgba(16, 185, 129, 0.08)', borderColor: 'rgba(16, 185, 129, 0.15)' }}>
-                      <div className="preview-texto" style={{ color: '#10b981', flexDirection: 'column', gap: '4px' }}>
-                        <span>🔄 {formData.totalRecorrencias}x de {formatCurrency(formData.valor)} ({formData.tipoRecorrencia})</span>
-                        <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>
-                          Total: {formatCurrency(valorTotal)}
-                          {dataFinal && ` • Até: ${dataFinal}`}
-                        </span>
+                  {valorNumerico > 0 && formData.totalRecorrencias > 0 && (
+                    <div style={{ 
+                      background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%)',
+                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                      borderRadius: '12px',
+                      padding: '16px',
+                      marginTop: '16px',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ color: '#10b981', fontWeight: '600', marginBottom: '4px' }}>
+                        🔄 {formData.totalRecorrencias}x de {formatCurrency(valorNumerico)} ({formData.tipoRecorrencia})
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: '#059669', opacity: 0.9 }}>
+                        Total: {formatCurrency(valorTotal)}
+                        {dataFinal && ` • Término: ${dataFinal}`}
                       </div>
                     </div>
                   )}
 
                   {/* Status da primeira recorrência */}
-                  <div className="receitas-form-group receitas-form-full">
-                    <label className="receitas-form-label">
+                  <div style={{ marginTop: '16px' }}>
+                    <label className="receitas-form-label" style={{ marginBottom: '12px' }}>
                       {formData.primeiroEfetivado ? <CheckCircle size={14} /> : <Clock size={14} />}
                       Status da Primeira Receita
                     </label>
                     
-                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <div style={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: '1fr 1fr', 
+                      gap: '12px'
+                    }}>
                       <label style={{ 
                         display: 'flex', 
                         alignItems: 'center', 
-                        gap: '6px', 
+                        gap: '8px', 
                         cursor: 'pointer',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        border: formData.primeiroEfetivado ? '2px solid #10b981' : '1px solid #e5e7eb',
+                        background: formData.primeiroEfetivado ? 'rgba(16, 185, 129, 0.05)' : 'white',
                         fontSize: '0.875rem',
-                        color: formData.primeiroEfetivado ? '#10b981' : '#6b7280'
+                        fontWeight: '500',
+                        color: formData.primeiroEfetivado ? '#10b981' : '#6b7280',
+                        transition: 'all 0.2s ease'
                       }}>
                         <input
                           type="radio"
@@ -841,6 +956,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
                           checked={formData.primeiroEfetivado === true}
                           onChange={() => setFormData(prev => ({ ...prev, primeiroEfetivado: true }))}
                           disabled={submitting}
+                          style={{ display: 'none' }}
                         />
                         <CheckCircle size={16} />
                         Primeira já recebida
@@ -848,10 +964,16 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
                       <label style={{ 
                         display: 'flex', 
                         alignItems: 'center', 
-                        gap: '6px', 
+                        gap: '8px', 
                         cursor: 'pointer',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        border: !formData.primeiroEfetivado ? '2px solid #f59e0b' : '1px solid #e5e7eb',
+                        background: !formData.primeiroEfetivado ? 'rgba(245, 158, 11, 0.05)' : 'white',
                         fontSize: '0.875rem',
-                        color: !formData.primeiroEfetivado ? '#f59e0b' : '#6b7280'
+                        fontWeight: '500',
+                        color: !formData.primeiroEfetivado ? '#f59e0b' : '#6b7280',
+                        transition: 'all 0.2s ease'
                       }}>
                         <input
                           type="radio"
@@ -859,31 +981,50 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
                           checked={formData.primeiroEfetivado === false}
                           onChange={() => setFormData(prev => ({ ...prev, primeiroEfetivado: false }))}
                           disabled={submitting}
+                          style={{ display: 'none' }}
                         />
                         <Clock size={16} />
                         Todas planejadas
                       </label>
                     </div>
                   </div>
-                </>
+                </div>
               )}
 
               {/* Status (apenas para receitas simples) */}
               {!formData.isRecorrente && (
-                <div className="receitas-form-group receitas-form-full">
-                  <label className="receitas-form-label">
-                    {formData.efetivado ? <CheckCircle size={14} /> : <Clock size={14} />}
-                    Status da Receita
-                  </label>
+                <div style={{ 
+                  background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(245, 158, 11, 0.02) 100%)',
+                  border: '1px solid rgba(245, 158, 11, 0.15)',
+                  borderRadius: '16px',
+                  padding: '20px',
+                  marginBottom: '24px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                    {formData.efetivado ? <CheckCircle size={16} style={{ color: '#10b981' }} /> : <Clock size={16} style={{ color: '#f59e0b' }} />}
+                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '600', color: '#374151' }}>
+                      Status da Receita
+                    </h3>
+                  </div>
                   
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: '1fr 1fr', 
+                    gap: '12px'
+                  }}>
                     <label style={{ 
                       display: 'flex', 
                       alignItems: 'center', 
-                      gap: '6px', 
+                      gap: '8px', 
                       cursor: 'pointer',
-                      fontSize: '0.875rem',
-                      color: formData.efetivado ? '#10b981' : '#6b7280'
+                      padding: '16px',
+                      borderRadius: '12px',
+                      border: formData.efetivado ? '2px solid #10b981' : '1px solid #e5e7eb',
+                      background: formData.efetivado ? 'rgba(16, 185, 129, 0.05)' : 'white',
+                      fontSize: '0.9rem',
+                      fontWeight: '500',
+                      color: formData.efetivado ? '#10b981' : '#6b7280',
+                      transition: 'all 0.2s ease'
                     }}>
                       <input
                         type="radio"
@@ -891,17 +1032,27 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
                         checked={formData.efetivado === true}
                         onChange={() => setFormData(prev => ({ ...prev, efetivado: true }))}
                         disabled={submitting}
+                        style={{ display: 'none' }}
                       />
-                      <CheckCircle size={16} />
-                      Receita já recebida
+                      <CheckCircle size={18} />
+                      <div>
+                        <div>Receita já recebida</div>
+                        <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>Dinheiro na conta</div>
+                      </div>
                     </label>
                     <label style={{ 
                       display: 'flex', 
                       alignItems: 'center', 
-                      gap: '6px', 
+                      gap: '8px', 
                       cursor: 'pointer',
-                      fontSize: '0.875rem',
-                      color: !formData.efetivado ? '#f59e0b' : '#6b7280'
+                      padding: '16px',
+                      borderRadius: '12px',
+                      border: !formData.efetivado ? '2px solid #f59e0b' : '1px solid #e5e7eb',
+                      background: !formData.efetivado ? 'rgba(245, 158, 11, 0.05)' : 'white',
+                      fontSize: '0.9rem',
+                      fontWeight: '500',
+                      color: !formData.efetivado ? '#f59e0b' : '#6b7280',
+                      transition: 'all 0.2s ease'
                     }}>
                       <input
                         type="radio"
@@ -909,224 +1060,303 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
                         checked={formData.efetivado === false}
                         onChange={() => setFormData(prev => ({ ...prev, efetivado: false }))}
                         disabled={submitting}
+                        style={{ display: 'none' }}
                       />
-                      <Clock size={16} />
-                      Receita planejada
+                      <Clock size={18} />
+                      <div>
+                        <div>Receita planejada</div>
+                        <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>A receber</div>
+                      </div>
                     </label>
                   </div>
                 </div>
               )}
 
-              {/* Descrição */}
-              <div className="receitas-form-group receitas-form-full">
-                <label className="receitas-form-label">
-                  <FileText size={14} />
-                  Descrição *
-                  {formData.isRecorrente && <small>(será numerada automaticamente)</small>}
-                </label>
-                <input
-                  type="text"
-                  name="descricao"
-                  placeholder={formData.isRecorrente ? "Ex: Salário, Freelance, Aluguel recebido" : "Ex: Salário, Freelance, Venda"}
-                  value={formData.descricao}
-                  onChange={handleInputChange}
-                  disabled={submitting}
-                  className={`receitas-form-input ${errors.descricao ? 'error' : ''}`}
-                />
-                {errors.descricao && (
-                  <div className="receitas-form-error">{errors.descricao}</div>
-                )}
-                {formData.isRecorrente && formData.descricao && (
-                  <small style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '4px' }}>
-                    💡 Será salvo como: "{formData.descricao} (1/{formData.totalRecorrencias})", "{formData.descricao} (2/{formData.totalRecorrencias})", etc.
-                  </small>
-                )}
-              </div>
+              {/* BLOCO 3: Descrição e Categorização */}
+              <div style={{ 
+                background: 'white',
+                border: '1px solid #e5e7eb',
+                borderRadius: '16px',
+                padding: '20px',
+                marginBottom: '24px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
+                  <FileText size={16} style={{ color: '#6b7280' }} />
+                  <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '600', color: '#374151' }}>
+                    Detalhes da Receita
+                  </h3>
+                </div>
 
-              {/* Categoria */}
-              <div className="receitas-form-group receitas-form-full">
-                <label className="receitas-form-label">
-                  <Tag size={14} />
-                  Categoria *
-                </label>
-                <div className="receitas-dropdown-container">
+                {/* Descrição */}
+                <div className="receitas-form-group receitas-form-full" style={{ marginBottom: '20px' }}>
+                  <label className="receitas-form-label">
+                    <FileText size={14} />
+                    Descrição *
+                    {formData.isRecorrente && <small style={{ color: '#10b981' }}>(será numerada automaticamente)</small>}
+                  </label>
                   <input
-                    ref={categoriaInputRef}
                     type="text"
-                    value={formData.categoriaTexto}
-                    onChange={handleCategoriaChange}
-                    onBlur={handleCategoriaBlur}
-                    onFocus={() => setCategoriaDropdownOpen(true)}
-                    placeholder="Digite ou selecione uma categoria"
+                    name="descricao"
+                    placeholder={formData.isRecorrente ? "Ex: Salário, Freelance, Aluguel recebido" : "Ex: Salário, Freelance, Venda"}
+                    value={formData.descricao}
+                    onChange={handleInputChange}
                     disabled={submitting}
-                    autoComplete="off"
-                    className={`receitas-form-input receitas-dropdown-input ${errors.categoria ? 'error' : ''}`}
-                    style={{
-                      backgroundColor: !formData.categoria ? '#f9fafb' : 'white'
-                    }}
+                    className={`receitas-form-input ${errors.descricao ? 'error' : ''}`}
+                    style={{ fontSize: '0.95rem' }}
                   />
-                  <Search size={14} className="receitas-search-icon" />
-                  
-                  {categoriaDropdownOpen && categoriasFiltradas.length > 0 && (
-                    <div className="receitas-dropdown-options">
-                      {categoriasFiltradas.map(categoria => (
-                        <div
-                          key={categoria.id}
-                          className="receitas-dropdown-option"
-                          onMouseDown={() => handleSelecionarCategoria(categoria)}
-                        >
-                          <div 
-                            className="receitas-categoria-cor"
-                            style={{ backgroundColor: categoria.cor || '#10b981' }}
-                          />
-                          {categoria.nome}
-                        </div>
-                      ))}
+                  {errors.descricao && (
+                    <div className="receitas-form-error">{errors.descricao}</div>
+                  )}
+                  {formData.isRecorrente && formData.descricao && (
+                    <div style={{ 
+                      marginTop: '8px',
+                      padding: '8px 12px',
+                      background: 'rgba(16, 185, 129, 0.05)',
+                      borderRadius: '6px',
+                      fontSize: '0.8rem',
+                      color: '#059669'
+                    }}>
+                      💡 Será salvo como: "{formData.descricao} (1/{formData.totalRecorrencias})", "{formData.descricao} (2/{formData.totalRecorrencias})", etc.
                     </div>
                   )}
                 </div>
-                {errors.categoria && (
-                  <div className="receitas-form-error">{errors.categoria}</div>
-                )}
-              </div>
 
-              {/* Subcategoria */}
-              {categoriaSelecionada && (
-                <div className="receitas-form-group receitas-form-full">
+                {/* Categoria */}
+                <div className="receitas-form-group receitas-form-full" style={{ marginBottom: '16px' }}>
                   <label className="receitas-form-label">
                     <Tag size={14} />
-                    Subcategoria
+                    Categoria *
                   </label>
                   <div className="receitas-dropdown-container">
                     <input
-                      ref={subcategoriaInputRef}
+                      ref={categoriaInputRef}
                       type="text"
-                      value={formData.subcategoriaTexto}
-                      onChange={handleSubcategoriaChange}
-                      onBlur={handleSubcategoriaBlur}
-                      onFocus={() => setSubcategoriaDropdownOpen(true)}
-                      placeholder="Digite ou selecione uma subcategoria"
+                      value={formData.categoriaTexto}
+                      onChange={handleCategoriaChange}
+                      onBlur={handleCategoriaBlur}
+                      onFocus={() => setCategoriaDropdownOpen(true)}
+                      placeholder="Digite ou selecione uma categoria"
                       disabled={submitting}
                       autoComplete="off"
-                      className="receitas-form-input receitas-dropdown-input"
+                      className={`receitas-form-input receitas-dropdown-input ${errors.categoria ? 'error' : ''}`}
+                      style={{
+                        backgroundColor: !formData.categoria ? '#f9fafb' : 'white',
+                        fontSize: '0.95rem'
+                      }}
                     />
                     <Search size={14} className="receitas-search-icon" />
                     
-                    {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
+                    {categoriaDropdownOpen && categoriasFiltradas.length > 0 && (
                       <div className="receitas-dropdown-options">
-                        {subcategoriasFiltradas.map(subcategoria => (
+                        {categoriasFiltradas.map(categoria => (
                           <div
-                            key={subcategoria.id}
+                            key={categoria.id}
                             className="receitas-dropdown-option"
-                            onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
+                            onMouseDown={() => handleSelecionarCategoria(categoria)}
                           >
-                            {subcategoria.nome}
+                            <div 
+                              className="receitas-categoria-cor"
+                              style={{ backgroundColor: categoria.cor || '#10b981' }}
+                            />
+                            {categoria.nome}
                           </div>
                         ))}
                       </div>
                     )}
                   </div>
+                  {errors.categoria && (
+                    <div className="receitas-form-error">{errors.categoria}</div>
+                  )}
                 </div>
-              )}
 
-              {/* Conta */}
-              <div className="receitas-form-group receitas-form-full">
-                <label className="receitas-form-label">
-                  <Building size={14} />
-                  Conta de Destino *
-                </label>
-                <select
-                  name="conta"
-                  value={formData.conta}
-                  onChange={handleInputChange}
-                  disabled={submitting}
-                  className={`receitas-form-input ${errors.conta ? 'error' : ''}`}
-                >
-                  <option value="">Selecione uma conta</option>
-                  {contasAtivas.map(conta => (
-                    <option key={conta.id} value={conta.id}>
-                      {conta.nome} - {formatCurrency(conta.saldo_atual || conta.saldo || 0)}
-                    </option>
-                  ))}
-                </select>
-                {errors.conta && (
-                  <div className="receitas-form-error">{errors.conta}</div>
+                {/* Subcategoria */}
+                {categoriaSelecionada && (
+                  <div className="receitas-form-group receitas-form-full" style={{ marginBottom: '16px' }}>
+                    <label className="receitas-form-label">
+                      <Tag size={14} />
+                      Subcategoria
+                    </label>
+                    <div className="receitas-dropdown-container">
+                      <input
+                        ref={subcategoriaInputRef}
+                        type="text"
+                        value={formData.subcategoriaTexto}
+                        onChange={handleSubcategoriaChange}
+                        onBlur={handleSubcategoriaBlur}
+                        onFocus={() => setSubcategoriaDropdownOpen(true)}
+                        placeholder="Digite ou selecione uma subcategoria"
+                        disabled={submitting}
+                        autoComplete="off"
+                        className="receitas-form-input receitas-dropdown-input"
+                        style={{ fontSize: '0.95rem' }}
+                      />
+                      <Search size={14} className="receitas-search-icon" />
+                      
+                      {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
+                        <div className="receitas-dropdown-options">
+                          {subcategoriasFiltradas.map(subcategoria => (
+                            <div
+                              key={subcategoria.id}
+                              className="receitas-dropdown-option"
+                              onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
+                            >
+                              {subcategoria.nome}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )}
+
+                {/* Conta */}
+                <div className="receitas-form-group receitas-form-full">
+                  <label className="receitas-form-label">
+                    <Building size={14} />
+                    Conta de Destino *
+                  </label>
+                  <select
+                    name="conta"
+                    value={formData.conta}
+                    onChange={handleInputChange}
+                    disabled={submitting}
+                    className={`receitas-form-input ${errors.conta ? 'error' : ''}`}
+                    style={{ fontSize: '0.95rem' }}
+                  >
+                    <option value="">Selecione uma conta</option>
+                    {contasAtivas.map(conta => (
+                      <option key={conta.id} value={conta.id}>
+                        {conta.nome} - {formatCurrency(conta.saldo_atual || conta.saldo || 0)}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.conta && (
+                    <div className="receitas-form-error">{errors.conta}</div>
+                  )}
+                </div>
               </div>
 
-              {/* Observações */}
-              <div className="receitas-form-group receitas-form-full">
-                <label className="receitas-form-label">
-                  <FileText size={14} />
-                  Observações <small>(máx. 300)</small>
-                </label>
-                <textarea
-                  name="observacoes"
-                  value={formData.observacoes}
-                  onChange={handleObservacoesChange}
-                  placeholder={formData.isRecorrente ? 
-                    "Adicione informações extras sobre estas receitas recorrentes" :
-                    "Adicione informações extras sobre esta receita"
-                  }
-                  rows="2"
-                  disabled={submitting}
-                  maxLength="300"
-                  className={`receitas-form-input receitas-form-textarea ${errors.observacoes ? 'error' : ''}`}
-                />
-                <div className="receitas-char-counter">
-                  <span></span>
-                  <span>{formData.observacoes.length}/300</span>
+              {/* BLOCO 4: Observações */}
+              <div style={{ 
+                background: 'white',
+                border: '1px solid #e5e7eb',
+                borderRadius: '16px',
+                padding: '20px',
+                marginBottom: '24px'
+              }}>
+                <div className="receitas-form-group receitas-form-full">
+                  <label className="receitas-form-label">
+                    <FileText size={14} />
+                    Observações <small>(máx. 300)</small>
+                  </label>
+                  <textarea
+                    name="observacoes"
+                    value={formData.observacoes}
+                    onChange={handleObservacoesChange}
+                    placeholder={formData.isRecorrente ? 
+                      "Adicione informações extras sobre estas receitas recorrentes" :
+                      "Adicione informações extras sobre esta receita"
+                    }
+                    rows="3"
+                    disabled={submitting}
+                    maxLength="300"
+                    className={`receitas-form-input receitas-form-textarea ${errors.observacoes ? 'error' : ''}`}
+                    style={{ fontSize: '0.9rem', lineHeight: '1.5' }}
+                  />
+                  <div className="receitas-char-counter">
+                    <span></span>
+                    <span style={{ color: formData.observacoes.length > 250 ? '#ef4444' : '#9ca3af' }}>
+                      {formData.observacoes.length}/300
+                    </span>
+                  </div>
+                  {errors.observacoes && (
+                    <div className="receitas-form-error">{errors.observacoes}</div>
+                  )}
                 </div>
-                {errors.observacoes && (
-                  <div className="receitas-form-error">{errors.observacoes}</div>
-                )}
               </div>
 
-              {/* Botões de ação */}
-              <div className="receitas-form-actions">
-                <button
-                  type="button"
-                  onClick={handleCancelar}
-                  disabled={submitting}
-                  className="receitas-btn receitas-btn-secondary"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => handleSubmit(e, true)}
-                  disabled={submitting}
-                  className="receitas-btn receitas-btn-tertiary"
-                >
-                  {submitting ? (
-                    <>
-                      <div className="receitas-btn-spinner"></div>
-                      {formData.isRecorrente ? 'Criando...' : 'Salvando...'}
-                    </>
-                  ) : (
-                    <>
-                      <PlusCircle size={14} />
-                      {formData.isRecorrente ? 'Criar e Nova' : 'Salvar e Nova'}
-                    </>
-                  )}
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="receitas-btn receitas-btn-primary"
-                >
-                  {submitting ? (
-                    <>
-                      <div className="receitas-btn-spinner"></div>
-                      {formData.isRecorrente ? `Criando ${formData.totalRecorrencias} receitas...` : 'Salvando...'}
-                    </>
-                  ) : (
-                    <>
-                      <Plus size={14} />
-                      {formData.isRecorrente ? `Criar ${formData.totalRecorrencias} Receitas` : 'Salvar Receita'}
-                    </>
-                  )}
-                </button>
+              {/* BLOCO 5: Ações */}
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(249, 250, 251, 0.8) 0%, rgba(255, 255, 255, 0.9) 100%)',
+                border: '1px solid #e5e7eb',
+                borderRadius: '16px',
+                padding: '20px'
+              }}>
+                <div className="receitas-form-actions" style={{ 
+                  display: 'grid',
+                  gridTemplateColumns: 'auto 1fr 1fr',
+                  gap: '12px',
+                  alignItems: 'center'
+                }}>
+                  <button
+                    type="button"
+                    onClick={handleCancelar}
+                    disabled={submitting}
+                    className="receitas-btn receitas-btn-secondary"
+                    style={{
+                      padding: '12px 20px',
+                      borderRadius: '12px',
+                      fontSize: '0.9rem',
+                      fontWeight: '500'
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleSubmit(e, true)}
+                    disabled={submitting}
+                    className="receitas-btn receitas-btn-tertiary"
+                    style={{
+                      padding: '12px 20px',
+                      borderRadius: '12px',
+                      fontSize: '0.9rem',
+                      fontWeight: '600',
+                      background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                      border: 'none',
+                      color: 'white'
+                    }}
+                  >
+                    {submitting ? (
+                      <>
+                        <div className="receitas-btn-spinner"></div>
+                        {formData.isRecorrente ? 'Criando...' : 'Salvando...'}
+                      </>
+                    ) : (
+                      <>
+                        <PlusCircle size={16} />
+                        {formData.isRecorrente ? 'Criar e Nova' : 'Salvar e Nova'}
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="receitas-btn receitas-btn-primary"
+                    style={{
+                      padding: '12px 20px',
+                      borderRadius: '12px',
+                      fontSize: '0.9rem',
+                      fontWeight: '600',
+                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                      border: 'none',
+                      color: 'white',
+                      boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                    }}
+                  >
+                    {submitting ? (
+                      <>
+                        <div className="receitas-btn-spinner"></div>
+                        {formData.isRecorrente ? `Criando ${formData.totalRecorrencias} receitas...` : 'Salvando...'}
+                      </>
+                    ) : (
+                      <>
+                        <Plus size={16} />
+                        {formData.isRecorrente ? `Criar ${formData.totalRecorrencias} Receitas` : 'Salvar Receita'}
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </form>
           )}
@@ -1136,7 +1366,10 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
       {/* Modal de Confirmação */}
       {confirmacao.show && (
         <div className="receitas-confirmation-overlay">
-          <div className="receitas-confirmation-container">
+          <div className="receitas-confirmation-container" style={{
+            borderRadius: '16px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+          }}>
             <h3 className="receitas-confirmation-title">
               Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
             </h3>
@@ -1148,12 +1381,17 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
               <button 
                 onClick={() => setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' })}
                 className="receitas-confirmation-btn receitas-confirmation-btn-secondary"
+                style={{ borderRadius: '8px' }}
               >
                 Cancelar
               </button>
               <button 
                 onClick={handleConfirmarCriacao}
                 className="receitas-confirmation-btn receitas-confirmation-btn-primary"
+                style={{ 
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                }}
               >
                 Criar {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
               </button>
