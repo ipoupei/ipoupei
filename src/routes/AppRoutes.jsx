@@ -4,11 +4,12 @@ import Login from '../pages/Login';
 import Dashboard from '../pages/Dashboard';
 import ResetPassword from '../pages/ResetPassword';
 import UserProfile from '../pages/UserProfile';
+import Transacoes from '../pages/Transacoes';
 import ProtectedRoute from '../Components/ProtectedRoute';
 
 /**
  * Componente para gerenciar as rotas da aplicação
- * CORREÇÃO: Removido AuthProvider duplicado - já está no App.js
+ * Incluindo a nova tela de transações
  */
 const AppRoutes = () => {
   return (
@@ -33,6 +34,16 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <UserProfile />
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Nova rota de transações */}
+        <Route 
+          path="/transacoes" 
+          element={
+            <ProtectedRoute>
+              <Transacoes />
             </ProtectedRoute>
           } 
         />

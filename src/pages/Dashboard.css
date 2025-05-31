@@ -2019,3 +2019,30 @@
     break-inside: avoid;
   }
 }
+
+
+/* Estilo para o botão de transações */
+.action-btn-orange {
+  background-color: rgba(249, 115, 22, 0.1);
+  color: #f97316;
+  border: 1px solid rgba(249, 115, 22, 0.2);
+}
+
+.action-btn-orange:hover {
+  background-color: rgba(249, 115, 22, 0.2);
+  border-color: rgba(249, 115, 22, 0.3);
+}
+
+/* Estilo para o ícone de lista no dropdown */
+.dropdown-item .lucide-list {
+  color: #f97316;
+}
+
+/* Destaque para links de 'Ver todas' */
+.chart-action:hover {
+  background-color: rgba(59, 130, 246, 0.2);
+}
+
+.chart-action.red:hover {
+  background-color: rgba(239, 68, 68, 0.2);
+}

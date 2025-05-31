@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import useAuth from './useAuth';
-import { categoriasStore } from '../stores/categoriasStore';
+import { categoriasStore } from '../store/categoriasStore';
 
 /**
  * Hook personalizado para gerenciar categorias e subcategorias (receitas e despesas)

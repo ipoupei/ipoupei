@@ -1,62 +1,194 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+// src/components/DespesasModal.jsx - VERSÃO ZUSTAND COMPATÍVEL
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
   TrendingDown, 
   Plus, 
-  X, 
   Calendar, 
   FileText, 
   Tag, 
-  Building, 
   DollarSign, 
-  MessageSquare, 
-  Search,
-  PlusCircle,
+  Repeat, 
+  Hash, 
+  CreditCard, 
+  Building,
   CheckCircle,
   Clock,
-  Repeat,
-  Hash
+  PlusCircle,
+  X,
+  Search
 } from 'lucide-react';
-import InputMoney from './ui/InputMoney';
-import useCategorias from '../hooks/useCategorias';
-import useContas from '../hooks/useContas';
-import { supabase } from '../lib/supabaseClient';
-import useAuth from '../hooks/useAuth';
+
+// Imports compatíveis com Zustand
+import { useAuthStore } from '../store/authStore';
+import { useUIStore } from '../store/uiStore';
 import { formatCurrency } from '../utils/formatCurrency';
+import { supabase } from '../lib/supabaseClient';
+
+// CSS existente
 import './FormsModal.css';
 
 /**
- * Modal moderno para lançamento de despesas com funcionalidade de recorrência
- * VERSÃO ATUALIZADA - com despesas recorrentes e status de efetivação
+ * Modal de Despesas - Versão Zustand Compatível
+ * Integrado com os stores do Zustand existentes
+ * Remove dependências de hooks inexistentes
  */
 const DespesasModal = ({ isOpen, onClose, onSave }) => {
+  // Zustand stores
+  const { user } = useAuthStore();
+  const { showNotification } = useUIStore();
+  
+  // Refs para focus management
   const valorInputRef = useRef(null);
-  const categoriaInputRef = useRef(null);
-  const subcategoriaInputRef = useRef(null);
-  
-  const { user } = useAuth();
-  const { categorias, loading: categoriasLoading, addCategoria, addSubcategoria } = useCategorias();
-  const { contas, loading: contasLoading } = useContas();
-  
-  // Memoizar categorias de despesa para evitar recalculos desnecessários
-  const categoriasDespesa = useMemo(() => 
-    categorias.filter(cat => cat.tipo === 'despesa'), 
-    [categorias]
-  );
-  
-  // Memoizar contas ativas
+
+  // Estados principais
+  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [tipoDespesa, setTipoDespesa] = useState('simples');
+
+  // Estados para dados
+  const [categorias, setCategorias] = useState([]);
+  const [contas, setContas] = useState([]);
+
+  // Estado do formulário
+  const [formData, setFormData] = useState({
+    valor: 0,
+    data: new Date().toISOString().split('T')[0],
+    descricao: '',
+    categoria: '',
+    conta: '',
+    efetivado: true,
+    observacoes: '',
+    // Campos de recorrência
+    totalRecorrencias: 12,
+    tipoRecorrencia: 'mensal',
+    primeiroEfetivado: true,
+    // Campos de parcelamento
+    numeroParcelas: 2,
+    primeiraParcela: new Date().toISOString().split('T')[0]
+  });
+
+  const [errors, setErrors] = useState({});
+
+  // Carregar dados quando modal abre
+  useEffect(() => {
+    if (isOpen && user) {
+      carregarDados();
+    }
+  }, [isOpen, user]);
+
+  const carregarDados = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      // Buscar categorias de despesa
+      const { data: categoriasData, error: categoriasError } = await supabase
+        .from('categorias')
+        .select('*')
+        .eq('usuario_id', user.id)
+        .eq('tipo', 'despesa')
+        .eq('ativo', true)
+        .order('nome');
+
+      if (categoriasError) throw categoriasError;
+
+      // Buscar contas ativas
+      const { data: contasData, error: contasError } = await supabase
+        .from('contas')
+        .select('*')
+        .eq('usuario_id', user.id)
+        .eq('ativo', true)
+        .order('nome');
+
+      if (contasError) throw contasError;
+
+      setCategorias(categoriasData || []);
+      setContas(contasData || []);
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+      showNotification('Erro ao carregar dados', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Dados derivados memoizados
   const contasAtivas = useMemo(() => 
-    contas.filter(conta => conta.ativo),
+    contas.filter(conta => conta.ativo !== false),
     [contas]
   );
-  
-  // Função para obter data atual - memoizada para evitar recalculos
-  const getCurrentDate = useCallback(() => {
-    const hoje = new Date();
-    return hoje.toISOString().split('T')[0];
-  }, []);
-  
-  // Função para verificar se data é futura
+
+  // Opções para selects
+  const opcoesRecorrencia = useMemo(() => [
+    { value: 'semanal', label: 'Semanal' },
+    { value: 'quinzenal', label: 'Quinzenal' },
+    { value: 'mensal', label: 'Mensal' },
+    { value: 'anual', label: 'Anual' }
+  ], []);
+
+  const opcoesQuantidade = useMemo(() => 
+    Array.from({ length: 60 }, (_, i) => ({
+      value: i + 1,
+      label: `${i + 1} ${i === 0 ? 'vez' : 'vezes'}`
+    })),
+    []
+  );
+
+  const opcoesParcelas = useMemo(() =>
+    Array.from({ length: 47 }, (_, i) => ({
+      value: i + 2,
+      label: `${i + 2}x`
+    })),
+    []
+  );
+
+  // Cálculos derivados
+  const valorTotal = useMemo(() => {
+    if (tipoDespesa === 'recorrente') {
+      return formData.valor * formData.totalRecorrencias;
+    }
+    return formData.valor;
+  }, [formData.valor, formData.totalRecorrencias, tipoDespesa]);
+
+  const valorParcela = useMemo(() => {
+    if (tipoDespesa === 'parcelada' && formData.numeroParcelas > 0) {
+      return formData.valor / formData.numeroParcelas;
+    }
+    return formData.valor;
+  }, [formData.valor, formData.numeroParcelas, tipoDespesa]);
+
+  const dataFinal = useMemo(() => {
+    if (tipoDespesa === 'recorrente' && formData.data) {
+      const data = new Date(formData.data);
+      const multiplicador = formData.totalRecorrencias - 1;
+      
+      switch (formData.tipoRecorrencia) {
+        case 'semanal':
+          data.setDate(data.getDate() + (7 * multiplicador));
+          break;
+        case 'quinzenal':
+          data.setDate(data.getDate() + (14 * multiplicador));
+          break;
+        case 'mensal':
+          data.setMonth(data.getMonth() + multiplicador);
+          break;
+        case 'anual':
+          data.setFullYear(data.getFullYear() + multiplicador);
+          break;
+      }
+      
+      return data.toLocaleDateString('pt-BR');
+    } else if (tipoDespesa === 'parcelada' && formData.primeiraParcela) {
+      const data = new Date(formData.primeiraParcela);
+      data.setMonth(data.getMonth() + (formData.numeroParcelas - 1));
+      return data.toLocaleDateString('pt-BR');
+    }
+    
+    return null;
+  }, [tipoDespesa, formData.data, formData.totalRecorrencias, formData.tipoRecorrencia, formData.primeiraParcela, formData.numeroParcelas]);
+
+  // Verificar se data é futura
   const isDataFutura = useCallback((data) => {
     if (!data) return false;
     const hoje = new Date();
@@ -65,168 +197,40 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
     dataTransacao.setHours(0, 0, 0, 0);
     return dataTransacao > hoje;
   }, []);
-  
-  const [formData, setFormData] = useState({
-    valor: 0,
-    data: getCurrentDate(),
-    // *** CAMPOS PARA RECORRÊNCIA ***
-    isRecorrente: false,
-    totalRecorrencias: 12,
-    tipoRecorrencia: 'mensal',
-    primeiroEfetivado: true,
-    // *** CAMPOS RESTANTES ***
-    descricao: '',
-    categoria: '',
-    categoriaTexto: '',
-    subcategoria: '',
-    subcategoriaTexto: '',
-    contaDebito: '',
-    efetivado: true,
-    observacoes: ''
-  });
-  
-  const [errors, setErrors] = useState({});
-  const [feedback, setFeedback] = useState({ visible: false, message: '', type: '' });
-  const [submitting, setSubmitting] = useState(false);
-  const [categoriaDropdownOpen, setCategoriaDropdownOpen] = useState(false);
-  const [subcategoriaDropdownOpen, setSubcategoriaDropdownOpen] = useState(false);
-  const [categoriasFiltradas, setCategoriasFiltradas] = useState([]);
-  const [subcategoriasFiltradas, setSubcategoriasFiltradas] = useState([]);
-  const [confirmacao, setConfirmacao] = useState({
-    show: false,
-    type: '',
-    nome: '',
-    categoriaId: ''
-  });
-  
-  // Memoizar categoria selecionada
-  const categoriaSelecionada = useMemo(() =>
-    categoriasDespesa.find(cat => cat.id === formData.categoria),
-    [categoriasDespesa, formData.categoria]
-  );
-  
-  // Opções de recorrência
-  const opcoesRecorrencia = useMemo(() => [
-    { value: 'semanal', label: 'Semanal' },
-    { value: 'quinzenal', label: 'Quinzenal' },
-    { value: 'mensal', label: 'Mensal' },
-    { value: 'anual', label: 'Anual' }
-  ], []);
-  
-  // Opções de quantidade de recorrências
-  const opcoesQuantidade = useMemo(() => 
-    Array.from({ length: 60 }, (_, i) => ({
-      value: i + 1,
-      label: `${i + 1} ${i === 0 ? 'vez' : 'vezes'}`
-    })),
-    []
-  );
-  
-  // Calcula valor total da recorrência
-  const valorTotalRecorrencia = useMemo(() => 
-    formData.isRecorrente ? formData.valor * formData.totalRecorrencias : formData.valor,
-    [formData.valor, formData.totalRecorrencias, formData.isRecorrente]
-  );
-  
-  // Calcula data final estimada (só para recorrentes)
-  const dataFinalEstimada = useMemo(() => {
-    if (!formData.isRecorrente || !formData.data || !formData.totalRecorrencias) return null;
-    
-    const dataInicio = new Date(formData.data);
-    let dataFinal = new Date(dataInicio);
-    
-    switch (formData.tipoRecorrencia) {
-      case 'semanal':
-        dataFinal.setDate(dataFinal.getDate() + (7 * (formData.totalRecorrencias - 1)));
-        break;
-      case 'quinzenal':
-        dataFinal.setDate(dataFinal.getDate() + (14 * (formData.totalRecorrencias - 1)));
-        break;
-      case 'mensal':
-        dataFinal.setMonth(dataFinal.getMonth() + (formData.totalRecorrencias - 1));
-        break;
-      case 'anual':
-        dataFinal.setFullYear(dataFinal.getFullYear() + (formData.totalRecorrencias - 1));
-        break;
-      default:
-        dataFinal.setMonth(dataFinal.getMonth() + (formData.totalRecorrencias - 1));
-    }
-    
-    return dataFinal.toLocaleDateString('pt-BR');
-  }, [formData.isRecorrente, formData.data, formData.totalRecorrencias, formData.tipoRecorrencia]);
-  
-  // USEEFFECT OTIMIZADO - apenas quando necessário
-  useEffect(() => {
-    if (!categoriasDespesa.length) return;
-    
-    if (formData.categoriaTexto) {
-      const filtradas = categoriasDespesa.filter(cat =>
-        cat.nome.toLowerCase().includes(formData.categoriaTexto.toLowerCase())
-      );
-      setCategoriasFiltradas(filtradas);
-    } else {
-      setCategoriasFiltradas(categoriasDespesa);
-    }
-  }, [formData.categoriaTexto, categoriasDespesa]);
-  
-  // USEEFFECT OTIMIZADO para subcategorias
-  useEffect(() => {
-    if (!categoriaSelecionada) {
-      setSubcategoriasFiltradas([]);
-      return;
-    }
-    
-    if (formData.subcategoriaTexto) {
-      const filtradas = (categoriaSelecionada.subcategorias || []).filter(sub =>
-        sub.nome.toLowerCase().includes(formData.subcategoriaTexto.toLowerCase())
-      );
-      setSubcategoriasFiltradas(filtradas);
-    } else {
-      setSubcategoriasFiltradas(categoriaSelecionada.subcategorias || []);
-    }
-  }, [formData.subcategoriaTexto, categoriaSelecionada]);
-  
-  // Efeito para definir status efetivado baseado na data
+
+  // Effect para definir status efetivado baseado na data
   useEffect(() => {
     if (formData.data) {
       const dataFutura = isDataFutura(formData.data);
       setFormData(prev => ({
         ...prev,
-        efetivado: !dataFutura, // Se não é futura, está efetivado
-        primeiroEfetivado: !dataFutura // Para recorrentes também
+        efetivado: !dataFutura,
+        primeiroEfetivado: !dataFutura
       }));
     }
   }, [formData.data, isDataFutura]);
-  
+
   // Reset form quando modal abre
   const resetForm = useCallback(() => {
-    const dataAtual = getCurrentDate();
+    const dataAtual = new Date().toISOString().split('T')[0];
     setFormData({
       valor: 0,
       data: dataAtual,
-      // Campos de recorrência
-      isRecorrente: false,
+      descricao: '',
+      categoria: '',
+      conta: '',
+      efetivado: true,
+      observacoes: '',
       totalRecorrencias: 12,
       tipoRecorrencia: 'mensal',
       primeiroEfetivado: true,
-      // Outros campos
-      descricao: '',
-      categoria: '',
-      categoriaTexto: '',
-      subcategoria: '',
-      subcategoriaTexto: '',
-      contaDebito: '',
-      efetivado: true,
-      observacoes: ''
+      numeroParcelas: 2,
+      primeiraParcela: dataAtual
     });
     setErrors({});
-    setFeedback({ visible: false, message: '', type: '' });
-    setCategoriaDropdownOpen(false);
-    setSubcategoriaDropdownOpen(false);
-    setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
-  }, [getCurrentDate]);
-  
-  // USEEFFECT apenas para abertura do modal
+    setTipoDespesa('simples');
+  }, []);
+
   useEffect(() => {
     if (isOpen) {
       resetForm();
@@ -236,52 +240,24 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
       return () => clearTimeout(timer);
     }
   }, [isOpen, resetForm]);
-  
-  // CALLBACKS MEMOIZADOS para evitar re-criação
-  const showFeedback = useCallback((message, type = 'success') => {
-    setFeedback({ visible: true, message, type });
-    const timer = setTimeout(() => {
-      setFeedback({ visible: false, message: '', type: '' });
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, []);
-  
+
+  // Handlers
   const handleInputChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
+    let inputValue = type === 'checkbox' ? checked : value;
     
-    // Para checkbox, usa o valor checked
-    const inputValue = type === 'checkbox' ? checked : value;
+    // Converter números quando necessário
+    if (name === 'valor' || name === 'totalRecorrencias' || name === 'numeroParcelas') {
+      inputValue = parseFloat(value) || 0;
+    }
     
-    // Lógica especial para categoria
-    if (name === 'categoria') {
-      setFormData(prev => ({
-        ...prev,
-        [name]: inputValue,
-        subcategoria: '' // Reseta a subcategoria
-      }));
-    } else if (name === 'data') {
-      // Quando muda a data, atualiza também o status efetivado
+    if (name === 'data') {
       const dataFutura = isDataFutura(inputValue);
       setFormData(prev => ({
         ...prev,
         [name]: inputValue,
-        efetivado: !dataFutura, // Se não é futura, está efetivado
-        primeiroEfetivado: !dataFutura // Para recorrentes também
-      }));
-    } else if (name === 'totalRecorrencias') {
-      // Garantir que seja pelo menos 1
-      const quantidade = Math.max(1, parseInt(inputValue) || 1);
-      setFormData(prev => ({
-        ...prev,
-        [name]: quantidade
-      }));
-    } else if (name === 'isRecorrente') {
-      // Quando ativa/desativa recorrência, reset alguns campos
-      setFormData(prev => ({
-        ...prev,
-        [name]: inputValue,
-        totalRecorrencias: inputValue ? 12 : 1,
-        tipoRecorrencia: inputValue ? 'mensal' : 'mensal'
+        efetivado: !dataFutura,
+        primeiroEfetivado: !dataFutura
       }));
     } else {
       setFormData(prev => ({ ...prev, [name]: inputValue }));
@@ -291,158 +267,12 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
       setErrors(prev => ({ ...prev, [name]: null }));
     }
   }, [errors, isDataFutura]);
-  
-  const handleValorChange = useCallback((value) => {
-    setFormData(prev => ({ ...prev, valor: value }));
-    if (errors.valor) {
-      setErrors(prev => ({ ...prev, valor: null }));
-    }
-  }, [errors.valor]);
-  
-  const handleCategoriaChange = useCallback((e) => {
-    const { value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      categoriaTexto: value,
-      categoria: '',
-      subcategoria: '',
-      subcategoriaTexto: ''
-    }));
-    
-    setCategoriaDropdownOpen(true);
-    if (errors.categoria) {
-      setErrors(prev => ({ ...prev, categoria: null }));
-    }
-  }, [errors.categoria]);
-  
-  const handleSelecionarCategoria = useCallback((categoria) => {
-    setFormData(prev => ({
-      ...prev,
-      categoria: categoria.id,
-      categoriaTexto: categoria.nome,
-      subcategoria: '',
-      subcategoriaTexto: ''
-    }));
-    
-    setCategoriaDropdownOpen(false);
-    const timer = setTimeout(() => {
-      subcategoriaInputRef.current?.focus();
-    }, 100);
-    return () => clearTimeout(timer);
+
+  const handleTipoDespesaChange = useCallback((tipo) => {
+    setTipoDespesa(tipo);
   }, []);
-  
-  const handleCategoriaBlur = useCallback(() => {
-    const timer = setTimeout(() => {
-      setCategoriaDropdownOpen(false);
-      
-      if (formData.categoriaTexto && !formData.categoria) {
-        const existe = categoriasDespesa.find(cat =>
-          cat.nome.toLowerCase() === formData.categoriaTexto.toLowerCase()
-        );
-        
-        if (!existe) {
-          setConfirmacao({
-            show: true,
-            type: 'categoria',
-            nome: formData.categoriaTexto,
-            categoriaId: ''
-          });
-        }
-      }
-    }, 200);
-    return () => clearTimeout(timer);
-  }, [formData.categoriaTexto, formData.categoria, categoriasDespesa]);
-  
-  const handleSubcategoriaChange = useCallback((e) => {
-    const { value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      subcategoriaTexto: value,
-      subcategoria: ''
-    }));
-    
-    if (categoriaSelecionada) {
-      setSubcategoriaDropdownOpen(true);
-    }
-  }, [categoriaSelecionada]);
-  
-  const handleSelecionarSubcategoria = useCallback((subcategoria) => {
-    setFormData(prev => ({
-      ...prev,
-      subcategoria: subcategoria.id,
-      subcategoriaTexto: subcategoria.nome
-    }));
-    
-    setSubcategoriaDropdownOpen(false);
-  }, []);
-  
-  const handleSubcategoriaBlur = useCallback(() => {
-    const timer = setTimeout(() => {
-      setSubcategoriaDropdownOpen(false);
-      
-      if (formData.subcategoriaTexto && !formData.subcategoria && categoriaSelecionada) {
-        const existe = (categoriaSelecionada.subcategorias || []).find(sub =>
-          sub.nome.toLowerCase() === formData.subcategoriaTexto.toLowerCase()
-        );
-        
-        if (!existe) {
-          setConfirmacao({
-            show: true,
-            type: 'subcategoria',
-            nome: formData.subcategoriaTexto,
-            categoriaId: formData.categoria
-          });
-        }
-      }
-    }, 200);
-    return () => clearTimeout(timer);
-  }, [formData.subcategoriaTexto, formData.subcategoria, formData.categoria, categoriaSelecionada]);
-  
-  const handleConfirmarCriacao = useCallback(async () => {
-    try {
-      if (confirmacao.type === 'categoria') {
-        const result = await addCategoria({
-          nome: confirmacao.nome,
-          tipo: 'despesa',
-          cor: '#EF4444'
-        });
-        
-        if (result.success) {
-          setFormData(prev => ({
-            ...prev,
-            categoria: result.data.id,
-            categoriaTexto: result.data.nome
-          }));
-          
-          showFeedback(`Categoria "${confirmacao.nome}" criada com sucesso!`);
-        } else {
-          showFeedback('Erro ao criar categoria. Tente novamente.', 'error');
-        }
-      } else if (confirmacao.type === 'subcategoria') {
-        const result = await addSubcategoria(confirmacao.categoriaId, {
-          nome: confirmacao.nome
-        });
-        
-        if (result.success) {
-          setFormData(prev => ({
-            ...prev,
-            subcategoria: result.data.id,
-            subcategoriaTexto: result.data.nome
-          }));
-          
-          showFeedback(`Subcategoria "${confirmacao.nome}" criada com sucesso!`);
-        } else {
-          showFeedback('Erro ao criar subcategoria. Tente novamente.', 'error');
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao criar categoria/subcategoria:', error);
-      showFeedback('Erro inesperado. Tente novamente.', 'error');
-    }
-    
-    setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
-  }, [confirmacao, addCategoria, addSubcategoria, showFeedback]);
-  
+
+  // Validação do formulário
   const validateForm = useCallback(() => {
     const newErrors = {};
     
@@ -455,18 +285,18 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
     if (!formData.descricao.trim()) {
       newErrors.descricao = "Descrição é obrigatória";
     }
-    if (!formData.categoria && !formData.categoriaTexto.trim()) {
+    if (!formData.categoria) {
       newErrors.categoria = "Categoria é obrigatória";
     }
-    if (!formData.contaDebito) {
-      newErrors.contaDebito = "Conta é obrigatória";
+    if (!formData.conta) {
+      newErrors.conta = "Conta é obrigatória";
     }
-    if (formData.observacoes.length > 300) {
+    if (formData.observacoes && formData.observacoes.length > 300) {
       newErrors.observacoes = "Máximo de 300 caracteres";
     }
     
     // Validações específicas para recorrentes
-    if (formData.isRecorrente) {
+    if (tipoDespesa === 'recorrente') {
       if (formData.totalRecorrencias < 1) {
         newErrors.totalRecorrencias = "Quantidade deve ser pelo menos 1";
       }
@@ -474,63 +304,127 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
         newErrors.totalRecorrencias = "Máximo de 60 recorrências";
       }
     }
-    
-    // Verifica se a conta está ativa
-    const conta = contas.find(c => c.id === formData.contaDebito);
-    if (conta && !conta.ativo) {
-      newErrors.contaDebito = "Esta conta está inativa";
+
+    // Validações específicas para parceladas
+    if (tipoDespesa === 'parcelada') {
+      if (formData.numeroParcelas < 2) {
+        newErrors.numeroParcelas = "Mínimo de 2 parcelas";
+      }
+      if (formData.numeroParcelas > 48) {
+        newErrors.numeroParcelas = "Máximo de 48 parcelas";
+      }
+      if (!formData.primeiraParcela) {
+        newErrors.primeiraParcela = "Data da primeira parcela é obrigatória";
+      }
     }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [formData, contas]);
-  
+  }, [formData, tipoDespesa]);
+
+  // Submissão do formulário
   const handleSubmit = useCallback(async (e, criarNova = false) => {
     e.preventDefault();
     
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      showNotification('Por favor, corrija os erros no formulário', 'error');
+      return;
+    }
     
     try {
       setSubmitting(true);
       
-      if (formData.isRecorrente) {
-        // *** USAR FUNÇÃO DE RECORRÊNCIA ***
-        const { data, error } = await supabase
-          .rpc('criar_transacoes_recorrentes', {
-            p_usuario_id: user.id,
-            p_tipo: 'despesa',
-            p_descricao: formData.descricao.trim(),
-            p_valor: formData.valor,
-            p_categoria_id: formData.categoria,
-            p_conta_id: formData.contaDebito,
-            p_data_inicio: formData.data,
-            p_total_recorrencias: formData.totalRecorrencias,
-            p_tipo_recorrencia: formData.tipoRecorrencia,
-            p_subcategoria_id: formData.subcategoria || null,
-            p_primeiro_efetivado: formData.primeiroEfetivado,
-            p_observacoes: formData.observacoes.trim() || null
+      if (tipoDespesa === 'recorrente') {
+        // Criar despesas recorrentes
+        const despesas = [];
+        const dataBase = new Date(formData.data);
+        
+        for (let i = 0; i < formData.totalRecorrencias; i++) {
+          const dataDespesa = new Date(dataBase);
+          
+          switch (formData.tipoRecorrencia) {
+            case 'semanal':
+              dataDespesa.setDate(dataDespesa.getDate() + (7 * i));
+              break;
+            case 'quinzenal':
+              dataDespesa.setDate(dataDespesa.getDate() + (14 * i));
+              break;
+            case 'mensal':
+              dataDespesa.setMonth(dataDespesa.getMonth() + i);
+              break;
+            case 'anual':
+              dataDespesa.setFullYear(dataDespesa.getFullYear() + i);
+              break;
+          }
+          
+          despesas.push({
+            usuario_id: user.id,
+            data: dataDespesa.toISOString().split('T')[0],
+            descricao: `${formData.descricao.trim()} (${i + 1}/${formData.totalRecorrencias})`,
+            categoria_id: formData.categoria,
+            conta_id: formData.conta,
+            valor: formData.valor,
+            tipo: 'despesa',
+            efetivado: i === 0 ? formData.primeiroEfetivado : false,
+            observacoes: formData.observacoes.trim() || null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
           });
+        }
+        
+        const { data, error } = await supabase
+          .from('transacoes')
+          .insert(despesas)
+          .select();
         
         if (error) throw error;
         
-        console.log("✅ Despesas recorrentes criadas. Grupo ID:", data);
+        showNotification(`${formData.totalRecorrencias} despesas recorrentes criadas!`, 'success');
         
-        if (onSave) onSave();
+      } else if (tipoDespesa === 'parcelada') {
+        // Criar despesas parceladas
+        const parcelas = [];
+        const dataBase = new Date(formData.primeiraParcela);
         
-        const mensagem = `${formData.totalRecorrencias} despesas recorrentes criadas com sucesso!`;
-        showFeedback(mensagem);
+        for (let i = 0; i < formData.numeroParcelas; i++) {
+          const dataParcela = new Date(dataBase);
+          dataParcela.setMonth(dataParcela.getMonth() + i);
+          
+          parcelas.push({
+            usuario_id: user.id,
+            data: dataParcela.toISOString().split('T')[0],
+            descricao: `${formData.descricao.trim()} (${i + 1}/${formData.numeroParcelas})`,
+            categoria_id: formData.categoria,
+            conta_id: formData.conta,
+            valor: valorParcela,
+            tipo: 'despesa',
+            efetivado: false, // Parcelas começam como planejadas
+            observacoes: formData.observacoes.trim() || null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+        }
+        
+        const { data, error } = await supabase
+          .from('transacoes')
+          .insert(parcelas)
+          .select();
+        
+        if (error) throw error;
+        
+        showNotification(`Despesa parcelada em ${formData.numeroParcelas}x criada!`, 'success');
         
       } else {
-        // *** TRANSAÇÃO SIMPLES ***
+        // Transação simples
         const dadosDespesa = {
           usuario_id: user.id,
           data: formData.data,
           descricao: formData.descricao.trim(),
           categoria_id: formData.categoria,
-          subcategoria_id: formData.subcategoria || null,
-          conta_id: formData.contaDebito,
+          conta_id: formData.conta,
           valor: formData.valor,
           tipo: 'despesa',
+          efetivado: formData.efetivado,
           observacoes: formData.observacoes.trim() || null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -543,28 +437,20 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
         
         if (error) throw error;
         
-        console.log("✅ Despesa simples salva:", data);
-        
-        if (onSave) onSave();
-        
-        showFeedback('Despesa registrada com sucesso!');
+        showNotification('Despesa registrada com sucesso!', 'success');
       }
       
+      if (onSave) onSave();
+      
       if (criarNova) {
-        // Reset campos principais mantendo categoria e conta
-        setFormData(prev => {
-          const dataAtual = getCurrentDate();
-          return {
-            ...prev,
-            valor: 0,
-            data: dataAtual,
-            descricao: '',
-            efetivado: true,
-            isRecorrente: false,
-            totalRecorrencias: 12,
-            observacoes: ''
-          };
-        });
+        setFormData(prev => ({
+          ...prev,
+          valor: 0,
+          data: new Date().toISOString().split('T')[0],
+          descricao: '',
+          efetivado: true,
+          observacoes: ''
+        }));
         setErrors({});
         const timer = setTimeout(() => {
           valorInputRef.current?.focus();
@@ -580,38 +466,35 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
       
     } catch (error) {
       console.error('❌ Erro ao salvar despesa:', error);
-      showFeedback(`Erro ao salvar despesa: ${error.message}`, 'error');
+      showNotification(`Erro ao salvar despesa: ${error.message}`, 'error');
     } finally {
       setSubmitting(false);
     }
-  }, [validateForm, user.id, formData, onSave, showFeedback, getCurrentDate, resetForm, onClose]);
-  
-  const handleObservacoesChange = useCallback((e) => {
-    if (e.target.value.length <= 300) {
-      handleInputChange(e);
-    }
-  }, [handleInputChange]);
-  
+  }, [validateForm, user.id, formData, tipoDespesa, valorParcela, onSave, showNotification, resetForm, onClose]);
+
   const handleCancelar = useCallback(() => {
     resetForm();
     onClose();
   }, [resetForm, onClose]);
-  
-  const handleCancelarConfirmacao = useCallback(() => {
-    setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
-  }, []);
-  
-  // EARLY RETURN - se não estiver aberto
+
   if (!isOpen) return null;
-  
+
   return (
     <div className="receitas-modal-overlay">
       <div className="receitas-modal-container">
-        {/* Header compacto */}
+        {/* Header */}
         <div className="receitas-modal-header">
           <h2 className="receitas-modal-title">
-            {formData.isRecorrente ? <Repeat size={18} style={{ color: '#ef4444' }} /> : <TrendingDown size={18} style={{ color: '#ef4444' }} />}
-            {formData.isRecorrente ? 'Despesas Recorrentes' : 'Nova Despesa'}
+            {tipoDespesa === 'recorrente' ? (
+              <Repeat size={18} style={{ color: '#ef4444' }} />
+            ) : tipoDespesa === 'parcelada' ? (
+              <CreditCard size={18} style={{ color: '#ef4444' }} />
+            ) : (
+              <TrendingDown size={18} style={{ color: '#ef4444' }} />
+            )}
+            {tipoDespesa === 'recorrente' ? 'Despesas Recorrentes' : 
+             tipoDespesa === 'parcelada' ? 'Despesa Parcelada' : 
+             'Nova Despesa'}
           </h2>
           <button className="receitas-modal-close" onClick={onClose} aria-label="Fechar">
             <X size={18} />
@@ -620,15 +503,8 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
         
         {/* Content */}
         <div className="receitas-modal-content">
-          {/* Feedback */}
-          {feedback.visible && (
-            <div className={`receitas-feedback ${feedback.type}`}>
-              {feedback.type === 'success' ? '✅' : '❌'} {feedback.message}
-            </div>
-          )}
-          
           {/* Loading */}
-          {(categoriasLoading || contasLoading) ? (
+          {loading ? (
             <div className="receitas-loading">
               <div className="receitas-loading-spinner" style={{ borderTopColor: '#ef4444' }}></div>
               <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>
@@ -637,20 +513,67 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
             </div>
           ) : (
             <form onSubmit={(e) => handleSubmit(e, false)} className="receitas-form">
-              {/* ===== ORDEM REORGANIZADA ===== */}
               
-              {/* 1. VALOR E DATA - Layout horizontal compacto */}
+              {/* Tipo de Despesa */}
+              <div className="receitas-form-group receitas-form-full">
+                <label className="receitas-form-label">
+                  <Tag size={14} />
+                  Tipo de Despesa
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
+                  {[
+                    { value: 'simples', label: 'Simples', icon: <TrendingDown size={16} /> },
+                    { value: 'recorrente', label: 'Recorrente', icon: <Repeat size={16} /> },
+                    { value: 'parcelada', label: 'Parcelada', icon: <CreditCard size={16} /> }
+                  ].map(tipo => (
+                    <label
+                      key={tipo.value}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '12px',
+                        border: tipoDespesa === tipo.value ? '2px solid #ef4444' : '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        backgroundColor: tipoDespesa === tipo.value ? '#fef2f2' : 'white',
+                        color: tipoDespesa === tipo.value ? '#ef4444' : '#374151',
+                        fontSize: '0.875rem',
+                        fontWeight: '500',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="tipoDespesa"
+                        value={tipo.value}
+                        checked={tipoDespesa === tipo.value}
+                        onChange={(e) => handleTipoDespesaChange(e.target.value)}
+                        style={{ display: 'none' }}
+                      />
+                      {tipo.icon}
+                      {tipo.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Valor e Data */}
               <div className="receitas-form-row">
                 <div className="receitas-form-group">
                   <label className="receitas-form-label">
                     <DollarSign size={14} />
-                    Valor {formData.isRecorrente ? '(cada)' : ''} *
+                    {tipoDespesa === 'parcelada' ? 'Valor Total' : 'Valor'} *
                   </label>
-                  <InputMoney
+                  <input
                     ref={valorInputRef}
+                    type="number"
+                    name="valor"
+                    step="0.01"
+                    min="0"
                     value={formData.valor}
-                    onChange={handleValorChange}
-                    placeholder="R$ 0,00"
+                    onChange={handleInputChange}
+                    placeholder="0.00"
                     disabled={submitting}
                     className={`receitas-form-input receitas-valor-input ${errors.valor ? 'error' : ''}`}
                     style={{ color: '#ef4444' }}
@@ -663,7 +586,8 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                 <div className="receitas-form-group">
                   <label className="receitas-form-label">
                     <Calendar size={14} />
-                    {formData.isRecorrente ? 'Início' : 'Data'} *
+                    {tipoDespesa === 'recorrente' ? 'Data Início' : 
+                     tipoDespesa === 'parcelada' ? 'Data Compra' : 'Data'} *
                   </label>
                   <input
                     type="date"
@@ -678,35 +602,9 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                   )}
                 </div>
               </div>
-              
-              {/* 2. TOGGLE RECORRENTE */}
-              <div className="receitas-form-group receitas-form-full">
-                <label style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '8px', 
-                  cursor: 'pointer',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  color: '#374151'
-                }}>
-                  <input
-                    type="checkbox"
-                    name="isRecorrente"
-                    checked={formData.isRecorrente}
-                    onChange={handleInputChange}
-                    disabled={submitting}
-                  />
-                  <Repeat size={16} />
-                  Despesa recorrente (repetir automaticamente)
-                </label>
-                <small style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '4px' }}>
-                  💡 Marque para criar múltiplas despesas (aluguel, financiamento, etc.)
-                </small>
-              </div>
-              
-              {/* 3. CAMPOS ESPECÍFICOS DE RECORRÊNCIA - Aparecem apenas se isRecorrente = true */}
-              {formData.isRecorrente && (
+
+              {/* Campos específicos por tipo */}
+              {tipoDespesa === 'recorrente' && (
                 <>
                   <div className="receitas-form-row">
                     <div className="receitas-form-group">
@@ -727,9 +625,6 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                           </option>
                         ))}
                       </select>
-                      {errors.tipoRecorrencia && (
-                        <div className="receitas-form-error">{errors.tipoRecorrencia}</div>
-                      )}
                     </div>
                     
                     <div className="receitas-form-group">
@@ -750,9 +645,6 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                           </option>
                         ))}
                       </select>
-                      {errors.totalRecorrencias && (
-                        <div className="receitas-form-error">{errors.totalRecorrencias}</div>
-                      )}
                     </div>
                   </div>
                   
@@ -762,65 +654,200 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                       <div className="preview-texto" style={{ color: '#ef4444', flexDirection: 'column', gap: '4px' }}>
                         <span>🔄 {formData.totalRecorrencias}x de {formatCurrency(formData.valor)} ({formData.tipoRecorrencia})</span>
                         <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>
-                          Total: {formatCurrency(valorTotalRecorrencia)}
-                          {dataFinalEstimada && ` • Até: ${dataFinalEstimada}`}
+                          Total: {formatCurrency(valorTotal)}
+                          {dataFinal && ` • Até: ${dataFinal}`}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Status da primeira recorrência */}
+                  <div className="receitas-form-group receitas-form-full">
+                    <label className="receitas-form-label">
+                      {formData.primeiroEfetivado ? <CheckCircle size={14} /> : <Clock size={14} />}
+                      Status da Primeira Despesa
+                    </label>
+                    
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                      <label style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '6px', 
+                        cursor: 'pointer',
+                        fontSize: '0.875rem',
+                        color: formData.primeiroEfetivado ? '#ef4444' : '#6b7280'
+                      }}>
+                        <input
+                          type="radio"
+                          name="primeiroEfetivado"
+                          checked={formData.primeiroEfetivado === true}
+                          onChange={() => setFormData(prev => ({ ...prev, primeiroEfetivado: true }))}
+                          disabled={submitting}
+                        />
+                        <CheckCircle size={16} />
+                        Primeira já paga
+                      </label>
+                      <label style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '6px', 
+                        cursor: 'pointer',
+                        fontSize: '0.875rem',
+                        color: !formData.primeiroEfetivado ? '#f59e0b' : '#6b7280'
+                      }}>
+                        <input
+                          type="radio"
+                          name="primeiroEfetivado"
+                          checked={formData.primeiroEfetivado === false}
+                          onChange={() => setFormData(prev => ({ ...prev, primeiroEfetivado: false }))}
+                          disabled={submitting}
+                        />
+                        <Clock size={16} />
+                        Todas planejadas
+                      </label>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {tipoDespesa === 'parcelada' && (
+                <>
+                  <div className="receitas-form-row">
+                    <div className="receitas-form-group">
+                      <label className="receitas-form-label">
+                        <Hash size={14} />
+                        Número de Parcelas *
+                      </label>
+                      <select
+                        name="numeroParcelas"
+                        value={formData.numeroParcelas}
+                        onChange={handleInputChange}
+                        disabled={submitting}
+                        className={`receitas-form-input ${errors.numeroParcelas ? 'error' : ''}`}
+                      >
+                        {opcoesParcelas.map(opcao => (
+                          <option key={opcao.value} value={opcao.value}>
+                            {opcao.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="receitas-form-group">
+                      <label className="receitas-form-label">
+                        <Calendar size={14} />
+                        Primeira Parcela *
+                      </label>
+                      <input
+                        type="date"
+                        name="primeiraParcela"
+                        value={formData.primeiraParcela}
+                        onChange={handleInputChange}
+                        disabled={submitting}
+                        className={`receitas-form-input ${errors.primeiraParcela ? 'error' : ''}`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Preview do Parcelamento */}
+                  {formData.valor > 0 && formData.numeroParcelas > 0 && (
+                    <div className="cartao-preview-compacto" style={{ backgroundColor: 'rgba(147, 51, 234, 0.08)', borderColor: 'rgba(147, 51, 234, 0.15)' }}>
+                      <div className="preview-texto" style={{ color: '#9333ea', flexDirection: 'column', gap: '4px' }}>
+                        <span>💳 {formData.numeroParcelas}x de {formatCurrency(valorParcela)}</span>
+                        <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>
+                          Total: {formatCurrency(formData.valor)}
+                          {dataFinal && ` • Até: ${dataFinal}`}
                         </span>
                       </div>
                     </div>
                   )}
                 </>
               )}
-              
-              {/* 4. STATUS DE EFETIVAÇÃO */}
+
+              {/* Descrição */}
               <div className="receitas-form-group receitas-form-full">
                 <label className="receitas-form-label">
-                  {formData.isRecorrente ? 
-                    (formData.primeiroEfetivado ? <CheckCircle size={14} /> : <Clock size={14} />) :
-                    (formData.efetivado ? <CheckCircle size={14} /> : <Clock size={14} />)
-                  }
-                  Status {formData.isRecorrente ? 'do Primeiro Lançamento' : 'da Transação'}
+                  <FileText size={14} />
+                  Descrição *
                 </label>
-                
-                {formData.isRecorrente ? (
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <label style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '6px', 
-                      cursor: 'pointer',
-                      fontSize: '0.875rem',
-                      color: formData.primeiroEfetivado ? '#ef4444' : '#6b7280'
-                    }}>
-                      <input
-                        type="radio"
-                        name="primeiroEfetivado"
-                        checked={formData.primeiroEfetivado === true}
-                        onChange={() => setFormData(prev => ({ ...prev, primeiroEfetivado: true }))}
-                        disabled={submitting}
-                      />
-                      <CheckCircle size={16} />
-                      Primeira já paga
-                    </label>
-                    <label style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '6px', 
-                      cursor: 'pointer',
-                      fontSize: '0.875rem',
-                      color: !formData.primeiroEfetivado ? '#f59e0b' : '#6b7280'
-                    }}>
-                      <input
-                        type="radio"
-                        name="primeiroEfetivado"
-                        checked={formData.primeiroEfetivado === false}
-                        onChange={() => setFormData(prev => ({ ...prev, primeiroEfetivado: false }))}
-                        disabled={submitting}
-                      />
-                      <Clock size={16} />
-                      Todas planejadas
-                    </label>
-                  </div>
-                ) : (
+                <input
+                  type="text"
+                  name="descricao"
+                  placeholder={
+                    tipoDespesa === 'recorrente' ? 
+                      "Ex: Aluguel, Financiamento, Plano de saúde" :
+                    tipoDespesa === 'parcelada' ?
+                      "Ex: Notebook, Geladeira, Móveis" :
+                      "Ex: Supermercado, Combustível, Restaurante"
+                  }
+                  value={formData.descricao}
+                  onChange={handleInputChange}
+                  disabled={submitting}
+                  className={`receitas-form-input ${errors.descricao ? 'error' : ''}`}
+                />
+                {errors.descricao && (
+                  <div className="receitas-form-error">{errors.descricao}</div>
+                )}
+              </div>
+
+              {/* Categoria */}
+              <div className="receitas-form-group receitas-form-full">
+                <label className="receitas-form-label">
+                  <Tag size={14} />
+                  Categoria *
+                </label>
+                <select
+                  name="categoria"
+                  value={formData.categoria}
+                  onChange={handleInputChange}
+                  disabled={submitting}
+                  className={`receitas-form-input ${errors.categoria ? 'error' : ''}`}
+                >
+                  <option value="">Selecione uma categoria</option>
+                  {categorias.map(categoria => (
+                    <option key={categoria.id} value={categoria.id}>
+                      {categoria.nome}
+                    </option>
+                  ))}
+                </select>
+                {errors.categoria && (
+                  <div className="receitas-form-error">{errors.categoria}</div>
+                )}
+              </div>
+
+              {/* Conta */}
+              <div className="receitas-form-group receitas-form-full">
+                <label className="receitas-form-label">
+                  <Building size={14} />
+                  Conta de Débito *
+                </label>
+                <select
+                  name="conta"
+                  value={formData.conta}
+                  onChange={handleInputChange}
+                  disabled={submitting}
+                  className={`receitas-form-input ${errors.conta ? 'error' : ''}`}
+                >
+                  <option value="">Selecione uma conta</option>
+                  {contasAtivas.map(conta => (
+                    <option key={conta.id} value={conta.id}>
+                      {conta.nome} - {formatCurrency(conta.saldo_atual || conta.saldo || 0)}
+                    </option>
+                  ))}
+                </select>
+                {errors.conta && (
+                  <div className="receitas-form-error">{errors.conta}</div>
+                )}
+              </div>
+
+              {/* Status (apenas para despesas simples) */}
+              {tipoDespesa === 'simples' && (
+                <div className="receitas-form-group receitas-form-full">
+                  <label className="receitas-form-label">
+                    {formData.efetivado ? <CheckCircle size={14} /> : <Clock size={14} />}
+                    Status da Despesa
+                  </label>
+                  
                   <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     <label style={{ 
                       display: 'flex', 
@@ -859,171 +886,23 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                       Despesa planejada
                     </label>
                   </div>
-                )}
-                
-                <small style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '4px' }}>
-                  💡 {formData.isRecorrente ? 
-                    'Define se o primeiro lançamento já foi pago ou está planejado' :
-                    'Despesas futuras são automaticamente marcadas como planejadas'
-                  }
-                </small>
-              </div>
-              
-              {/* ===== DEMAIS CAMPOS ===== */}
-              
-              {/* 5. DESCRIÇÃO */}
+                </div>
+              )}
+
+              {/* Observações */}
               <div className="receitas-form-group receitas-form-full">
                 <label className="receitas-form-label">
                   <FileText size={14} />
-                  Descrição *
-                  {formData.isRecorrente && <small>(será numerada automaticamente)</small>}
-                </label>
-                <input
-                  type="text"
-                  name="descricao"
-                  placeholder={formData.isRecorrente ? "Ex: Aluguel, Financiamento, Plano de saúde" : "Ex: Almoço no restaurante, Compras no supermercado"}
-                  value={formData.descricao}
-                  onChange={handleInputChange}
-                  disabled={submitting}
-                  className={`receitas-form-input ${errors.descricao ? 'error' : ''}`}
-                />
-                {errors.descricao && (
-                  <div className="receitas-form-error">{errors.descricao}</div>
-                )}
-                {formData.isRecorrente && formData.descricao && (
-                  <small style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '4px' }}>
-                    💡 Será salvo como: "{formData.descricao} (1/{formData.totalRecorrencias})", "{formData.descricao} (2/{formData.totalRecorrencias})", etc.
-                  </small>
-                )}
-              </div>
-              
-              {/* 6. CATEGORIA */}
-              <div className="receitas-form-group receitas-form-full">
-                <label className="receitas-form-label">
-                  <Tag size={14} />
-                  Categoria *
-                </label>
-                <div className="receitas-dropdown-container">
-                  <input
-                    ref={categoriaInputRef}
-                    type="text"
-                    value={formData.categoriaTexto}
-                    onChange={handleCategoriaChange}
-                    onBlur={handleCategoriaBlur}
-                    onFocus={() => setCategoriaDropdownOpen(true)}
-                    placeholder="Digite ou selecione uma categoria"
-                    disabled={submitting}
-                    autoComplete="off"
-                    className={`receitas-form-input receitas-dropdown-input ${errors.categoria ? 'error' : ''}`}
-                    style={{
-                      backgroundColor: !formData.categoria ? '#f9fafb' : 'white'
-                    }}
-                  />
-                  <Search size={14} className="receitas-search-icon" />
-                  
-                  {categoriaDropdownOpen && categoriasFiltradas.length > 0 && (
-                    <div className="receitas-dropdown-options">
-                      {categoriasFiltradas.map(categoria => (
-                        <div
-                          key={categoria.id}
-                          className="receitas-dropdown-option"
-                          onMouseDown={() => handleSelecionarCategoria(categoria)}
-                        >
-                          <div 
-                            className="receitas-categoria-cor"
-                            style={{ backgroundColor: categoria.cor || '#ef4444' }}
-                          />
-                          {categoria.nome}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {errors.categoria && (
-                  <div className="receitas-form-error">{errors.categoria}</div>
-                )}
-              </div>
-              
-              {/* 7. SUBCATEGORIA */}
-              {categoriaSelecionada && (
-                <div className="receitas-form-group receitas-form-full">
-                  <label className="receitas-form-label">
-                    <Tag size={14} />
-                    Subcategoria
-                  </label>
-                  <div className="receitas-dropdown-container">
-                    <input
-                      ref={subcategoriaInputRef}
-                      type="text"
-                      value={formData.subcategoriaTexto}
-                      onChange={handleSubcategoriaChange}
-                      onBlur={handleSubcategoriaBlur}
-                      onFocus={() => setSubcategoriaDropdownOpen(true)}
-                      placeholder="Digite ou selecione uma subcategoria"
-                      disabled={submitting}
-                      autoComplete="off"
-                      className="receitas-form-input receitas-dropdown-input"
-                    />
-                    <Search size={14} className="receitas-search-icon" />
-                    
-                    {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
-                      <div className="receitas-dropdown-options">
-                        {subcategoriasFiltradas.map(subcategoria => (
-                          <div
-                            key={subcategoria.id}
-                            className="receitas-dropdown-option"
-                            onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
-                          >
-                            {subcategoria.nome}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-              
-              {/* 8. CONTA DÉBITO */}
-              <div className="receitas-form-group receitas-form-full">
-                <label className="receitas-form-label">
-                  <Building size={14} />
-                  Conta Débito *
-                </label>
-                <select
-                  name="contaDebito"
-                  value={formData.contaDebito}
-                  onChange={handleInputChange}
-                  disabled={submitting}
-                  className={`receitas-form-input ${errors.contaDebito ? 'error' : ''}`}
-                >
-                  <option value="">Selecione uma conta</option>
-                  {contasAtivas.map(conta => (
-                    <option key={conta.id} value={conta.id}>
-                      {conta.nome} - {formatCurrency(conta.saldo)}
-                    </option>
-                  ))}
-                </select>
-                {errors.contaDebito && (
-                  <div className="receitas-form-error">{errors.contaDebito}</div>
-                )}
-              </div>
-              
-              {/* 9. OBSERVAÇÕES */}
-              <div className="receitas-form-group receitas-form-full">
-                <label className="receitas-form-label">
-                  <MessageSquare size={14} />
                   Observações <small>(máx. 300)</small>
                 </label>
                 <textarea
                   name="observacoes"
                   value={formData.observacoes}
-                  onChange={handleObservacoesChange}
-                  placeholder={formData.isRecorrente ? 
-                    "Adicione informações extras sobre estas despesas recorrentes" :
-                    "Adicione informações extras sobre esta despesa"
-                  }
+                  onChange={handleInputChange}
+                  placeholder="Observações adicionais (opcional)..."
                   rows="2"
                   disabled={submitting}
+                  maxLength="300"
                   className={`receitas-form-input receitas-form-textarea ${errors.observacoes ? 'error' : ''}`}
                 />
                 <div className="receitas-char-counter">
@@ -1034,8 +913,8 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                   <div className="receitas-form-error">{errors.observacoes}</div>
                 )}
               </div>
-              
-              {/* Botões de ação compactos */}
+
+              {/* Botões de ação */}
               <div className="receitas-form-actions">
                 <button
                   type="button"
@@ -1055,12 +934,12 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                   {submitting ? (
                     <>
                       <div className="receitas-btn-spinner"></div>
-                      {formData.isRecorrente ? 'Criando...' : 'Salvando...'}
+                      Salvando...
                     </>
                   ) : (
                     <>
                       <PlusCircle size={14} />
-                      {formData.isRecorrente ? 'Criar e Nova' : 'Salvar e Nova'}
+                      Salvar e Nova
                     </>
                   )}
                 </button>
@@ -1073,12 +952,16 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                   {submitting ? (
                     <>
                       <div className="receitas-btn-spinner"></div>
-                      {formData.isRecorrente ? `Criando ${formData.totalRecorrencias} despesas...` : 'Salvando...'}
+                      {tipoDespesa === 'recorrente' ? `Criando ${formData.totalRecorrencias} despesas...` : 
+                       tipoDespesa === 'parcelada' ? `Criando ${formData.numeroParcelas} parcelas...` :
+                       'Salvando...'}
                     </>
                   ) : (
                     <>
                       <Plus size={14} />
-                      {formData.isRecorrente ? `Criar ${formData.totalRecorrencias} Despesas` : 'Salvar Despesa'}
+                      {tipoDespesa === 'recorrente' ? `Criar ${formData.totalRecorrencias} Despesas` : 
+                       tipoDespesa === 'parcelada' ? `Parcelar em ${formData.numeroParcelas}x` :
+                       'Salvar Despesa'}
                     </>
                   )}
                 </button>
@@ -1087,36 +970,6 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
           )}
         </div>
       </div>
-      
-      {/* Modal de Confirmação */}
-      {confirmacao.show && (
-        <div className="receitas-confirmation-overlay">
-          <div className="receitas-confirmation-container">
-            <h3 className="receitas-confirmation-title">
-              Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
-            </h3>
-            <p className="receitas-confirmation-message">
-              {confirmacao.type === 'categoria' ? 'A categoria' : 'A subcategoria'}{' '}
-              <strong>"{confirmacao.nome}"</strong> não existe. Deseja criá-la?
-            </p>
-            <div className="receitas-confirmation-actions">
-              <button 
-                onClick={handleCancelarConfirmacao}
-                className="receitas-confirmation-btn receitas-confirmation-btn-secondary"
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={handleConfirmarCriacao}
-                className="receitas-confirmation-btn receitas-confirmation-btn-primary"
-                style={{ backgroundColor: '#ef4444' }}
-              >
-                Criar {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
@@ -1127,4 +980,4 @@ DespesasModal.propTypes = {
   onSave: PropTypes.func
 };
 
-export default DespesasModal;
+export default React.memo(DespesasModal);
