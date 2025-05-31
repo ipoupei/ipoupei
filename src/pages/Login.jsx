@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './Login.css';
 import { 
@@ -37,6 +37,7 @@ const Login = () => {
   // Hooks para navegação e autenticação
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const { 
     signIn, 
     signUp, 
@@ -45,16 +46,20 @@ const Login = () => {
     isAuthenticated, 
     loading: authLoading,
     error: authError,
-    setError: setAuthError
+    setError: setAuthError,
+    initialized
   } = useAuth();
 
-  // Redireciona se já estiver autenticado
+  // Redireciona se já estiver autenticado - APENAS após inicializar
   useEffect(() => {
-    if (isAuthenticated) {
-      const redirectTo = searchParams.get('redirectTo') || '/dashboard';
-      navigate(redirectTo);
+    if (initialized && isAuthenticated) {
+      console.log('✅ Usuário já autenticado, redirecionando...');
+      const redirectTo = searchParams.get('redirectTo') || 
+                       location.state?.redirectTo || 
+                       '/dashboard';
+      navigate(redirectTo, { replace: true });
     }
-  }, [isAuthenticated, navigate, searchParams]);
+  }, [initialized, isAuthenticated, navigate, searchParams, location.state]);
 
   // Gerencia erros do contexto de autenticação
   useEffect(() => {
@@ -80,6 +85,37 @@ const Login = () => {
     setShowPassword(false);
     setShowConfirmPassword(false);
   }, [mode]);
+
+  // Verifica se há parâmetros de erro OAuth na URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    
+    const oauthError = urlParams.get('error') || hashParams.get('error');
+    const errorDescription = urlParams.get('error_description') || hashParams.get('error_description');
+    
+    if (oauthError) {
+      console.error('❌ Erro OAuth detectado:', oauthError, errorDescription);
+      setError(getOAuthErrorMessage(oauthError, errorDescription));
+      
+      // Limpar a URL dos parâmetros de erro
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
+  // Função para tratar erros OAuth
+  const getOAuthErrorMessage = (error, description) => {
+    switch (error) {
+      case 'access_denied':
+        return 'Acesso negado. Você cancelou a autenticação com Google.';
+      case 'invalid_request':
+        return 'Solicitação inválida. Tente fazer login novamente.';
+      case 'server_error':
+        return 'Erro no servidor. Tente novamente em alguns minutos.';
+      default:
+        return description || 'Erro na autenticação com Google. Tente novamente.';
+    }
+  };
 
   // Validação de campos
   const validateFields = () => {
@@ -126,16 +162,16 @@ const Login = () => {
     try {
       // Login
       if (mode === 'login') {
-        console.log('Tentando login com Supabase:', { email });
+        console.log('🔄 Tentando login tradicional:', { email });
         
         const result = await signIn({ email, password });
-        console.log('Resultado do login:', result);
+        console.log('📋 Resultado do login:', result);
         
         if (!result.success) {
           throw new Error(result.error || 'Falha ao fazer login.');
         }
         
-        // Navegação é feita pelo useEffect ao atualizar isAuthenticated
+        // O redirecionamento será feito pelo useEffect quando isAuthenticated mudar
       }
       // Registro
       else if (mode === 'register') {
@@ -152,7 +188,7 @@ const Login = () => {
           setMode('login');
         } else {
           setSuccess('Conta criada e login realizado com sucesso!');
-          // Navegação é feita pelo useEffect
+          // O redirecionamento será feito pelo useEffect
         }
       }
       // Recuperação de senha
@@ -166,26 +202,38 @@ const Login = () => {
         setSuccess('Email de recuperação enviado. Verifique sua caixa de entrada.');
       }
     } catch (err) {
-      console.error('Erro de autenticação:', err);
+      console.error('❌ Erro de autenticação:', err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // Handler para login com Google
+  // Handler para login com Google - CORRIGIDO
   const handleGoogleLogin = async () => {
+    if (loading || authLoading) {
+      console.log('⏳ Login já em andamento, ignorando...');
+      return;
+    }
+
     setLoading(true);
     setError('');
+    console.log('🔄 Iniciando login com Google...');
     
     try {
       const result = await signInWithGoogle();
+      console.log('📋 Resultado do Google login:', result);
+      
       if (!result.success) {
         throw new Error(result.error || 'Falha no login com Google');
       }
-      // O redirecionamento é feito automaticamente pelo Supabase
+      
+      // O signInWithGoogle já faz o redirecionamento automático
+      // Não precisamos fazer nada aqui, o OAuth vai redirecionar para /auth/callback
+      console.log('✅ Redirecionamento para Google iniciado');
+      
     } catch (err) {
-      console.error('Erro no login com Google:', err);
+      console.error('❌ Erro no login com Google:', err);
       setError(err.message);
       setLoading(false);
     }
@@ -203,6 +251,31 @@ const Login = () => {
 
   // Estados de carregamento
   const isLoading = loading || authLoading;
+
+  // Se ainda não inicializou, mostrar loading
+  if (!initialized) {
+    return (
+      <div className="login-page">
+        <div className="login-background">
+          <div className="bg-pattern"></div>
+          <div className="bg-gradient"></div>
+        </div>
+        <div className="login-container">
+          <div className="login-card">
+            <div className="text-center">
+              <div className="logo-container">
+                <div className="logo-icon">
+                  <Wallet size={28} className="logo-svg" />
+                </div>
+                <h1 className="logo-text">iPoupei</h1>
+              </div>
+              <p className="text-gray-600">Inicializando...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="login-page">
@@ -265,7 +338,9 @@ const Login = () => {
                 className="sso-btn sso-btn-google"
               >
                 <Chrome size={20} />
-                <span>Continuar com Google</span>
+                <span>
+                  {isLoading ? 'Redirecionando...' : 'Continuar com Google'}
+                </span>
               </button>
               
               <div className="divider">

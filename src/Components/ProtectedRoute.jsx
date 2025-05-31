@@ -1,32 +1,44 @@
+// src/Components/ProtectedRoute.jsx
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { Loader2 } from 'lucide-react';
 
 /**
- * Componente para proteger rotas que necessitam de autenticação
- * Redireciona para login se o usuário não estiver autenticado
+ * Componente para proteger rotas que requerem autenticação
+ * Redireciona para login se não estiver autenticado
  */
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, initialized } = useAuth();
+  const location = useLocation();
 
-  // Mostra loading enquanto verifica autenticação
-  if (loading) {
+  // Mostrar loading enquanto não inicializou ou está carregando
+  if (!initialized || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Verificando autenticação...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Verificando autenticação...</p>
         </div>
       </div>
     );
   }
 
-  // Se não estiver autenticado, redireciona para login
+  // Se não estiver autenticado, redirecionar para login
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return (
+      <Navigate 
+        to="/login" 
+        state={{ 
+          from: location,
+          redirectTo: location.pathname + location.search 
+        }} 
+        replace 
+      />
+    );
   }
 
-  // Se estiver autenticado, renderiza o componente filho
+  // Se estiver autenticado, renderizar o componente
   return children;
 };
 

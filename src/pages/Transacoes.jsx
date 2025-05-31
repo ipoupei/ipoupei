@@ -12,9 +12,9 @@ import useCategorias from '../hooks/useCategorias';
 import useCartoes from '../hooks/useCartoes';
 import useFaturasCartao from '../hooks/useFaturasCartao';
 import { supabase } from '../lib/supabaseClient';
-import TransacoesFilter from '../components/TransacoesFilter';
-import TransacaoList from '../components/TransacaoList';
-import EditTransacaoModal from '../components/EditTransacaoModal';
+import TransacoesFilter from '../Components/TransacoesFilter';
+import TransacaoList from '../Components/TransacaoList';
+import EditTransacaoModal from '../Components/EditTransacaoModal';
 import '../styles/Transacoes.css';
 
 const Transacoes = () => {

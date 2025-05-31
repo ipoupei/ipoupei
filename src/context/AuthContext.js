@@ -1,4 +1,4 @@
-// src/context/AuthContext.js - Versão Mais Robusta
+// src/context/AuthContext.js - Versão Corrigida para OAuth
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -7,7 +7,7 @@ const AuthContext = createContext();
 
 /**
  * Provider de autenticação integrado com Supabase
- * Versão mais robusta com timeout e fallbacks
+ * Versão corrigida para funcionar perfeitamente com Google OAuth
  */
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -25,16 +25,33 @@ export const AuthProvider = ({ children }) => {
       try {
         console.log('🔐 Inicializando autenticação...');
         
-        // Timeout de segurança (10 segundos)
-        timeoutId = setTimeout(() => {
-          if (mounted && !initialized) {
-            console.warn('⚠️ Timeout na inicialização da auth, continuando sem usuário');
-            setUser(null);
-            setSession(null);
-            setLoading(false);
-            setInitialized(true);
-          }
-        }, 10000);
+        // Verificar se estamos em uma página de callback
+        const isCallbackPage = window.location.pathname.includes('/auth/callback');
+        
+        if (isCallbackPage) {
+          console.log('📍 Detectada página de callback, aguardando processamento...');
+          // Na página de callback, aguardar mais tempo para processar
+          timeoutId = setTimeout(() => {
+            if (mounted && !initialized) {
+              console.warn('⚠️ Timeout na página de callback');
+              setUser(null);
+              setSession(null);
+              setLoading(false);
+              setInitialized(true);
+            }
+          }, 20000); // 20 segundos para callback
+        } else {
+          // Timeout normal para outras páginas
+          timeoutId = setTimeout(() => {
+            if (mounted && !initialized) {
+              console.warn('⚠️ Timeout na inicialização da auth');
+              setUser(null);
+              setSession(null);
+              setLoading(false);
+              setInitialized(true);
+            }
+          }, 10000);
+        }
         
         // Obter sessão atual
         const { data: { session }, error } = await supabase.auth.getSession();
@@ -47,8 +64,10 @@ export const AuthProvider = ({ children }) => {
         
         if (error) {
           console.error('❌ Erro ao obter sessão:', error);
-          // Não tratar como erro fatal, apenas continuar sem usuário
-          console.log('ℹ️ Continuando sem usuário autenticado');
+          // Na página de callback, não tratar como erro fatal
+          if (!isCallbackPage) {
+            console.log('ℹ️ Continuando sem usuário autenticado');
+          }
         }
         
         if (mounted) {
@@ -58,7 +77,6 @@ export const AuthProvider = ({ children }) => {
           
           // Se há usuário, tentar criar/verificar perfil (sem bloquear)
           if (session?.user) {
-            // Executar em background, sem aguardar
             ensureUserProfile(session.user).catch(err => {
               console.warn('⚠️ Erro ao verificar perfil (não crítico):', err);
             });
@@ -67,8 +85,6 @@ export const AuthProvider = ({ children }) => {
       } catch (err) {
         console.error('❌ Erro inesperado ao verificar sessão:', err);
         if (mounted) {
-          // Não tratar como erro fatal
-          console.log('ℹ️ Continuando após erro inesperado');
           setUser(null);
           setSession(null);
         }
@@ -79,7 +95,6 @@ export const AuthProvider = ({ children }) => {
           console.log('✅ Autenticação inicializada');
         }
         
-        // Limpar timeout se ainda existir
         if (timeoutId) {
           clearTimeout(timeoutId);
         }
@@ -98,8 +113,8 @@ export const AuthProvider = ({ children }) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Se já estava inicializado, não precisa mais de loading
-        if (initialized) {
+        // Para eventos específicos, resetar loading
+        if (['SIGNED_IN', 'SIGNED_OUT', 'TOKEN_REFRESHED'].includes(event)) {
           setLoading(false);
         }
         
@@ -108,6 +123,13 @@ export const AuthProvider = ({ children }) => {
           ensureUserProfile(session.user).catch(err => {
             console.warn('⚠️ Erro ao criar perfil (não crítico):', err);
           });
+        }
+        
+        // Para logout, limpar estados
+        if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setSession(null);
+          setError(null);
         }
       }
     });
@@ -120,36 +142,24 @@ export const AuthProvider = ({ children }) => {
       }
       subscription.unsubscribe();
     };
-  }, [initialized]);
+  }, []);
 
-  // Função para garantir que o perfil do usuário existe (não bloqueia)
+  // Função para garantir que o perfil do usuário existe
   const ensureUserProfile = async (user) => {
     try {
       console.log('👤 Verificando perfil do usuário:', user.email);
       
-      // Verificar se perfil já existe (com timeout)
-      const profilePromise = supabase
+      const { data: existingProfile, error: fetchError } = await supabase
         .from('perfil_usuario')
         .select('*')
         .eq('id', user.id)
         .single();
-      
-      // Timeout de 5 segundos para operações de perfil
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout na verificação de perfil')), 5000);
-      });
-      
-      const { data: existingProfile, error: fetchError } = await Promise.race([
-        profilePromise,
-        timeoutPromise
-      ]);
 
       if (fetchError && fetchError.code !== 'PGRST116') {
         console.warn('⚠️ Erro ao buscar perfil (não crítico):', fetchError);
         return;
       }
 
-      // Se perfil não existe, criar um novo (em background)
       if (!existingProfile) {
         console.log('➕ Criando perfil para usuário:', user.email);
         
@@ -160,27 +170,26 @@ export const AuthProvider = ({ children }) => {
                 user.email?.split('@')[0] || 
                 'Usuário',
           email: user.email,
-          avatar_url: user.user_metadata?.avatar_url || null,
+          avatar_url: user.user_metadata?.avatar_url || 
+                     user.user_metadata?.picture || null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
 
-        // Criar perfil sem aguardar
-        supabase
+        const { error: insertError } = await supabase
           .from('perfil_usuario')
-          .insert([profileData])
-          .then(({ error: insertError }) => {
-            if (insertError) {
-              console.warn('⚠️ Erro ao criar perfil (não crítico):', insertError);
-            } else {
-              console.log('✅ Perfil criado com sucesso para:', user.email);
-              
-              // Criar categorias padrão (em background)
-              createDefaultCategories(user.id).catch(err => {
-                console.warn('⚠️ Erro ao criar categorias padrão (não crítico):', err);
-              });
-            }
+          .insert([profileData]);
+
+        if (insertError) {
+          console.warn('⚠️ Erro ao criar perfil (não crítico):', insertError);
+        } else {
+          console.log('✅ Perfil criado com sucesso para:', user.email);
+          
+          // Criar categorias padrão em background
+          createDefaultCategories(user.id).catch(err => {
+            console.warn('⚠️ Erro ao criar categorias padrão (não crítico):', err);
           });
+        }
       } else {
         console.log('✅ Perfil já existe para:', user.email);
       }
@@ -189,7 +198,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Função para criar categorias padrão (não bloqueia)
+  // Função para criar categorias padrão
   const createDefaultCategories = async (userId) => {
     try {
       console.log('📊 Criando categorias padrão para usuário:', userId);
@@ -416,31 +425,41 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Login com Google
+  // Login com Google - VERSÃO CORRIGIDA
   const signInWithGoogle = async () => {
     try {
-      setLoading(true);
+      console.log('🔄 Iniciando login com Google...');
+      
+      // Não definir loading aqui para evitar conflitos
       setError(null);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         }
       });
 
       if (error) {
+        console.error('❌ Erro no signInWithOAuth:', error);
         throw error;
       }
 
+      console.log('✅ Redirecionamento para Google iniciado');
+      
+      // O signInWithOAuth redireciona automaticamente
+      // Não retornamos aqui pois a página será redirecionada
       return { success: true };
+      
     } catch (err) {
       console.error('❌ Erro no login com Google:', err);
       const errorMessage = getAuthErrorMessage(err);
       setError(errorMessage);
       return { success: false, error: errorMessage };
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -453,7 +472,7 @@ export const AuthProvider = ({ children }) => {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'github',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`
+          redirectTo: `${window.location.origin}/auth/callback`
         }
       });
 
@@ -466,15 +485,16 @@ export const AuthProvider = ({ children }) => {
       console.error('❌ Erro no login com GitHub:', err);
       const errorMessage = getAuthErrorMessage(err);
       setError(errorMessage);
-      return { success: false, error: errorMessage };
-    } finally {
       setLoading(false);
+      return { success: false, error: errorMessage };
     }
   };
 
   // Função auxiliar para tratar mensagens de erro
   const getAuthErrorMessage = (error) => {
-    switch (error.message || error.code) {
+    const message = error.message || error.code || '';
+    
+    switch (message) {
       case 'Invalid login credentials':
         return 'Email ou senha incorretos';
       case 'Email not confirmed':
@@ -489,8 +509,19 @@ export const AuthProvider = ({ children }) => {
         return 'Cadastro desabilitado temporariamente';
       case 'Email rate limit exceeded':
         return 'Muitas tentativas. Tente novamente mais tarde';
+      case 'OAuth error':
+      case 'Provider authentication failed':
+        return 'Erro na autenticação com Google. Tente novamente.';
+      case 'Provider not enabled':
+        return 'Login com Google não configurado. Contate o suporte.';
+      case 'Authorization code exchange failed':
+        return 'Falha na autenticação com Google. Tente novamente.';
       default:
-        return error.message || 'Erro desconhecido';
+        // Para erros OAuth específicos
+        if (message.includes('oauth') || message.includes('provider')) {
+          return 'Erro na autenticação com Google. Tente novamente.';
+        }
+        return message || 'Erro desconhecido';
     }
   };
 
@@ -498,18 +529,28 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (import.meta.env.DEV) {
       window.authDebug = {
-        user: user ? { id: user.id, email: user.email } : null,
+        user: user ? { 
+          id: user.id, 
+          email: user.email,
+          metadata: user.user_metadata 
+        } : null,
         loading,
         error,
         isAuthenticated: !!user,
         initialized,
-        session: !!session
+        session: session ? {
+          access_token: session.access_token ? 'presente' : 'ausente',
+          refresh_token: session.refresh_token ? 'presente' : 'ausente'
+        } : null
       };
+      
       console.log('🔧 Auth Debug atualizado:', {
         hasUser: !!user,
+        userEmail: user?.email,
         loading,
         initialized,
-        isAuthenticated: !!user
+        isAuthenticated: !!user,
+        currentPath: window.location.pathname
       });
     }
   }, [user, loading, error, initialized, session]);

@@ -12,36 +12,23 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-// CORREÇÃO: URLs de redirect corretas
-const getRedirectUrl = () => {
-  // Desenvolvimento
-  if (import.meta.env.DEV) {
-    return 'http://localhost:5173/dashboard';
-  }
-  
-  // Produção - URL fixa do seu domínio
-  return 'https://ipoupei.com.br/dashboard';
-};
-
 // Configurações do cliente Supabase
 const supabaseConfig = {
   auth: {
-    // Detecta automaticamente sessão na URL
-    detectSessionInUrl: true,
-    
-    // URL de callback correta
-    redirectTo: getRedirectUrl(),
-    
-    // Configurações de storage
-    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-    autoRefreshToken: true,
+    // Configurações específicas para OAuth
     persistSession: true,
-    
-    // Flow type para OAuth
-    flowType: 'pkce',
-    
-    // Debug apenas em desenvolvimento
-    debug: import.meta.env.DEV
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    // URL de callback para OAuth
+    redirectTo: undefined, // Será definido dinamicamente nas funções de login
+    // Configurações específicas para o fluxo OAuth
+    flowType: 'pkce' // Usar PKCE para maior segurança
+  },
+  // Configurações globais
+  global: {
+    headers: {
+      'X-Client-Info': 'iPoupei-Web-App'
+    }
   }
 };
 
@@ -50,20 +37,21 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, supabaseConfi
 
 /**
  * Função para testar a conexão com o Supabase
+ * Realiza uma consulta simples à tabela de contas
  */
 export async function testarLeituraContas() {
   try {
     const { data, error } = await supabase
       .from('contas')
       .select('*')
-      .limit(5);
+      .limit(1); // Limita para otimizar o teste
       
     if (error) {
       console.error('Erro ao buscar contas:', error);
       return { success: false, error };
     }
     
-    console.log('Contas encontradas:', data);
+    console.log('✅ Teste de conexão com Supabase realizado com sucesso');
     return { success: true, data };
   } catch (err) {
     console.error('Erro inesperado ao testar conexão:', err);
@@ -73,6 +61,7 @@ export async function testarLeituraContas() {
 
 /**
  * Função para testar a autenticação atual
+ * Verifica se há um usuário autenticado
  */
 export async function verificarAutenticacao() {
   try {
@@ -86,11 +75,10 @@ export async function verificarAutenticacao() {
     const { session } = data;
     const isAuthenticated = !!session;
     
-    console.log('Usuário autenticado:', isAuthenticated);
+    console.log('🔐 Status de autenticação:', isAuthenticated ? 'Autenticado' : 'Não autenticado');
     if (isAuthenticated) {
-      console.log('User ID:', session.user.id);
-      console.log('Email:', session.user.email);
-      console.log('Provider:', session.user.app_metadata.provider);
+      console.log('👤 User ID:', session.user.id);
+      console.log('📧 Email:', session.user.email);
     }
     
     return { success: true, isAuthenticated, session };
@@ -101,122 +89,61 @@ export async function verificarAutenticacao() {
 }
 
 /**
- * Debug de usuários (apenas desenvolvimento)
+ * Função para configurar OAuth URLs
+ * Útil para debugging e configuração
  */
-export async function listarUsuarios() {
-  if (!import.meta.env.DEV) return;
+export function getOAuthConfig() {
+  const baseUrl = window.location.origin;
   
-  try {
-    const { data, error } = await supabase
-      .from('perfil_usuario')
-      .select('id, nome, email, created_at')
-      .limit(10);
-      
-    if (error) {
-      console.error('Erro ao listar usuários:', error);
-      return;
+  return {
+    google: {
+      redirectTo: `${baseUrl}/auth/callback`,
+      provider: 'google'
+    },
+    github: {
+      redirectTo: `${baseUrl}/auth/callback`,
+      provider: 'github'
     }
-    
-    console.log('Usuários cadastrados:', data);
-    return data;
-  } catch (err) {
-    console.error('Erro ao listar usuários:', err);
-  }
+  };
 }
 
 /**
- * Teste de criação de usuário (apenas desenvolvimento)
+ * Função para debug do OAuth
+ * Exibe informações úteis sobre a configuração
  */
-export async function testarCriacaoUsuario(email, senha, nome) {
-  if (!import.meta.env.DEV) {
-    console.warn('Função de teste disponível apenas em desenvolvimento');
-    return;
-  }
-  
-  try {
-    console.log('Testando criação de usuário:', { email, nome });
+export function debugOAuth() {
+  if (import.meta.env.DEV) {
+    const config = getOAuthConfig();
+    console.log('🔧 OAuth Debug Info:');
+    console.log('Supabase URL:', supabaseUrl);
+    console.log('Redirect URLs:', config);
+    console.log('Current URL:', window.location.href);
     
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password: senha,
-      options: {
-        data: {
-          full_name: nome,
-          nome: nome
-        }
-      }
-    });
-    
-    if (error) {
-      console.error('Erro na criação:', error);
-      return { success: false, error };
+    // Verificar se estamos em uma página de callback
+    if (window.location.pathname.includes('/auth/callback')) {
+      console.log('📍 Estamos na página de callback');
+      console.log('Hash:', window.location.hash);
+      console.log('Search:', window.location.search);
     }
-    
-    console.log('Resultado da criação:', data);
-    
-    if (data.user) {
-      const { data: perfil, error: perfilError } = await supabase
-        .from('perfil_usuario')
-        .select('*')
-        .eq('id', data.user.id)
-        .single();
-        
-      console.log('Perfil criado:', perfil);
-      if (perfilError) {
-        console.error('Erro ao buscar perfil:', perfilError);
-      }
-    }
-    
-    return { success: true, data };
-  } catch (err) {
-    console.error('Erro no teste de criação:', err);
-    return { success: false, error: err };
   }
 }
 
-// Debug apenas em desenvolvimento - CORRIGIDO
+// Configurar debug automático em desenvolvimento
 if (import.meta.env.DEV) {
-  supabase.auth.onAuthStateChange((event, session) => {
-    console.log('🔐 Auth State Changed:', event);
-    console.log('🔄 Redirect URL configurada:', getRedirectUrl());
-    
-    if (session) {
-      console.log('👤 User:', session.user.email);
-      console.log('🔑 Provider:', session.user.app_metadata.provider);
-      console.log('⏰ Session expires:', new Date(session.expires_at * 1000));
-    } else {
-      console.log('👤 User: null');
-    }
-  });
+  // Debug inicial
+  debugOAuth();
   
-  // CORREÇÃO: Criar o objeto somente após DOM estar pronto
-  const criarSupabaseTest = () => {
-    if (typeof window !== 'undefined') {
-      window.supabaseTest = {
-        supabase,
-        testarCriacaoUsuario,
-        verificarAutenticacao,
-        listarUsuarios,
-        redirectUrl: getRedirectUrl()
-      };
-      
-      console.log('🔧 Supabase Config:', {
-        url: supabaseUrl,
-        isDev: import.meta.env.DEV,
-        isProd: import.meta.env.PROD,
-        redirectUrl: getRedirectUrl()
-      });
-      
-      console.log('✅ supabaseTest criado:', !!window.supabaseTest);
+  // Monitorar mudanças de URL
+  let currentUrl = window.location.href;
+  setInterval(() => {
+    if (window.location.href !== currentUrl) {
+      currentUrl = window.location.href;
+      if (currentUrl.includes('/auth/callback')) {
+        console.log('🔄 Detectada navegação para callback:', currentUrl);
+        debugOAuth();
+      }
     }
-  };
-  
-  // Criar imediatamente se DOM estiver pronto, senão aguardar
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', criarSupabaseTest);
-  } else {
-    criarSupabaseTest();
-  }
+  }, 1000);
 }
 
 export default supabase;

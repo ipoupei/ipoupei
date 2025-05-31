@@ -5,11 +5,12 @@ import Dashboard from '../pages/Dashboard';
 import ResetPassword from '../pages/ResetPassword';
 import UserProfile from '../pages/UserProfile';
 import Transacoes from '../pages/Transacoes';
+import AuthCallback from '../pages/AuthCallback';
 import ProtectedRoute from '../Components/ProtectedRoute';
 
 /**
  * Componente para gerenciar as rotas da aplicação
- * Incluindo a nova tela de transações
+ * Incluindo callback do Google OAuth e todas as telas
  */
 const AppRoutes = () => {
   return (
@@ -18,6 +19,9 @@ const AppRoutes = () => {
         {/* Rotas públicas */}
         <Route path="/login" element={<Login />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        
+        {/* Rota para callback do Google OAuth */}
+        <Route path="/auth/callback" element={<AuthCallback />} />
         
         {/* Rotas protegidas */}
         <Route 
@@ -38,7 +42,7 @@ const AppRoutes = () => {
           } 
         />
         
-        {/* Nova rota de transações */}
+        {/* Rota de transações */}
         <Route 
           path="/transacoes" 
           element={
