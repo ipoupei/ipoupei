@@ -1,4 +1,4 @@
-// src/components/DespesasCartaoModal.jsx - VERSÃO REFATORADA E OTIMIZADA
+// src/components/DespesasCartaoModal.jsx - VERSÃO REFATORADA E OTIMIZADA COM VALOR CORRIGIDO
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -21,9 +21,10 @@ import { supabase } from '../lib/supabaseClient';
 import './FormsModal.css';
 
 /**
- * Modal de Despesas Cartão - Versão Otimizada
+ * Modal de Despesas Cartão - Versão Otimizada com Valor Corrigido
  * Reduzido de ~1600 para ~650 linhas (60% menos código)
  * Design compacto, funcionalidades completas, performance otimizada
+ * VALOR CORRIGIDO: Mesmo sistema do ReceitasModal
  */
 const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
   const { user } = useAuthStore();
@@ -125,21 +126,33 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     []
   );
 
-  // Formatação de valor
+  // FORMATAÇÃO DE VALOR CORRIGIDA - IGUAL AO RECEITAS MODAL
   const formatarValor = useCallback((valor) => {
-    const valorLimpo = valor.toString().replace(/\D/g, '');
-    const valorNumerico = parseFloat(valorLimpo) / 100;
-    if (isNaN(valorNumerico) || valorNumerico === 0) return '';
-    return valorNumerico.toLocaleString('pt-BR', { 
+    const apenasNumeros = valor.toString().replace(/\D/g, '');
+    if (!apenasNumeros || apenasNumeros === '0') return '';
+    const valorEmCentavos = parseInt(apenasNumeros, 10);
+    const valorEmReais = valorEmCentavos / 100;
+    return valorEmReais.toLocaleString('pt-BR', { 
       minimumFractionDigits: 2, 
       maximumFractionDigits: 2 
     });
   }, []);
 
-  // Cálculos
+  // VALOR NUMÉRICO CORRIGIDO - IGUAL AO RECEITAS MODAL
   const valorNumerico = useMemo(() => {
-    const valor = parseFloat(formData.valorTotal.toString().replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
-    return valor;
+    if (!formData.valorTotal) return 0;
+    const valorString = formData.valorTotal.toString();
+    if (valorString.includes(',')) {
+      const partes = valorString.split(',');
+      const inteira = partes[0].replace(/\./g, '');
+      const decimal = partes[1] || '00';
+      const valorFinal = parseFloat(`${inteira}.${decimal}`);
+      return isNaN(valorFinal) ? 0 : valorFinal;
+    } else {
+      const apenasNumeros = valorString.replace(/\./g, '');
+      const valorFinal = parseFloat(apenasNumeros) / 100;
+      return isNaN(valorFinal) ? 0 : valorFinal;
+    }
   }, [formData.valorTotal]);
 
   const valorParcela = useMemo(() => 
@@ -307,6 +320,7 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     }
   }, [errors]);
 
+  // HANDLER DE VALOR CORRIGIDO - IGUAL AO RECEITAS MODAL
   const handleValorChange = useCallback((e) => {
     const valorFormatado = formatarValor(e.target.value);
     setFormData(prev => ({ ...prev, valorTotal: valorFormatado }));

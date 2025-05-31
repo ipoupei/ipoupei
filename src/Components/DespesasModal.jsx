@@ -1,4 +1,4 @@
-// src/components/DespesasModal.jsx - VERSÃO FINAL COMPLETA
+// src/components/DespesasModal.jsx - VERSÃO CORRIGIDA E LIMPA
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -105,6 +105,47 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
     }
   };
 
+  // Formatação de valor DEFINITIVAMENTE CORRIGIDA
+  const formatarValor = useCallback((valor) => {
+    // Remove tudo que não é dígito
+    const apenasNumeros = valor.toString().replace(/\D/g, '');
+    
+    // Se não tem números, retorna vazio
+    if (!apenasNumeros || apenasNumeros === '0') return '';
+    
+    // Converte para centavos e depois para reais
+    const valorEmCentavos = parseInt(apenasNumeros, 10);
+    const valorEmReais = valorEmCentavos / 100;
+    
+    // Formata com vírgula decimal brasileira
+    return valorEmReais.toLocaleString('pt-BR', { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    });
+  }, []);
+
+  // Valor numérico DEFINITIVAMENTE CORRIGIDO
+  const valorNumerico = useMemo(() => {
+    if (!formData.valor) return 0;
+    
+    // Converte string formatada para número
+    const valorString = formData.valor.toString();
+    
+    // Se tem vírgula, é formato brasileiro (ex: 10.000,50)
+    if (valorString.includes(',')) {
+      const partes = valorString.split(',');
+      const inteira = partes[0].replace(/\./g, ''); // Remove pontos da parte inteira
+      const decimal = partes[1] || '00'; // Parte decimal ou '00'
+      const valorFinal = parseFloat(`${inteira}.${decimal}`);
+      return isNaN(valorFinal) ? 0 : valorFinal;
+    } else {
+      // Se não tem vírgula, remove pontos e trata como centavos
+      const apenasNumeros = valorString.replace(/\./g, '');
+      const valorFinal = parseFloat(apenasNumeros) / 100;
+      return isNaN(valorFinal) ? 0 : valorFinal;
+    }
+  }, [formData.valor]);
+
   // Dados derivados
   const contasAtivas = useMemo(() => 
     contas.filter(conta => conta.ativo !== false), 
@@ -139,23 +180,7 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
     label: `${i + 2}x`
   }));
 
-  // Formatação de valor
-  const formatarValor = useCallback((valor) => {
-    const valorLimpo = valor.toString().replace(/\D/g, '');
-    const valorNumerico = parseFloat(valorLimpo) / 100;
-    if (isNaN(valorNumerico) || valorNumerico === 0) return '';
-    return valorNumerico.toLocaleString('pt-BR', { 
-      minimumFractionDigits: 2, 
-      maximumFractionDigits: 2 
-    });
-  }, []);
-
   // Cálculos
-  const valorNumerico = useMemo(() => {
-    const valor = parseFloat(formData.valor.toString().replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
-    return valor;
-  }, [formData.valor]);
-
   const valorTotal = useMemo(() => {
     return tipoDespesa === 'recorrente' ? valorNumerico * formData.totalRecorrencias : valorNumerico;
   }, [valorNumerico, formData.totalRecorrencias, tipoDespesa]);
@@ -609,21 +634,15 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="receitas-modal-overlay">
-      <div className="receitas-modal-container">
+    <div className="modal-overlay">
+      <div className="modal-container">
         {/* Header */}
-        <div className="receitas-modal-header" style={{ 
+        <div className="modal-header" style={{ 
           background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.02) 100%)',
           borderBottom: '1px solid rgba(239, 68, 68, 0.1)' 
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              width: '36px',
-              height: '36px',
-              borderRadius: '10px',
+          <h2 className="modal-title">
+            <div className="form-icon-wrapper" style={{
               background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
               color: 'white'
             }}>
@@ -632,42 +651,40 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                <TrendingDown size={18} />}
             </div>
             <div>
-              <h2 className="receitas-modal-title" style={{ margin: 0, fontSize: '1.1rem' }}>
+              <div className="form-title-main">
                 {tipoDespesa === 'recorrente' ? 'Despesas Recorrentes' : 
                  tipoDespesa === 'parcelada' ? 'Despesa Parcelada' : 
                  'Nova Despesa'}
-              </h2>
-              <p style={{ margin: 0, fontSize: '0.8rem', color: '#6b7280' }}>
-                {tipoDespesa === 'recorrente' ? 'Gastos que se repetem mensalmente' : 
+              </div>
+              <div className="form-title-subtitle">
+                {tipoDespesa === 'recorrente' ? 'Gastos que se repetem' : 
                  tipoDespesa === 'parcelada' ? 'Divida um gasto em parcelas' : 
                  'Registre um novo gasto'}
-              </p>
+              </div>
             </div>
-          </div>
-          <button className="receitas-modal-close" onClick={onClose}>
+          </h2>
+          <button className="modal-close" onClick={onClose}>
             <X size={18} />
           </button>
         </div>
         
         {/* Content */}
-        <div className="receitas-modal-content">
+        <div className="modal-content">
           {loading ? (
-            <div className="receitas-loading">
-              <div className="receitas-loading-spinner" style={{ borderTopColor: '#ef4444' }}></div>
-              <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>
-                Carregando dados...
-              </p>
+            <div className="form-loading">
+              <div className="form-loading-spinner" style={{ borderTopColor: '#ef4444' }}></div>
+              <p>Carregando dados...</p>
             </div>
           ) : (
-            <form onSubmit={(e) => handleSubmit(e, false)} className="receitas-form">
+            <form onSubmit={(e) => handleSubmit(e, false)} className="form">
               
               {/* Tipo de Despesa */}
-              <div className="receitas-form-group receitas-form-full">
-                <label className="receitas-form-label">
+              <div className="form-field-group">
+                <label className="form-label">
                   <Tag size={14} />
                   Tipo de Despesa
                 </label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                <div className="form-radio-group despesa-tipo-grid">
                   {[
                     { value: 'simples', label: 'Simples', icon: <TrendingDown size={14} />, desc: 'Único' },
                     { value: 'recorrente', label: 'Recorrente', icon: <Repeat size={14} />, desc: 'Repetir' },
@@ -675,23 +692,7 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                   ].map(tipo => (
                     <label
                       key={tipo.value}
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: '4px',
-                        padding: '8px 6px',
-                        border: tipoDespesa === tipo.value ? '2px solid #ef4444' : '1px solid #e5e7eb',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        backgroundColor: tipoDespesa === tipo.value ? 'rgba(239, 68, 68, 0.05)' : 'white',
-                        color: tipoDespesa === tipo.value ? '#ef4444' : '#374151',
-                        fontSize: '0.75rem',
-                        fontWeight: '500',
-                        transition: 'all 0.2s ease',
-                        textAlign: 'center',
-                        minHeight: '56px'
-                      }}
+                      className={`form-radio-option ${tipoDespesa === tipo.value ? 'selected despesa' : ''}`}
                     >
                       <input
                         type="radio"
@@ -699,12 +700,11 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                         value={tipo.value}
                         checked={tipoDespesa === tipo.value}
                         onChange={(e) => setTipoDespesa(e.target.value)}
-                        style={{ display: 'none' }}
                       />
                       {tipo.icon}
                       <div>
-                        <div style={{ fontWeight: '600' }}>{tipo.label}</div>
-                        <div style={{ fontSize: '0.65rem', opacity: 0.8 }}>{tipo.desc}</div>
+                        <div>{tipo.label}</div>
+                        <small>{tipo.desc}</small>
                       </div>
                     </label>
                   ))}
@@ -712,9 +712,9 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
               </div>
 
               {/* Valor e Data */}
-              <div className="receitas-form-row">
-                <div className="receitas-form-group">
-                  <label className="receitas-form-label">
+              <div className="form-row">
+                <div className="form-field">
+                  <label className="form-label">
                     <DollarSign size={14} />
                     {tipoDespesa === 'parcelada' ? 'Valor Total' : 'Valor'} *
                   </label>
@@ -725,19 +725,13 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                     onChange={handleValorChange}
                     placeholder="0,00"
                     disabled={submitting}
-                    className={`receitas-form-input receitas-valor-input ${errors.valor ? 'error' : ''}`}
-                    style={{ 
-                      fontSize: '1.1rem',
-                      fontWeight: '700',
-                      color: '#ef4444',
-                      textAlign: 'center'
-                    }}
+                    className={`form-input valor despesa ${errors.valor ? 'error' : ''}`}
                   />
-                  {errors.valor && <div className="receitas-form-error">{errors.valor}</div>}
+                  {errors.valor && <div className="form-error">{errors.valor}</div>}
                 </div>
                 
-                <div className="receitas-form-group">
-                  <label className="receitas-form-label">
+                <div className="form-field">
+                  <label className="form-label">
                     <Calendar size={14} />
                     {tipoDespesa === 'recorrente' ? 'Data Início' : 
                      tipoDespesa === 'parcelada' ? 'Data Compra' : 'Data'} *
@@ -748,18 +742,18 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                     value={formData.data}
                     onChange={handleInputChange}
                     disabled={submitting}
-                    className={`receitas-form-input ${errors.data ? 'error' : ''}`}
+                    className={`form-input ${errors.data ? 'error' : ''}`}
                   />
-                  {errors.data && <div className="receitas-form-error">{errors.data}</div>}
+                  {errors.data && <div className="form-error">{errors.data}</div>}
                 </div>
               </div>
 
               {/* Campos específicos por tipo */}
               {tipoDespesa === 'recorrente' && (
                 <>
-                  <div className="receitas-form-row">
-                    <div className="receitas-form-group">
-                      <label className="receitas-form-label">
+                  <div className="form-row">
+                    <div className="form-field">
+                      <label className="form-label">
                         <Repeat size={14} />
                         Frequência *
                       </label>
@@ -768,7 +762,7 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                         value={formData.tipoRecorrencia}
                         onChange={handleInputChange}
                         disabled={submitting}
-                        className="receitas-form-input"
+                        className="form-input"
                       >
                         {opcoesRecorrencia.map(opcao => (
                           <option key={opcao.value} value={opcao.value}>
@@ -778,8 +772,8 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                       </select>
                     </div>
                     
-                    <div className="receitas-form-group">
-                      <label className="receitas-form-label">
+                    <div className="form-field">
+                      <label className="form-label">
                         <Hash size={14} />
                         Quantidade *
                       </label>
@@ -788,7 +782,7 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                         value={formData.totalRecorrencias}
                         onChange={handleInputChange}
                         disabled={submitting}
-                        className="receitas-form-input"
+                        className="form-input"
                       >
                         {opcoesQuantidade.map(opcao => (
                           <option key={opcao.value} value={opcao.value}>
@@ -801,78 +795,45 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                   
                   {/* Preview da Recorrência */}
                   {valorNumerico > 0 && formData.totalRecorrencias > 0 && (
-                    <div style={{ 
-                      background: 'rgba(239, 68, 68, 0.08)',
-                      border: '1px solid rgba(239, 68, 68, 0.15)',
-                      borderRadius: '8px',
-                      padding: '12px',
-                      textAlign: 'center',
-                      color: '#ef4444',
-                      fontSize: '0.875rem',
-                      fontWeight: '500'
-                    }}>
+                    <div className="form-preview despesa">
                       🔄 {formData.totalRecorrencias}x de {formatCurrency(valorNumerico)} ({formData.tipoRecorrencia})
                       <br />
-                      <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>
-                        Total: {formatCurrency(valorTotal)}
-                      </span>
+                      <small>Total: {formatCurrency(valorTotal)}</small>
                     </div>
                   )}
 
                   {/* Status da primeira recorrência */}
-                  <div className="receitas-form-group receitas-form-full">
-                    <label className="receitas-form-label">
+                  <div className="form-field-group">
+                    <label className="form-label">
                       <CheckCircle size={14} />
                       Status da Primeira Despesa
                     </label>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                      <label style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '6px', 
-                        cursor: 'pointer',
-                        padding: '8px 10px',
-                        borderRadius: '6px',
-                        border: formData.primeiroEfetivado ? '2px solid #ef4444' : '1px solid #e5e7eb',
-                        background: formData.primeiroEfetivado ? 'rgba(239, 68, 68, 0.05)' : 'white',
-                        fontSize: '0.8rem',
-                        fontWeight: '500',
-                        color: formData.primeiroEfetivado ? '#ef4444' : '#6b7280',
-                        transition: 'all 0.2s ease'
-                      }}>
+                    <div className="form-radio-group">
+                      <label className={`form-radio-option ${formData.primeiroEfetivado ? 'selected despesa' : ''}`}>
                         <input
                           type="radio"
                           checked={formData.primeiroEfetivado === true}
                           onChange={() => setFormData(prev => ({ ...prev, primeiroEfetivado: true }))}
                           disabled={submitting}
-                          style={{ display: 'none' }}
                         />
                         <CheckCircle size={14} />
-                        Primeira já paga
+                        <div>
+                          <div>Primeira já paga</div>
+                          <small>Dinheiro saiu</small>
+                        </div>
                       </label>
-                      <label style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '6px', 
-                        cursor: 'pointer',
-                        padding: '8px 10px',
-                        borderRadius: '6px',
-                        border: !formData.primeiroEfetivado ? '2px solid #f59e0b' : '1px solid #e5e7eb',
-                        background: !formData.primeiroEfetivado ? 'rgba(245, 158, 11, 0.05)' : 'white',
-                        fontSize: '0.8rem',
-                        fontWeight: '500',
-                        color: !formData.primeiroEfetivado ? '#f59e0b' : '#6b7280',
-                        transition: 'all 0.2s ease'
-                      }}>
+                      <label className={`form-radio-option ${!formData.primeiroEfetivado ? 'selected warning' : ''}`}>
                         <input
                           type="radio"
                           checked={formData.primeiroEfetivado === false}
                           onChange={() => setFormData(prev => ({ ...prev, primeiroEfetivado: false }))}
                           disabled={submitting}
-                          style={{ display: 'none' }}
                         />
                         <Clock size={14} />
-                        Todas planejadas
+                        <div>
+                          <div>Todas planejadas</div>
+                          <small>A pagar</small>
+                        </div>
                       </label>
                     </div>
                   </div>
@@ -881,9 +842,9 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
 
               {tipoDespesa === 'parcelada' && (
                 <>
-                  <div className="receitas-form-row">
-                    <div className="receitas-form-group">
-                      <label className="receitas-form-label">
+                  <div className="form-row">
+                    <div className="form-field">
+                      <label className="form-label">
                         <Hash size={14} />
                         Número de Parcelas *
                       </label>
@@ -892,7 +853,7 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                         value={formData.numeroParcelas}
                         onChange={handleInputChange}
                         disabled={submitting}
-                        className="receitas-form-input"
+                        className="form-input"
                       >
                         {opcoesParcelas.map(opcao => (
                           <option key={opcao.value} value={opcao.value}>
@@ -902,8 +863,8 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                       </select>
                     </div>
 
-                    <div className="receitas-form-group">
-                      <label className="receitas-form-label">
+                    <div className="form-field">
+                      <label className="form-label">
                         <Calendar size={14} />
                         Primeira Parcela *
                       </label>
@@ -913,29 +874,18 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                         value={formData.primeiraParcela}
                         onChange={handleInputChange}
                         disabled={submitting}
-                        className={`receitas-form-input ${errors.primeiraParcela ? 'error' : ''}`}
+                        className={`form-input ${errors.primeiraParcela ? 'error' : ''}`}
                       />
-                      {errors.primeiraParcela && <div className="receitas-form-error">{errors.primeiraParcela}</div>}
+                      {errors.primeiraParcela && <div className="form-error">{errors.primeiraParcela}</div>}
                     </div>
                   </div>
 
                   {/* Preview do Parcelamento */}
                   {valorNumerico > 0 && formData.numeroParcelas > 0 && (
-                    <div style={{ 
-                      background: 'rgba(139, 92, 246, 0.08)',
-                      border: '1px solid rgba(139, 92, 246, 0.15)',
-                      borderRadius: '8px',
-                      padding: '12px',
-                      textAlign: 'center',
-                      color: '#8b5cf6',
-                      fontSize: '0.875rem',
-                      fontWeight: '500'
-                    }}>
+                    <div className="form-preview cartao">
                       💳 {formData.numeroParcelas}x de {formatCurrency(valorParcela)}
                       <br />
-                      <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>
-                        Total: {formatCurrency(valorNumerico)}
-                      </span>
+                      <small>Total: {formatCurrency(valorNumerico)}</small>
                     </div>
                   )}
                 </>
@@ -943,64 +893,36 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
 
               {/* Status (apenas para despesas simples) */}
               {tipoDespesa === 'simples' && (
-                <div className="receitas-form-group receitas-form-full">
-                  <label className="receitas-form-label">
+                <div className="form-field-group">
+                  <label className="form-label">
                     <CheckCircle size={14} />
                     Status da Despesa
                   </label>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                    <label style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '6px', 
-                      cursor: 'pointer',
-                      padding: '10px 12px',
-                      borderRadius: '8px',
-                      border: formData.efetivado ? '2px solid #ef4444' : '1px solid #e5e7eb',
-                      background: formData.efetivado ? 'rgba(239, 68, 68, 0.05)' : 'white',
-                      fontSize: '0.8rem',
-                      fontWeight: '500',
-                      color: formData.efetivado ? '#ef4444' : '#6b7280',
-                      transition: 'all 0.2s ease'
-                    }}>
+                  <div className="form-radio-group">
+                    <label className={`form-radio-option ${formData.efetivado ? 'selected despesa' : ''}`}>
                       <input
                         type="radio"
                         checked={formData.efetivado === true}
                         onChange={() => setFormData(prev => ({ ...prev, efetivado: true }))}
                         disabled={submitting}
-                        style={{ display: 'none' }}
                       />
                       <CheckCircle size={16} />
                       <div>
                         <div>Já paga</div>
-                        <div style={{ fontSize: '0.7rem', opacity: 0.8 }}>Dinheiro saiu</div>
+                        <small>Dinheiro saiu</small>
                       </div>
                     </label>
-                    <label style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '6px', 
-                      cursor: 'pointer',
-                      padding: '10px 12px',
-                      borderRadius: '8px',
-                      border: !formData.efetivado ? '2px solid #f59e0b' : '1px solid #e5e7eb',
-                      background: !formData.efetivado ? 'rgba(245, 158, 11, 0.05)' : 'white',
-                      fontSize: '0.8rem',
-                      fontWeight: '500',
-                      color: !formData.efetivado ? '#f59e0b' : '#6b7280',
-                      transition: 'all 0.2s ease'
-                    }}>
+                    <label className={`form-radio-option ${!formData.efetivado ? 'selected warning' : ''}`}>
                       <input
                         type="radio"
                         checked={formData.efetivado === false}
                         onChange={() => setFormData(prev => ({ ...prev, efetivado: false }))}
                         disabled={submitting}
-                        style={{ display: 'none' }}
                       />
                       <Clock size={16} />
                       <div>
                         <div>Planejada</div>
-                        <div style={{ fontSize: '0.7rem', opacity: 0.8 }}>A pagar</div>
+                        <small>A pagar</small>
                       </div>
                     </label>
                   </div>
@@ -1008,8 +930,8 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
               )}
 
               {/* Descrição */}
-              <div className="receitas-form-group receitas-form-full">
-                <label className="receitas-form-label">
+              <div className="form-field-group">
+                <label className="form-label">
                   <FileText size={14} />
                   Descrição *
                 </label>
@@ -1026,18 +948,18 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                   value={formData.descricao}
                   onChange={handleInputChange}
                   disabled={submitting}
-                  className={`receitas-form-input ${errors.descricao ? 'error' : ''}`}
+                  className={`form-input ${errors.descricao ? 'error' : ''}`}
                 />
-                {errors.descricao && <div className="receitas-form-error">{errors.descricao}</div>}
+                {errors.descricao && <div className="form-error">{errors.descricao}</div>}
               </div>
 
               {/* Categoria */}
-              <div className="receitas-form-group receitas-form-full">
-                <label className="receitas-form-label">
+              <div className="form-field-group">
+                <label className="form-label">
                   <Tag size={14} />
                   Categoria *
                 </label>
-                <div className="receitas-dropdown-container">
+                <div className="form-dropdown-wrapper">
                   <input
                     type="text"
                     value={formData.categoriaTexto}
@@ -1047,23 +969,20 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                     placeholder="Digite ou selecione uma categoria"
                     disabled={submitting}
                     autoComplete="off"
-                    className={`receitas-form-input receitas-dropdown-input ${errors.categoria ? 'error' : ''}`}
-                    style={{
-                      backgroundColor: !formData.categoria ? '#f9fafb' : 'white'
-                    }}
+                    className={`form-input ${errors.categoria ? 'error' : ''}`}
                   />
-                  <Search size={14} className="receitas-search-icon" />
+                  <Search size={14} className="form-dropdown-icon" />
                   
                   {categoriaDropdownOpen && categoriasFiltradas.length > 0 && (
-                    <div className="receitas-dropdown-options">
+                    <div className="form-dropdown-options">
                       {categoriasFiltradas.map(categoria => (
                         <div
                           key={categoria.id}
-                          className="receitas-dropdown-option"
+                          className="form-dropdown-option"
                           onMouseDown={() => handleSelecionarCategoria(categoria)}
                         >
                           <div 
-                            className="receitas-categoria-cor"
+                            className="category-color"
                             style={{ backgroundColor: categoria.cor || '#ef4444' }}
                           />
                           {categoria.nome}
@@ -1072,17 +991,17 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                     </div>
                   )}
                 </div>
-                {errors.categoria && <div className="receitas-form-error">{errors.categoria}</div>}
+                {errors.categoria && <div className="form-error">{errors.categoria}</div>}
               </div>
 
               {/* Subcategoria */}
               {categoriaSelecionada && (
-                <div className="receitas-form-group receitas-form-full">
-                  <label className="receitas-form-label">
+                <div className="form-field-group">
+                  <label className="form-label">
                     <Tag size={14} />
-                    Subcategoria ({subcategoriasDaCategoria.length} disponíveis)
+                    Subcategoria <small>({subcategoriasDaCategoria.length} disponíveis)</small>
                   </label>
-                  <div className="receitas-dropdown-container">
+                  <div className="form-dropdown-wrapper">
                     <input
                       type="text"
                       value={formData.subcategoriaTexto}
@@ -1092,16 +1011,16 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                       placeholder="Digite ou selecione uma subcategoria"
                       disabled={submitting}
                       autoComplete="off"
-                      className="receitas-form-input receitas-dropdown-input"
+                      className="form-input"
                     />
-                    <Search size={14} className="receitas-search-icon" />
+                    <Search size={14} className="form-dropdown-icon" />
                     
                     {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
-                      <div className="receitas-dropdown-options">
+                      <div className="form-dropdown-options">
                         {subcategoriasFiltradas.map(subcategoria => (
                           <div
                             key={subcategoria.id}
-                            className="receitas-dropdown-option"
+                            className="form-dropdown-option"
                             onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
                           >
                             {subcategoria.nome}
@@ -1114,8 +1033,8 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
               )}
 
               {/* Conta */}
-              <div className="receitas-form-group receitas-form-full">
-                <label className="receitas-form-label">
+              <div className="form-field-group">
+                <label className="form-label">
                   <Building size={14} />
                   Conta de Débito *
                 </label>
@@ -1124,7 +1043,7 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                   value={formData.conta}
                   onChange={handleInputChange}
                   disabled={submitting}
-                  className={`receitas-form-input ${errors.conta ? 'error' : ''}`}
+                  className={`form-input ${errors.conta ? 'error' : ''}`}
                 >
                   <option value="">Selecione uma conta</option>
                   {contasAtivas.map(conta => (
@@ -1133,12 +1052,12 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                     </option>
                   ))}
                 </select>
-                {errors.conta && <div className="receitas-form-error">{errors.conta}</div>}
+                {errors.conta && <div className="form-error">{errors.conta}</div>}
               </div>
 
               {/* Observações */}
-              <div className="receitas-form-group receitas-form-full">
-                <label className="receitas-form-label">
+              <div className="form-field-group">
+                <label className="form-label">
                   <FileText size={14} />
                   Observações <small>(máx. 300)</small>
                 </label>
@@ -1150,29 +1069,24 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                   rows="2"
                   disabled={submitting}
                   maxLength="300"
-                  className={`receitas-form-input receitas-form-textarea ${errors.observacoes ? 'error' : ''}`}
+                  className={`form-input form-textarea ${errors.observacoes ? 'error' : ''}`}
                 />
-                <div className="receitas-char-counter">
+                <div className="form-char-counter">
                   <span></span>
-                  <span style={{ color: formData.observacoes.length > 250 ? '#ef4444' : '#9ca3af' }}>
+                  <span className={formData.observacoes.length > 250 ? 'text-danger' : ''}>
                     {formData.observacoes.length}/300
                   </span>
                 </div>
-                {errors.observacoes && <div className="receitas-form-error">{errors.observacoes}</div>}
+                {errors.observacoes && <div className="form-error">{errors.observacoes}</div>}
               </div>
 
               {/* Ações */}
-              <div className="receitas-form-actions" style={{ 
-                display: 'flex',
-                gap: '10px',
-                alignItems: 'center'
-              }}>
+              <div className="form-actions">
                 <button
                   type="button"
                   onClick={handleCancelar}
                   disabled={submitting}
-                  className="receitas-btn receitas-btn-secondary"
-                  style={{ padding: '10px 16px', fontSize: '0.875rem' }}
+                  className="form-btn form-btn-secondary"
                 >
                   Cancelar
                 </button>
@@ -1180,11 +1094,8 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                   type="button"
                   onClick={(e) => handleSubmit(e, true)}
                   disabled={submitting}
-                  className="receitas-btn receitas-btn-secondary"
+                  className="form-btn form-btn-secondary"
                   style={{ 
-                    flex: 1, 
-                    padding: '10px 16px', 
-                    fontSize: '0.875rem',
                     background: '#dc2626',
                     color: 'white',
                     border: 'none'
@@ -1192,7 +1103,7 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                 >
                   {submitting ? (
                     <>
-                      <div className="receitas-btn-spinner"></div>
+                      <div className="form-spinner"></div>
                       Salvando...
                     </>
                   ) : (
@@ -1205,17 +1116,11 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="receitas-btn receitas-btn-primary"
-                  style={{ 
-                    flex: 1, 
-                    padding: '10px 16px', 
-                    fontSize: '0.875rem',
-                    background: tipoDespesa === 'parcelada' ? '#8b5cf6' : '#ef4444'
-                  }}
+                  className={`form-btn form-btn-primary ${tipoDespesa === 'parcelada' ? 'cartao' : 'despesa'}`}
                 >
                   {submitting ? (
                     <>
-                      <div className="receitas-btn-spinner"></div>
+                      <div className="form-spinner"></div>
                       {tipoDespesa === 'recorrente' ? `Criando ${formData.totalRecorrencias} despesas...` : 
                        tipoDespesa === 'parcelada' ? `Criando ${formData.numeroParcelas} parcelas...` :
                        'Salvando...'}
@@ -1237,26 +1142,25 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
       
       {/* Modal de Confirmação */}
       {confirmacao.show && (
-        <div className="receitas-confirmation-overlay">
-          <div className="receitas-confirmation-container">
-            <h3 className="receitas-confirmation-title">
+        <div className="confirmation-overlay">
+          <div className="confirmation-container">
+            <h3 className="confirmation-title">
               Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
             </h3>
-            <p className="receitas-confirmation-message">
+            <p className="confirmation-message">
               {confirmacao.type === 'categoria' ? 'A categoria' : 'A subcategoria'}{' '}
               <strong>"{confirmacao.nome}"</strong> não existe. Deseja criá-la?
             </p>
-            <div className="receitas-confirmation-actions">
+            <div className="confirmation-actions">
               <button 
                 onClick={() => setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' })}
-                className="receitas-confirmation-btn receitas-confirmation-btn-secondary"
+                className="form-btn form-btn-secondary"
               >
                 Cancelar
               </button>
               <button 
                 onClick={handleConfirmarCriacao}
-                className="receitas-confirmation-btn receitas-confirmation-btn-primary"
-                style={{ background: '#ef4444' }}
+                className="form-btn form-btn-primary despesa"
               >
                 Criar {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
               </button>

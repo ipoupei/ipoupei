@@ -1555,3 +1555,292 @@
     flex-direction: column-reverse;
   }
 }
+
+/* Adições ao FormsModal.css para o DespesasModal limpo */
+
+/* === ICON WRAPPER === */
+.form-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+/* === TITLE STYLES === */
+.form-title-main {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.form-title-subtitle {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* === GRID PARA TIPO DE DESPESA === */
+.despesa-tipo-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* === PREVIEW STYLES === */
+.form-preview {
+  padding: 12px 16px;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin: 8px 0;
+}
+
+.form-preview.despesa {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.form-preview.cartao {
+  background: rgba(139, 92, 246, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  color: #8b5cf6;
+}
+
+.form-preview small {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+/* === RADIO OPTIONS ESPECÍFICAS === */
+.form-radio-option.selected.despesa {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.05);
+  color: #ef4444;
+}
+
+.form-radio-option.selected.cartao {
+  border-color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.05);
+  color: #8b5cf6;
+}
+
+.form-radio-option.selected.warning {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.05);
+  color: #f59e0b;
+}
+
+/* === BOTÕES COM CORES ESPECÍFICAS === */
+.form-btn-primary.despesa {
+  background: #ef4444;
+}
+
+.form-btn-primary.despesa:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.form-btn-primary.cartao {
+  background: #8b5cf6;
+}
+
+.form-btn-primary.cartao:hover:not(:disabled) {
+  background: #7c3aed;
+}
+
+/* === INPUT VALOR COM CORES === */
+.form-input.valor.despesa {
+  color: #ef4444;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* === TEXT UTILITIES === */
+.text-danger {
+  color: #ef4444;
+}
+
+/* === RESPONSIVIDADE ESPECÍFICA === */
+@media (max-width: 640px) {
+  .despesa-tipo-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .form-title-main {
+    font-size: 1rem;
+  }
+  
+  .form-title-subtitle {
+    font-size: 0.75rem;
+  }
+  
+  .form-icon-wrapper {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+/* Adições ao FormsModal.css para modais limpos */
+
+/* === ICON WRAPPER === */
+.form-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+/* === TITLE STYLES === */
+.form-title-main {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.form-title-subtitle {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* === GRID PARA TIPOS === */
+.despesa-tipo-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.receita-tipo-grid {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/* === PREVIEW STYLES === */
+.form-preview {
+  padding: 12px 16px;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin: 8px 0;
+}
+
+.form-preview.despesa {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.form-preview.receita {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.form-preview.cartao {
+  background: rgba(139, 92, 246, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  color: #8b5cf6;
+}
+
+.form-preview small {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+/* === RADIO OPTIONS ESPECÍFICAS === */
+.form-radio-option.selected.despesa {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.05);
+  color: #ef4444;
+}
+
+.form-radio-option.selected.receita {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.05);
+  color: #10b981;
+}
+
+.form-radio-option.selected.cartao {
+  border-color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.05);
+  color: #8b5cf6;
+}
+
+.form-radio-option.selected.warning {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.05);
+  color: #f59e0b;
+}
+
+/* === BOTÕES COM CORES ESPECÍFICAS === */
+.form-btn-primary.despesa {
+  background: #ef4444;
+}
+
+.form-btn-primary.despesa:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.form-btn-primary.receita {
+  background: #10b981;
+}
+
+.form-btn-primary.receita:hover:not(:disabled) {
+  background: #059669;
+}
+
+.form-btn-primary.cartao {
+  background: #8b5cf6;
+}
+
+.form-btn-primary.cartao:hover:not(:disabled) {
+  background: #7c3aed;
+}
+
+/* === INPUT VALOR COM CORES === */
+.form-input.valor.despesa {
+  color: #ef4444;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.form-input.valor.receita {
+  color: #10b981;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* === TEXT UTILITIES === */
+.text-danger {
+  color: #ef4444;
+}
+
+/* === RESPONSIVIDADE ESPECÍFICA === */
+@media (max-width: 640px) {
+  .despesa-tipo-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .receita-tipo-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .form-title-main {
+    font-size: 1rem;
+  }
+  
+  .form-title-subtitle {
+    font-size: 0.75rem;
+  }
+  
+  .form-icon-wrapper {
+    width: 32px;
+    height: 32px;
+  }
+}
