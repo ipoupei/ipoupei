@@ -19,10 +19,10 @@ import { formatCurrency } from '../utils/formatCurrency';
 import { supabase } from '../lib/supabaseClient';
 
 // Modais
-import ReceitasModal from '../components/ReceitasModal';
-import DespesasModal from '../components/DespesasModal';
-import DespesasCartaoModal from '../components/DespesasCartaoModal';
-import TransferenciasModal from '../components/TransferenciasModal';
+import ReceitasModal from '../Components/ReceitasModal';
+import DespesasModal from '../Components/DespesasModal';
+import DespesasCartaoModal from '../Components/DespesasCartaoModal';
+import TransferenciasModal from '../Components/TransferenciasModal';
 
 // Estilos
 import './TransacoesPage.css';
