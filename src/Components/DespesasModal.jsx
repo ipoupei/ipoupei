@@ -1,4 +1,4 @@
-// src/components/DespesasModal.jsx - VERSÃO CORRIGIDA E LIMPA
+// src/components/DespesasModal.jsx - VERSÃO ORIGINAL COM EDIÇÃO ADICIONADA
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -16,7 +16,8 @@ import {
   Clock,
   PlusCircle,
   X,
-  Search
+  Search,
+  Edit
 } from 'lucide-react';
 
 import { useAuthStore } from '../store/authStore';
@@ -25,11 +26,12 @@ import { formatCurrency } from '../utils/formatCurrency';
 import { supabase } from '../lib/supabaseClient';
 import './FormsModal.css';
 
-const DespesasModal = ({ isOpen, onClose, onSave }) => {
+const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   const { user } = useAuthStore();
   const { showNotification } = useUIStore();
   
   const valorInputRef = useRef(null);
+  const isEditMode = Boolean(transacaoEditando);
 
   // Estados principais
   const [submitting, setSubmitting] = useState(false);
@@ -76,12 +78,66 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
 
   const [errors, setErrors] = useState({});
 
+  // ✅ NOVA FUNÇÃO: Preencher formulário para edição
+  const preencherFormularioEdicao = useCallback(() => {
+    if (!transacaoEditando) return;
+    
+    console.log('🖊️ Preenchendo formulário para edição:', transacaoEditando);
+    
+    // Determinar tipo de despesa baseado na descrição e dados
+    let tipoDetectado = 'simples';
+    if (transacaoEditando.descricao && /\(\d+\/\d+\)/.test(transacaoEditando.descricao)) {
+      if (transacaoEditando.total_parcelas > 1) {
+        tipoDetectado = 'parcelada';
+      } else {
+        tipoDetectado = 'recorrente';
+      }
+    }
+    
+    // Formatar valor para exibição
+    const valorFormatado = transacaoEditando.valor ? 
+      transacaoEditando.valor.toLocaleString('pt-BR', { 
+        minimumFractionDigits: 2, 
+        maximumFractionDigits: 2 
+      }) : '';
+    
+    // Buscar nomes de categoria e subcategoria
+    const categoria = categorias.find(c => c.id === transacaoEditando.categoria_id);
+    const subcategoria = subcategorias.find(s => s.id === transacaoEditando.subcategoria_id);
+    
+    setTipoDespesa(tipoDetectado);
+    setFormData({
+      valor: valorFormatado,
+      data: transacaoEditando.data || new Date().toISOString().split('T')[0],
+      descricao: transacaoEditando.descricao?.replace(/\s\(\d+\/\d+\)$/, '') || '', // Remove sufixo de parcela/recorrência
+      categoria: transacaoEditando.categoria_id || '',
+      categoriaTexto: categoria?.nome || '',
+      subcategoria: transacaoEditando.subcategoria_id || '',
+      subcategoriaTexto: subcategoria?.nome || '',
+      conta: transacaoEditando.conta_id || '',
+      efetivado: transacaoEditando.efetivado ?? true,
+      observacoes: transacaoEditando.observacoes || '',
+      totalRecorrencias: 12,
+      tipoRecorrencia: 'mensal',
+      primeiroEfetivado: true,
+      numeroParcelas: transacaoEditando.total_parcelas || 2,
+      primeiraParcela: transacaoEditando.data || new Date().toISOString().split('T')[0]
+    });
+  }, [transacaoEditando, categorias, subcategorias]);
+
   // Carregar dados quando modal abre
   useEffect(() => {
     if (isOpen && user) {
       carregarDados();
     }
   }, [isOpen, user]);
+
+  // ✅ Preencher formulário quando dados estão carregados e há transação para editar
+  useEffect(() => {
+    if (isOpen && categorias.length > 0 && transacaoEditando) {
+      preencherFormularioEdicao();
+    }
+  }, [isOpen, categorias.length, transacaoEditando, preencherFormularioEdicao]);
 
   const carregarDados = async () => {
     if (!user) return;
@@ -107,17 +163,10 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
 
   // Formatação de valor DEFINITIVAMENTE CORRIGIDA
   const formatarValor = useCallback((valor) => {
-    // Remove tudo que não é dígito
     const apenasNumeros = valor.toString().replace(/\D/g, '');
-    
-    // Se não tem números, retorna vazio
     if (!apenasNumeros || apenasNumeros === '0') return '';
-    
-    // Converte para centavos e depois para reais
     const valorEmCentavos = parseInt(apenasNumeros, 10);
     const valorEmReais = valorEmCentavos / 100;
-    
-    // Formata com vírgula decimal brasileira
     return valorEmReais.toLocaleString('pt-BR', { 
       minimumFractionDigits: 2, 
       maximumFractionDigits: 2 
@@ -128,18 +177,14 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
   const valorNumerico = useMemo(() => {
     if (!formData.valor) return 0;
     
-    // Converte string formatada para número
     const valorString = formData.valor.toString();
-    
-    // Se tem vírgula, é formato brasileiro (ex: 10.000,50)
     if (valorString.includes(',')) {
       const partes = valorString.split(',');
-      const inteira = partes[0].replace(/\./g, ''); // Remove pontos da parte inteira
-      const decimal = partes[1] || '00'; // Parte decimal ou '00'
+      const inteira = partes[0].replace(/\./g, '');
+      const decimal = partes[1] || '00';
       const valorFinal = parseFloat(`${inteira}.${decimal}`);
       return isNaN(valorFinal) ? 0 : valorFinal;
     } else {
-      // Se não tem vírgula, remove pontos e trata como centavos
       const apenasNumeros = valorString.replace(/\./g, '');
       const valorFinal = parseFloat(apenasNumeros) / 100;
       return isNaN(valorFinal) ? 0 : valorFinal;
@@ -239,12 +284,12 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
   }, []);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !transacaoEditando) {
       resetForm();
       const timer = setTimeout(() => valorInputRef.current?.focus(), 150);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, resetForm]);
+  }, [isOpen, transacaoEditando, resetForm]);
 
   // Handler para ESC e cancelar
   const handleCancelar = useCallback(() => {
@@ -497,6 +542,37 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
     return Object.keys(newErrors).length === 0;
   }, [formData, tipoDespesa, valorNumerico]);
 
+  // ✅ NOVA FUNÇÃO: Atualizar transação existente
+  const atualizarTransacao = useCallback(async () => {
+    try {
+      const dadosAtualizacao = {
+        data: formData.data,
+        descricao: formData.descricao.trim(),
+        categoria_id: formData.categoria,
+        subcategoria_id: formData.subcategoria || null,
+        conta_id: formData.conta,
+        valor: valorNumerico,
+        efetivado: formData.efetivado,
+        observacoes: formData.observacoes.trim() || null,
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from('transacoes')
+        .update(dadosAtualizacao)
+        .eq('id', transacaoEditando.id)
+        .eq('usuario_id', user.id);
+
+      if (error) throw error;
+
+      showNotification('Despesa atualizada com sucesso!', 'success');
+      return true;
+    } catch (error) {
+      console.error('❌ Erro ao atualizar despesa:', error);
+      throw error;
+    }
+  }, [formData, valorNumerico, transacaoEditando, user.id, showNotification]);
+
   // Submissão
   const handleSubmit = useCallback(async (e, criarNova = false) => {
     e.preventDefault();
@@ -509,6 +585,21 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
     try {
       setSubmitting(true);
       
+      // ✅ MODO EDIÇÃO: Atualizar transação existente
+      if (isEditMode) {
+        await atualizarTransacao();
+        
+        if (onSave) onSave();
+        
+        setTimeout(() => {
+          resetForm();
+          onClose();
+        }, 1500);
+        
+        return;
+      }
+      
+      // MODO CRIAÇÃO: Lógica original mantida
       if (tipoDespesa === 'recorrente') {
         const despesas = [];
         const dataBase = new Date(formData.data);
@@ -629,7 +720,7 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
     } finally {
       setSubmitting(false);
     }
-  }, [validateForm, user.id, formData, tipoDespesa, valorParcela, valorNumerico, onSave, showNotification, resetForm, onClose]);
+  }, [validateForm, user.id, formData, tipoDespesa, valorParcela, valorNumerico, onSave, showNotification, resetForm, onClose, isEditMode, atualizarTransacao]);
 
   if (!isOpen) return null;
 
@@ -646,18 +737,21 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
               background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
               color: 'white'
             }}>
-              {tipoDespesa === 'recorrente' ? <Repeat size={18} /> : 
+              {isEditMode ? <Edit size={18} /> :
+               tipoDespesa === 'recorrente' ? <Repeat size={18} /> : 
                tipoDespesa === 'parcelada' ? <CreditCard size={18} /> : 
                <TrendingDown size={18} />}
             </div>
             <div>
               <div className="form-title-main">
-                {tipoDespesa === 'recorrente' ? 'Despesas Recorrentes' : 
+                {isEditMode ? 'Editar Despesa' :
+                 tipoDespesa === 'recorrente' ? 'Despesas Recorrentes' : 
                  tipoDespesa === 'parcelada' ? 'Despesa Parcelada' : 
                  'Nova Despesa'}
               </div>
               <div className="form-title-subtitle">
-                {tipoDespesa === 'recorrente' ? 'Gastos que se repetem' : 
+                {isEditMode ? 'Atualize os dados da despesa' :
+                 tipoDespesa === 'recorrente' ? 'Gastos que se repetem' : 
                  tipoDespesa === 'parcelada' ? 'Divida um gasto em parcelas' : 
                  'Registre um novo gasto'}
               </div>
@@ -678,38 +772,40 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
           ) : (
             <form onSubmit={(e) => handleSubmit(e, false)} className="form">
               
-              {/* Tipo de Despesa */}
-              <div className="form-field-group">
-                <label className="form-label">
-                  <Tag size={14} />
-                  Tipo de Despesa
-                </label>
-                <div className="form-radio-group despesa-tipo-grid">
-                  {[
-                    { value: 'simples', label: 'Simples', icon: <TrendingDown size={14} />, desc: 'Único' },
-                    { value: 'recorrente', label: 'Recorrente', icon: <Repeat size={14} />, desc: 'Repetir' },
-                    { value: 'parcelada', label: 'Parcelada', icon: <CreditCard size={14} />, desc: 'Dividir' }
-                  ].map(tipo => (
-                    <label
-                      key={tipo.value}
-                      className={`form-radio-option ${tipoDespesa === tipo.value ? 'selected despesa' : ''}`}
-                    >
-                      <input
-                        type="radio"
-                        name="tipoDespesa"
-                        value={tipo.value}
-                        checked={tipoDespesa === tipo.value}
-                        onChange={(e) => setTipoDespesa(e.target.value)}
-                      />
-                      {tipo.icon}
-                      <div>
-                        <div>{tipo.label}</div>
-                        <small>{tipo.desc}</small>
-                      </div>
-                    </label>
-                  ))}
+              {/* ✅ Tipo de Despesa - Oculto no modo edição */}
+              {!isEditMode && (
+                <div className="form-field-group">
+                  <label className="form-label">
+                    <Tag size={14} />
+                    Tipo de Despesa
+                  </label>
+                  <div className="form-radio-group despesa-tipo-grid">
+                    {[
+                      { value: 'simples', label: 'Simples', icon: <TrendingDown size={14} />, desc: 'Único' },
+                      { value: 'recorrente', label: 'Recorrente', icon: <Repeat size={14} />, desc: 'Repetir' },
+                      { value: 'parcelada', label: 'Parcelada', icon: <CreditCard size={14} />, desc: 'Dividir' }
+                    ].map(tipo => (
+                      <label
+                        key={tipo.value}
+                        className={`form-radio-option ${tipoDespesa === tipo.value ? 'selected despesa' : ''}`}
+                      >
+                        <input
+                          type="radio"
+                          name="tipoDespesa"
+                          value={tipo.value}
+                          checked={tipoDespesa === tipo.value}
+                          onChange={(e) => setTipoDespesa(e.target.value)}
+                        />
+                        {tipo.icon}
+                        <div>
+                          <div>{tipo.label}</div>
+                          <small>{tipo.desc}</small>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Valor e Data */}
               <div className="form-row">
@@ -748,8 +844,8 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                 </div>
               </div>
 
-              {/* Campos específicos por tipo */}
-              {tipoDespesa === 'recorrente' && (
+              {/* Campos específicos por tipo - Ocultos no modo edição */}
+              {tipoDespesa === 'recorrente' && !isEditMode && (
                 <>
                   <div className="form-row">
                     <div className="form-field">
@@ -840,7 +936,7 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                 </>
               )}
 
-              {tipoDespesa === 'parcelada' && (
+              {tipoDespesa === 'parcelada' && !isEditMode && (
                 <>
                   <div className="form-row">
                     <div className="form-field">
@@ -892,7 +988,7 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
               )}
 
               {/* Status (apenas para despesas simples) */}
-              {tipoDespesa === 'simples' && (
+              {(tipoDespesa === 'simples' || isEditMode) && (
                 <div className="form-field-group">
                   <label className="form-label">
                     <CheckCircle size={14} />
@@ -1090,29 +1186,34 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                 >
                   Cancelar
                 </button>
-                <button
-                  type="button"
-                  onClick={(e) => handleSubmit(e, true)}
-                  disabled={submitting}
-                  className="form-btn form-btn-secondary"
-                  style={{ 
-                    background: '#dc2626',
-                    color: 'white',
-                    border: 'none'
-                  }}
-                >
-                  {submitting ? (
-                    <>
-                      <div className="form-spinner"></div>
-                      Salvando...
-                    </>
-                  ) : (
-                    <>
-                      <PlusCircle size={14} />
-                      Continuar Adicionando
-                    </>
-                  )}
-                </button>
+                
+                {/* ✅ Botão "Continuar Adicionando" apenas no modo criação */}
+                {!isEditMode && (
+                  <button
+                    type="button"
+                    onClick={(e) => handleSubmit(e, true)}
+                    disabled={submitting}
+                    className="form-btn form-btn-secondary"
+                    style={{ 
+                      background: '#dc2626',
+                      color: 'white',
+                      border: 'none'
+                    }}
+                  >
+                    {submitting ? (
+                      <>
+                        <div className="form-spinner"></div>
+                        Salvando...
+                      </>
+                    ) : (
+                      <>
+                        <PlusCircle size={14} />
+                        Continuar Adicionando
+                      </>
+                    )}
+                  </button>
+                )}
+                
                 <button
                   type="submit"
                   disabled={submitting}
@@ -1121,14 +1222,16 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
                   {submitting ? (
                     <>
                       <div className="form-spinner"></div>
-                      {tipoDespesa === 'recorrente' ? `Criando ${formData.totalRecorrencias} despesas...` : 
+                      {isEditMode ? 'Atualizando...' :
+                       tipoDespesa === 'recorrente' ? `Criando ${formData.totalRecorrencias} despesas...` : 
                        tipoDespesa === 'parcelada' ? `Criando ${formData.numeroParcelas} parcelas...` :
                        'Salvando...'}
                     </>
                   ) : (
                     <>
-                      <Plus size={14} />
-                      {tipoDespesa === 'recorrente' ? `Criar ${formData.totalRecorrencias} Despesas` : 
+                      {isEditMode ? <Edit size={14} /> : <Plus size={14} />}
+                      {isEditMode ? 'Atualizar Despesa' :
+                       tipoDespesa === 'recorrente' ? `Criar ${formData.totalRecorrencias} Despesas` : 
                        tipoDespesa === 'parcelada' ? `Parcelar em ${formData.numeroParcelas}x` :
                        'Adicionar Despesa'}
                     </>
@@ -1175,7 +1278,8 @@ const DespesasModal = ({ isOpen, onClose, onSave }) => {
 DespesasModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
-  onSave: PropTypes.func
+  onSave: PropTypes.func,
+  transacaoEditando: PropTypes.object // ✅ Nova prop para edição
 };
 
 export default React.memo(DespesasModal);

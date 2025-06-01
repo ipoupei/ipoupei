@@ -1,4 +1,4 @@
-// src/layouts/MainLayout.jsx - Versão SIMPLES que funciona
+// src/layouts/MainLayout.jsx - Versão ATUALIZADA com nova estrutura de botões
 import React, { useState, useEffect, Suspense } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { 
@@ -13,11 +13,10 @@ import {
   Calendar,
   MoreHorizontal,
   LogOut,
-  List,
   BarChart3,
-  Settings,
-  Download,
-  Tags
+  Tags,
+  Home,
+  List
 } from 'lucide-react';
 
 // Context e hooks
@@ -189,25 +188,46 @@ const MainLayout = () => {
         </div>
       </section>
 
-      {/* Ações Rápidas */}
+      {/* Ações Rápidas - NOVA ESTRUTURA */}
       <section className="quick-actions">
         <div className="actions-container">
+          {/* 1. Dashboard */}
+          <button 
+            className="action-button dashboard"
+            onClick={() => navigate('/dashboard')}
+          >
+            <Home size={20} />
+            <span>Dashboard</span>
+          </button>
+
+          {/* 2. Transações */}
+          <button 
+            className="action-button transacoes"
+            onClick={() => navigate('/transacoes')}
+          >
+            <List size={20} />
+            <span>Transações</span>
+          </button>
+
+          {/* 3. Receitas */}
           <button 
             className="action-button receita"
             onClick={() => openModal('receitas')}
           >
             <ArrowUpCircle size={20} />
-            <span>Receita</span>
+            <span>Receitas</span>
           </button>
 
+          {/* 4. Despesas */}
           <button 
             className="action-button despesa"
             onClick={() => openModal('despesas')}
           >
             <ArrowDownCircle size={20} />
-            <span>Despesa</span>
+            <span>Despesas</span>
           </button>
 
+          {/* 5. Cartão */}
           <button 
             className="action-button cartao"
             onClick={() => openModal('despesasCartao')}
@@ -216,6 +236,7 @@ const MainLayout = () => {
             <span>Cartão</span>
           </button>
 
+          {/* 6. Transferir */}
           <button 
             className="action-button transferencia"
             onClick={() => openModal('transferencias')}
@@ -224,6 +245,7 @@ const MainLayout = () => {
             <span>Transferir</span>
           </button>
 
+          {/* 7. Contas */}
           <button 
             className="action-button contas"
             onClick={() => openModal('contas')}
@@ -232,6 +254,7 @@ const MainLayout = () => {
             <span>Contas</span>
           </button>
 
+          {/* 8. Mais */}
           <button 
             className="action-button mais"
             onClick={() => setShowMaisMenu(!showMaisMenu)}
@@ -241,19 +264,9 @@ const MainLayout = () => {
           </button>
         </div>
 
-        {/* Menu Mais */}
+        {/* Menu Mais - NOVA ESTRUTURA */}
         {showMaisMenu && (
           <div className="mais-menu">
-            <button 
-              className="mais-menu-item"
-              onClick={() => {
-                navigate('/transacoes');
-                setShowMaisMenu(false);
-              }}
-            >
-              <List size={16} />
-              Ver Transações
-            </button>
             <button 
               className="mais-menu-item"
               onClick={() => {

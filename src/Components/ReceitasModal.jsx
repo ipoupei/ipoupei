@@ -1,4 +1,4 @@
-// src/components/ReceitasModal.jsx - VERSÃO COMPLETA E CORRIGIDA
+// src/components/ReceitasModal.jsx - VERSÃO COMPLETA COM EDIÇÃO
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -15,7 +15,8 @@ import {
   Clock,
   PlusCircle,
   X,
-  Search
+  Search,
+  Edit
 } from 'lucide-react';
 
 import { useAuthStore } from '../store/authStore';
@@ -24,11 +25,12 @@ import { formatCurrency } from '../utils/formatCurrency';
 import { supabase } from '../lib/supabaseClient';
 import './FormsModal.css';
 
-const ReceitasModal = ({ isOpen, onClose, onSave }) => {
+const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   const { user } = useAuthStore();
   const { showNotification } = useUIStore();
   
   const valorInputRef = useRef(null);
+  const isEditMode = Boolean(transacaoEditando);
 
   // Estados principais
   const [submitting, setSubmitting] = useState(false);
@@ -73,12 +75,60 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
 
   const [errors, setErrors] = useState({});
 
+  // ✅ NOVA FUNÇÃO: Preencher formulário para edição
+  const preencherFormularioEdicao = useCallback(() => {
+    if (!transacaoEditando) return;
+    
+    console.log('🖊️ Preenchendo formulário para edição:', transacaoEditando);
+    
+    // Determinar tipo de receita baseado na descrição
+    let tipoDetectado = 'simples';
+    if (transacaoEditando.descricao && /\(\d+\/\d+\)/.test(transacaoEditando.descricao)) {
+      tipoDetectado = 'recorrente';
+    }
+    
+    // Formatar valor para exibição
+    const valorFormatado = transacaoEditando.valor ? 
+      transacaoEditando.valor.toLocaleString('pt-BR', { 
+        minimumFractionDigits: 2, 
+        maximumFractionDigits: 2 
+      }) : '';
+    
+    // Buscar nomes de categoria e subcategoria
+    const categoria = categorias.find(c => c.id === transacaoEditando.categoria_id);
+    const subcategoria = subcategorias.find(s => s.id === transacaoEditando.subcategoria_id);
+    
+    setTipoReceita(tipoDetectado);
+    setFormData({
+      valor: valorFormatado,
+      data: transacaoEditando.data || new Date().toISOString().split('T')[0],
+      descricao: transacaoEditando.descricao?.replace(/\s\(\d+\/\d+\)$/, '') || '', // Remove sufixo de recorrência
+      categoria: transacaoEditando.categoria_id || '',
+      categoriaTexto: categoria?.nome || '',
+      subcategoria: transacaoEditando.subcategoria_id || '',
+      subcategoriaTexto: subcategoria?.nome || '',
+      conta: transacaoEditando.conta_id || '',
+      efetivado: transacaoEditando.efetivado ?? true,
+      observacoes: transacaoEditando.observacoes || '',
+      totalRecorrencias: 12,
+      tipoRecorrencia: 'mensal',
+      primeiroEfetivado: true
+    });
+  }, [transacaoEditando, categorias, subcategorias]);
+
   // Carregar dados quando modal abre
   useEffect(() => {
     if (isOpen && user) {
       carregarDados();
     }
   }, [isOpen, user]);
+
+  // Preencher formulário quando dados estão carregados e há transação para editar
+  useEffect(() => {
+    if (isOpen && categorias.length > 0 && transacaoEditando) {
+      preencherFormularioEdicao();
+    }
+  }, [isOpen, categorias.length, transacaoEditando, preencherFormularioEdicao]);
 
   const carregarDados = async () => {
     if (!user) return;
@@ -211,12 +261,12 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
   }, []);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !transacaoEditando) {
       resetForm();
       const timer = setTimeout(() => valorInputRef.current?.focus(), 150);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, resetForm]);
+  }, [isOpen, transacaoEditando, resetForm]);
 
   // Handler para ESC e cancelar
   const handleCancelar = useCallback(() => {
@@ -457,6 +507,37 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
     return Object.keys(newErrors).length === 0;
   }, [formData, tipoReceita, valorNumerico]);
 
+  // ✅ NOVA FUNÇÃO: Atualizar transação existente
+  const atualizarTransacao = useCallback(async () => {
+    try {
+      const dadosAtualizacao = {
+        data: formData.data,
+        descricao: formData.descricao.trim(),
+        categoria_id: formData.categoria,
+        subcategoria_id: formData.subcategoria || null,
+        conta_id: formData.conta,
+        valor: valorNumerico,
+        efetivado: formData.efetivado,
+        observacoes: formData.observacoes.trim() || null,
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from('transacoes')
+        .update(dadosAtualizacao)
+        .eq('id', transacaoEditando.id)
+        .eq('usuario_id', user.id);
+
+      if (error) throw error;
+
+      showNotification('Receita atualizada com sucesso!', 'success');
+      return true;
+    } catch (error) {
+      console.error('❌ Erro ao atualizar receita:', error);
+      throw error;
+    }
+  }, [formData, valorNumerico, transacaoEditando, user.id, showNotification]);
+
   // Submissão
   const handleSubmit = useCallback(async (e, criarNova = false) => {
     e.preventDefault();
@@ -469,6 +550,21 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
     try {
       setSubmitting(true);
       
+      // ✅ MODO EDIÇÃO: Atualizar transação existente
+      if (isEditMode) {
+        await atualizarTransacao();
+        
+        if (onSave) onSave();
+        
+        setTimeout(() => {
+          resetForm();
+          onClose();
+        }, 1500);
+        
+        return;
+      }
+      
+      // MODO CRIAÇÃO: Lógica original
       if (tipoReceita === 'recorrente') {
         const receitas = [];
         const dataBase = new Date(formData.data);
@@ -560,7 +656,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
     } finally {
       setSubmitting(false);
     }
-  }, [validateForm, user.id, formData, tipoReceita, valorNumerico, onSave, showNotification, resetForm, onClose]);
+  }, [validateForm, user.id, formData, tipoReceita, valorNumerico, onSave, showNotification, resetForm, onClose, isEditMode, atualizarTransacao]);
 
   if (!isOpen) return null;
 
@@ -577,14 +673,17 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
               background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
               color: 'white'
             }}>
-              {tipoReceita === 'recorrente' ? <Repeat size={18} /> : <TrendingUp size={18} />}
+              {isEditMode ? <Edit size={18} /> : 
+               tipoReceita === 'recorrente' ? <Repeat size={18} /> : <TrendingUp size={18} />}
             </div>
             <div>
               <div className="form-title-main">
-                {tipoReceita === 'recorrente' ? 'Receitas Recorrentes' : 'Nova Receita'}
+                {isEditMode ? 'Editar Receita' :
+                 tipoReceita === 'recorrente' ? 'Receitas Recorrentes' : 'Nova Receita'}
               </div>
               <div className="form-title-subtitle">
-                {tipoReceita === 'recorrente' ? 'Rendas que se repetem' : 'Registre uma nova renda'}
+                {isEditMode ? 'Atualize os dados da receita' :
+                 tipoReceita === 'recorrente' ? 'Rendas que se repetem' : 'Registre uma nova renda'}
               </div>
             </div>
           </h2>
@@ -603,37 +702,39 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
           ) : (
             <form onSubmit={(e) => handleSubmit(e, false)} className="form">
               
-              {/* Tipo de Receita */}
-              <div className="form-field-group">
-                <label className="form-label">
-                  <Tag size={14} />
-                  Tipo de Receita
-                </label>
-                <div className="form-radio-group receita-tipo-grid">
-                  {[
-                    { value: 'simples', label: 'Simples', icon: <TrendingUp size={14} />, desc: 'Único' },
-                    { value: 'recorrente', label: 'Recorrente', icon: <Repeat size={14} />, desc: 'Repetir' }
-                  ].map(tipo => (
-                    <label
-                      key={tipo.value}
-                      className={`form-radio-option ${tipoReceita === tipo.value ? 'selected receita' : ''}`}
-                    >
-                      <input
-                        type="radio"
-                        name="tipoReceita"
-                        value={tipo.value}
-                        checked={tipoReceita === tipo.value}
-                        onChange={(e) => setTipoReceita(e.target.value)}
-                      />
-                      {tipo.icon}
-                      <div>
-                        <div>{tipo.label}</div>
-                        <small>{tipo.desc}</small>
-                      </div>
-                    </label>
-                  ))}
+              {/* ✅ Tipo de Receita - Oculto no modo edição */}
+              {!isEditMode && (
+                <div className="form-field-group">
+                  <label className="form-label">
+                    <Tag size={14} />
+                    Tipo de Receita
+                  </label>
+                  <div className="form-radio-group receita-tipo-grid">
+                    {[
+                      { value: 'simples', label: 'Simples', icon: <TrendingUp size={14} />, desc: 'Único' },
+                      { value: 'recorrente', label: 'Recorrente', icon: <Repeat size={14} />, desc: 'Repetir' }
+                    ].map(tipo => (
+                      <label
+                        key={tipo.value}
+                        className={`form-radio-option ${tipoReceita === tipo.value ? 'selected receita' : ''}`}
+                      >
+                        <input
+                          type="radio"
+                          name="tipoReceita"
+                          value={tipo.value}
+                          checked={tipoReceita === tipo.value}
+                          onChange={(e) => setTipoReceita(e.target.value)}
+                        />
+                        {tipo.icon}
+                        <div>
+                          <div>{tipo.label}</div>
+                          <small>{tipo.desc}</small>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Valor e Data */}
               <div className="form-row">
@@ -671,8 +772,8 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
                 </div>
               </div>
 
-              {/* Campos específicos para recorrente */}
-              {tipoReceita === 'recorrente' && (
+              {/* Campos específicos para recorrente - Oculto no modo edição */}
+              {tipoReceita === 'recorrente' && !isEditMode && (
                 <>
                   <div className="form-row">
                     <div className="form-field">
@@ -763,43 +864,41 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
                 </>
               )}
 
-              {/* Status (apenas para receitas simples) */}
-              {tipoReceita === 'simples' && (
-                <div className="form-field-group">
-                  <label className="form-label">
-                    <CheckCircle size={14} />
-                    Status da Receita
+              {/* Status */}
+              <div className="form-field-group">
+                <label className="form-label">
+                  <CheckCircle size={14} />
+                  Status da Receita
+                </label>
+                <div className="form-radio-group">
+                  <label className={`form-radio-option ${formData.efetivado ? 'selected receita' : ''}`}>
+                    <input
+                      type="radio"
+                      checked={formData.efetivado === true}
+                      onChange={() => setFormData(prev => ({ ...prev, efetivado: true }))}
+                      disabled={submitting}
+                    />
+                    <CheckCircle size={16} />
+                    <div>
+                      <div>Já recebida</div>
+                      <small>Dinheiro na conta</small>
+                    </div>
                   </label>
-                  <div className="form-radio-group">
-                    <label className={`form-radio-option ${formData.efetivado ? 'selected receita' : ''}`}>
-                      <input
-                        type="radio"
-                        checked={formData.efetivado === true}
-                        onChange={() => setFormData(prev => ({ ...prev, efetivado: true }))}
-                        disabled={submitting}
-                      />
-                      <CheckCircle size={16} />
-                      <div>
-                        <div>Já recebida</div>
-                        <small>Dinheiro na conta</small>
-                      </div>
-                    </label>
-                    <label className={`form-radio-option ${!formData.efetivado ? 'selected warning' : ''}`}>
-                      <input
-                        type="radio"
-                        checked={formData.efetivado === false}
-                        onChange={() => setFormData(prev => ({ ...prev, efetivado: false }))}
-                        disabled={submitting}
-                      />
-                      <Clock size={16} />
-                      <div>
-                        <div>Planejada</div>
-                        <small>A receber</small>
-                      </div>
-                    </label>
-                  </div>
+                  <label className={`form-radio-option ${!formData.efetivado ? 'selected warning' : ''}`}>
+                    <input
+                      type="radio"
+                      checked={formData.efetivado === false}
+                      onChange={() => setFormData(prev => ({ ...prev, efetivado: false }))}
+                      disabled={submitting}
+                    />
+                    <Clock size={16} />
+                    <div>
+                      <div>Planejada</div>
+                      <small>A receber</small>
+                    </div>
+                  </label>
                 </div>
-              )}
+              </div>
 
               {/* Descrição */}
               <div className="form-field-group">
@@ -960,29 +1059,34 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
                 >
                   Cancelar
                 </button>
-                <button
-                  type="button"
-                  onClick={(e) => handleSubmit(e, true)}
-                  disabled={submitting}
-                  className="form-btn form-btn-secondary"
-                  style={{ 
-                    background: '#059669',
-                    color: 'white',
-                    border: 'none'
-                  }}
-                >
-                  {submitting ? (
-                    <>
-                      <div className="form-spinner"></div>
-                      Salvando...
-                    </>
-                  ) : (
-                    <>
-                      <PlusCircle size={14} />
-                      Continuar Adicionando
-                    </>
-                  )}
-                </button>
+                
+                {/* ✅ Botão "Continuar Adicionando" apenas no modo criação */}
+                {!isEditMode && (
+                  <button
+                    type="button"
+                    onClick={(e) => handleSubmit(e, true)}
+                    disabled={submitting}
+                    className="form-btn form-btn-secondary"
+                    style={{ 
+                      background: '#059669',
+                      color: 'white',
+                      border: 'none'
+                    }}
+                  >
+                    {submitting ? (
+                      <>
+                        <div className="form-spinner"></div>
+                        Salvando...
+                      </>
+                    ) : (
+                      <>
+                        <PlusCircle size={14} />
+                        Continuar Adicionando
+                      </>
+                    )}
+                  </button>
+                )}
+                
                 <button
                   type="submit"
                   disabled={submitting}
@@ -991,12 +1095,14 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
                   {submitting ? (
                     <>
                       <div className="form-spinner"></div>
-                      {tipoReceita === 'recorrente' ? `Criando ${formData.totalRecorrencias} receitas...` : 'Salvando...'}
+                      {isEditMode ? 'Atualizando...' :
+                       tipoReceita === 'recorrente' ? `Criando ${formData.totalRecorrencias} receitas...` : 'Salvando...'}
                     </>
                   ) : (
                     <>
-                      <Plus size={14} />
-                      {tipoReceita === 'recorrente' ? `Criar ${formData.totalRecorrencias} Receitas` : 'Adicionar Receita'}
+                      {isEditMode ? <Edit size={14} /> : <Plus size={14} />}
+                      {isEditMode ? 'Atualizar Receita' :
+                       tipoReceita === 'recorrente' ? `Criar ${formData.totalRecorrencias} Receitas` : 'Adicionar Receita'}
                     </>
                   )}
                 </button>
@@ -1041,7 +1147,8 @@ const ReceitasModal = ({ isOpen, onClose, onSave }) => {
 ReceitasModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
-  onSave: PropTypes.func
+  onSave: PropTypes.func,
+  transacaoEditando: PropTypes.object // ✅ Nova prop para edição
 };
 
 export default React.memo(ReceitasModal);

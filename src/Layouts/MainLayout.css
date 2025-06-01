@@ -1,4 +1,4 @@
-/* src/layouts/MainLayout.css - Estilos Premium do Layout Principal */
+/* src/layouts/MainLayout.css - Estilos Premium do Layout Principal - ATUALIZADO */
 
 .main-layout {
   min-height: 100vh;
@@ -251,11 +251,41 @@
 }
 
 .action-button:hover {
-  
+  transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
-/* Cores específicas para cada ação - alinhadas com os cards */
+/* ================== CORES DOS BOTÕES - NOVA ESTRUTURA ================== */
+
+/* 1. Dashboard */
+.action-button.dashboard {
+  color: #1f2937;
+  border-color: #d1d5db;
+  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+}
+
+.action-button.dashboard:hover {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  border-color: #6b7280;
+  color: #111827;
+  box-shadow: 0 8px 25px rgba(107, 114, 128, 0.25);
+}
+
+/* 2. Transações */
+.action-button.transacoes {
+  color: #1e40af;
+  border-color: #bfdbfe;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+}
+
+.action-button.transacoes:hover {
+  background: linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%);
+  border-color: #3b82f6;
+  color: #1e3a8a;
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.25);
+}
+
+/* 3. Receitas */
 .action-button.receita {
   color: #059669;
   border-color: #d1fae5;
@@ -269,6 +299,7 @@
   box-shadow: 0 8px 25px rgba(16, 185, 129, 0.25);
 }
 
+/* 4. Despesas */
 .action-button.despesa {
   color: #dc2626;
   border-color: #fecaca;
@@ -282,6 +313,7 @@
   box-shadow: 0 8px 25px rgba(239, 68, 68, 0.25);
 }
 
+/* 5. Cartão */
 .action-button.cartao {
   color: #7c3aed;
   border-color: #e9d5ff;
@@ -295,6 +327,7 @@
   box-shadow: 0 8px 25px rgba(139, 92, 246, 0.25);
 }
 
+/* 6. Transferências */
 .action-button.transferencia {
   color: #0f766e;
   border-color: #a7f3d0;
@@ -308,6 +341,7 @@
   box-shadow: 0 8px 25px rgba(20, 184, 166, 0.25);
 }
 
+/* 7. Contas */
 .action-button.contas {
   color: #2563eb;
   border-color: #bfdbfe;
@@ -321,6 +355,7 @@
   box-shadow: 0 8px 25px rgba(59, 130, 246, 0.25);
 }
 
+/* 8. Mais */
 .action-button.mais {
   color: #6b7280;
   border-color: #d1d5db;
@@ -512,6 +547,11 @@
 .loading-container p {
   color: #6b7280;
   font-weight: 500;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 /* ================== RESPONSIVIDADE ================== */

@@ -1,285 +1,353 @@
-// src/pages/TransacoesPage.jsx
+// src/pages/TransacoesPage.jsx - Versão com Filtro de Período Próprio
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { format } from 'date-fns';
 import { 
-  Search, Filter, Download, RefreshCw, Plus, 
-  ArrowUp, ArrowDown, ArrowLeftRight, Calendar,
-  TrendingUp, TrendingDown, Activity, CreditCard,
-  Eye, EyeOff, MoreVertical, Edit, Trash2, CheckCircle,
-  X, ChevronDown, ChevronUp, Wallet, DollarSign, Clock,
-  Home
+  Search, Filter, RefreshCw, 
+  ArrowUp, ArrowDown, ArrowLeftRight, 
+  Activity, CreditCard, Wallet,
+  Edit, Trash2, CheckCircle, Clock,
+  Plus, Calendar, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
-// Hooks
-import { useAuthStore } from '../store/authStore';
+// Hooks (usando os existentes)
+import { useAuth } from '../context/AuthContext';
 import { useUIStore } from '../store/uiStore';
-import useTransacoes from '../hooks/useTransacoes';
-import useCategorias from '../hooks/useCategorias';
-import useContas from '../hooks/useContas';
-import useCartoes from '../hooks/useCartoes';
-
-// Componentes
-import EditTransacaoModal from '../Components/EditTransacaoModal';
-import DespesasModal from '../Components/DespesasModal';
-import ReceitasModal from '../Components/ReceitasModal';
-import TransferenciasModal from '../Components/TransferenciasModal';
-import ContasModal from '../Components/ContasModal';
-import DespesasCartaoModal from '../Components/DespesasCartaoModal';
-import NotificationContainer from '../Components/NotificationContainer';
+import usePeriodo from '../hooks/usePeriodo';
 
 // Utilitários
 import { formatCurrency } from '../utils/formatCurrency';
 import { supabase } from '../lib/supabaseClient';
 
+// Modais
+import ReceitasModal from '../components/ReceitasModal';
+import DespesasModal from '../components/DespesasModal';
+import DespesasCartaoModal from '../components/DespesasCartaoModal';
+import TransferenciasModal from '../components/TransferenciasModal';
+
 // Estilos
 import './TransacoesPage.css';
 
 /**
- * Página principal de transações com filtros avançados e visualização completa
+ * Página de Transações COMPLETA 
+ * ✅ Adiciona seletor de período próprio (independente do MainLayout)
+ * ✅ Remove botões de ação duplicados
+ * ✅ Remove cards de resumo duplicados
+ * ✅ Mantém funcionalidade de edição
  */
 const TransacoesPage = () => {
-  const { user } = useAuthStore();
-  const { showNotification, modals, openModal, closeModal } = useUIStore();
+  const { user } = useAuth();
+  const { showNotification } = useUIStore();
   
-  // Hooks para dados
-  const { transacoes, loading: transacoesLoading, fetchTransacoes } = useTransacoes();
-  const { categorias } = useCategorias();
-  const { contas } = useContas();
-  const { cartoes } = useCartoes();
+  // Hook de período próprio para esta página
+  const {
+    currentDate,
+    navigateMonth,
+    getFormattedPeriod,
+    isCurrentMonth,
+    goToToday,
+    getDateRange
+  } = usePeriodo();
+  
+  // Estados para dados (usando dados das views do banco)
+  const [categorias, setCategorias] = useState([]);
+  const [contas, setContas] = useState([]);
+  const [cartoes, setCartoes] = useState([]);
 
-  // Estados principais
-  const [filteredTransacoes, setFilteredTransacoes] = useState([]);
+  // Estados essenciais
+  const [transacoes, setTransacoes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [agruparFaturas, setAgruparFaturas] = useState(false);
-  const [currentTransacao, setCurrentTransacao] = useState(null);
-  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
-  // Estados de filtros
-  const [filters, setFilters] = useState({
-    periodoInicio: startOfMonth(new Date()),
-    periodoFim: endOfMonth(new Date()),
-    tipo: 'todas', // 'todas', 'receita', 'despesa', 'transferencia'
-    efetivada: null, // null = todas, true = efetivadas, false = pendentes
-    categoriaId: '',
-    subcategoriaId: '',
-    contaId: '',
-    cartaoId: '',
-    valorMin: '',
-    valorMax: '',
-    ordenacao: 'data_desc' // 'data_asc', 'data_desc', 'valor_asc', 'valor_desc'
+  // Estados dos modais
+  const [modals, setModals] = useState({
+    receitas: false,
+    despesas: false,
+    despesasCartao: false,
+    transferencias: false
   });
 
-  // Função para agrupar transações por fatura
-  const agruparTransacoesPorFatura = (transacoes) => {
-    const faturasMap = new Map();
-    const transacoesIndividuais = [];
+  // Estado para edição
+  const [transacaoEditando, setTransacaoEditando] = useState(null);
 
-    transacoes.forEach(transacao => {
-      if (transacao.cartao_id && transacao.fatura_vencimento) {
-        const chave = `${transacao.cartao_id}_${transacao.fatura_vencimento}`;
-        
-        if (!faturasMap.has(chave)) {
-          faturasMap.set(chave, {
-            id: `fatura_${chave}`,
-            tipo: 'despesa',
-            descricao: `Fatura ${transacao.cartao?.nome || 'Cartão'} - ${format(parseISO(transacao.fatura_vencimento), 'dd/MM/yyyy')}`,
-            valor: 0,
-            data: transacao.fatura_vencimento,
-            efetivada: false,
-            cartao_id: transacao.cartao_id,
-            cartao: transacao.cartao,
-            categoria: { nome: 'Cartão de Crédito', cor: '#8B5CF6' },
-            isFaturaAgrupada: true,
-            transacoesAgrupadas: []
-          });
-        }
+  // Estados para período personalizado
+  const [periodoPersonalizado, setPeriodoPersonalizado] = useState(false);
+  const [dataInicio, setDataInicio] = useState('');
+  const [dataFim, setDataFim] = useState('');
 
-        const fatura = faturasMap.get(chave);
-        fatura.valor += transacao.valor;
-        fatura.transacoesAgrupadas.push(transacao);
-      } else {
-        transacoesIndividuais.push(transacao);
-      }
-    });
+  // Filtros
+  const [filters, setFilters] = useState({
+    tipo: 'todas',
+    categoriaId: '',
+    contaId: '',
+    cartaoId: '',
+    ordenacao: 'data_desc'
+  });
 
-    return [...transacoesIndividuais, ...Array.from(faturasMap.values())];
-  };
+  // Buscar dados básicos usando as tabelas otimizadas
+  const fetchBasicData = useCallback(async () => {
+    if (!user?.id) return;
 
-  // Buscar transações filtradas - CORRIGIDO
-  const fetchFilteredTransacoes = useCallback(async () => {
-    if (!user?.id) {
-      console.log('❌ Usuário não autenticado');
-      return;
+    try {
+      console.log('📊 Buscando dados básicos...');
+
+      // Buscar categorias ativas
+      const { data: categoriasData } = await supabase
+        .from('categorias')
+        .select('id, nome, cor, tipo')
+        .eq('usuario_id', user.id)
+        .eq('ativo', true)
+        .order('nome');
+
+      // Buscar contas ativas  
+      const { data: contasData } = await supabase
+        .from('contas')
+        .select('id, nome, tipo, saldo')
+        .eq('usuario_id', user.id)
+        .eq('ativo', true)
+        .order('nome');
+
+      // Buscar cartões ativos
+      const { data: cartoesData } = await supabase
+        .from('cartoes')
+        .select('id, nome, bandeira')
+        .eq('usuario_id', user.id)
+        .eq('ativo', true)
+        .order('nome');
+
+      setCategorias(categoriasData || []);
+      setContas(contasData || []);
+      setCartoes(cartoesData || []);
+
+      console.log('✅ Dados básicos carregados:', {
+        categorias: categoriasData?.length || 0,
+        contas: contasData?.length || 0,
+        cartoes: cartoesData?.length || 0
+      });
+
+    } catch (error) {
+      console.error('❌ Erro ao buscar dados básicos:', error);
     }
+  }, [user?.id]);
+
+  // Função para buscar transações do período selecionado
+  const fetchTransacoes = useCallback(async () => {
+    if (!user?.id) return;
 
     try {
       setLoading(true);
-      console.log('🔍 Buscando transações com filtros:', filters);
+      console.log('🔍 Buscando transações do período...');
       
-      let query = supabase
+      let dataInicioBusca, dataFimBusca;
+      
+      if (periodoPersonalizado && dataInicio && dataFim) {
+        // Usar período personalizado
+        dataInicioBusca = dataInicio;
+        dataFimBusca = dataFim;
+      } else {
+        // Usar período do hook usePeriodo
+        const dateRange = getDateRange();
+        dataInicioBusca = format(dateRange.inicio, 'yyyy-MM-dd');
+        dataFimBusca = format(dateRange.fim, 'yyyy-MM-dd');
+      }
+      
+      console.log('📅 Período:', { dataInicioBusca, dataFimBusca });
+      
+      // Buscar transações do período
+      const { data, error } = await supabase
         .from('transacoes')
         .select(`
-          *,
-          categoria:categorias(id, nome, cor, tipo),
-          subcategoria:subcategorias(id, nome),
-          conta:contas(id, nome, tipo),
-          cartao:cartoes(id, nome, bandeira)
+          id, descricao, valor, data, tipo, observacoes,
+          categoria_id, conta_id, cartao_id, efetivado,
+          transferencia, parcela_atual, total_parcelas,
+          grupo_parcelamento, fatura_vencimento,
+          created_at, updated_at
         `)
-        .eq('usuario_id', user.id); // IMPORTANTE: Filtrar por usuário
+        .eq('usuario_id', user.id)
+        .gte('data', dataInicioBusca)
+        .lte('data', dataFimBusca)
+        .order('data', { ascending: false })
+        .order('created_at', { ascending: false });
 
-      // Aplicar filtros de data
-      if (filters.periodoInicio) {
-        const dataInicio = format(filters.periodoInicio, 'yyyy-MM-dd');
-        query = query.gte('data', dataInicio);
-      }
+      if (error) throw error;
       
-      if (filters.periodoFim) {
-        const dataFim = format(filters.periodoFim, 'yyyy-MM-dd');
-        query = query.lte('data', dataFim);
-      }
+      // Enriquecer dados com informações de categoria, conta e cartão
+      const enrichedData = (data || []).map(transacao => ({
+        ...transacao,
+        categoria: categorias.find(c => c.id === transacao.categoria_id),
+        conta: contas.find(c => c.id === transacao.conta_id),
+        cartao: cartoes.find(c => c.id === transacao.cartao_id)
+      }));
 
-      // Filtros opcionais
-      if (filters.tipo !== 'todas') {
-        query = query.eq('tipo', filters.tipo);
-      }
-
-      if (filters.efetivada !== null) {
-        query = query.eq('efetivada', filters.efetivada);
-      }
-
-      if (filters.categoriaId) {
-        query = query.eq('categoria_id', filters.categoriaId);
-      }
-
-      if (filters.subcategoriaId) {
-        query = query.eq('subcategoria_id', filters.subcategoriaId);
-      }
-
-      if (filters.contaId) {
-        query = query.eq('conta_id', filters.contaId);
-      }
-
-      if (filters.cartaoId) {
-        query = query.eq('cartao_id', filters.cartaoId);
-      }
-
-      // Aplicar busca textual
-      if (searchTerm.trim()) {
-        query = query.or(`descricao.ilike.%${searchTerm}%,observacoes.ilike.%${searchTerm}%`);
-      }
-
-      // Aplicar ordenação
-      const [campo, direcao] = filters.ordenacao.split('_');
-      query = query.order(campo, { ascending: direcao === 'asc' });
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('❌ Erro na query:', error);
-        throw error;
-      }
-
-      console.log(`✅ Encontradas ${data?.length || 0} transações`);
-
-      let result = data || [];
-
-      // Filtrar por valor se especificado
-      if (filters.valorMin || filters.valorMax) {
-        result = result.filter(t => {
-          const valor = t.valor || 0;
-          const min = filters.valorMin ? parseFloat(filters.valorMin) : 0;
-          const max = filters.valorMax ? parseFloat(filters.valorMax) : Infinity;
-          return valor >= min && valor <= max;
-        });
-      }
-
-      // Agrupar faturas se necessário
-      if (agruparFaturas) {
-        result = agruparTransacoesPorFatura(result);
-      }
-
-      setFilteredTransacoes(result);
+      setTransacoes(enrichedData);
+      console.log('✅ Transações carregadas:', enrichedData.length);
 
     } catch (error) {
       console.error('❌ Erro ao buscar transações:', error);
       showNotification('Erro ao carregar transações: ' + error.message, 'error');
-      setFilteredTransacoes([]);
+      setTransacoes([]);
     } finally {
       setLoading(false);
     }
-  }, [filters, searchTerm, agruparFaturas, user?.id, showNotification]);
+  }, [user?.id, categorias, contas, cartoes, showNotification, getDateRange, periodoPersonalizado, dataInicio, dataFim]);
 
-  // Calcular estatísticas
-  const estatisticas = useMemo(() => {
-    const receitas = filteredTransacoes.filter(t => t.tipo === 'receita');
-    const despesas = filteredTransacoes.filter(t => t.tipo === 'despesa');
-    
-    const totalReceitas = receitas.reduce((acc, t) => acc + (t.valor || 0), 0);
-    const totalDespesas = despesas.reduce((acc, t) => acc + (t.valor || 0), 0);
-    const saldo = totalReceitas - totalDespesas;
-    const totalTransacoes = filteredTransacoes.length;
+  // Filtrar transações localmente
+  const filteredTransacoes = useMemo(() => {
+    let result = [...transacoes];
 
-    return {
-      totalReceitas,
-      totalDespesas,
-      saldo,
-      totalTransacoes
-    };
-  }, [filteredTransacoes]);
+    // Filtro de tipo
+    if (filters.tipo !== 'todas') {
+      result = result.filter(t => t.tipo === filters.tipo);
+    }
 
-  // Subcategorias filtradas
-  const subcategoriasFiltradas = useMemo(() => {
-    if (!filters.categoriaId) return [];
-    const categoria = categorias.find(c => c.id === filters.categoriaId);
-    return categoria?.subcategorias || [];
-  }, [categorias, filters.categoriaId]);
+    // Filtro de categoria
+    if (filters.categoriaId) {
+      result = result.filter(t => t.categoria_id === filters.categoriaId);
+    }
+
+    // Filtro de conta
+    if (filters.contaId) {
+      result = result.filter(t => t.conta_id === filters.contaId);
+    }
+
+    // Filtro de cartão
+    if (filters.cartaoId) {
+      result = result.filter(t => t.cartao_id === filters.cartaoId);
+    }
+
+    // Busca textual
+    if (searchTerm.trim()) {
+      const termo = searchTerm.toLowerCase();
+      result = result.filter(t => 
+        t.descricao?.toLowerCase().includes(termo) ||
+        t.observacoes?.toLowerCase().includes(termo) ||
+        t.categoria?.nome?.toLowerCase().includes(termo) ||
+        t.conta?.nome?.toLowerCase().includes(termo) ||
+        t.cartao?.nome?.toLowerCase().includes(termo)
+      );
+    }
+
+    // Ordenação
+    const [campo, direcao] = filters.ordenacao.split('_');
+    result.sort((a, b) => {
+      let aVal = a[campo];
+      let bVal = b[campo];
+      
+      if (campo === 'data') {
+        aVal = new Date(aVal);
+        bVal = new Date(bVal);
+      }
+      
+      if (direcao === 'asc') {
+        return aVal > bVal ? 1 : -1;
+      } else {
+        return aVal < bVal ? 1 : -1;
+      }
+    });
+
+    return result;
+  }, [transacoes, filters, searchTerm]);
 
   // Carregar dados inicial
   useEffect(() => {
     if (user?.id) {
-      fetchFilteredTransacoes();
+      fetchBasicData();
     }
-  }, [fetchFilteredTransacoes, user?.id]);
+  }, [fetchBasicData]);
+
+  // Carregar transações quando o período mudar ou dados básicos estiverem prontos
+  useEffect(() => {
+    if (user?.id && categorias.length > 0) {
+      fetchTransacoes();
+    }
+  }, [fetchTransacoes, user?.id, categorias.length, currentDate, periodoPersonalizado, dataInicio, dataFim]);
 
   // Handlers
   const handleFilterChange = (key, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: value,
-      ...(key === 'categoriaId' ? { subcategoriaId: '' } : {})
-    }));
+    setFilters(prev => ({ ...prev, [key]: value }));
   };
 
   const handleClearFilters = () => {
     setFilters({
-      periodoInicio: startOfMonth(new Date()),
-      periodoFim: endOfMonth(new Date()),
       tipo: 'todas',
-      efetivada: null,
       categoriaId: '',
-      subcategoriaId: '',
       contaId: '',
       cartaoId: '',
-      valorMin: '',
-      valorMax: '',
       ordenacao: 'data_desc'
     });
     setSearchTerm('');
+    setPeriodoPersonalizado(false);
+    setDataInicio('');
+    setDataFim('');
   };
 
-  const handleEditTransacao = (transacao) => {
-    setCurrentTransacao(transacao);
-    if (transacao.tipo === 'receita') {
-      openModal('receitas');
-    } else if (transacao.tipo === 'transferencia') {
-      openModal('transferencias');
-    } else {
-      openModal('despesas');
+  // Handlers para período personalizado
+  const handleTogglePeriodoPersonalizado = () => {
+    setPeriodoPersonalizado(!periodoPersonalizado);
+    if (!periodoPersonalizado) {
+      // Ao ativar, definir período padrão
+      const dateRange = getDateRange();
+      setDataInicio(format(dateRange.inicio, 'yyyy-MM-dd'));
+      setDataFim(format(dateRange.fim, 'yyyy-MM-dd'));
     }
   };
+
+  const handleAplicarPeriodoPersonalizado = () => {
+    if (dataInicio && dataFim) {
+      if (new Date(dataInicio) > new Date(dataFim)) {
+        showNotification('Data de início deve ser anterior à data final', 'error');
+        return;
+      }
+      fetchTransacoes();
+    }
+  };
+
+  // Função para obter o texto do período atual
+  const getPeriodoTexto = () => {
+    if (periodoPersonalizado && dataInicio && dataFim) {
+      const inicio = format(new Date(dataInicio), 'dd/MM/yyyy');
+      const fim = format(new Date(dataFim), 'dd/MM/yyyy');
+      return `${inicio} - ${fim}`;
+    }
+    return getFormattedPeriod();
+  };
+
+  // Handler para abrir modais
+  const handleOpenModal = (modalName) => {
+    setModals(prev => ({ ...prev, [modalName]: true }));
+  };
+
+  const handleCloseModal = (modalName) => {
+    setModals(prev => ({ ...prev, [modalName]: false }));
+    setTransacaoEditando(null);
+  };
+
+  const handleSaveModal = () => {
+    fetchTransacoes(); // Recarrega transações
+  };
+
+  // Editar transação
+  const handleEditTransacao = useCallback((transacao) => {
+    console.log('🖊️ Editando transação:', transacao);
+    
+    setTransacaoEditando(transacao);
+    
+    // Determina qual modal abrir baseado no tipo/características da transação
+    if (transacao.tipo === 'receita') {
+      handleOpenModal('receitas');
+    } else if (transacao.tipo === 'despesa') {
+      if (transacao.cartao_id) {
+        handleOpenModal('despesasCartao');
+      } else if (transacao.transferencia) {
+        showNotification('Edição de transferências será implementada em breve', 'info');
+        return;
+      } else {
+        handleOpenModal('despesas');
+      }
+    } else if (transacao.tipo === 'transferencia' || transacao.transferencia) {
+      handleOpenModal('transferencias');
+    }
+  }, [showNotification]);
 
   const handleDeleteTransacao = async (transacaoId) => {
     if (!window.confirm('Tem certeza que deseja excluir esta transação?')) return;
@@ -288,14 +356,15 @@ const TransacoesPage = () => {
       const { error } = await supabase
         .from('transacoes')
         .delete()
-        .eq('id', transacaoId);
+        .eq('id', transacaoId)
+        .eq('usuario_id', user.id);
 
       if (error) throw error;
 
       showNotification('Transação excluída com sucesso!', 'success');
-      fetchFilteredTransacoes();
+      fetchTransacoes();
     } catch (error) {
-      console.error('Erro ao excluir transação:', error);
+      console.error('❌ Erro ao excluir transação:', error);
       showNotification('Erro ao excluir transação', 'error');
     }
   };
@@ -304,38 +373,28 @@ const TransacoesPage = () => {
     try {
       const { error } = await supabase
         .from('transacoes')
-        .update({ efetivada: true })
-        .eq('id', transacaoId);
+        .update({ efetivado: true })
+        .eq('id', transacaoId)
+        .eq('usuario_id', user.id);
 
       if (error) throw error;
 
       showNotification('Transação marcada como efetivada!', 'success');
-      fetchFilteredTransacoes();
+      fetchTransacoes();
+      
     } catch (error) {
-      console.error('Erro ao efetivar transação:', error);
+      console.error('❌ Erro ao efetivar transação:', error);
       showNotification('Erro ao efetivar transação', 'error');
     }
   };
 
-  const handleExportData = () => {
-    // TODO: Implementar exportação
-    showNotification('Funcionalidade em desenvolvimento', 'info');
-  };
-
-  const handleGoToDashboard = () => {
-    window.location.href = '/dashboard';
-  };
-
+  // Ícones helper
   const getTipoIcon = (tipo) => {
     switch (tipo) {
-      case 'receita':
-        return <ArrowUp className="w-4 h-4 text-green-600" />;
-      case 'despesa':
-        return <ArrowDown className="w-4 h-4 text-red-600" />;
-      case 'transferencia':
-        return <ArrowLeftRight className="w-4 h-4 text-blue-600" />;
-      default:
-        return <Activity className="w-4 h-4 text-gray-600" />;
+      case 'receita': return <ArrowUp className="w-4 h-4 text-green-600" />;
+      case 'despesa': return <ArrowDown className="w-4 h-4 text-red-600" />;
+      case 'transferencia': return <ArrowLeftRight className="w-4 h-4 text-blue-600" />;
+      default: return <Activity className="w-4 h-4 text-gray-600" />;
     }
   };
 
@@ -345,177 +404,126 @@ const TransacoesPage = () => {
       <Clock className="w-4 h-4 text-orange-600" />;
   };
 
-  // Handler para salvar transação e atualizar lista
-  const handleTransacaoSalva = () => {
-    fetchFilteredTransacoes();
-    showNotification('Transação salva com sucesso!', 'success');
-  };
-
   return (
     <div className="transacoes-page">
-      {/* Header */}
-      <div className="transacoes-header">
-        <div className="header-content">
-          <div className="header-left">
-            <div className="page-navigation">
-              <button
-                onClick={handleGoToDashboard}
-                className="btn-back"
-                title="Voltar ao Dashboard"
+      
+      {/* Header com Seletor de Período Próprio */}
+      <div className="page-header">
+        <div className="header-title">
+          <h1>Transações</h1>
+          <p>Gerencie suas receitas, despesas e transferências</p>
+        </div>
+
+        {/* ✅ NOVO: Seletor de Período com Opção Personalizada */}
+        <div className="period-selector-container">
+          <div className="period-type-toggle">
+            <button
+              className={`period-toggle-btn ${!periodoPersonalizado ? 'active' : ''}`}
+              onClick={() => setPeriodoPersonalizado(false)}
+            >
+              Por Mês
+            </button>
+            <button
+              className={`period-toggle-btn ${periodoPersonalizado ? 'active' : ''}`}
+              onClick={handleTogglePeriodoPersonalizado}
+            >
+              Personalizado
+            </button>
+          </div>
+
+          {!periodoPersonalizado ? (
+            <div className="period-selector-inline">
+              <button 
+                className="period-nav"
+                onClick={() => navigateMonth(-1)}
+                title="Mês anterior"
               >
-                <Home className="w-4 h-4" />
-                <span>Dashboard</span>
+                <ChevronLeft size={18} />
+              </button>
+
+              <div className="current-period-inline">
+                <Calendar size={16} />
+                <span className="period-text">
+                  {getFormattedPeriod()}
+                </span>
+                {!isCurrentMonth() && (
+                  <button 
+                    className="today-button" 
+                    onClick={goToToday}
+                  >
+                    Hoje
+                  </button>
+                )}
+              </div>
+
+              <button 
+                className="period-nav"
+                onClick={() => navigateMonth(1)}
+                title="Próximo mês"
+              >
+                <ChevronRight size={18} />
               </button>
             </div>
-            <h1 className="page-title">Transações</h1>
-            <p className="page-subtitle">
-              {format(filters.periodoInicio, 'dd MMM', { locale: ptBR })} - {' '}
-              {format(filters.periodoFim, 'dd MMM yyyy', { locale: ptBR })}
-            </p>
-          </div>
-
-          <div className="header-actions">
-            <div className="search-container">
-              <Search className="search-icon" />
-              <input
-                type="text"
-                placeholder="Buscar transações..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="search-input"
-              />
+          ) : (
+            <div className="custom-period-selector">
+              <div className="date-inputs">
+                <div className="date-input-group">
+                  <label>De:</label>
+                  <input
+                    type="date"
+                    value={dataInicio}
+                    onChange={(e) => setDataInicio(e.target.value)}
+                    className="date-input"
+                  />
+                </div>
+                <div className="date-input-group">
+                  <label>Até:</label>
+                  <input
+                    type="date"
+                    value={dataFim}
+                    onChange={(e) => setDataFim(e.target.value)}
+                    className="date-input"
+                  />
+                </div>
+                <button
+                  onClick={handleAplicarPeriodoPersonalizado}
+                  className="apply-period-btn"
+                  disabled={!dataInicio || !dataFim}
+                >
+                  Aplicar
+                </button>
+              </div>
             </div>
-
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`btn-filter ${showFilters ? 'active' : ''}`}
-            >
-              <Filter className="w-4 h-4" />
-              Filtros
-            </button>
-
-            <button
-              onClick={fetchFilteredTransacoes}
-              className="btn-refresh"
-              disabled={loading}
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-
-            <button
-              onClick={handleExportData}
-              className="btn-export"
-            >
-              <Download className="w-4 h-4" />
-              Exportar
-            </button>
-
-            <button
-              onClick={() => setShowMobileFilters(true)}
-              className="btn-mobile-filter md:hidden"
-            >
-              <Filter className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Barra de Ações Rápidas */}
-      <div className="quick-actions-bar">
-        <div className="quick-actions-content">
-          <div className="quick-actions-title">
-            <Plus className="w-4 h-4" />
-            <span>Adicionar Transação</span>
-          </div>
-          <div className="quick-actions-buttons">
-            <button
-              onClick={() => openModal('receitas')}
-              className="quick-action-btn receita"
-              title="Nova Receita"
-            >
-              <ArrowUp className="w-4 h-4" />
-              <span>Receita</span>
-            </button>
-
-            <button
-              onClick={() => openModal('despesas')}
-              className="quick-action-btn despesa"
-              title="Nova Despesa"
-            >
-              <ArrowDown className="w-4 h-4" />
-              <span>Despesa</span>
-            </button>
-
-            <button
-              onClick={() => openModal('despesasCartao')}
-              className="quick-action-btn cartao"
-              title="Compra no Cartão"
-            >
-              <CreditCard className="w-4 h-4" />
-              <span>Cartão</span>
-            </button>
-
-            <button
-              onClick={() => openModal('transferencias')}
-              className="quick-action-btn transferencia"
-              title="Transferência"
-            >
-              <ArrowLeftRight className="w-4 h-4" />
-              <span>Transferir</span>
-            </button>
-
-            <button
-              onClick={() => openModal('contas')}
-              className="quick-action-btn conta"
-              title="Gerenciar Contas"
-            >
-              <Wallet className="w-4 h-4" />
-              <span>Contas</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Cards de Resumo */}
-      <div className="summary-cards">
-        <div className="summary-card receitas">
-          <div className="card-icon">
-            <TrendingUp className="w-6 h-6" />
-          </div>
-          <div className="card-content">
-            <div className="card-label">Receitas</div>
-            <div className="card-value">{formatCurrency(estatisticas.totalReceitas)}</div>
-          </div>
+          )}
         </div>
 
-        <div className="summary-card despesas">
-          <div className="card-icon">
-            <TrendingDown className="w-6 h-6" />
+        <div className="header-actions">
+          <div className="search-container">
+            <input
+              type="text"
+              placeholder="Buscar transações..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+            <Search className="search-icon" />
           </div>
-          <div className="card-content">
-            <div className="card-label">Despesas</div>
-            <div className="card-value">{formatCurrency(estatisticas.totalDespesas)}</div>
-          </div>
-        </div>
 
-        <div className={`summary-card saldo ${estatisticas.saldo >= 0 ? 'positive' : 'negative'}`}>
-          <div className="card-icon">
-            <DollarSign className="w-6 h-6" />
-          </div>
-          <div className="card-content">
-            <div className="card-label">Saldo</div>
-            <div className="card-value">{formatCurrency(estatisticas.saldo)}</div>
-          </div>
-        </div>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`filter-btn ${showFilters ? 'active' : ''}`}
+          >
+            <Filter className="w-4 h-4" />
+            Filtros
+          </button>
 
-        <div className="summary-card transacoes">
-          <div className="card-icon">
-            <Activity className="w-6 h-6" />
-          </div>
-          <div className="card-content">
-            <div className="card-label">Transações</div>
-            <div className="card-value">{estatisticas.totalTransacoes}</div>
-          </div>
+          <button
+            onClick={fetchTransacoes}
+            className="refresh-btn"
+            disabled={loading}
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
       </div>
 
@@ -525,34 +533,12 @@ const TransacoesPage = () => {
           <div className="filters-sidebar">
             <div className="filters-header">
               <h3 className="filters-title">Filtros</h3>
-              <button
-                onClick={handleClearFilters}
-                className="btn-clear-filters"
-              >
+              <button onClick={handleClearFilters} className="btn-clear-filters">
                 Limpar
               </button>
             </div>
 
             <div className="filters-content">
-              {/* Período */}
-              <div className="filter-group">
-                <label className="filter-label">Período</label>
-                <div className="date-inputs">
-                  <input
-                    type="date"
-                    value={format(filters.periodoInicio, 'yyyy-MM-dd')}
-                    onChange={(e) => handleFilterChange('periodoInicio', new Date(e.target.value))}
-                    className="date-input"
-                  />
-                  <input
-                    type="date"
-                    value={format(filters.periodoFim, 'yyyy-MM-dd')}
-                    onChange={(e) => handleFilterChange('periodoFim', new Date(e.target.value))}
-                    className="date-input"
-                  />
-                </div>
-              </div>
-
               {/* Tipo */}
               <div className="filter-group">
                 <label className="filter-label">Tipo</label>
@@ -565,23 +551,6 @@ const TransacoesPage = () => {
                   <option value="receita">Receitas</option>
                   <option value="despesa">Despesas</option>
                   <option value="transferencia">Transferências</option>
-                </select>
-              </div>
-
-              {/* Status */}
-              <div className="filter-group">
-                <label className="filter-label">Status</label>
-                <select
-                  value={filters.efetivada === null ? 'todas' : filters.efetivada ? 'efetivadas' : 'pendentes'}
-                  onChange={(e) => {
-                    const value = e.target.value === 'todas' ? null : e.target.value === 'efetivadas';
-                    handleFilterChange('efetivada', value);
-                  }}
-                  className="filter-select"
-                >
-                  <option value="todas">Todas</option>
-                  <option value="efetivadas">Efetivadas</option>
-                  <option value="pendentes">Pendentes</option>
                 </select>
               </div>
 
@@ -601,25 +570,6 @@ const TransacoesPage = () => {
                   ))}
                 </select>
               </div>
-
-              {/* Subcategoria */}
-              {subcategoriasFiltradas.length > 0 && (
-                <div className="filter-group">
-                  <label className="filter-label">Subcategoria</label>
-                  <select
-                    value={filters.subcategoriaId}
-                    onChange={(e) => handleFilterChange('subcategoriaId', e.target.value)}
-                    className="filter-select"
-                  >
-                    <option value="">Todas as subcategorias</option>
-                    {subcategoriasFiltradas.map(sub => (
-                      <option key={sub.id} value={sub.id}>
-                        {sub.nome}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
 
               {/* Conta */}
               <div className="filter-group">
@@ -655,27 +605,6 @@ const TransacoesPage = () => {
                 </select>
               </div>
 
-              {/* Valor */}
-              <div className="filter-group">
-                <label className="filter-label">Valor</label>
-                <div className="value-inputs">
-                  <input
-                    type="number"
-                    placeholder="Mín"
-                    value={filters.valorMin}
-                    onChange={(e) => handleFilterChange('valorMin', e.target.value)}
-                    className="value-input"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Máx"
-                    value={filters.valorMax}
-                    onChange={(e) => handleFilterChange('valorMax', e.target.value)}
-                    className="value-input"
-                  />
-                </div>
-              </div>
-
               {/* Ordenação */}
               <div className="filter-group">
                 <label className="filter-label">Ordenar por</label>
@@ -690,19 +619,6 @@ const TransacoesPage = () => {
                   <option value="valor_asc">Valor (menor)</option>
                 </select>
               </div>
-
-              {/* Agrupar Faturas */}
-              <div className="filter-group">
-                <label className="filter-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={agruparFaturas}
-                    onChange={(e) => setAgruparFaturas(e.target.checked)}
-                  />
-                  <span className="checkmark"></span>
-                  Agrupar faturas de cartão
-                </label>
-              </div>
             </div>
           </div>
         )}
@@ -710,21 +626,9 @@ const TransacoesPage = () => {
         {/* Lista de Transações */}
         <div className="transactions-list">
           <div className="list-header">
-            <div className="list-options">
-              <span className="results-count">
-                {loading ? 'Carregando...' : `${filteredTransacoes.length} transação${filteredTransacoes.length !== 1 ? 'ões' : ''}`}
-              </span>
-              
-              {cartoes.length > 0 && (
-                <button
-                  onClick={() => setAgruparFaturas(!agruparFaturas)}
-                  className={`btn-toggle ${agruparFaturas ? 'active' : ''}`}
-                >
-                  {agruparFaturas ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                  {agruparFaturas ? 'Ver individuais' : 'Agrupar faturas'}
-                </button>
-              )}
-            </div>
+            <span className="results-count">
+              {loading ? 'Carregando...' : `${filteredTransacoes.length} transações em ${getPeriodoTexto()}`}
+            </span>
           </div>
 
           {loading ? (
@@ -736,20 +640,20 @@ const TransacoesPage = () => {
             <div className="empty-state">
               <Activity className="w-12 h-12 text-gray-400" />
               <h3>Nenhuma transação encontrada</h3>
-              <p>Tente ajustar os filtros ou adicionar novas transações</p>
-              <div className="empty-state-actions">
-                <button
-                  onClick={() => openModal('receitas')}
-                  className="empty-action-btn receita"
+              <p>Não há transações no período selecionado ({getPeriodoTexto()})</p>
+              <div className="empty-actions">
+                <button 
+                  onClick={() => handleOpenModal('receitas')}
+                  className="empty-action-btn receitas"
                 >
-                  <ArrowUp className="w-4 h-4" />
+                  <Plus className="w-4 h-4" />
                   Adicionar Receita
                 </button>
-                <button
-                  onClick={() => openModal('despesas')}
-                  className="empty-action-btn despesa"
+                <button 
+                  onClick={() => handleOpenModal('despesas')}
+                  className="empty-action-btn despesas"
                 >
-                  <ArrowDown className="w-4 h-4" />
+                  <Plus className="w-4 h-4" />
                   Adicionar Despesa
                 </button>
               </div>
@@ -766,24 +670,24 @@ const TransacoesPage = () => {
                       <div className="transaction-info">
                         <div className="transaction-description">
                           {transacao.descricao}
-                          {transacao.isFaturaAgrupada && (
-                            <span className="fatura-badge">
-                              <CreditCard className="w-3 h-3" />
-                              {transacao.transacoesAgrupadas?.length || 0} itens
-                            </span>
-                          )}
                         </div>
                         <div className="transaction-details">
-                          {transacao.categoria && (
-                            <span className="category-tag" style={{ backgroundColor: `${transacao.categoria.cor}20`, color: transacao.categoria.cor }}>
-                              {transacao.categoria.nome}
+                          {(transacao.categoria?.nome) && (
+                            <span 
+                              className="category-tag" 
+                              style={{ 
+                                backgroundColor: `${transacao.categoria?.cor || '#6B7280'}20`, 
+                                color: transacao.categoria?.cor || '#6B7280'
+                              }}
+                            >
+                              {transacao.categoria?.nome}
                             </span>
                           )}
                           <span className="account-info">
-                            {transacao.cartao ? (
+                            {transacao.cartao?.nome ? (
                               <>
                                 <CreditCard className="w-3 h-3" />
-                                {transacao.cartao.nome}
+                                {transacao.cartao?.nome}
                               </>
                             ) : (
                               <>
@@ -792,6 +696,11 @@ const TransacoesPage = () => {
                               </>
                             )}
                           </span>
+                          {transacao.total_parcelas > 1 && (
+                            <span className="parcela-info">
+                              {transacao.parcela_atual}/{transacao.total_parcelas}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -807,40 +716,39 @@ const TransacoesPage = () => {
                             {transacao.data ? format(new Date(transacao.data), 'dd/MM/yyyy') : 'Sem data'}
                           </span>
                           <span className="transaction-status">
-                            {getStatusIcon(transacao.efetivada)}
+                            {getStatusIcon(transacao.efetivado)}
                           </span>
                         </div>
                       </div>
 
-                      {!transacao.isFaturaAgrupada && (
-                        <div className="transaction-actions">
-                          <button
-                            onClick={() => handleEditTransacao(transacao)}
-                            className="action-btn edit"
-                            title="Editar transação"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
+                      {/* Botões de ação */}
+                      <div className="transaction-actions">
+                        <button
+                          onClick={() => handleEditTransacao(transacao)}
+                          className="action-btn edit"
+                          title="Editar transação"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
 
-                          {!transacao.efetivada && (
-                            <button
-                              onClick={() => handleMarkAsCompleted(transacao.id)}
-                              className="action-btn complete"
-                              title="Marcar como efetivada"
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                            </button>
-                          )}
-
+                        {!transacao.efetivado && (
                           <button
-                            onClick={() => handleDeleteTransacao(transacao.id)}
-                            className="action-btn delete"
-                            title="Excluir transação"
+                            onClick={() => handleMarkAsCompleted(transacao.id)}
+                            className="action-btn complete"
+                            title="Marcar como efetivada"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <CheckCircle className="w-4 h-4" />
                           </button>
-                        </div>
-                      )}
+                        )}
+
+                        <button
+                          onClick={() => handleDeleteTransacao(transacao.id)}
+                          className="action-btn delete"
+                          title="Excluir transação"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -856,154 +764,34 @@ const TransacoesPage = () => {
         </div>
       </div>
 
-      {/* Modais */}
-      <DespesasModal
-        isOpen={modals.despesas}
-        onClose={() => {
-          closeModal('despesas');
-          setCurrentTransacao(null);
-        }}
-        transacaoInicial={currentTransacao}
-        modo="edicao"
-        onSave={handleTransacaoSalva}
+      {/* Modais com suporte à edição */}
+      <ReceitasModal 
+        isOpen={modals.receitas} 
+        onClose={() => handleCloseModal('receitas')} 
+        onSave={handleSaveModal}
+        transacaoEditando={transacaoEditando}
       />
-
-      <ReceitasModal
-        isOpen={modals.receitas}
-        onClose={() => {
-          closeModal('receitas');
-          setCurrentTransacao(null);
-        }}
-        transacaoInicial={currentTransacao}
-        modo="edicao"
-        onSave={handleTransacaoSalva}
+      
+      <DespesasModal 
+        isOpen={modals.despesas} 
+        onClose={() => handleCloseModal('despesas')} 
+        onSave={handleSaveModal}
+        transacaoEditando={transacaoEditando}
       />
-
-      <TransferenciasModal
-        isOpen={modals.transferencias}
-        onClose={() => {
-          closeModal('transferencias');
-          setCurrentTransacao(null);
-        }}
-        transacaoInicial={currentTransacao}
-        modo="edicao"
-        onSave={handleTransacaoSalva}
+      
+      <DespesasCartaoModal 
+        isOpen={modals.despesasCartao} 
+        onClose={() => handleCloseModal('despesasCartao')} 
+        onSave={handleSaveModal}
+        transacaoEditando={transacaoEditando}
       />
-
-      <ContasModal
-        isOpen={modals.contas}
-        onClose={() => closeModal('contas')}
+      
+      <TransferenciasModal 
+        isOpen={modals.transferencias} 
+        onClose={() => handleCloseModal('transferencias')} 
+        onSave={handleSaveModal}
+        transacaoEditando={transacaoEditando}
       />
-
-      <DespesasCartaoModal
-        isOpen={modals.despesasCartao}
-        onClose={() => closeModal('despesasCartao')}
-        onSave={handleTransacaoSalva}
-      />
-
-      {/* Filtros Mobile */}
-      {showMobileFilters && (
-        <div className="mobile-filters-overlay">
-          <div className="mobile-filters-content">
-            <div className="mobile-filters-header">
-              <h3>Filtros</h3>
-              <button 
-                onClick={() => setShowMobileFilters(false)}
-                className="close-mobile-filters"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            
-            <div className="mobile-filters-body">
-              {/* Período */}
-              <div className="filter-group">
-                <label className="filter-label">Período</label>
-                <div className="date-inputs">
-                  <input
-                    type="date"
-                    value={format(filters.periodoInicio, 'yyyy-MM-dd')}
-                    onChange={(e) => handleFilterChange('periodoInicio', new Date(e.target.value))}
-                    className="date-input"
-                  />
-                  <input
-                    type="date"
-                    value={format(filters.periodoFim, 'yyyy-MM-dd')}
-                    onChange={(e) => handleFilterChange('periodoFim', new Date(e.target.value))}
-                    className="date-input"
-                  />
-                </div>
-              </div>
-
-              {/* Tipo */}
-              <div className="filter-group">
-                <label className="filter-label">Tipo</label>
-                <select
-                  value={filters.tipo}
-                  onChange={(e) => handleFilterChange('tipo', e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="todas">Todas</option>
-                  <option value="receita">Receitas</option>
-                  <option value="despesa">Despesas</option>
-                  <option value="transferencia">Transferências</option>
-                </select>
-              </div>
-
-              {/* Status */}
-              <div className="filter-group">
-                <label className="filter-label">Status</label>
-                <select
-                  value={filters.efetivada === null ? 'todas' : filters.efetivada ? 'efetivadas' : 'pendentes'}
-                  onChange={(e) => {
-                    const value = e.target.value === 'todas' ? null : e.target.value === 'efetivadas';
-                    handleFilterChange('efetivada', value);
-                  }}
-                  className="filter-select"
-                >
-                  <option value="todas">Todas</option>
-                  <option value="efetivadas">Efetivadas</option>
-                  <option value="pendentes">Pendentes</option>
-                </select>
-              </div>
-
-              {/* Categoria */}
-              <div className="filter-group">
-                <label className="filter-label">Categoria</label>
-                <select
-                  value={filters.categoriaId}
-                  onChange={(e) => handleFilterChange('categoriaId', e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="">Todas as categorias</option>
-                  {categorias.map(categoria => (
-                    <option key={categoria.id} value={categoria.id}>
-                      {categoria.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="mobile-filters-footer">
-              <button
-                onClick={handleClearFilters}
-                className="btn-clear-mobile"
-              >
-                Limpar
-              </button>
-              <button
-                onClick={() => setShowMobileFilters(false)}
-                className="btn-apply-mobile"
-              >
-                Aplicar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <NotificationContainer />
     </div>
   );
 };
