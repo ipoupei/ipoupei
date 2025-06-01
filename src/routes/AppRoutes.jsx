@@ -11,117 +11,55 @@ import RelatorioEvolucao from '../pages/RelatorioEvolucao';
 import RelatorioProjecao from '../pages/RelatorioProjecao';
 import AuthCallback from '../pages/AuthCallback';
 import ProtectedRoute from '../Components/ProtectedRoute';
+import MainLayout from '../Layouts/MainLayout';
 
 /**
  * Componente para gerenciar as rotas da aplicação
- * Incluindo callback do Google OAuth e todas as telas
- * ATUALIZADO: Rotas de transações e relatórios corrigidas
+ * ATUALIZADO: Integração com MainLayout para rotas principais
+ * Rotas especiais (login, reset, callback) ficam fora do layout
  */
 const AppRoutes = () => {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Rotas públicas */}
+        {/* Rotas públicas - SEM MainLayout */}
         <Route path="/login" element={<Login />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        
-        {/* Rota para callback do Google OAuth */}
         <Route path="/auth/callback" element={<AuthCallback />} />
         
-        {/* Rotas protegidas */}
-        <Route 
-          path="/dashboard" 
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } 
-        />
-        
-        <Route 
-          path="/profile" 
-          element={
-            <ProtectedRoute>
-              <UserProfile />
-            </ProtectedRoute>
-          } 
-        />
-        
-        {/* Nova rota de transações - usando a TransacoesPage completa */}
-        <Route 
-          path="/transacoes" 
-          element={
-            <ProtectedRoute>
-              <TransacoesPage />
-            </ProtectedRoute>
-          } 
-        />
-        
-        {/* Rotas de Relatórios */}
-        <Route 
-          path="/relatorios" 
-          element={
-            <ProtectedRoute>
-              <RelatoriosHome />
-            </ProtectedRoute>
-          } 
-        />
-        
-        <Route 
-          path="/relatorios/categorias" 
-          element={
-            <ProtectedRoute>
-              <RelatorioCategoria />
-            </ProtectedRoute>
-          } 
-        />
-        
-        <Route 
-          path="/relatorios/evolucao" 
-          element={
-            <ProtectedRoute>
-              <RelatorioEvolucao />
-            </ProtectedRoute>
-          } 
-        />
-        
-        <Route 
-          path="/relatorios/projecoes" 
-          element={
-            <ProtectedRoute>
-              <RelatorioProjecao />
-            </ProtectedRoute>
-          } 
-        />
-        
-        {/* Alias para configurações (redireciona para perfil) */}
-        <Route 
-          path="/settings" 
-          element={<Navigate to="/profile" replace />}
-        />
-        
-        <Route 
-          path="/configuracoes" 
-          element={<Navigate to="/profile" replace />}
-        />
-        
-        {/* Alias para manter compatibilidade */}
-        <Route 
-          path="/perfil" 
-          element={<Navigate to="/profile" replace />}
-        />
-        
-        {/* Redireciona rota raiz para dashboard ou login */}
+        {/* Rotas principais - COM MainLayout */}
         <Route 
           path="/" 
-          element={<Navigate to="/dashboard" replace />}
-        />
+          element={
+            <ProtectedRoute>
+              <MainLayout />
+            </ProtectedRoute>
+          }
+        >
+          {/* Dashboard */}
+          <Route index element={<Dashboard />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          
+          {/* Transações */}
+          <Route path="transacoes" element={<TransacoesPage />} />
+          
+          {/* Relatórios */}
+          <Route path="relatorios" element={<RelatoriosHome />} />
+          <Route path="relatorios/categorias" element={<RelatorioCategoria />} />
+          <Route path="relatorios/evolucao" element={<RelatorioEvolucao />} />
+          <Route path="relatorios/projecoes" element={<RelatorioProjecao />} />
+          
+          {/* Perfil do usuário */}
+          <Route path="profile" element={<UserProfile />} />
+          
+          {/* Aliases para compatibilidade */}
+          <Route path="settings" element={<Navigate to="/profile" replace />} />
+          <Route path="configuracoes" element={<Navigate to="/profile" replace />} />
+          <Route path="perfil" element={<Navigate to="/profile" replace />} />
+        </Route>
         
         {/* Rota para páginas não encontradas */}
-        <Route 
-          path="*" 
-          element={<Navigate to="/dashboard" replace />}
-        />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
   );

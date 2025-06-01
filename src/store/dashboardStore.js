@@ -1,4 +1,4 @@
-// src/store/dashboardStore.js - VERSÃO SIMPLIFICADA SEM RPC
+// src/store/dashboardStore.js - VERSÃO APRIMORADA COM COMPATIBILIDADE
 import { create } from 'zustand';
 import { supabase } from '../lib/supabaseClient';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
@@ -6,7 +6,7 @@ import { ptBR } from 'date-fns/locale';
 
 /**
  * Store para gerenciar dados do dashboard
- * VERSÃO SIMPLIFICADA: Usa consultas diretas às tabelas em vez de funções RPC
+ * VERSÃO APRIMORADA: Mantém compatibilidade com o DashboardContent
  */
 export const useDashboardStore = create((set, get) => ({
   // Estado principal
@@ -58,7 +58,7 @@ export const useDashboardStore = create((set, get) => ({
     get().fetchDashboardData();
   },
 
-  // SIMPLIFICADO: Buscar dados usando consultas diretas
+  // PRINCIPAL: Buscar dados usando consultas diretas
   fetchDashboardData: async () => {
     const { selectedPeriod } = get();
     const { inicio, fim } = selectedPeriod;
@@ -115,13 +115,13 @@ export const useDashboardStore = create((set, get) => ({
         // Saldo
         saldo: {
           atual: saldoTotalContas,
-          previsto: saldoTotalContas // Por enquanto igual ao atual
+          previsto: saldoTotalContas + (totalReceitas - totalDespesas) // Projeção simples
         },
 
         // Receitas
         receitas: {
           atual: totalReceitas,
-          previsto: totalReceitas, // Por enquanto igual ao atual
+          previsto: totalReceitas * 1.05, // 5% de crescimento estimado
           categorias: receitasPorCategoria.map(cat => ({
             nome: cat.categoria.nome,
             valor: cat.total
@@ -131,17 +131,18 @@ export const useDashboardStore = create((set, get) => ({
         // Despesas
         despesas: {
           atual: totalDespesas,
-          previsto: totalDespesas, // Por enquanto igual ao atual
+          previsto: totalDespesas * 0.95, // 5% de redução estimada
           categorias: despesasPorCategoria.map(cat => ({
             nome: cat.categoria.nome,
             valor: cat.total
           }))
         },
 
-        // Cartão de Crédito (placeholder por enquanto)
+        // Cartão de Crédito (placeholder expandido)
         cartaoCredito: {
-          atual: 0,
-          limite: 0
+          atual: 0, // TODO: implementar busca de faturas
+          limite: 0, // TODO: implementar busca de limites
+          previsto: 0
         },
 
         // Período
@@ -151,30 +152,43 @@ export const useDashboardStore = create((set, get) => ({
           formatado: `${format(inicio, 'dd/MM', { locale: ptBR })} - ${format(fim, 'dd/MM', { locale: ptBR })}`
         },
 
-        // Dados para gráficos
+        // Dados para gráficos - com cores padrão
         receitasPorCategoria: receitasPorCategoria.map(cat => ({
           nome: cat.categoria.nome,
           valor: cat.total,
-          color: cat.categoria.cor
+          color: cat.categoria.cor || '#10B981' // Verde padrão para receitas
         })),
+        
         despesasPorCategoria: despesasPorCategoria.map(cat => ({
           nome: cat.categoria.nome,
           valor: cat.total,
-          color: cat.categoria.cor
+          color: cat.categoria.cor || '#EF4444' // Vermelho padrão para despesas
         })),
         
-        // Detalhes
+        // Detalhes para o verso dos cards
         contasDetalhadas: contasResult.map(conta => ({
           nome: conta.nome,
-          saldo: conta.saldo,
-          tipo: conta.tipo
+          saldo: conta.saldo || 0,
+          tipo: conta.tipo || 'corrente'
         })),
-        cartoesDetalhados: [], // Placeholder
         
-        // Histórico para projeção
+        cartoesDetalhados: [], // TODO: implementar busca de cartões
+        
+        // Histórico para projeção (placeholder)
         historico: [],
 
-        // Dados brutos
+        // Resumo geral
+        resumo: {
+          totalContas: contasResult.length,
+          totalCartoes: 0, // TODO: implementar
+          totalCategorias: categoriasResult.length,
+          totalTransacoes: transacoesResult.length,
+          saldoLiquido: saldoTotalContas,
+          balanco: totalReceitas - totalDespesas,
+          percentualGasto: totalReceitas > 0 ? ((totalDespesas / totalReceitas) * 100).toFixed(1) : 0
+        },
+
+        // Dados brutos para debug
         raw: {
           contas: contasResult,
           categorias: categoriasResult,
@@ -444,7 +458,7 @@ export const useDashboardStore = create((set, get) => ({
     return await get().fetchDashboardData();
   },
 
-  // Selectors (computed values)
+  // Selectors (computed values) - COMPATIBILIDADE COM DASHBOARDCONTENT
   getSaldoTotal: () => {
     const { data } = get();
     return data?.saldo?.atual || 0;
@@ -497,6 +511,7 @@ export const useDashboardStore = create((set, get) => ({
     return data.receitas.categorias[0];
   },
 
+  // Estados booleanos
   hasData: () => {
     const { data } = get();
     return !!data;
@@ -544,6 +559,7 @@ export const useDashboardData = () => {
     // Ações
     fetchData: store.fetchDashboardData,
     refresh: store.refreshData,
+    refreshData: store.refreshData, // Alias para compatibilidade
     setSelectedDate: store.setSelectedDate,
     setCustomPeriod: store.setCustomPeriod,
     

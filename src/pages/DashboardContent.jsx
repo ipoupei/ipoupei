@@ -21,23 +21,15 @@ import DonutChartCategoria from '../Components/DonutChartCategoria';
 import CalendarioFinanceiro from '../Components/CalendarioFinanceiro';
 import ProjecaoSaldoGraph from '../Components/ProjecaoSaldoGraph';
 import DetalhesDoDiaModal from '../Components/DetalhesDoDiaModal';
-import DashboardContent from './DashboardContent';
 
-
-// Modais existentes
-import ContasModal from '../Components/ContasModal';
-import DespesasModal from '../Components/DespesasModal';
-import ReceitasModal from '../Components/ReceitasModal';
-import DespesasCartaoModal from '../Components/DespesasCartaoModal';
-import CategoriasModal from '../Components/CategoriasModal';
-import CartoesModal from '../Components/CartoesModal';
-import TransferenciasModal from '../Components/TransferenciasModal';
+// CSS
+import './DashboardContent.css';
 
 /**
- * Dashboard Content - Versão limpa para uso dentro do MainLayout
- * Apenas cards flip + gráficos + calendário + projeções
+ * Dashboard Content - Versão corrigida com cards flip funcionais
+ * Foco apenas nos cards e gráficos - sem header, botões ou seletor de período
  */
-const Dashboard = () => {
+const DashboardContent = () => {
   const navigate = useNavigate();
   
   // Hooks de autenticação e dados
@@ -46,23 +38,14 @@ const Dashboard = () => {
   
   // Estados locais para UI
   const [diaDetalhes, setDiaDetalhes] = useState(null);
+  const [modalDetalhesDiaOpen, setModalDetalhesDiaOpen] = useState(false);
+  
+  // Estado para controle dos cards flip - corrigido
   const [flippedCards, setFlippedCards] = useState({
     saldo: false,
     receitas: false,
     despesas: false,
     cartaoCredito: false
-  });
-
-  // Estados para controle de modais
-  const [modalsOpen, setModalsOpen] = useState({
-    contas: false,
-    despesas: false,
-    receitas: false,
-    despesasCartao: false,
-    categorias: false,
-    cartoes: false,
-    transferencias: false,
-    detalhesDia: false
   });
 
   // Carregar dados quando componente monta
@@ -72,24 +55,8 @@ const Dashboard = () => {
       refreshData();
     }
   }, [isAuthenticated, refreshData]);
-  
-  // Função para abrir modal
-  const openModal = (modalName) => {
-    setModalsOpen(prev => ({ ...prev, [modalName]: true }));
-  };
 
-  // Função para fechar modal
-  const closeModal = (modalName) => {
-    setModalsOpen(prev => ({ ...prev, [modalName]: false }));
-  };
-
-  // Função para atualizar dados após salvar transação
-  const handleTransacaoSalva = () => {
-    console.log('🔄 Transação salva com sucesso!');
-    refreshData();
-  };
-
-  // Handler para virar um card
+  // Handler para virar um card - corrigido
   const handleCardFlip = (cardType) => {
     setFlippedCards(prev => ({
       ...prev,
@@ -100,7 +67,7 @@ const Dashboard = () => {
   // Handler para quando um dia é clicado no calendário
   const handleDiaClick = (dia) => {
     setDiaDetalhes(dia);
-    openModal('detalhesDia');
+    setModalDetalhesDiaOpen(true);
   };
 
   // Se não estiver autenticado, redireciona
@@ -146,7 +113,7 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard-content">
-      {/* Cards Grid Premium com Flip */}
+      {/* Cards Grid Premium com Flip - VERSÃO OPACITY */}
       <div className="cards-grid">
         {/* Card de Saldo - Verde */}
         <div 
@@ -154,6 +121,7 @@ const Dashboard = () => {
           onClick={() => handleCardFlip('saldo')}
         >
           <div className="card-inner">
+            {/* FRENTE DO CARD */}
             <div className="card-front">
               <div className="card-header">
                 <h3 className="card-title">💰 Saldo</h3>
@@ -174,6 +142,7 @@ const Dashboard = () => {
               </div>
             </div>
             
+            {/* VERSO DO CARD */}
             <div className="card-back">
               <div className="card-detail-total">
                 <span>💳 Saldo Total:</span>
@@ -184,7 +153,7 @@ const Dashboard = () => {
                 {contasDetalhadas.length > 0 ? (
                   contasDetalhadas.map((conta, index) => (
                     <div 
-                      key={index} 
+                      key={`conta-${conta.id || index}`} 
                       className="detail-item" 
                       style={{animationDelay: `${(index + 1) * 0.1}s`}}
                     >
@@ -209,6 +178,7 @@ const Dashboard = () => {
           onClick={() => handleCardFlip('receitas')}
         >
           <div className="card-inner">
+            {/* FRENTE DO CARD */}
             <div className="card-front">
               <div className="card-header">
                 <h3 className="card-title">📈 Receitas</h3>
@@ -229,6 +199,7 @@ const Dashboard = () => {
               </div>
             </div>
             
+            {/* VERSO DO CARD */}
             <div className="card-back">
               <div className="card-detail-total">
                 <span>💵 Total Receitas:</span>
@@ -239,7 +210,7 @@ const Dashboard = () => {
                 {dadosSeguroReceitas.categorias.length > 0 ? (
                   dadosSeguroReceitas.categorias.slice(0, 5).map((receita, index) => (
                     <div 
-                      key={index} 
+                      key={`receita-${receita.id || index}`} 
                       className="detail-item" 
                       style={{animationDelay: `${(index + 1) * 0.1}s`}}
                     >
@@ -258,12 +229,13 @@ const Dashboard = () => {
           </div>
         </div>
         
-        {/* Card de Despesas - Vermelho */}
+        {/* Card de Despesas - Coral */}
         <div 
           className={`summary-card card-amber ${flippedCards.despesas ? 'flipped' : ''}`}
           onClick={() => handleCardFlip('despesas')}
         >
           <div className="card-inner">
+            {/* FRENTE DO CARD */}
             <div className="card-front">
               <div className="card-header">
                 <h3 className="card-title">📉 Despesas</h3>
@@ -284,6 +256,7 @@ const Dashboard = () => {
               </div>
             </div>
             
+            {/* VERSO DO CARD */}
             <div className="card-back">
               <div className="card-detail-total">
                 <span>💸 Total Despesas:</span>
@@ -294,7 +267,7 @@ const Dashboard = () => {
                 {dadosSegurosDespesas.categorias.length > 0 ? (
                   dadosSegurosDespesas.categorias.slice(0, 5).map((despesa, index) => (
                     <div 
-                      key={index} 
+                      key={`despesa-${despesa.id || index}`} 
                       className="detail-item" 
                       style={{animationDelay: `${(index + 1) * 0.1}s`}}
                     >
@@ -319,6 +292,7 @@ const Dashboard = () => {
           onClick={() => handleCardFlip('cartaoCredito')}
         >
           <div className="card-inner">
+            {/* FRENTE DO CARD */}
             <div className="card-front">
               <div className="card-header">
                 <h3 className="card-title">💳 Cartão</h3>
@@ -339,6 +313,7 @@ const Dashboard = () => {
               </div>
             </div>
             
+            {/* VERSO DO CARD */}
             <div className="card-back">
               <div className="card-detail-total">
                 <span>🔢 Limite Usado:</span>
@@ -349,7 +324,7 @@ const Dashboard = () => {
                 {cartoesDetalhados.length > 0 ? (
                   cartoesDetalhados.map((cartao, index) => (
                     <div 
-                      key={index} 
+                      key={`cartao-${cartao.id || index}`} 
                       className="detail-item" 
                       style={{animationDelay: `${(index + 1) * 0.1}s`}}
                     >
@@ -484,55 +459,14 @@ const Dashboard = () => {
         </div>
       </div>
       
-      {/* Modais */}
-      <ContasModal 
-        isOpen={modalsOpen.contas} 
-        onClose={() => closeModal('contas')} 
-      />
-      
-      <DespesasModal
-        isOpen={modalsOpen.despesas}
-        onClose={() => closeModal('despesas')}
-        onSave={handleTransacaoSalva}
-      />
-      
-      <ReceitasModal
-        isOpen={modalsOpen.receitas}
-        onClose={() => closeModal('receitas')}
-        onSave={handleTransacaoSalva}
-      />
-      
-      <DespesasCartaoModal
-        isOpen={modalsOpen.despesasCartao}
-        onClose={() => closeModal('despesasCartao')}
-        onSave={handleTransacaoSalva}
-      />
-      
-      <CartoesModal
-        isOpen={modalsOpen.cartoes}
-        onClose={() => closeModal('cartoes')}
-        onSave={handleTransacaoSalva}
-      />
-      
-      <CategoriasModal
-        isOpen={modalsOpen.categorias}
-        onClose={() => closeModal('categorias')}
-        onSave={handleTransacaoSalva}
-      />
-
-      <TransferenciasModal
-        isOpen={modalsOpen.transferencias}
-        onClose={() => closeModal('transferencias')}
-        onSave={handleTransacaoSalva}
-      />
-
+      {/* Modal de Detalhes do Dia */}
       <DetalhesDoDiaModal
-        isOpen={modalsOpen.detalhesDia}
-        onClose={() => closeModal('detalhesDia')}
+        isOpen={modalDetalhesDiaOpen}
+        onClose={() => setModalDetalhesDiaOpen(false)}
         dia={diaDetalhes}
       />
     </div>
   );
 };
 
-export default Dashboard;
+export default DashboardContent;

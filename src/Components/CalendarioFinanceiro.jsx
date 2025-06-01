@@ -2,27 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDate, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency } from '../utils/formatCurrency';
+import './CalendarioFinanceiro.css';
 
 /**
- * Componente de calendário financeiro
- * Exibe receitas e despesas programadas/realizadas por dia do mês
- * Melhorado com tooltip e diferenciação visual entre programado/realizado
+ * Calendário Financeiro - Versão Simples e Funcional
+ * Mantém a lógica original mas com visual moderno
  */
 const CalendarioFinanceiro = ({ data, mes, ano, onDiaClick }) => {
-  // Estado para dados do calendário
   const [diasDoMes, setDiasDoMes] = useState([]);
   const [movimentosPorDia, setMovimentosPorDia] = useState({});
-  // Estado para controlar dia com mouse over (para tooltip)
   const [hoveredDay, setHoveredDay] = useState(null);
   
-  // Dados mockados para transações diárias
+  // Dados mockados - ajustados para o mês atual
   const dadosMockados = {
     movimentos: [
       {
         id: '1',
         descricao: 'Salário',
         valor: 6500,
-        data: '2025-05-05',
+        data: '2025-06-05',
         tipo: 'receita',
         categoria: 'Salário',
         status: 'realizado'
@@ -31,80 +29,69 @@ const CalendarioFinanceiro = ({ data, mes, ano, onDiaClick }) => {
         id: '2',
         descricao: 'Aluguel',
         valor: 1800,
-        data: '2025-05-10',
+        data: '2025-06-10',
         tipo: 'despesa',
         categoria: 'Moradia',
         status: 'programado'
       },
       {
         id: '3',
-        descricao: 'Conta de luz',
-        valor: 250,
-        data: '2025-05-15',
-        tipo: 'despesa',
-        categoria: 'Moradia',
-        status: 'programado'
-      },
-      {
-        id: '4',
         descricao: 'Academia',
         valor: 120,
-        data: '2025-05-10',
+        data: '2025-06-10',
         tipo: 'despesa',
         categoria: 'Saúde',
         status: 'realizado'
       },
       {
-        id: '5',
-        descricao: 'Jantar aniversário',
-        valor: 180,
-        data: '2025-05-20',
+        id: '4',
+        descricao: 'Conta de luz',
+        valor: 250,
+        data: '2025-06-15',
         tipo: 'despesa',
-        categoria: 'Lazer',
+        categoria: 'Moradia',
+        status: 'programado'
+      },
+      {
+        id: '5',
+        descricao: 'Freelance',
+        valor: 1500,
+        data: '2025-06-22',
+        tipo: 'receita',
+        categoria: 'Freelance',
         status: 'programado'
       },
       {
         id: '6',
-        descricao: 'Freelance',
-        valor: 1500,
-        data: '2025-05-22',
-        tipo: 'receita',
-        categoria: 'Freelance',
-        status: 'programado'
+        descricao: 'Supermercado',
+        valor: 350,
+        data: '2025-06-25',
+        tipo: 'despesa',
+        categoria: 'Alimentação',
+        status: 'realizado'
       }
     ]
   };
 
-  // Prepara os dias do mês e as transações quando os parâmetros mudam
+  // Prepara os dados quando mudam os parâmetros
   useEffect(() => {
-    // Obtém o primeiro e último dia do mês
     const primeiroDia = startOfMonth(new Date(ano, mes));
     const ultimoDia = endOfMonth(primeiroDia);
+    const diasIntervalo = eachDayOfInterval({ start: primeiroDia, end: ultimoDia });
     
-    // Gera um array com todos os dias do mês
-    const diasIntervalo = eachDayOfInterval({
-      start: primeiroDia,
-      end: ultimoDia
-    });
-    
-    // Armazena os dias gerados
     setDiasDoMes(diasIntervalo);
     
-    // Organiza os movimentos por dia
+    // Organiza movimentos por dia
     const movimentos = dadosMockados.movimentos;
     const porDia = {};
     
     movimentos.forEach(movimento => {
       const dataMovimento = new Date(movimento.data);
-      
-      // Verifica se a movimentação pertence ao mês/ano selecionado
       if (dataMovimento.getMonth() === mes && dataMovimento.getFullYear() === ano) {
         const diaFormatado = format(dataMovimento, 'yyyy-MM-dd');
-        
         if (!porDia[diaFormatado]) {
           porDia[diaFormatado] = [];
         }
-        
         porDia[diaFormatado].push(movimento);
       }
     });
@@ -112,49 +99,12 @@ const CalendarioFinanceiro = ({ data, mes, ano, onDiaClick }) => {
     setMovimentosPorDia(porDia);
   }, [mes, ano]);
 
-  // Determina as classes CSS para um dia com base nas movimentações
-  const getDiaClasses = (dia) => {
-    const hoje = new Date();
-    const diaFormatado = format(dia, 'yyyy-MM-dd');
-    const movimentosDoDia = movimentosPorDia[diaFormatado] || [];
-    
-    const classes = ['calendario-dia'];
-    
-    // Verifica se é o dia atual
-    if (isSameDay(dia, hoje)) {
-      classes.push('dia-atual');
-    }
-    
-    // Se há movimentações neste dia
-    if (movimentosDoDia.length > 0) {
-      classes.push('tem-movimentos');
-      
-      // Verifica tipos de movimentações
-      const temReceita = movimentosDoDia.some(m => m.tipo === 'receita');
-      const temDespesa = movimentosDoDia.some(m => m.tipo === 'despesa');
-      const temProgramado = movimentosDoDia.some(m => m.status === 'programado');
-      const temRealizado = movimentosDoDia.some(m => m.status === 'realizado');
-      
-      if (temReceita) classes.push('tem-receita');
-      if (temDespesa) classes.push('tem-despesa');
-      if (temProgramado) classes.push('tem-programado');
-      if (temRealizado) classes.push('tem-realizado');
-    }
-    
-    return classes.join(' ');
-  };
-
-  // Calcula o total de receitas e despesas para um dia
+  // Calcula totais do dia
   const calcularTotaisDoDia = (dia) => {
     const diaFormatado = format(dia, 'yyyy-MM-dd');
     const movimentosDoDia = movimentosPorDia[diaFormatado] || [];
     
-    const totais = {
-      receitas: 0,
-      despesas: 0,
-      saldo: 0,
-      numLancamentos: movimentosDoDia.length
-    };
+    const totais = { receitas: 0, despesas: 0, saldo: 0, numLancamentos: movimentosDoDia.length };
     
     movimentosDoDia.forEach(mov => {
       if (mov.tipo === 'receita') {
@@ -165,70 +115,76 @@ const CalendarioFinanceiro = ({ data, mes, ano, onDiaClick }) => {
     });
     
     totais.saldo = totais.receitas - totais.despesas;
-    
     return totais;
   };
 
-  // Renderiza marcadores de movimentação
-  const renderizarMarcadoresMovimento = (dia) => {
+  // Classes CSS do dia
+  const getDiaClasses = (dia) => {
+    const hoje = new Date();
     const diaFormatado = format(dia, 'yyyy-MM-dd');
     const movimentosDoDia = movimentosPorDia[diaFormatado] || [];
     
-    // Se não houver movimentações, não renderiza marcadores
-    if (movimentosDoDia.length === 0) return null;
+    const classes = ['calendario-dia'];
     
-    const temReceita = movimentosDoDia.some(m => m.tipo === 'receita');
-    const temDespesa = movimentosDoDia.some(m => m.tipo === 'despesa');
-    const temProgramado = movimentosDoDia.some(m => m.status === 'programado');
-    const temRealizado = movimentosDoDia.some(m => m.status === 'realizado');
+    if (isSameDay(dia, hoje)) {
+      classes.push('dia-atual');
+    }
     
-    // Calcula totais para exibição
-    const totais = calcularTotaisDoDia(dia);
+    if (movimentosDoDia.length > 0) {
+      classes.push('tem-movimentos');
+      
+      const temReceita = movimentosDoDia.some(m => m.tipo === 'receita');
+      const temDespesa = movimentosDoDia.some(m => m.tipo === 'despesa');
+      const temProgramado = movimentosDoDia.some(m => m.status === 'programado');
+      
+      if (temReceita) classes.push('tem-receita');
+      if (temDespesa) classes.push('tem-despesa');
+      if (temProgramado) classes.push('tem-programado');
+    }
     
-    return (
-      <div className="dia-marcadores">
-        <div className="dia-marcadores-row">
-          {temRealizado && <span className="marcador realizado" title="Realizado"></span>}
-          {temProgramado && <span className="marcador programado" title="Programado"></span>}
-        </div>
-        <div className="dia-marcadores-row">
-          {temReceita && <span className="marcador receita" title="Receita"></span>}
-          {temDespesa && <span className="marcador despesa" title="Despesa"></span>}
-        </div>
-        <div className="dia-total">
-          {totais.saldo >= 0 
-            ? <span className="valor-positivo">{formatCurrency(totais.saldo)}</span>
-            : <span className="valor-negativo">{formatCurrency(totais.saldo)}</span>
-          }
-        </div>
-      </div>
-    );
+    return classes.join(' ');
   };
 
-  // Handler para clique em um dia
+  // Handler de clique no dia
   const handleDiaClick = (dia) => {
     const diaFormatado = format(dia, 'yyyy-MM-dd');
     const movimentosDoDia = movimentosPorDia[diaFormatado] || [];
     
-    // Chama o callback com os dados do dia
-    onDiaClick({
-      data: dia,
-      movimentos: movimentosDoDia,
-      totais: calcularTotaisDoDia(dia)
-    });
+    if (onDiaClick && movimentosDoDia.length > 0) {
+      onDiaClick({
+        data: dia,
+        movimentos: movimentosDoDia,
+        totais: calcularTotaisDoDia(dia)
+      });
+    }
   };
-  
-  // Handler para mouseOver em um dia (para mostrar tooltip)
-  const handleDiaMouseEnter = (dia) => {
-    setHoveredDay(dia);
+
+  // Renderiza indicadores do dia
+  const renderizarIndicadoresDia = (dia) => {
+    const diaFormatado = format(dia, 'yyyy-MM-dd');
+    const movimentosDoDia = movimentosPorDia[diaFormatado] || [];
+    
+    if (movimentosDoDia.length === 0) return null;
+    
+    const totais = calcularTotaisDoDia(dia);
+    const temProgramado = movimentosDoDia.some(m => m.status === 'programado');
+    
+    return (
+      <div className="dia-indicadores">
+        <div className="quantidade-transacoes">
+          {movimentosDoDia.length}
+        </div>
+        {Math.abs(totais.saldo) > 0 && (
+          <div className={`saldo-dia ${totais.saldo >= 0 ? 'positivo' : 'negativo'}`}>
+            {formatCurrency(Math.abs(totais.saldo))}
+          </div>
+        )}
+        {temProgramado && <div className="indicador-programado"></div>}
+      </div>
+    );
   };
-  
-  // Handler para mouseLeave em um dia (para esconder tooltip)
-  const handleDiaMouseLeave = () => {
-    setHoveredDay(null);
-  };
-  
-  // Componente de tooltip com resumo do dia
+
+  // Tooltip do dia
   const DiaTooltip = ({ dia }) => {
     if (!dia) return null;
     
@@ -240,44 +196,46 @@ const CalendarioFinanceiro = ({ data, mes, ano, onDiaClick }) => {
     
     return (
       <div className="dia-tooltip">
-        <div className="dia-tooltip-header">
-          {format(dia, 'dd/MM/yyyy')} - {totais.numLancamentos} lançamento(s)
+        <div className="tooltip-cabecalho">
+          {format(dia, 'dd/MM', { locale: ptBR })} • {totais.numLancamentos} transação{totais.numLancamentos > 1 ? 'ões' : ''}
         </div>
-        <div className="dia-tooltip-content">
+        
+        <div className="tooltip-conteudo">
           {totais.receitas > 0 && (
-            <div className="tooltip-item">
+            <div className="tooltip-linha receita">
               <span>Receitas:</span>
-              <span className="valor-positivo">{formatCurrency(totais.receitas)}</span>
+              <span>{formatCurrency(totais.receitas)}</span>
             </div>
           )}
+          
           {totais.despesas > 0 && (
-            <div className="tooltip-item">
+            <div className="tooltip-linha despesa">
               <span>Despesas:</span>
-              <span className="valor-negativo">{formatCurrency(totais.despesas)}</span>
+              <span>{formatCurrency(totais.despesas)}</span>
             </div>
           )}
-          <div className="tooltip-item saldo">
+          
+          <div className={`tooltip-linha saldo ${totais.saldo >= 0 ? 'positivo' : 'negativo'}`}>
             <span>Saldo:</span>
-            <span className={totais.saldo >= 0 ? 'valor-positivo' : 'valor-negativo'}>
-              {formatCurrency(totais.saldo)}
-            </span>
+            <span>{formatCurrency(totais.saldo)}</span>
           </div>
         </div>
-        <div className="dia-tooltip-footer">
-          Clique para ver detalhes
+        
+        <div className="tooltip-rodape">
+          Clique para detalhes
         </div>
       </div>
     );
   };
 
-  // Renderiza os nomes dos dias da semana
+  // Renderiza os dias da semana
   const renderizarDiasDaSemana = () => {
     const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
     
     return (
       <div className="calendario-cabecalho">
         {diasSemana.map((dia, index) => (
-          <div key={index} className="cabecalho-item">
+          <div key={index} className="cabecalho-dia">
             {dia}
           </div>
         ))}
@@ -285,48 +243,44 @@ const CalendarioFinanceiro = ({ data, mes, ano, onDiaClick }) => {
     );
   };
 
-  // Renderiza o grid do calendário com os dias do mês
+  // Renderiza o grid do calendário
   const renderizarGridCalendario = () => {
-    // Se não há dias ainda, mostra indicador de carregamento
     if (diasDoMes.length === 0) {
-      return <div className="calendario-loading">Carregando calendário...</div>;
+      return (
+        <div className="calendario-loading">
+          Carregando calendário...
+        </div>
+      );
     }
     
-    // Obtém o primeiro dia do mês
     const primeiroDia = diasDoMes[0];
-    
-    // Determina em qual coluna começar (0 = domingo, 6 = sábado)
     const diaDaSemanaPrimeiroDia = primeiroDia.getDay();
-    
-    // Cria array para células vazias no início
     const celulasVaziasInicio = Array(diaDaSemanaPrimeiroDia).fill(null);
-    
-    // Combina células vazias + dias do mês
     const todasCelulas = [...celulasVaziasInicio, ...diasDoMes];
     
     return (
       <div className="calendario-grid">
         {todasCelulas.map((dia, index) => {
-          // Células vazias
           if (dia === null) {
             return <div key={`vazio-${index}`} className="celula-vazia"></div>;
           }
           
-          // Células com dias
           const isHovered = hoveredDay && isSameDay(dia, hoveredDay);
+          const diaFormatado = format(dia, 'yyyy-MM-dd');
+          const temMovimentos = movimentosPorDia[diaFormatado]?.length > 0;
           
           return (
             <div 
               key={format(dia, 'yyyy-MM-dd')} 
               className={`${getDiaClasses(dia)} ${isHovered ? 'hovered' : ''}`}
               onClick={() => handleDiaClick(dia)}
-              onMouseEnter={() => handleDiaMouseEnter(dia)}
-              onMouseLeave={handleDiaMouseLeave}
+              onMouseEnter={() => setHoveredDay(dia)}
+              onMouseLeave={() => setHoveredDay(null)}
+              style={{ cursor: temMovimentos ? 'pointer' : 'default' }}
             >
               <div className="dia-numero">{getDate(dia)}</div>
-              {renderizarMarcadoresMovimento(dia)}
+              {renderizarIndicadoresDia(dia)}
               
-              {/* Tooltip para o dia com hover */}
               {isHovered && <DiaTooltip dia={dia} />}
             </div>
           );
@@ -335,41 +289,25 @@ const CalendarioFinanceiro = ({ data, mes, ano, onDiaClick }) => {
     );
   };
 
-  // Título do calendário
-  const tituloCalendario = format(new Date(ano, mes), 'MMMM yyyy', { locale: ptBR });
-  const tituloCapitalizado = tituloCalendario.charAt(0).toUpperCase() + tituloCalendario.slice(1);
-
   return (
-    <div className="calendario-financeiro">
-      {/* Cabeçalho do Calendário */}
-      <div className="calendario-titulo">
-        {tituloCapitalizado}
-      </div>
-      
-      {/* Legenda - Atualizada com distinção entre programado e realizado */}
-      <div className="calendario-legenda">
+    <div className="calendario-financeiro-moderno">
+      {/* Legenda simples */}
+      <div className="calendario-legenda-simples">
         <div className="legenda-item">
-          <span className="legenda-cor receita"></span>
-          <span className="legenda-texto">Receita</span>
+          <div className="legenda-cor receita"></div>
+          <span>Receita</span>
         </div>
         <div className="legenda-item">
-          <span className="legenda-cor despesa"></span>
-          <span className="legenda-texto">Despesa</span>
+          <div className="legenda-cor despesa"></div>
+          <span>Despesa</span>
         </div>
         <div className="legenda-item">
-          <span className="legenda-cor realizado"></span>
-          <span className="legenda-texto">Realizado</span>
-        </div>
-        <div className="legenda-item">
-          <span className="legenda-cor programado"></span>
-          <span className="legenda-texto">Programado</span>
+          <div className="legenda-cor programado"></div>
+          <span>Programado</span>
         </div>
       </div>
       
-      {/* Dias da Semana */}
       {renderizarDiasDaSemana()}
-      
-      {/* Grid de Dias */}
       {renderizarGridCalendario()}
     </div>
   );
