@@ -1,14 +1,9 @@
-// src/context/AuthContext.js - Versão Corrigida para OAuth
+// src/context/AuthContext.js - Versão Otimizada para OAuth
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
-// Contexto de autenticação
 const AuthContext = createContext();
 
-/**
- * Provider de autenticação integrado com Supabase
- * Versão corrigida para funcionar perfeitamente com Google OAuth
- */
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -16,7 +11,6 @@ export const AuthProvider = ({ children }) => {
   const [session, setSession] = useState(null);
   const [initialized, setInitialized] = useState(false);
 
-  // Verificar sessão atual e configurar listener
   useEffect(() => {
     let mounted = true;
     let timeoutId;
@@ -25,12 +19,10 @@ export const AuthProvider = ({ children }) => {
       try {
         console.log('🔐 Inicializando autenticação...');
         
-        // Verificar se estamos em uma página de callback
         const isCallbackPage = window.location.pathname.includes('/auth/callback');
         
         if (isCallbackPage) {
           console.log('📍 Detectada página de callback, aguardando processamento...');
-          // Na página de callback, aguardar mais tempo para processar
           timeoutId = setTimeout(() => {
             if (mounted && !initialized) {
               console.warn('⚠️ Timeout na página de callback');
@@ -39,9 +31,8 @@ export const AuthProvider = ({ children }) => {
               setLoading(false);
               setInitialized(true);
             }
-          }, 20000); // 20 segundos para callback
+          }, 20000);
         } else {
-          // Timeout normal para outras páginas
           timeoutId = setTimeout(() => {
             if (mounted && !initialized) {
               console.warn('⚠️ Timeout na inicialização da auth');
@@ -53,10 +44,8 @@ export const AuthProvider = ({ children }) => {
           }, 10000);
         }
         
-        // Obter sessão atual
         const { data: { session }, error } = await supabase.auth.getSession();
         
-        // Limpar timeout se chegou até aqui
         if (timeoutId) {
           clearTimeout(timeoutId);
           timeoutId = null;
@@ -64,7 +53,6 @@ export const AuthProvider = ({ children }) => {
         
         if (error) {
           console.error('❌ Erro ao obter sessão:', error);
-          // Na página de callback, não tratar como erro fatal
           if (!isCallbackPage) {
             console.log('ℹ️ Continuando sem usuário autenticado');
           }
@@ -75,7 +63,6 @@ export const AuthProvider = ({ children }) => {
           setSession(session);
           setUser(session?.user ?? null);
           
-          // Se há usuário, tentar criar/verificar perfil (sem bloquear)
           if (session?.user) {
             ensureUserProfile(session.user).catch(err => {
               console.warn('⚠️ Erro ao verificar perfil (não crítico):', err);
@@ -103,7 +90,6 @@ export const AuthProvider = ({ children }) => {
 
     initializeAuth();
 
-    // Configurar listener para mudanças de autenticação
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -113,19 +99,16 @@ export const AuthProvider = ({ children }) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Para eventos específicos, resetar loading
         if (['SIGNED_IN', 'SIGNED_OUT', 'TOKEN_REFRESHED'].includes(event)) {
           setLoading(false);
         }
         
-        // Criar ou atualizar perfil do usuário quando necessário (em background)
         if (event === 'SIGNED_IN' && session?.user) {
           ensureUserProfile(session.user).catch(err => {
             console.warn('⚠️ Erro ao criar perfil (não crítico):', err);
           });
         }
         
-        // Para logout, limpar estados
         if (event === 'SIGNED_OUT') {
           setUser(null);
           setSession(null);
@@ -134,7 +117,6 @@ export const AuthProvider = ({ children }) => {
       }
     });
 
-    // Cleanup
     return () => {
       mounted = false;
       if (timeoutId) {
@@ -144,7 +126,6 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  // Função para garantir que o perfil do usuário existe
   const ensureUserProfile = async (user) => {
     try {
       console.log('👤 Verificando perfil do usuário:', user.email);
@@ -184,8 +165,6 @@ export const AuthProvider = ({ children }) => {
           console.warn('⚠️ Erro ao criar perfil (não crítico):', insertError);
         } else {
           console.log('✅ Perfil criado com sucesso para:', user.email);
-          
-          // Criar categorias padrão em background
           createDefaultCategories(user.id).catch(err => {
             console.warn('⚠️ Erro ao criar categorias padrão (não crítico):', err);
           });
@@ -198,19 +177,15 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Função para criar categorias padrão
   const createDefaultCategories = async (userId) => {
     try {
       console.log('📊 Criando categorias padrão para usuário:', userId);
       
       const defaultCategories = [
-        // Categorias de Receita
         { nome: 'Salário', tipo: 'receita', cor: '#10B981', icone: 'briefcase', ordem: 1 },
         { nome: 'Freelance', tipo: 'receita', cor: '#3B82F6', icone: 'laptop', ordem: 2 },
         { nome: 'Investimentos', tipo: 'receita', cor: '#8B5CF6', icone: 'trending-up', ordem: 3 },
         { nome: 'Outros', tipo: 'receita', cor: '#6B7280', icone: 'plus', ordem: 4 },
-        
-        // Categorias de Despesa
         { nome: 'Alimentação', tipo: 'despesa', cor: '#EF4444', icone: 'utensils', ordem: 1 },
         { nome: 'Transporte', tipo: 'despesa', cor: '#F59E0B', icone: 'car', ordem: 2 },
         { nome: 'Moradia', tipo: 'despesa', cor: '#06B6D4', icone: 'home', ordem: 3 },
@@ -243,7 +218,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Função de login tradicional
   const signIn = async ({ email, password }) => {
     try {
       setLoading(true);
@@ -269,7 +243,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Função de registro
   const signUp = async ({ email, password, nome }) => {
     try {
       setLoading(true);
@@ -290,7 +263,6 @@ export const AuthProvider = ({ children }) => {
         throw error;
       }
 
-      // Se o usuário foi criado mas precisa confirmar email
       if (data.user && !data.session) {
         return {
           success: true,
@@ -311,7 +283,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Função de logout
   const signOut = async () => {
     try {
       setLoading(true);
@@ -332,7 +303,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Função para recuperação de senha
   const resetPassword = async (email) => {
     try {
       setLoading(true);
@@ -357,7 +327,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Função para atualizar senha
   const updatePassword = async (newPassword) => {
     try {
       setLoading(true);
@@ -382,13 +351,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Função para atualizar perfil
   const updateProfile = async (userData) => {
     try {
       setLoading(true);
       setError(null);
 
-      // Atualizar dados de autenticação se necessário
       const authUpdates = {};
       if (userData.email && userData.email !== user?.email) {
         authUpdates.email = userData.email;
@@ -399,7 +366,6 @@ export const AuthProvider = ({ children }) => {
         if (authError) throw authError;
       }
 
-      // Atualizar perfil na tabela personalizada
       const { data, error } = await supabase
         .from('perfil_usuario')
         .update({
@@ -425,22 +391,24 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Login com Google - VERSÃO CORRIGIDA
+  // ⚡ VERSÃO OTIMIZADA DO LOGIN COM GOOGLE
   const signInWithGoogle = async () => {
     try {
       console.log('🔄 Iniciando login com Google...');
-      
-      // Não definir loading aqui para evitar conflitos
       setError(null);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
+          // ⚡ REDIRECT IMEDIATO após autenticação
           redirectTo: `${window.location.origin}/auth/callback`,
           queryParams: {
             access_type: 'offline',
-            prompt: 'consent',
+            prompt: 'select_account', // Permite trocar de conta mais facilmente
+            include_granted_scopes: 'true'
           },
+          // ⚡ ACELERA o processo
+          skipBrowserRedirect: false
         }
       });
 
@@ -450,9 +418,6 @@ export const AuthProvider = ({ children }) => {
       }
 
       console.log('✅ Redirecionamento para Google iniciado');
-      
-      // O signInWithOAuth redireciona automaticamente
-      // Não retornamos aqui pois a página será redirecionada
       return { success: true };
       
     } catch (err) {
@@ -463,7 +428,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Login com GitHub
   const signInWithGitHub = async () => {
     try {
       setLoading(true);
@@ -490,7 +454,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Função auxiliar para tratar mensagens de erro
   const getAuthErrorMessage = (error) => {
     const message = error.message || error.code || '';
     
@@ -517,7 +480,6 @@ export const AuthProvider = ({ children }) => {
       case 'Authorization code exchange failed':
         return 'Falha na autenticação com Google. Tente novamente.';
       default:
-        // Para erros OAuth específicos
         if (message.includes('oauth') || message.includes('provider')) {
           return 'Erro na autenticação com Google. Tente novamente.';
         }
@@ -525,7 +487,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Debug em desenvolvimento
   useEffect(() => {
     if (import.meta.env.DEV) {
       window.authDebug = {
@@ -555,7 +516,6 @@ export const AuthProvider = ({ children }) => {
     }
   }, [user, loading, error, initialized, session]);
 
-  // Valores expostos pelo contexto
   const value = {
     user,
     session,
@@ -577,9 +537,6 @@ export const AuthProvider = ({ children }) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-/**
- * Hook personalizado para usar o contexto de autenticação
- */
 export const useAuth = () => {
   const context = useContext(AuthContext);
 
