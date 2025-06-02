@@ -27,13 +27,6 @@ import TransferenciasModal from '../Components/TransferenciasModal';
 // Estilos
 import './TransacoesPage.css';
 
-/**
- * Página de Transações COMPLETA 
- * ✅ Adiciona seletor de período próprio (independente do MainLayout)
- * ✅ Remove botões de ação duplicados
- * ✅ Remove cards de resumo duplicados
- * ✅ Mantém funcionalidade de edição
- */
 const TransacoesPage = () => {
   const { user } = useAuth();
   const { showNotification } = useUIStore();
