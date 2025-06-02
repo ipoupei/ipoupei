@@ -18,7 +18,7 @@ import Button from '../Components/ui/Button';
 import BasicModal from '../Components/BasicModal';
 
 /**
- * Componente para exclusão de conta
+ * Componente para exclusão de conta - VERSÃO COM FORMATAÇÃO CORRIGIDA
  * Processo completo com backup, validações e confirmações
  */
 const ExcluirConta = () => {
@@ -143,20 +143,18 @@ const ExcluirConta = () => {
     switch (currentStep) {
       case 1:
         return (
-          <div className="space-y-6">
-            <div className="text-center">
-              <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-gray-800 mb-2">
-                Exclusão de Conta
-              </h3>
-              <p className="text-gray-600">
+          <div className="delete-step-container">
+            <div className="step-icon-container">
+              <AlertTriangle size={64} style={{ color: '#ef4444', marginBottom: '1rem' }} />
+              <h3 className="step-title">Exclusão de Conta</h3>
+              <p className="step-description">
                 Esta ação é irreversível. Todos os seus dados serão permanentemente removidos.
               </p>
             </div>
 
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <h4 className="font-medium text-red-800 mb-2">O que será excluído:</h4>
-              <ul className="text-sm text-red-700 space-y-1">
+            <div className="warning-box">
+              <h4 className="warning-title">O que será excluído:</h4>
+              <ul className="warning-list">
                 <li>• Todas as suas transações e histórico financeiro</li>
                 <li>• Contas bancárias e cartões de crédito cadastrados</li>
                 <li>• Categorias personalizadas e configurações</li>
@@ -166,9 +164,9 @@ const ExcluirConta = () => {
               </ul>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-medium text-blue-800 mb-2">Antes de prosseguir:</h4>
-              <ul className="text-sm text-blue-700 space-y-1">
+            <div className="info-box">
+              <h4 className="info-title">Antes de prosseguir:</h4>
+              <ul className="info-list">
                 <li>• Faça um backup dos seus dados importantes</li>
                 <li>• Quite todas as dívidas pendentes</li>
                 <li>• Informe amigos sobre transações compartilhadas</li>
@@ -176,12 +174,12 @@ const ExcluirConta = () => {
               </ul>
             </div>
 
-            <div className="flex space-x-3">
+            <div className="button-group">
               <Button
                 variant="primary"
                 onClick={handleGenerateBackup}
                 disabled={loading}
-                className="flex-1"
+                fullWidth
               >
                 {loading ? 'Gerando...' : 'Gerar Backup dos Dados'}
               </Button>
@@ -191,21 +189,19 @@ const ExcluirConta = () => {
 
       case 2:
         return (
-          <div className="space-y-6">
-            <div className="text-center">
-              <FileText className="w-16 h-16 text-blue-500 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-gray-800 mb-2">
-                Backup Gerado
-              </h3>
-              <p className="text-gray-600">
+          <div className="delete-step-container">
+            <div className="step-icon-container">
+              <FileText size={64} style={{ color: '#3b82f6', marginBottom: '1rem' }} />
+              <h3 className="step-title">Backup Gerado</h3>
+              <p className="step-description">
                 Seus dados foram compilados em um arquivo de backup.
               </p>
             </div>
 
             {backupData && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <h4 className="font-medium text-green-800 mb-2">Backup inclui:</h4>
-                <div className="grid grid-cols-2 gap-2 text-sm text-green-700">
+              <div className="backup-success-box">
+                <h4 className="backup-title">Backup inclui:</h4>
+                <div className="backup-grid">
                   {backupData.contas && (
                     <div>• {backupData.contas.length} conta(s) bancária(s)</div>
                   )}
@@ -228,13 +224,12 @@ const ExcluirConta = () => {
               </div>
             )}
 
-            <div className="flex space-x-3">
+            <div className="button-group">
               <Button
                 variant="secondary"
                 onClick={handleDownloadBackup}
                 icon={<Download size={16} />}
                 disabled={!backupData}
-                className="flex-1"
               >
                 Baixar Backup
               </Button>
@@ -242,7 +237,6 @@ const ExcluirConta = () => {
                 variant="primary"
                 onClick={handleValidateDeletion}
                 disabled={loading}
-                className="flex-1"
               >
                 {loading ? 'Validando...' : 'Continuar'}
               </Button>
@@ -252,41 +246,31 @@ const ExcluirConta = () => {
 
       case 3:
         return (
-          <div className="space-y-6">
-            <div className="text-center">
-              <Shield className="w-16 h-16 text-orange-500 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-gray-800 mb-2">
-                Validação de Exclusão
-              </h3>
-              <p className="text-gray-600">
+          <div className="delete-step-container">
+            <div className="step-icon-container">
+              <Shield size={64} style={{ color: '#f59e0b', marginBottom: '1rem' }} />
+              <h3 className="step-title">Validação de Exclusão</h3>
+              <p className="step-description">
                 Verificamos sua conta e encontramos os seguintes pontos de atenção:
               </p>
             </div>
 
             {validationIssues.length > 0 ? (
-              <div className="space-y-3">
+              <div style={{ marginBottom: '1.5rem' }}>
                 {validationIssues.map((issue, index) => (
                   <div 
                     key={index}
-                    className={`p-4 rounded-lg border ${
-                      issue.type === 'warning' 
-                        ? 'bg-yellow-50 border-yellow-200' 
-                        : 'bg-red-50 border-red-200'
-                    }`}
+                    className={`validation-issue ${issue.type}`}
                   >
-                    <div className="flex items-start">
-                      <AlertTriangle className={`w-5 h-5 mt-0.5 mr-2 ${
+                    <div className="validation-issue-content">
+                      <AlertTriangle className={`validation-issue-icon ${
                         issue.type === 'warning' ? 'text-yellow-500' : 'text-red-500'
-                      }`} />
+                      }`} size={20} />
                       <div>
-                        <h4 className={`font-medium ${
-                          issue.type === 'warning' ? 'text-yellow-800' : 'text-red-800'
-                        }`}>
+                        <h4 className="validation-issue-title">
                           {issue.title}
                         </h4>
-                        <p className={`text-sm ${
-                          issue.type === 'warning' ? 'text-yellow-700' : 'text-red-700'
-                        }`}>
+                        <p className="validation-issue-message">
                           {issue.message}
                         </p>
                       </div>
@@ -295,46 +279,46 @@ const ExcluirConta = () => {
                 ))}
               </div>
             ) : (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex items-center">
-                  <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
-                  <p className="text-green-700">
+              <div style={{ 
+                backgroundColor: '#f0fdf4', 
+                border: '1px solid #bbf7d0', 
+                borderRadius: '0.5rem', 
+                padding: '1rem',
+                marginBottom: '1.5rem'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <CheckCircle size={20} style={{ color: '#16a34a', marginRight: '0.5rem' }} />
+                  <p style={{ color: '#15803d', margin: 0 }}>
                     Sua conta está pronta para ser excluída sem problemas.
                   </p>
                 </div>
               </div>
             )}
 
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <h4 className="font-medium text-gray-800 mb-3">Alternativas à exclusão:</h4>
-              <div className="space-y-2">
-                <button
-                  onClick={() => setShowDeactivateModal(true)}
-                  className="flex items-center w-full p-3 text-left bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <Clock className="w-5 h-5 text-blue-500 mr-3" />
-                  <div>
-                    <p className="font-medium text-gray-800">Desativar temporariamente</p>
-                    <p className="text-sm text-gray-600">
-                      Suspende sua conta mas mantém os dados para reativação futura
-                    </p>
-                  </div>
-                </button>
-              </div>
+            <div className="alternatives-box">
+              <h4 className="alternatives-title">Alternativas à exclusão:</h4>
+              <button
+                onClick={() => setShowDeactivateModal(true)}
+                className="alternative-option"
+              >
+                <Clock className="alternative-icon" />
+                <div className="alternative-text">
+                  <h4>Desativar temporariamente</h4>
+                  <p>Suspende sua conta mas mantém os dados para reativação futura</p>
+                </div>
+              </button>
             </div>
 
-            <div className="flex space-x-3">
+            <div className="button-group">
               <Button
                 variant="secondary"
                 onClick={() => setCurrentStep(2)}
-                className="flex-1"
               >
                 Voltar
               </Button>
               <Button
                 variant="danger"
                 onClick={() => setShowDeleteModal(true)}
-                className="flex-1"
               >
                 Prosseguir com Exclusão
               </Button>
@@ -348,52 +332,60 @@ const ExcluirConta = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <Card>
-        <div className="p-6">
-          {/* Progresso */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-sm text-gray-600">Etapa {currentStep} de 3</span>
-              <span className="text-sm text-gray-600">
-                {Math.round((currentStep / 3) * 100)}% concluído
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div 
-                className="bg-red-500 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${(currentStep / 3) * 100}%` }}
-              ></div>
-            </div>
-          </div>
-
-          {/* Mensagens */}
-          {message.text && (
-            <div className={`flex items-center p-4 rounded-lg mb-6 ${
-              message.type === 'success' 
-                ? 'bg-green-50 text-green-700 border border-green-200' 
-                : 'bg-red-50 text-red-700 border border-red-200'
-            }`}>
-              {message.type === 'success' ? (
-                <CheckCircle size={18} className="mr-2 flex-shrink-0" />
-              ) : (
-                <XCircle size={18} className="mr-2 flex-shrink-0" />
-              )}
-              <span>{message.text}</span>
-            </div>
-          )}
-
-          {/* Erro geral */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-              {error}
-            </div>
-          )}
-
-          {/* Conteúdo da etapa atual */}
-          {renderStep()}
+    <div className="delete-account-container">
+      {/* Progresso */}
+      <div className="progress-bar-container">
+        <div className="progress-info">
+          <span className="progress-text">Etapa {currentStep} de 3</span>
+          <span className="progress-text">
+            {Math.round((currentStep / 3) * 100)}% concluído
+          </span>
         </div>
-      </Card>
+        <div className="progress-bar-bg">
+          <div 
+            className="progress-bar-fill"
+            style={{ width: `${(currentStep / 3) * 100}%` }}
+          ></div>
+        </div>
+      </div>
+
+      {/* Mensagens */}
+      {message.text && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          padding: '1rem',
+          borderRadius: '0.5rem',
+          marginBottom: '1.5rem',
+          backgroundColor: message.type === 'success' ? '#f0fdf4' : '#fef2f2',
+          color: message.type === 'success' ? '#15803d' : '#b91c1c',
+          border: `1px solid ${message.type === 'success' ? '#bbf7d0' : '#fecaca'}`
+        }}>
+          {message.type === 'success' ? (
+            <CheckCircle size={18} style={{ marginRight: '0.5rem', flexShrink: 0 }} />
+          ) : (
+            <XCircle size={18} style={{ marginRight: '0.5rem', flexShrink: 0 }} />
+          )}
+          <span>{message.text}</span>
+        </div>
+      )}
+
+      {/* Erro geral */}
+      {error && (
+        <div style={{
+          backgroundColor: '#fef2f2',
+          border: '1px solid #fecaca',
+          color: '#b91c1c',
+          padding: '0.75rem 1rem',
+          borderRadius: '0.5rem',
+          marginBottom: '1.5rem'
+        }}>
+          {error}
+        </div>
+      )}
+
+      {/* Conteúdo da etapa atual */}
+      {renderStep()}
 
       {/* Modal de Confirmação de Exclusão */}
       <BasicModal
@@ -401,26 +393,41 @@ const ExcluirConta = () => {
         onClose={() => setShowDeleteModal(false)}
         title="⚠️ Confirmar Exclusão"
       >
-        <div className="space-y-4">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-red-700 font-medium">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '0.5rem',
+            padding: '1rem'
+          }}>
+            <p style={{ 
+              color: '#b91c1c', 
+              fontWeight: '500',
+              margin: 0
+            }}>
               Esta ação é irreversível. Todos os seus dados serão permanentemente excluídos.
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Digite exatamente: <strong>EXCLUIR MINHA CONTA</strong>
-            </label>
             <Input
+              label={
+                <span>
+                  Digite exatamente: <strong>EXCLUIR MINHA CONTA</strong>
+                </span>
+              }
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
               placeholder="EXCLUIR MINHA CONTA"
-              className="font-mono"
+              style={{ fontFamily: 'monospace' }}
             />
           </div>
 
-          <div className="flex space-x-3 pt-4">
+          <div style={{ 
+            display: 'flex', 
+            gap: '0.75rem', 
+            paddingTop: '1rem' 
+          }}>
             <Button
               variant="secondary"
               onClick={() => setShowDeleteModal(false)}
@@ -447,15 +454,27 @@ const ExcluirConta = () => {
         onClose={() => setShowDeactivateModal(false)}
         title="Desativar Conta Temporariamente"
       >
-        <div className="space-y-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-blue-700">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{
+            backgroundColor: '#eff6ff',
+            border: '1px solid #bfdbfe',
+            borderRadius: '0.5rem',
+            padding: '1rem'
+          }}>
+            <p style={{ 
+              color: '#1e40af',
+              margin: 0
+            }}>
               Sua conta será desativada, mas seus dados ficarão salvos. 
               Você pode reativar a qualquer momento fazendo login novamente.
             </p>
           </div>
 
-          <div className="flex space-x-3 pt-4">
+          <div style={{ 
+            display: 'flex', 
+            gap: '0.75rem', 
+            paddingTop: '1rem' 
+          }}>
             <Button
               variant="secondary"
               onClick={() => setShowDeactivateModal(false)}

@@ -1,4 +1,4 @@
-// src/context/AuthContext.js - Versão Otimizada para OAuth
+// src/context/AuthContext.js - FUNÇÃO updateProfile CORRIGIDA
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -351,36 +351,131 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // 🔧 FUNÇÃO updateProfile COMPLETAMENTE CORRIGIDA
   const updateProfile = async (userData) => {
     try {
       setLoading(true);
       setError(null);
 
+      if (!user) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      console.log('🔄 Atualizando perfil com dados:', userData);
+
+      // PASSO 1: Atualiza os metadados do usuário no auth (se necessário)
       const authUpdates = {};
-      if (userData.email && userData.email !== user?.email) {
-        authUpdates.email = userData.email;
+      if (userData.nome) {
+        authUpdates.data = {
+          ...user.user_metadata,
+          nome: userData.nome,
+          full_name: userData.nome
+        };
+      }
+      if (userData.avatar_url) {
+        authUpdates.data = {
+          ...authUpdates.data,
+          ...user.user_metadata,
+          avatar_url: userData.avatar_url
+        };
+      }
+      // CORREÇÃO: Adiciona telefone aos metadados do auth
+      if (userData.telefone !== undefined) {
+        authUpdates.data = {
+          ...authUpdates.data,
+          ...user.user_metadata,
+          telefone: userData.telefone
+        };
       }
 
       if (Object.keys(authUpdates).length > 0) {
+        console.log('🔄 Atualizando metadados do auth...');
         const { error: authError } = await supabase.auth.updateUser(authUpdates);
-        if (authError) throw authError;
+        if (authError) {
+          console.error('❌ Erro ao atualizar auth:', authError);
+          throw authError;
+        }
+        console.log('✅ Metadados do auth atualizados');
       }
 
-      const { data, error } = await supabase
+      // PASSO 2: Atualiza/insere no perfil_usuario
+      console.log('🔄 Atualizando perfil_usuario...');
+      
+      // Primeiro, verifica se o perfil existe
+      const { data: existingProfile } = await supabase
         .from('perfil_usuario')
-        .update({
-          ...userData,
-          updated_at: new Date().toISOString()
-        })
+        .select('id')
         .eq('id', user.id)
-        .select()
         .single();
 
-      if (error) {
-        throw error;
+      // CORREÇÃO: Prepara dados do perfil com tratamento específico para telefone
+      const profileData = {
+        id: user.id,
+        email: user.email,
+        updated_at: new Date().toISOString()
+      };
+
+      // Adiciona campos apenas se foram fornecidos
+      if (userData.nome !== undefined) {
+        profileData.nome = userData.nome.trim();
+      }
+      if (userData.telefone !== undefined) {
+        // CORREÇÃO: Trata telefone vazio como null
+        profileData.telefone = userData.telefone.trim() || null;
+      }
+      if (userData.avatar_url !== undefined) {
+        profileData.avatar_url = userData.avatar_url;
+      }
+      if (userData.aceita_notificacoes !== undefined) {
+        profileData.aceita_notificacoes = userData.aceita_notificacoes;
+      }
+      if (userData.aceita_marketing !== undefined) {
+        profileData.aceita_marketing = userData.aceita_marketing;
       }
 
-      return { success: true, profile: data };
+      console.log('📋 Dados do perfil preparados:', profileData);
+
+      let result;
+      if (existingProfile) {
+        // Atualiza perfil existente
+        console.log('🔄 Atualizando perfil existente...');
+        result = await supabase
+          .from('perfil_usuario')
+          .update(profileData)
+          .eq('id', user.id)
+          .select()
+          .single();
+      } else {
+        // Cria novo perfil
+        console.log('🔄 Criando novo perfil...');
+        profileData.created_at = new Date().toISOString();
+        result = await supabase
+          .from('perfil_usuario')
+          .insert([profileData])
+          .select()
+          .single();
+      }
+
+      const { data: profileResult, error: profileError } = result;
+
+      if (profileError) {
+        console.error('❌ Erro ao atualizar perfil_usuario:', profileError);
+        throw profileError;
+      }
+
+      console.log('✅ Perfil atualizado com sucesso:', profileResult);
+
+      // PASSO 3: Atualiza o estado local do usuário
+      setUser(currentUser => ({
+        ...currentUser,
+        user_metadata: {
+          ...currentUser.user_metadata,
+          ...authUpdates.data
+        }
+      }));
+
+      return { success: true, profile: profileResult };
+
     } catch (err) {
       console.error('❌ Erro ao atualizar perfil:', err);
       const errorMessage = getAuthErrorMessage(err);

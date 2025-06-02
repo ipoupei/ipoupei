@@ -6,7 +6,6 @@ import {
   Lock, 
   Shield, 
   Bell, 
-  Monitor, 
   CreditCard, 
   LogOut, 
   Check, 
@@ -15,16 +14,17 @@ import {
   Users,
   Trash2,
   Settings,
-  FileText
+  FileText,
+  Phone
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import AmigosEFamiliares from '../Components/AmigosEFamiliares';
 import ExcluirConta from '../Components/ExcluirConta';
+import { supabase } from '../lib/supabaseClient';
 import './UserProfile.css';
 
 /**
- * Página de Perfil do Usuário atualizada
- * Inclui gestão de amigos/familiares e sistema de exclusão de conta
+ * Página de Perfil do Usuário - VERSÃO FINAL SEM DEBUG
  */
 const UserProfile = () => {
   const { user, updateProfile, updatePassword, signOut, loading: authLoading } = useAuth();
@@ -38,7 +38,7 @@ const UserProfile = () => {
     nome: '',
     email: '',
     telefone: '',
-    fotoPerfil: null
+    avatar_url: null
   });
   
   const [passwordData, setPasswordData] = useState({
@@ -48,10 +48,8 @@ const UserProfile = () => {
   });
   
   const [preferences, setPreferences] = useState({
-    temaDark: false,
-    mostraSaldo: true,
-    notificacoes: true,
-    relatoriosMensais: false
+    aceita_notificacoes: true,
+    aceita_marketing: false
   });
   
   // Estados para feedback ao usuário
@@ -61,31 +59,113 @@ const UserProfile = () => {
   // Inicializa dados do formulário a partir do usuário autenticado
   useEffect(() => {
     if (user) {
+      // Formata telefone ao carregar
+      const savedPhone = user.user_metadata?.telefone || '';
+      const formattedPhone = savedPhone ? formatPhoneNumber(savedPhone) : '';
+      
       setPersonalInfo({
-        nome: user.user_metadata?.nome || '',
+        nome: user.user_metadata?.nome || user.user_metadata?.full_name || '',
         email: user.email || '',
-        telefone: user.user_metadata?.telefone || '',
-        fotoPerfil: user.user_metadata?.avatar_url || null
+        telefone: formattedPhone,
+        avatar_url: user.user_metadata?.avatar_url || null
       });
       
-      // Se houver preferências salvas, carrega-as
-      const savedPrefs = user.user_metadata?.preferences;
-      if (savedPrefs) {
-        setPreferences(prev => ({
-          ...prev,
-          ...savedPrefs
-        }));
-      }
+      loadUserPreferences();
     }
   }, [user]);
+  
+  // Carrega preferências do usuário - MELHORADA
+  const loadUserPreferences = async () => {
+    try {
+      if (!user) return;
+      
+      // Tenta carregar do banco de dados primeiro
+      const { data: profile, error } = await supabase
+        .from('perfil_usuario')
+        .select('aceita_notificacoes, aceita_marketing')
+        .eq('id', user.id)
+        .single();
+      
+      if (profile && !error) {
+        setPreferences({
+          aceita_notificacoes: profile.aceita_notificacoes ?? true,
+          aceita_marketing: profile.aceita_marketing ?? false
+        });
+      } else {
+        // Fallback para metadados ou valores padrão
+        const savedPrefs = user.user_metadata?.preferences || {};
+        setPreferences({
+          aceita_notificacoes: savedPrefs.aceita_notificacoes ?? true,
+          aceita_marketing: savedPrefs.aceita_marketing ?? false
+        });
+      }
+    } catch (err) {
+      console.warn('Erro ao carregar preferências:', err);
+      // Define valores padrão em caso de erro
+      setPreferences({
+        aceita_notificacoes: true,
+        aceita_marketing: false
+      });
+    }
+  };
   
   // Handler para alterações nos campos de informações pessoais
   const handlePersonalChange = (e) => {
     const { name, value } = e.target;
-    setPersonalInfo(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    
+    if (name === 'telefone') {
+      const formattedPhone = formatPhoneNumber(value);
+      setPersonalInfo(prev => ({
+        ...prev,
+        [name]: formattedPhone
+      }));
+    } else {
+      setPersonalInfo(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+  };
+  
+  // Formata número de telefone brasileiro
+  const formatPhoneNumber = (value) => {
+    const cleaned = value.replace(/\D/g, '');
+    const limited = cleaned.slice(0, 11);
+    
+    if (limited.length <= 2) {
+      return limited;
+    } else if (limited.length <= 7) {
+      return limited.replace(/(\d{2})(\d{0,5})/, '($1) $2');
+    } else if (limited.length <= 10) {
+      return limited.replace(/(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3');
+    } else {
+      return limited.replace(/(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3');
+    }
+  };
+  
+  // Valida número de telefone
+  const validatePhoneNumber = (phone) => {
+    if (!phone) return true;
+    
+    const cleaned = phone.replace(/\D/g, '');
+    
+    if (cleaned.length < 10 || cleaned.length > 11) {
+      return false;
+    }
+    
+    const areaCode = cleaned.slice(0, 2);
+    if (parseInt(areaCode) < 11 || parseInt(areaCode) > 99) {
+      return false;
+    }
+    
+    if (cleaned.length === 11) {
+      const firstDigit = cleaned.charAt(2);
+      if (firstDigit !== '9') {
+        return false;
+      }
+    }
+    
+    return true;
   };
   
   // Handler para alterações nos campos de senha
@@ -109,7 +189,6 @@ const UserProfile = () => {
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Validação básica de tamanho (5MB max)
       if (file.size > 5 * 1024 * 1024) {
         setMessage({
           type: 'error',
@@ -118,7 +197,6 @@ const UserProfile = () => {
         return;
       }
       
-      // Validação de tipo
       if (!file.type.startsWith('image/')) {
         setMessage({
           type: 'error',
@@ -131,28 +209,49 @@ const UserProfile = () => {
       reader.onloadend = () => {
         setPersonalInfo(prev => ({
           ...prev,
-          fotoPerfil: reader.result
+          avatar_url: reader.result
         }));
       };
       reader.readAsDataURL(file);
     }
   };
   
-  // Função para salvar informações pessoais
+  // Função de salvamento de informações pessoais - CORRIGIDA
   const savePersonalInfo = async () => {
+    if (personalInfo.telefone && !validatePhoneNumber(personalInfo.telefone)) {
+      setMessage({
+        type: 'error',
+        text: 'Número de telefone inválido. Use o formato (XX) XXXXX-XXXX ou (XX) XXXX-XXXX'
+      });
+      return;
+    }
+    
     setLoading(true);
     setMessage({ type: '', text: '' });
     
     try {
-      // Atualiza o perfil do usuário
-      const { success, error } = await updateProfile({
-        nome: personalInfo.nome,
-        telefone: personalInfo.telefone,
-        avatar_url: personalInfo.fotoPerfil
-      });
+      const dataToSave = {};
       
-      if (!success) {
-        throw new Error(error || 'Falha ao atualizar perfil');
+      if (personalInfo.nome && personalInfo.nome.trim()) {
+        dataToSave.nome = personalInfo.nome.trim();
+      }
+      
+      if (personalInfo.telefone) {
+        const cleanPhone = personalInfo.telefone.replace(/\D/g, '');
+        dataToSave.telefone = cleanPhone;
+      } else {
+        dataToSave.telefone = '';
+      }
+      
+      if (personalInfo.avatar_url) {
+        dataToSave.avatar_url = personalInfo.avatar_url;
+      }
+      
+      // CORREÇÃO: Usar a função updateProfile original para informações pessoais
+      const result = await updateProfile(dataToSave);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Falha ao atualizar perfil');
       }
       
       setMessage({
@@ -160,13 +259,12 @@ const UserProfile = () => {
         text: 'Informações atualizadas com sucesso!'
       });
       
-      // Limpa a mensagem após 3 segundos
       setTimeout(() => {
         setMessage({ type: '', text: '' });
       }, 3000);
       
     } catch (err) {
-      console.error('Erro ao atualizar perfil:', err);
+      console.error('Erro ao salvar informações pessoais:', err);
       setMessage({
         type: 'error',
         text: err.message || 'Erro ao atualizar perfil. Tente novamente.'
@@ -178,7 +276,6 @@ const UserProfile = () => {
   
   // Função para alterar senha
   const changePassword = async () => {
-    // Validações básicas
     if (passwordData.novaSenha.length < 6) {
       setMessage({
         type: 'error',
@@ -199,7 +296,6 @@ const UserProfile = () => {
     setMessage({ type: '', text: '' });
     
     try {
-      // Atualiza a senha do usuário
       const { success, error } = await updatePassword(passwordData.novaSenha);
       
       if (!success) {
@@ -211,20 +307,17 @@ const UserProfile = () => {
         text: 'Senha alterada com sucesso!'
       });
       
-      // Limpa o formulário
       setPasswordData({
         senhaAtual: '',
         novaSenha: '',
         confirmarSenha: ''
       });
       
-      // Limpa a mensagem após 3 segundos
       setTimeout(() => {
         setMessage({ type: '', text: '' });
       }, 3000);
       
     } catch (err) {
-      console.error('Erro ao alterar senha:', err);
       setMessage({
         type: 'error',
         text: err.message || 'Erro ao alterar senha. Tente novamente.'
@@ -234,19 +327,54 @@ const UserProfile = () => {
     }
   };
   
-  // Função para salvar preferências
+  // Função para salvar preferências - SEPARADA DO updateProfile
   const savePreferences = async () => {
     setLoading(true);
     setMessage({ type: '', text: '' });
     
     try {
-      // Atualiza as preferências do usuário
-      const { success, error } = await updateProfile({
-        preferences: preferences
-      });
-      
-      if (!success) {
-        throw new Error(error || 'Falha ao atualizar preferências');
+      if (!user) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      // CORREÇÃO: Salva APENAS as preferências diretamente no banco
+      const { data: existingProfile } = await supabase
+        .from('perfil_usuario')
+        .select('id')
+        .eq('id', user.id)
+        .single();
+
+      if (existingProfile) {
+        // Atualiza perfil existente - APENAS as preferências
+        const { error } = await supabase
+          .from('perfil_usuario')
+          .update({
+            aceita_notificacoes: preferences.aceita_notificacoes,
+            aceita_marketing: preferences.aceita_marketing,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', user.id);
+
+        if (error) {
+          throw error;
+        }
+      } else {
+        // Cria perfil básico se não existir
+        const { error } = await supabase
+          .from('perfil_usuario')
+          .insert({
+            id: user.id,
+            email: user.email,
+            nome: user.user_metadata?.nome || user.user_metadata?.full_name || '',
+            aceita_notificacoes: preferences.aceita_notificacoes,
+            aceita_marketing: preferences.aceita_marketing,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+
+        if (error) {
+          throw error;
+        }
       }
       
       setMessage({
@@ -254,19 +382,15 @@ const UserProfile = () => {
         text: 'Preferências atualizadas com sucesso!'
       });
       
-      // Atualiza o tema da aplicação se necessário
-      document.body.classList.toggle('dark-theme', preferences.temaDark);
-      
-      // Limpa a mensagem após 3 segundos
       setTimeout(() => {
         setMessage({ type: '', text: '' });
       }, 3000);
       
     } catch (err) {
-      console.error('Erro ao atualizar preferências:', err);
+      console.error('Erro ao salvar preferências:', err);
       setMessage({
         type: 'error',
-        text: err.message || 'Erro ao atualizar preferências. Tente novamente.'
+        text: 'Erro ao atualizar preferências. Tente novamente.'
       });
     } finally {
       setLoading(false);
@@ -279,7 +403,6 @@ const UserProfile = () => {
       await signOut();
       navigate('/login');
     } catch (err) {
-      console.error('Erro ao fazer logout:', err);
       setMessage({
         type: 'error',
         text: 'Erro ao fazer logout. Tente novamente.'
@@ -297,9 +420,9 @@ const UserProfile = () => {
       
       <div className="profile-photo-section">
         <div className="profile-photo-container">
-          {personalInfo.fotoPerfil ? (
+          {personalInfo.avatar_url ? (
             <img 
-              src={personalInfo.fotoPerfil} 
+              src={personalInfo.avatar_url} 
               alt="Foto de perfil" 
               className="profile-photo" 
             />
@@ -358,17 +481,21 @@ const UserProfile = () => {
         <div className="form-group">
           <label htmlFor="telefone">Telefone</label>
           <div className="input-container">
-            <div className="input-icon">📱</div>
+            <Phone size={18} className="input-icon" />
             <input
               type="tel"
               id="telefone"
               name="telefone"
               value={personalInfo.telefone}
               onChange={handlePersonalChange}
-              placeholder="Seu número de telefone"
+              placeholder="(11) 99999-9999"
               className="input-with-icon"
+              maxLength={15}
             />
           </div>
+          <small className="input-help">
+            Formato: (XX) XXXXX-XXXX para celular ou (XX) XXXX-XXXX para fixo
+          </small>
         </div>
         
         <div className="form-actions">
@@ -457,7 +584,7 @@ const UserProfile = () => {
     </div>
   );
   
-  // Renderiza a aba de preferências
+  // Aba de preferências - SEM DEBUG
   const renderPreferencesTab = () => (
     <div className="profile-form-container">
       <div className="profile-form-header">
@@ -467,46 +594,6 @@ const UserProfile = () => {
       
       <div className="profile-form">
         <div className="preferences-list">
-          <div className="preference-item">
-            <div className="preference-info">
-              <Monitor size={20} />
-              <div className="preference-text">
-                <h3>Tema Escuro</h3>
-                <p>Ativa o modo noturno na aplicação</p>
-              </div>
-            </div>
-            <div className="preference-control">
-              <label className="toggle">
-                <input 
-                  type="checkbox" 
-                  checked={preferences.temaDark} 
-                  onChange={() => handlePreferenceChange('temaDark')}
-                />
-                <span className="toggle-slider"></span>
-              </label>
-            </div>
-          </div>
-          
-          <div className="preference-item">
-            <div className="preference-info">
-              <CreditCard size={20} />
-              <div className="preference-text">
-                <h3>Mostrar Saldos</h3>
-                <p>Exibe seus saldos bancários no dashboard</p>
-              </div>
-            </div>
-            <div className="preference-control">
-              <label className="toggle">
-                <input 
-                  type="checkbox" 
-                  checked={preferences.mostraSaldo} 
-                  onChange={() => handlePreferenceChange('mostraSaldo')}
-                />
-                <span className="toggle-slider"></span>
-              </label>
-            </div>
-          </div>
-          
           <div className="preference-item">
             <div className="preference-info">
               <Bell size={20} />
@@ -519,8 +606,8 @@ const UserProfile = () => {
               <label className="toggle">
                 <input 
                   type="checkbox" 
-                  checked={preferences.notificacoes} 
-                  onChange={() => handlePreferenceChange('notificacoes')}
+                  checked={preferences.aceita_notificacoes} 
+                  onChange={() => handlePreferenceChange('aceita_notificacoes')}
                 />
                 <span className="toggle-slider"></span>
               </label>
@@ -531,16 +618,16 @@ const UserProfile = () => {
             <div className="preference-info">
               <Mail size={20} />
               <div className="preference-text">
-                <h3>Relatórios Mensais</h3>
-                <p>Receba relatórios financeiros por email</p>
+                <h3>Emails Promocionais</h3>
+                <p>Receba ofertas e novidades por email</p>
               </div>
             </div>
             <div className="preference-control">
               <label className="toggle">
                 <input 
                   type="checkbox" 
-                  checked={preferences.relatoriosMensais} 
-                  onChange={() => handlePreferenceChange('relatoriosMensais')}
+                  checked={preferences.aceita_marketing} 
+                  onChange={() => handlePreferenceChange('aceita_marketing')}
                 />
                 <span className="toggle-slider"></span>
               </label>
@@ -595,8 +682,8 @@ const UserProfile = () => {
       <div className="profile-sidebar">
         <div className="profile-header">
           <div className="profile-avatar">
-            {personalInfo.fotoPerfil ? (
-              <img src={personalInfo.fotoPerfil} alt="Avatar" />
+            {personalInfo.avatar_url ? (
+              <img src={personalInfo.avatar_url} alt="Avatar" />
             ) : (
               <div className="avatar-placeholder">
                 {personalInfo.nome ? personalInfo.nome.charAt(0).toUpperCase() : 'U'}
@@ -683,8 +770,8 @@ const UserProfile = () => {
               <p>Gerencie, exporte ou faça backup dos seus dados</p>
             </div>
             <div style={{ padding: '2rem', textAlign: 'center' }}>
-              <FileText size={48} className="mx-auto text-gray-400 mb-4" />
-              <p className="text-gray-600">
+              <FileText size={48} style={{ color: '#9ca3af', marginBottom: '1rem', marginLeft: 'auto', marginRight: 'auto', display: 'block' }} />
+              <p style={{ color: '#6b7280' }}>
                 Funcionalidade de gestão de dados em desenvolvimento.
                 Em breve você poderá exportar, importar e gerenciar todos os seus dados financeiros.
               </p>

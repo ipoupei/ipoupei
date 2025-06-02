@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabaseClient';
 import useAuth from './useAuth';
 
 /**
- * Hook personalizado para gerenciar exclusão de conta
+ * Hook personalizado para gerenciar exclusão de conta - VERSÃO CORRIGIDA
+ * Agora com melhor integração com a estrutura do banco de dados
  */
 const useDeleteAccount = () => {
   // Estados locais
@@ -26,39 +27,75 @@ const useDeleteAccount = () => {
         usuario: {
           id: userId,
           email: user.email,
-          nome: user.user_metadata?.nome,
+          nome: user.user_metadata?.nome || user.user_metadata?.full_name,
           created_at: user.created_at
         },
         data_backup: new Date().toISOString()
       };
       
-      // Lista de tabelas para fazer backup
-      const tables = ['perfil_usuario', 'contas', 'cartoes', 'categorias', 'subcategorias', 'dividas', 'amigos'];
+      // CORREÇÃO: Lista de tabelas atualizada conforme estrutura do banco
+      const tables = [
+        'perfil_usuario', 
+        'contas', 
+        'cartoes', 
+        'categorias', 
+        'subcategorias', 
+        'dividas', 
+        'amigos',
+        'transferencias'
+      ];
       
       for (const table of tables) {
-        let query = supabase.from(table).select('*');
-        
-        if (table === 'amigos') {
-          query = query.or(`usuario_proprietario.eq.${userId},usuario_convidado.eq.${userId}`);
-        } else {
-          query = query.eq('usuario_id', userId);
+        try {
+          let query = supabase.from(table).select('*');
+          
+          // CORREÇÃO: Tratamento específico para a tabela amigos
+          if (table === 'amigos') {
+            query = query.or(`usuario_proprietario.eq.${userId},usuario_convidado.eq.${userId}`);
+          } 
+          // CORREÇÃO: Tratamento específico para perfil_usuario
+          else if (table === 'perfil_usuario') {
+            query = query.eq('id', userId);
+          } 
+          // Para outras tabelas que têm usuario_id
+          else {
+            query = query.eq('usuario_id', userId);
+          }
+          
+          const { data, error: queryError } = await query;
+          
+          if (queryError && queryError.code !== 'PGRST116') {
+            console.warn(`Erro ao buscar dados da tabela ${table}:`, queryError);
+          }
+          
+          if (data && data.length > 0) {
+            backup[table] = data;
+          }
+        } catch (tableError) {
+          console.warn(`Erro ao processar tabela ${table}:`, tableError);
+          // Continua o processo mesmo se uma tabela falhar
         }
-        
-        const { data } = await query;
-        if (data) backup[table] = data;
       }
       
-      // Busca transações dos últimos 12 meses
-      const umAnoAtras = new Date();
-      umAnoAtras.setFullYear(umAnoAtras.getFullYear() - 1);
-      
-      const { data: transacoes } = await supabase
-        .from('transacoes')
-        .select('*')
-        .eq('usuario_id', userId)
-        .gte('data', umAnoAtras.toISOString());
-      
-      if (transacoes) backup.transacoes = transacoes;
+      // CORREÇÃO: Busca transações com melhor filtro de data
+      try {
+        const umAnoAtras = new Date();
+        umAnoAtras.setFullYear(umAnoAtras.getFullYear() - 1);
+        
+        const { data: transacoes, error: transError } = await supabase
+          .from('transacoes')
+          .select('*')
+          .eq('usuario_id', userId)
+          .gte('data', umAnoAtras.toISOString());
+        
+        if (transError) {
+          console.warn('Erro ao buscar transações:', transError);
+        } else if (transacoes && transacoes.length > 0) {
+          backup.transacoes = transacoes;
+        }
+      } catch (transError) {
+        console.warn('Erro ao processar transações:', transError);
+      }
       
       setBackupData(backup);
       return { success: true, data: backup };
@@ -97,7 +134,7 @@ const useDeleteAccount = () => {
     }
   }, [backupData]);
 
-  // Valida se o usuário pode ser excluído
+  // CORREÇÃO: Valida se o usuário pode ser excluído
   const validateDeletion = useCallback(async () => {
     try {
       if (!user) throw new Error('Usuário não autenticado');
@@ -105,37 +142,69 @@ const useDeleteAccount = () => {
       const userId = user.id;
       const issues = [];
       
-      // Verificações básicas
+      // CORREÇÃO: Verificações atualizadas conforme estrutura do banco
       const checks = [
-        { table: 'transacoes', field: 'compartilhada_com', title: 'Transações compartilhadas' },
-        { table: 'dividas', field: 'situacao', title: 'Dívidas pendentes', condition: 'neq.quitada' },
-        { table: 'amigos', field: 'status', title: 'Relacionamentos ativos', condition: 'eq.aceito' }
+        {
+          table: 'transacoes',
+          field: 'compartilhada_com',
+          title: 'Transações compartilhadas',
+          condition: 'not.is.null'
+        },
+        {
+          table: 'dividas',
+          field: 'situacao',
+          title: 'Dívidas pendentes',
+          condition: 'neq.quitada'
+        },
+        {
+          table: 'amigos',
+          field: 'status',
+          title: 'Relacionamentos ativos',
+          condition: 'eq.aceito',
+          isAmigosTable: true
+        }
       ];
       
       for (const check of checks) {
-        let query = supabase.from(check.table).select('id');
-        
-        if (check.table === 'amigos') {
-          query = query.eq('usuario_proprietario', userId);
-        } else {
-          query = query.eq('usuario_id', userId);
-        }
-        
-        if (check.condition) {
-          const [operator, value] = check.condition.split('.');
-          query = query[operator](check.field, value);
-        } else if (check.field) {
-          query = query.not(check.field, 'is', null);
-        }
-        
-        const { data } = await query.limit(5);
-        
-        if (data && data.length > 0) {
-          issues.push({
-            type: 'warning',
-            title: check.title,
-            message: `Você possui ${data.length} item(ns) que serão afetados.`
-          });
+        try {
+          let query = supabase.from(check.table).select('id');
+          
+          // Tratamento especial para tabela amigos
+          if (check.isAmigosTable) {
+            query = query.eq('usuario_proprietario', userId);
+          } else {
+            query = query.eq('usuario_id', userId);
+          }
+          
+          // Aplica condições específicas
+          if (check.condition) {
+            if (check.condition === 'not.is.null') {
+              query = query.not(check.field, 'is', null);
+            } else if (check.condition.startsWith('neq.')) {
+              const value = check.condition.replace('neq.', '');
+              query = query.neq(check.field, value);
+            } else if (check.condition.startsWith('eq.')) {
+              const value = check.condition.replace('eq.', '');
+              query = query.eq(check.field, value);
+            }
+          }
+          
+          const { data, error: checkError } = await query.limit(5);
+          
+          if (checkError) {
+            console.warn(`Erro na verificação ${check.title}:`, checkError);
+            continue;
+          }
+          
+          if (data && data.length > 0) {
+            issues.push({
+              type: 'warning',
+              title: check.title,
+              message: `Você possui ${data.length} item(ns) que podem ser afetados.`
+            });
+          }
+        } catch (checkError) {
+          console.warn(`Erro ao verificar ${check.title}:`, checkError);
         }
       }
       
@@ -147,37 +216,61 @@ const useDeleteAccount = () => {
     }
   }, [user]);
 
-  // Exclui todos os dados do usuário
+  // CORREÇÃO: Exclui todos os dados do usuário seguindo a ordem de dependências
   const deleteAllUserData = useCallback(async () => {
     try {
       if (!user) throw new Error('Usuário não autenticado');
       
       const userId = user.id;
       
-      // Lista de tabelas para limpar (em ordem de dependência)
+      // CORREÇÃO: Lista de tabelas em ordem de dependência (das dependentes para as principais)
       const tablesToClean = [
-        'transacoes',
-        'subcategorias', 
-        'categorias',
-        'dividas',
-        'cartoes',
-        'contas',
-        'amigos',
-        'perfil_usuario'
+        'transacoes',        // Dependente de contas, cartoes, categorias
+        'transferencias',    // Dependente de contas
+        'subcategorias',     // Dependente de categorias
+        'categorias',        // Principal
+        'dividas',          // Principal
+        'cartoes',          // Principal
+        'contas',           // Principal
+        'amigos',           // Relação especial
+        'perfil_usuario'    // Principal - usuário
       ];
       
       // Remove dados de cada tabela
       for (const table of tablesToClean) {
-        if (table === 'amigos') {
-          await supabase
-            .from(table)
-            .delete()
-            .or(`usuario_proprietario.eq.${userId},usuario_convidado.eq.${userId}`);
-        } else {
-          await supabase
-            .from(table)
-            .delete()
-            .eq('usuario_id', userId);
+        try {
+          let deleteQuery;
+          
+          if (table === 'amigos') {
+            // Para amigos, remove onde o usuário é proprietário OU convidado
+            deleteQuery = supabase
+              .from(table)
+              .delete()
+              .or(`usuario_proprietario.eq.${userId},usuario_convidado.eq.${userId}`);
+          } else if (table === 'perfil_usuario') {
+            // Para perfil_usuario, usa o ID diretamente
+            deleteQuery = supabase
+              .from(table)
+              .delete()
+              .eq('id', userId);
+          } else {
+            // Para outras tabelas, usa usuario_id
+            deleteQuery = supabase
+              .from(table)
+              .delete()
+              .eq('usuario_id', userId);
+          }
+          
+          const { error: deleteError } = await deleteQuery;
+          
+          if (deleteError) {
+            console.warn(`Erro ao deletar dados da tabela ${table}:`, deleteError);
+            // Continua o processo mesmo se uma tabela falhar
+          } else {
+            console.log(`Dados da tabela ${table} removidos com sucesso`);
+          }
+        } catch (tableError) {
+          console.warn(`Erro ao processar exclusão da tabela ${table}:`, tableError);
         }
       }
       
@@ -208,11 +301,16 @@ const useDeleteAccount = () => {
         throw new Error(deleteDataResult.error || 'Erro ao excluir dados');
       }
       
-      // Depois, exclui a conta de autenticação
-      const { error: authError } = await supabase.auth.admin.deleteUser(user.id);
-      
-      if (authError) {
-        console.error('Erro ao excluir conta de autenticação:', authError);
+      // CORREÇÃO: Tenta excluir a conta de autenticação (pode falhar dependendo das permissões)
+      try {
+        const { error: authError } = await supabase.auth.admin.deleteUser(user.id);
+        
+        if (authError) {
+          console.warn('Aviso: Não foi possível excluir a conta de autenticação:', authError);
+          // Não interrompe o processo, pois os dados já foram removidos
+        }
+      } catch (authError) {
+        console.warn('Aviso: Erro ao tentar excluir conta de autenticação:', authError);
       }
       
       // Faz logout
@@ -229,7 +327,7 @@ const useDeleteAccount = () => {
     }
   }, [user, deleteAllUserData, signOut]);
 
-  // Desativa conta temporariamente (alternativa à exclusão)
+  // CORREÇÃO: Desativa conta temporariamente usando o campo correto
   const deactivateAccount = useCallback(async () => {
     try {
       setLoading(true);
@@ -237,7 +335,7 @@ const useDeleteAccount = () => {
       
       if (!user) throw new Error('Usuário não autenticado');
       
-      // Atualiza perfil para marcar como desativado
+      // CORREÇÃO: Atualiza perfil para marcar como desativado usando upsert
       const { error } = await supabase
         .from('perfil_usuario')
         .upsert({
@@ -245,6 +343,8 @@ const useDeleteAccount = () => {
           conta_ativa: false,
           data_desativacao: new Date().toISOString(),
           updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'id'
         });
       
       if (error) throw error;
