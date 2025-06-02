@@ -1,4 +1,4 @@
-// src/layouts/MainLayout.jsx - Versão ATUALIZADA com nova estrutura de botões
+// src/layouts/MainLayout.jsx - Versão COM SCROLL COMPACTO
 import React, { useState, useEffect, Suspense } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { 
@@ -42,6 +42,9 @@ const MainLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   
+  // Estado para controle do scroll compacto - VERSÃO SIMPLIFICADA
+  const [isScrolled, setIsScrolled] = useState(false);
+  
   // Estados SIMPLES para modais
   const [modals, setModals] = useState({
     receitas: false,
@@ -64,6 +67,34 @@ const MainLayout = () => {
   
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMaisMenu, setShowMaisMenu] = useState(false);
+
+  // Controle do scroll - VERSÃO SIMPLIFICADA E FUNCIONAL
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY;
+      
+      // Histerese simples mas efetiva
+      if (!isScrolled && scrollTop > 180) {
+        setIsScrolled(true);
+      } else if (isScrolled && scrollTop < 120) {
+        setIsScrolled(false);
+      }
+    };
+
+    // Debounce simples
+    let timeoutId;
+    const debouncedHandleScroll = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(handleScroll, 10);
+    };
+
+    window.addEventListener('scroll', debouncedHandleScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', debouncedHandleScroll);
+      clearTimeout(timeoutId);
+    };
+  }, [isScrolled]);
 
   // Funções SIMPLES para modais
   const openModal = (modalName) => {
@@ -128,25 +159,27 @@ const MainLayout = () => {
                    'Usuário';
 
   return (
-    <div className="main-layout">
+    <div className={`main-layout ${isScrolled ? 'scrolled' : ''}`}>
       <NotificationContainer />
       
-      {/* Header Principal */}
+      {/* Header Principal - Fica muito fino quando rola */}
       <header className="main-header">
         <div className="header-content">
           <div className="header-left">
             <div className="logo-section">
               <h1 className="app-title">💰 iPoupei</h1>
-              <span className="page-title">{getPageTitle()}</span>
+              {!isScrolled && <span className="page-title">{getPageTitle()}</span>}
             </div>
           </div>
           
           <div className="header-right">
             <div className="user-section">
-              <div className="user-greeting">
-                <span className="greeting-text">Olá, {userName}!</span>
-                <span className="greeting-subtitle">Seja bem-vindo</span>
-              </div>
+              {!isScrolled && (
+                <div className="user-greeting">
+                  <span className="greeting-text">Olá, {userName}!</span>
+                  <span className="greeting-subtitle">Seja bem-vindo</span>
+                </div>
+              )}
               
               <div className="user-avatar-container">
                 <button 
@@ -156,7 +189,7 @@ const MainLayout = () => {
                   {user?.user_metadata?.avatar_url ? (
                     <img src={user.user_metadata.avatar_url} alt="Avatar" />
                   ) : (
-                    <User size={24} />
+                    <User size={isScrolled ? 20 : 24} />
                   )}
                 </button>
                 
@@ -181,22 +214,16 @@ const MainLayout = () => {
         </div>
       </header>
 
-      {/* Trilha de Evolução */}
-      <section className="evolution-track">
-        <div className="evolution-placeholder">
-          <span className="placeholder-text">🚀 Trilha de Evolução - Em desenvolvimento</span>
-        </div>
-      </section>
-
-      {/* Ações Rápidas - NOVA ESTRUTURA */}
+      {/* Ações Rápidas - Compacta quando rola */}
       <section className="quick-actions">
         <div className="actions-container">
           {/* 1. Dashboard */}
           <button 
             className="action-button dashboard"
             onClick={() => navigate('/dashboard')}
+            data-tooltip="Dashboard"
           >
-            <Home size={20} />
+            <Home size={isScrolled ? 16 : 20} />
             <span>Dashboard</span>
           </button>
 
@@ -204,8 +231,9 @@ const MainLayout = () => {
           <button 
             className="action-button transacoes"
             onClick={() => navigate('/transacoes')}
+            data-tooltip="Transações"
           >
-            <List size={20} />
+            <List size={isScrolled ? 16 : 20} />
             <span>Transações</span>
           </button>
 
@@ -213,8 +241,9 @@ const MainLayout = () => {
           <button 
             className="action-button receita"
             onClick={() => openModal('receitas')}
+            data-tooltip="Receitas"
           >
-            <ArrowUpCircle size={20} />
+            <ArrowUpCircle size={isScrolled ? 16 : 20} />
             <span>Receitas</span>
           </button>
 
@@ -222,8 +251,9 @@ const MainLayout = () => {
           <button 
             className="action-button despesa"
             onClick={() => openModal('despesas')}
+            data-tooltip="Despesas"
           >
-            <ArrowDownCircle size={20} />
+            <ArrowDownCircle size={isScrolled ? 16 : 20} />
             <span>Despesas</span>
           </button>
 
@@ -231,8 +261,9 @@ const MainLayout = () => {
           <button 
             className="action-button cartao"
             onClick={() => openModal('despesasCartao')}
+            data-tooltip="Cartão"
           >
-            <CreditCard size={20} />
+            <CreditCard size={isScrolled ? 16 : 20} />
             <span>Cartão</span>
           </button>
 
@@ -240,8 +271,9 @@ const MainLayout = () => {
           <button 
             className="action-button transferencia"
             onClick={() => openModal('transferencias')}
+            data-tooltip="Transferir"
           >
-            <ArrowLeftRight size={20} />
+            <ArrowLeftRight size={isScrolled ? 16 : 20} />
             <span>Transferir</span>
           </button>
 
@@ -249,8 +281,9 @@ const MainLayout = () => {
           <button 
             className="action-button contas"
             onClick={() => openModal('contas')}
+            data-tooltip="Contas"
           >
-            <Wallet size={20} />
+            <Wallet size={isScrolled ? 16 : 20} />
             <span>Contas</span>
           </button>
 
@@ -258,8 +291,9 @@ const MainLayout = () => {
           <button 
             className="action-button mais"
             onClick={() => setShowMaisMenu(!showMaisMenu)}
+            data-tooltip="Mais"
           >
-            <MoreHorizontal size={20} />
+            <MoreHorizontal size={isScrolled ? 16 : 20} />
             <span>Mais</span>
           </button>
         </div>
@@ -301,45 +335,56 @@ const MainLayout = () => {
         )}
       </section>
 
-      {/* Seletor de Período */}
-      <section className="filters-section">
-        <div className="filters-container">
-          <div className="period-selector-inline">
-            <button 
-              className="period-nav"
-              onClick={() => navigateMonth(-1)}
-            >
-              <ChevronLeft size={20} />
-            </button>
+      {/* Trilha de Evolução - Aparece abaixo dos botões */}
+      {!isScrolled && (
+        <section className="evolution-track">
+          <div className="evolution-placeholder">
+            <span className="placeholder-text">🚀 Trilha de Evolução - Em desenvolvimento</span>
+          </div>
+        </section>
+      )}
 
-            <div className="current-period-inline">
-              <Calendar size={18} />
-              <span className="period-text">
-                {getFormattedPeriod()}
-              </span>
-              {!isCurrentMonth() && (
-                <button 
-                  className="today-button" 
-                  onClick={goToToday}
-                >
-                  Hoje
-                </button>
-              )}
+      {/* Seletor de Período - Some quando rola */}
+      {!isScrolled && (
+        <section className="filters-section">
+          <div className="filters-container">
+            <div className="period-selector-inline">
+              <button 
+                className="period-nav"
+                onClick={() => navigateMonth(-1)}
+              >
+                <ChevronLeft size={20} />
+              </button>
+
+              <div className="current-period-inline">
+                <Calendar size={18} />
+                <span className="period-text">
+                  {getFormattedPeriod()}
+                </span>
+                {!isCurrentMonth() && (
+                  <button 
+                    className="today-button" 
+                    onClick={goToToday}
+                  >
+                    Hoje
+                  </button>
+                )}
+              </div>
+
+              <button 
+                className="period-nav"
+                onClick={() => navigateMonth(1)}
+              >
+                <ChevronRight size={20} />
+              </button>
             </div>
 
-            <button 
-              className="period-nav"
-              onClick={() => navigateMonth(1)}
-            >
-              <ChevronRight size={20} />
-            </button>
+            <div className="additional-filters">
+              {/* Espaço para filtros */}
+            </div>
           </div>
-
-          <div className="additional-filters">
-            {/* Espaço para filtros */}
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Conteúdo */}
       <main className="main-content">

@@ -1,333 +1,330 @@
+// src/hooks/useCartoes.js - Hook para gerenciar cartões
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import useAuth from './useAuth';
 
-/**
- * Hook personalizado para gerenciar cartões de crédito
- * Versão integrada com Supabase seguindo o mesmo padrão das contas
- */
 const useCartoes = () => {
-  // Estados
   const [cartoes, setCartoes] = useState([]);
-  const [loading, setLoading] = useState(false); // Começar com false
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Hook de autenticação com novo campo initialized
-  const { user, isAuthenticated, loading: authLoading, initialized } = useAuth();
-
-  // Busca todos os cartões do usuário logado
+  // Buscar todos os cartões do usuário
   const fetchCartoes = useCallback(async () => {
-    // Aguarda a inicialização da autenticação terminar
-    if (authLoading || !initialized) {
-      return { success: false, error: 'Aguardando autenticação' };
-    }
-
-    if (!isAuthenticated || !user) {
-      setCartoes([]);
-      return { success: false, error: 'Usuário não autenticado' };
-    }
-
     try {
       setLoading(true);
       setError(null);
-      
-      // Busca os cartões do usuário
-      const { data, error, count } = await supabase
-        .from('cartoes')
-        .select('*', { count: 'exact' })
-        .eq('usuario_id', user.id)
-        .eq('ativo', true)
-        .order('created_at', { ascending: true });
-      
-      if (error) throw error;
-      
-      setCartoes(data || []);
-      return { success: true, data };
-    } catch (err) {
-      console.error('❌ useCartoes - Erro ao buscar cartões:', err);
-      const errorMessage = 'Não foi possível carregar seus cartões. Tente novamente.';
-      setError(errorMessage);
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
-    }
-  }, [authLoading, initialized, isAuthenticated, user]);
 
-  // Carrega os cartões quando a autenticação estiver pronta
-  useEffect(() => {
-    // Só executa quando a autenticação terminou de inicializar
-    if (!authLoading && initialized) {
-      if (isAuthenticated && user) {
-        fetchCartoes();
-      } else {
-        setCartoes([]);
-        setLoading(false);
-        setError(null);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('Usuário não autenticado');
       }
-    }
-  }, [authLoading, initialized, isAuthenticated, user, fetchCartoes]);
 
-  // Adiciona um novo cartão
-  const addCartao = useCallback(async (novoCartao) => {
-    if (!isAuthenticated || !user) {
-      return { success: false, error: 'Usuário não autenticado' };
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Prepara os dados para inserção
-      const dadosCartao = {
-        usuario_id: user.id,
-        nome: novoCartao.nome?.trim() || '',
-        bandeira: novoCartao.bandeira || 'visa',
-        banco: novoCartao.banco?.trim() || '',
-        limite: Number(novoCartao.limite) || 0,
-        dia_fechamento: Number(novoCartao.dia_fechamento) || 1,
-        dia_vencimento: Number(novoCartao.dia_vencimento) || 10,
-        cor: novoCartao.cor || '#8A05BE',
-        ativo: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      
-      // Chama a API para adicionar o cartão
       const { data, error } = await supabase
         .from('cartoes')
-        .insert([dadosCartao])
-        .select();
-      
-      if (error) throw error;
-      
-      // Adiciona o novo cartão ao estado local
-      if (data && data.length > 0) {
-        const novoCartaoCompleto = data[0];
-        setCartoes(prev => [...prev, novoCartaoCompleto]);
-        
-        return { success: true, data: novoCartaoCompleto };
-      } else {
-        throw new Error('Erro ao adicionar cartão: dados não retornados');
-      }
-    } catch (err) {
-      console.error('❌ useCartoes - Erro ao adicionar cartão:', err);
-      const errorMessage = 'Não foi possível adicionar o cartão. Tente novamente.';
-      setError(errorMessage);
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
-    }
-  }, [isAuthenticated, user]);
-
-  // Atualiza um cartão
-  const updateCartao = useCallback(async (cartaoId, dadosAtualizados) => {
-    if (!isAuthenticated || !user) {
-      return { success: false, error: 'Usuário não autenticado' };
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Prepara os dados para atualização
-      const dadosCartao = {
-        ...dadosAtualizados,
-        updated_at: new Date().toISOString()
-      };
-      
-      // Remove campos que não devem ser atualizados
-      delete dadosCartao.id;
-      delete dadosCartao.usuario_id;
-      delete dadosCartao.created_at;
-      
-      // Chama a API para atualizar o cartão
-      const { data, error } = await supabase
-        .from('cartoes')
-        .update(dadosCartao)
-        .eq('id', cartaoId)
-        .eq('usuario_id', user.id)
-        .select();
-      
-      if (error) throw error;
-      
-      // Atualiza o estado local
-      if (data && data.length > 0) {
-        setCartoes(prev => prev.map(cartao => 
-          cartao.id === cartaoId ? data[0] : cartao
-        ));
-        
-        return { success: true, data: data[0] };
-      } else {
-        throw new Error('Erro ao atualizar cartão: dados não retornados');
-      }
-    } catch (err) {
-      console.error('❌ useCartoes - Erro ao atualizar cartão:', err);
-      const errorMessage = 'Não foi possível atualizar o cartão. Tente novamente.';
-      setError(errorMessage);
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
-    }
-  }, [isAuthenticated, user]);
-
-  // Exclui um cartão
-  const deleteCartao = useCallback(async (cartaoId) => {
-    if (!isAuthenticated || !user) {
-      return { success: false, error: 'Usuário não autenticado' };
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Verifica se o cartão tem transações associadas
-      const { data: transacoes, error: errorTransacoes } = await supabase
-        .from('transacoes')
-        .select('id')
-        .eq('cartao_id', cartaoId)
-        .eq('usuario_id', user.id)
-        .limit(1);
-      
-      if (errorTransacoes) {
-        console.warn('⚠️ useCartoes - Erro ao verificar transações:', errorTransacoes);
-      }
-      
-      // Se tem transações, apenas desativa; senão, exclui fisicamente
-      if (transacoes && transacoes.length > 0) {
-        const { error: errorUpdate } = await supabase
-          .from('cartoes')
-          .update({ ativo: false, updated_at: new Date().toISOString() })
-          .eq('id', cartaoId)
-          .eq('usuario_id', user.id);
-        
-        if (errorUpdate) throw errorUpdate;
-      } else {
-        const { error } = await supabase
-          .from('cartoes')
-          .delete()
-          .eq('id', cartaoId)
-          .eq('usuario_id', user.id);
-        
-        if (error) throw error;
-      }
-      
-      // Atualiza o estado local
-      setCartoes(prev => {
-        const novaLista = prev.filter(cartao => cartao.id !== cartaoId);
-        return novaLista;
-      });
-      
-      return { success: true };
-      
-    } catch (err) {
-      console.error('❌ useCartoes - Erro ao excluir cartão:', err);
-      const errorMessage = 'Não foi possível excluir o cartão. Tente novamente.';
-      setError(errorMessage);
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
-    }
-  }, [isAuthenticated, user]);
-
-  // Busca faturas do cartão (se implementado)
-  const getFaturasCartao = useCallback(async (cartaoId, mes, ano) => {
-    if (!isAuthenticated || !user) {
-      return { success: false, error: 'Usuário não autenticado' };
-    }
-
-    try {
-      // Se você tiver uma tabela específica de faturas, use ela
-      // Por enquanto, vou buscar transações do cartão
-      const { data, error } = await supabase
-        .from('transacoes')
         .select('*')
+        .eq('usuario_id', user.id)
+        .order('nome', { ascending: true });
+
+      if (error) throw error;
+
+      console.log('✅ Cartões carregados:', data?.length || 0);
+      setCartoes(data || []);
+      return { success: true, data: data || [] };
+
+    } catch (err) {
+      console.error('❌ Erro ao buscar cartões:', err);
+      setError(err.message);
+      
+      // Retornar dados mock em caso de erro para desenvolvimento
+      const mockCartoes = [
+        { 
+          id: '1', 
+          nome: 'Nubank Roxinho', 
+          bandeira: 'Mastercard', 
+          cor: '#8A05BE',
+          limite: 10000,
+          dia_vencimento: 15,
+          dia_fechamento: 5
+        },
+        { 
+          id: '2', 
+          nome: 'Inter Gold', 
+          bandeira: 'Visa', 
+          cor: '#FF7A00',
+          limite: 5000,
+          dia_vencimento: 10,
+          dia_fechamento: 3
+        },
+        { 
+          id: '3', 
+          nome: 'C6 Bank', 
+          bandeira: 'Mastercard', 
+          cor: '#FFD700',
+          limite: 8000,
+          dia_vencimento: 20,
+          dia_fechamento: 8
+        }
+      ];
+      
+      setCartoes(mockCartoes);
+      return { success: false, error: err.message, data: mockCartoes };
+
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Buscar cartão específico por ID
+  const fetchCartao = useCallback(async (id) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      const { data, error } = await supabase
+        .from('cartoes')
+        .select('*')
+        .eq('id', id)
+        .eq('usuario_id', user.id)
+        .single();
+
+      if (error) throw error;
+
+      return { success: true, data };
+
+    } catch (err) {
+      console.error('❌ Erro ao buscar cartão:', err);
+      setError(err.message);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Criar novo cartão
+  const createCartao = useCallback(async (dadosCartao) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      const novoCartao = {
+        ...dadosCartao,
+        usuario_id: user.id,
+        created_at: new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
+        .from('cartoes')
+        .insert([novoCartao])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Atualizar lista local
+      setCartoes(prev => [...prev, data]);
+
+      console.log('✅ Cartão criado:', data);
+      return { success: true, data };
+
+    } catch (err) {
+      console.error('❌ Erro ao criar cartão:', err);
+      setError(err.message);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Atualizar cartão existente
+  const updateCartao = useCallback(async (id, dadosAtualizados) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      const { data, error } = await supabase
+        .from('cartoes')
+        .update({
+          ...dadosAtualizados,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .eq('usuario_id', user.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Atualizar lista local
+      setCartoes(prev => prev.map(cartao => 
+        cartao.id === id ? { ...cartao, ...data } : cartao
+      ));
+
+      console.log('✅ Cartão atualizado:', data);
+      return { success: true, data };
+
+    } catch (err) {
+      console.error('❌ Erro ao atualizar cartão:', err);
+      setError(err.message);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Excluir cartão
+  const deleteCartao = useCallback(async (id) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      const { error } = await supabase
+        .from('cartoes')
+        .delete()
+        .eq('id', id)
+        .eq('usuario_id', user.id);
+
+      if (error) throw error;
+
+      // Remover da lista local
+      setCartoes(prev => prev.filter(cartao => cartao.id !== id));
+
+      console.log('✅ Cartão excluído:', id);
+      return { success: true };
+
+    } catch (err) {
+      console.error('❌ Erro ao excluir cartão:', err);
+      setError(err.message);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Buscar limite utilizado de um cartão
+  const fetchLimiteUtilizado = useCallback(async (cartaoId) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      // Buscar soma das transações não pagas do cartão
+      const { data, error } = await supabase
+        .from('transacoes')
+        .select('valor')
         .eq('cartao_id', cartaoId)
         .eq('usuario_id', user.id)
-        .gte('data', `${ano}-${String(mes).padStart(2, '0')}-01`)
-        .lt('data', `${ano}-${String(mes + 1).padStart(2, '0')}-01`)
-        .order('data', { ascending: false });
-      
+        .eq('tipo', 'despesa')
+        .is('data_pagamento', null); // Transações não pagas
+
       if (error) throw error;
-      
-      const valorTotal = data?.reduce((total, transacao) => total + (transacao.valor || 0), 0) || 0;
-      
-      return { 
-        success: true, 
-        data: {
-          transacoes: data || [],
-          valorTotal,
-          mes,
-          ano
-        }
-      };
+
+      const limiteUtilizado = data?.reduce((total, transacao) => total + transacao.valor, 0) || 0;
+
+      return { success: true, data: limiteUtilizado };
+
     } catch (err) {
-      console.error('❌ useCartoes - Erro ao buscar faturas:', err);
-      return { success: false, error: err.message };
+      console.error('❌ Erro ao calcular limite utilizado:', err);
+      return { success: false, error: err.message, data: 0 };
     }
-  }, [isAuthenticated, user]);
+  }, []);
 
-  // Funções auxiliares
-  const getLimiteTotal = useCallback(() => {
-    return cartoes.reduce((sum, cartao) => sum + (Number(cartao.limite) || 0), 0);
+  // Obter estatísticas dos cartões
+  const getEstatisticasCartoes = useCallback(() => {
+    if (!cartoes.length) return null;
+
+    const totalCartoes = cartoes.length;
+    const limiteTotal = cartoes.reduce((acc, cartao) => acc + (cartao.limite || 0), 0);
+    const cartaoMaiorLimite = cartoes.reduce((maior, cartao) => 
+      (cartao.limite || 0) > (maior.limite || 0) ? cartao : maior
+    , cartoes[0]);
+
+    return {
+      totalCartoes,
+      limiteTotal,
+      cartaoMaiorLimite,
+      limiteMedio: limiteTotal / totalCartoes
+    };
   }, [cartoes]);
 
-  const getCartaoById = useCallback((id) => {
-    return cartoes.find(cartao => cartao.id === id);
-  }, [cartoes]);
+  // Validar dados do cartão
+  const validarCartao = useCallback((dadosCartao) => {
+    const erros = [];
 
-  const getCartoesPorBandeira = useCallback((bandeira) => {
-    return cartoes.filter(cartao => cartao.bandeira === bandeira);
-  }, [cartoes]);
+    if (!dadosCartao.nome || dadosCartao.nome.trim().length === 0) {
+      erros.push('Nome do cartão é obrigatório');
+    }
 
-  const getCartoesAtivos = useCallback(() => {
-    return cartoes.filter(cartao => cartao.ativo);
-  }, [cartoes]);
+    if (!dadosCartao.bandeira) {
+      erros.push('Bandeira do cartão é obrigatória');
+    }
 
-  const getCartoesPorBanco = useCallback((banco) => {
-    return cartoes.filter(cartao => cartao.banco === banco);
-  }, [cartoes]);
+    if (!dadosCartao.limite || dadosCartao.limite <= 0) {
+      erros.push('Limite deve ser maior que zero');
+    }
 
-  const getCartoesVencendoEm = useCallback((dias = 7) => {
-    const hoje = new Date();
-    const dataLimite = new Date(hoje.getTime() + (dias * 24 * 60 * 60 * 1000));
-    
-    return cartoes.filter(cartao => {
-      const diaVencimento = cartao.dia_vencimento;
-      const proximoVencimento = new Date(hoje.getFullYear(), hoje.getMonth(), diaVencimento);
-      
-      // Se o vencimento já passou neste mês, considera o próximo mês
-      if (proximoVencimento < hoje) {
-        proximoVencimento.setMonth(proximoVencimento.getMonth() + 1);
-      }
-      
-      return proximoVencimento <= dataLimite;
-    });
-  }, [cartoes]);
+    if (!dadosCartao.dia_vencimento || dadosCartao.dia_vencimento < 1 || dadosCartao.dia_vencimento > 31) {
+      erros.push('Dia de vencimento deve estar entre 1 e 31');
+    }
+
+    if (!dadosCartao.dia_fechamento || dadosCartao.dia_fechamento < 1 || dadosCartao.dia_fechamento > 31) {
+      erros.push('Dia de fechamento deve estar entre 1 e 31');
+    }
+
+    return {
+      valido: erros.length === 0,
+      erros
+    };
+  }, []);
+
+  // Carregar cartões na inicialização
+  useEffect(() => {
+    fetchCartoes();
+  }, [fetchCartoes]);
+
+  // Limpar erro
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
 
   return {
     cartoes,
     loading,
     error,
     fetchCartoes,
-    addCartao,
+    fetchCartao,
+    createCartao,
     updateCartao,
     deleteCartao,
-    getFaturasCartao,
-    getLimiteTotal,
-    getCartaoById,
-    getCartoesPorBandeira,
-    getCartoesAtivos,
-    getCartoesPorBanco,
-    getCartoesVencendoEm,
-    // Dados derivados úteis
-    limiteTotal: getLimiteTotal(),
-    totalCartoes: cartoes.length,
-    cartoesAtivos: getCartoesAtivos(),
-    cartoesVencendoEm7Dias: getCartoesVencendoEm(7),
-    isAuthenticated,
-    // Estados da autenticação para debug
-    authLoading,
-    initialized
+    fetchLimiteUtilizado,
+    getEstatisticasCartoes,
+    validarCartao,
+    clearError
   };
 };
 

@@ -11,6 +11,7 @@ import RelatorioEvolucao from '../pages/RelatorioEvolucao';
 import RelatorioProjecao from '../pages/RelatorioProjecao';
 import AuthCallback from '../pages/AuthCallback';
 import ProtectedRoute from '../Components/ProtectedRoute';
+import FaturasRoute from './FaturasRoute'; // CORRIGIDO: Remover "routes/" duplicado
 import MainLayout from '../Layouts/MainLayout';
 
 /**
@@ -42,6 +43,9 @@ const AppRoutes = () => {
           
           {/* Transações */}
           <Route path="transacoes" element={<TransacoesPage />} />
+          
+          {/* Faturas - ADICIONADO */}
+          <Route path="faturas/*" element={<FaturasRoute />} />
           
           {/* Relatórios */}
           <Route path="relatorios" element={<RelatoriosHome />} />

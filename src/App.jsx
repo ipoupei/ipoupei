@@ -6,6 +6,7 @@ import './index.css';
 import { AuthProvider } from './context/AuthContext';
 import { useAuthStore } from './store/authStore';
 
+
 /**
  * Componente principal da aplicação
  * Sistema híbrido: mantém AuthProvider para compatibilidade + Zustand
