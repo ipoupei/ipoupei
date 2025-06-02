@@ -1,18 +1,17 @@
-// src/pages/TransacoesPage.jsx - Versão com Filtro de Período Próprio
+// src/pages/TransacoesPage.jsx - Versão com Filtros Fixos e Período Simplificado
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { 
-  Search, Filter, RefreshCw, 
+  Search, RefreshCw, 
   ArrowUp, ArrowDown, ArrowLeftRight, 
   Activity, CreditCard, Wallet,
   Edit, Trash2, CheckCircle, Clock,
-  Plus, Calendar, ChevronLeft, ChevronRight
+  Plus
 } from 'lucide-react';
 
 // Hooks (usando os existentes)
 import { useAuth } from '../context/AuthContext';
 import { useUIStore } from '../store/uiStore';
-import usePeriodo from '../hooks/usePeriodo';
 
 // Utilitários
 import { formatCurrency } from '../utils/formatCurrency';
@@ -31,16 +30,6 @@ const TransacoesPage = () => {
   const { user } = useAuth();
   const { showNotification } = useUIStore();
   
-  // Hook de período próprio para esta página
-  const {
-    currentDate,
-    navigateMonth,
-    getFormattedPeriod,
-    isCurrentMonth,
-    goToToday,
-    getDateRange
-  } = usePeriodo();
-  
   // Estados para dados (usando dados das views do banco)
   const [categorias, setCategorias] = useState([]);
   const [contas, setContas] = useState([]);
@@ -50,7 +39,6 @@ const TransacoesPage = () => {
   const [transacoes, setTransacoes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
 
   // Estados dos modais
   const [modals, setModals] = useState({
@@ -63,12 +51,11 @@ const TransacoesPage = () => {
   // Estado para edição
   const [transacaoEditando, setTransacaoEditando] = useState(null);
 
-  // Estados para período personalizado
-  const [periodoPersonalizado, setPeriodoPersonalizado] = useState(false);
+  // Estados para período (sempre personalizado agora)
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
 
-  // Filtros
+  // Filtros (sempre visíveis)
   const [filters, setFilters] = useState({
     tipo: 'todas',
     categoriaId: '',
@@ -76,6 +63,16 @@ const TransacoesPage = () => {
     cartaoId: '',
     ordenacao: 'data_desc'
   });
+
+  // Inicializar com período do mês atual
+  useEffect(() => {
+    const hoje = new Date();
+    const inicioMes = startOfMonth(hoje);
+    const fimMes = endOfMonth(hoje);
+    
+    setDataInicio(format(inicioMes, 'yyyy-MM-dd'));
+    setDataFim(format(fimMes, 'yyyy-MM-dd'));
+  }, []);
 
   // Buscar dados básicos usando as tabelas otimizadas
   const fetchBasicData = useCallback(async () => {
@@ -125,26 +122,13 @@ const TransacoesPage = () => {
 
   // Função para buscar transações do período selecionado
   const fetchTransacoes = useCallback(async () => {
-    if (!user?.id) return;
+    if (!user?.id || !dataInicio || !dataFim) return;
 
     try {
       setLoading(true);
       console.log('🔍 Buscando transações do período...');
       
-      let dataInicioBusca, dataFimBusca;
-      
-      if (periodoPersonalizado && dataInicio && dataFim) {
-        // Usar período personalizado
-        dataInicioBusca = dataInicio;
-        dataFimBusca = dataFim;
-      } else {
-        // Usar período do hook usePeriodo
-        const dateRange = getDateRange();
-        dataInicioBusca = format(dateRange.inicio, 'yyyy-MM-dd');
-        dataFimBusca = format(dateRange.fim, 'yyyy-MM-dd');
-      }
-      
-      console.log('📅 Período:', { dataInicioBusca, dataFimBusca });
+      console.log('📅 Período:', { dataInicio, dataFim });
       
       // Buscar transações do período
       const { data, error } = await supabase
@@ -157,8 +141,8 @@ const TransacoesPage = () => {
           created_at, updated_at
         `)
         .eq('usuario_id', user.id)
-        .gte('data', dataInicioBusca)
-        .lte('data', dataFimBusca)
+        .gte('data', dataInicio)
+        .lte('data', dataFim)
         .order('data', { ascending: false })
         .order('created_at', { ascending: false });
 
@@ -182,7 +166,7 @@ const TransacoesPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, categorias, contas, cartoes, showNotification, getDateRange, periodoPersonalizado, dataInicio, dataFim]);
+  }, [user?.id, categorias, contas, cartoes, showNotification, dataInicio, dataFim]);
 
   // Filtrar transações localmente
   const filteredTransacoes = useMemo(() => {
@@ -250,10 +234,10 @@ const TransacoesPage = () => {
 
   // Carregar transações quando o período mudar ou dados básicos estiverem prontos
   useEffect(() => {
-    if (user?.id && categorias.length > 0) {
+    if (user?.id && categorias.length > 0 && dataInicio && dataFim) {
       fetchTransacoes();
     }
-  }, [fetchTransacoes, user?.id, categorias.length, currentDate, periodoPersonalizado, dataInicio, dataFim]);
+  }, [fetchTransacoes, user?.id, categorias.length, dataInicio, dataFim]);
 
   // Handlers
   const handleFilterChange = (key, value) => {
@@ -269,23 +253,18 @@ const TransacoesPage = () => {
       ordenacao: 'data_desc'
     });
     setSearchTerm('');
-    setPeriodoPersonalizado(false);
-    setDataInicio('');
-    setDataFim('');
+    
+    // Volta para o mês atual
+    const hoje = new Date();
+    const inicioMes = startOfMonth(hoje);
+    const fimMes = endOfMonth(hoje);
+    
+    setDataInicio(format(inicioMes, 'yyyy-MM-dd'));
+    setDataFim(format(fimMes, 'yyyy-MM-dd'));
   };
 
-  // Handlers para período personalizado
-  const handleTogglePeriodoPersonalizado = () => {
-    setPeriodoPersonalizado(!periodoPersonalizado);
-    if (!periodoPersonalizado) {
-      // Ao ativar, definir período padrão
-      const dateRange = getDateRange();
-      setDataInicio(format(dateRange.inicio, 'yyyy-MM-dd'));
-      setDataFim(format(dateRange.fim, 'yyyy-MM-dd'));
-    }
-  };
-
-  const handleAplicarPeriodoPersonalizado = () => {
+  // Handler para aplicar período
+  const handleAplicarPeriodo = () => {
     if (dataInicio && dataFim) {
       if (new Date(dataInicio) > new Date(dataFim)) {
         showNotification('Data de início deve ser anterior à data final', 'error');
@@ -297,12 +276,12 @@ const TransacoesPage = () => {
 
   // Função para obter o texto do período atual
   const getPeriodoTexto = () => {
-    if (periodoPersonalizado && dataInicio && dataFim) {
+    if (dataInicio && dataFim) {
       const inicio = format(new Date(dataInicio), 'dd/MM/yyyy');
       const fim = format(new Date(dataFim), 'dd/MM/yyyy');
       return `${inicio} - ${fim}`;
     }
-    return getFormattedPeriod();
+    return 'Período não definido';
   };
 
   // Handler para abrir modais
@@ -400,97 +379,16 @@ const TransacoesPage = () => {
   return (
     <div className="transacoes-page">
       
-      {/* Header com Seletor de Período Próprio */}
+      {/* Header Simplificado */}
       <div className="page-header">
         <div className="header-title">
           <h1>Transações</h1>
           <p>Gerencie suas receitas, despesas e transferências</p>
         </div>
 
-        {/* ✅ NOVO: Seletor de Período com Opção Personalizada */}
-        <div className="period-selector-container">
-          <div className="period-type-toggle">
-            <button
-              className={`period-toggle-btn ${!periodoPersonalizado ? 'active' : ''}`}
-              onClick={() => setPeriodoPersonalizado(false)}
-            >
-              Por Mês
-            </button>
-            <button
-              className={`period-toggle-btn ${periodoPersonalizado ? 'active' : ''}`}
-              onClick={handleTogglePeriodoPersonalizado}
-            >
-              Personalizado
-            </button>
-          </div>
-
-          {!periodoPersonalizado ? (
-            <div className="period-selector-inline">
-              <button 
-                className="period-nav"
-                onClick={() => navigateMonth(-1)}
-                title="Mês anterior"
-              >
-                <ChevronLeft size={18} />
-              </button>
-
-              <div className="current-period-inline">
-                <Calendar size={16} />
-                <span className="period-text">
-                  {getFormattedPeriod()}
-                </span>
-                {!isCurrentMonth() && (
-                  <button 
-                    className="today-button" 
-                    onClick={goToToday}
-                  >
-                    Hoje
-                  </button>
-                )}
-              </div>
-
-              <button 
-                className="period-nav"
-                onClick={() => navigateMonth(1)}
-                title="Próximo mês"
-              >
-                <ChevronRight size={18} />
-              </button>
-            </div>
-          ) : (
-            <div className="custom-period-selector">
-              <div className="date-inputs">
-                <div className="date-input-group">
-                  <label>De:</label>
-                  <input
-                    type="date"
-                    value={dataInicio}
-                    onChange={(e) => setDataInicio(e.target.value)}
-                    className="date-input"
-                  />
-                </div>
-                <div className="date-input-group">
-                  <label>Até:</label>
-                  <input
-                    type="date"
-                    value={dataFim}
-                    onChange={(e) => setDataFim(e.target.value)}
-                    className="date-input"
-                  />
-                </div>
-                <button
-                  onClick={handleAplicarPeriodoPersonalizado}
-                  className="apply-period-btn"
-                  disabled={!dataInicio || !dataFim}
-                >
-                  Aplicar
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="header-actions">
+        {/* Barra de Controles em Uma Linha */}
+        <div className="controls-bar">
+          {/* Busca */}
           <div className="search-container">
             <input
               type="text"
@@ -502,14 +400,36 @@ const TransacoesPage = () => {
             <Search className="search-icon" />
           </div>
 
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`filter-btn ${showFilters ? 'active' : ''}`}
-          >
-            <Filter className="w-4 h-4" />
-            Filtros
-          </button>
+          {/* Período */}
+          <div className="period-container">
+            <div className="date-input-group">
+              <label>De:</label>
+              <input
+                type="date"
+                value={dataInicio}
+                onChange={(e) => setDataInicio(e.target.value)}
+                className="date-input"
+              />
+            </div>
+            <div className="date-input-group">
+              <label>Até:</label>
+              <input
+                type="date"
+                value={dataFim}
+                onChange={(e) => setDataFim(e.target.value)}
+                className="date-input"
+              />
+            </div>
+            <button
+              onClick={handleAplicarPeriodo}
+              className="apply-period-btn"
+              disabled={!dataInicio || !dataFim}
+            >
+              Aplicar
+            </button>
+          </div>
 
+          {/* Atualizar */}
           <button
             onClick={fetchTransacoes}
             className="refresh-btn"
@@ -521,100 +441,98 @@ const TransacoesPage = () => {
       </div>
 
       <div className="main-content">
-        {/* Filtros Laterais */}
-        {showFilters && (
-          <div className="filters-sidebar">
-            <div className="filters-header">
-              <h3 className="filters-title">Filtros</h3>
-              <button onClick={handleClearFilters} className="btn-clear-filters">
-                Limpar
-              </button>
+        {/* Filtros Sempre Visíveis */}
+        <div className="filters-sidebar">
+          <div className="filters-header">
+            <h3 className="filters-title">Filtros</h3>
+            <button onClick={handleClearFilters} className="btn-clear-filters">
+              Limpar
+            </button>
+          </div>
+
+          <div className="filters-content">
+            {/* Tipo */}
+            <div className="filter-group">
+              <label className="filter-label">Tipo</label>
+              <select
+                value={filters.tipo}
+                onChange={(e) => handleFilterChange('tipo', e.target.value)}
+                className="filter-select"
+              >
+                <option value="todas">Todas</option>
+                <option value="receita">Receitas</option>
+                <option value="despesa">Despesas</option>
+                <option value="transferencia">Transferências</option>
+              </select>
             </div>
 
-            <div className="filters-content">
-              {/* Tipo */}
-              <div className="filter-group">
-                <label className="filter-label">Tipo</label>
-                <select
-                  value={filters.tipo}
-                  onChange={(e) => handleFilterChange('tipo', e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="todas">Todas</option>
-                  <option value="receita">Receitas</option>
-                  <option value="despesa">Despesas</option>
-                  <option value="transferencia">Transferências</option>
-                </select>
-              </div>
+            {/* Categoria */}
+            <div className="filter-group">
+              <label className="filter-label">Categoria</label>
+              <select
+                value={filters.categoriaId}
+                onChange={(e) => handleFilterChange('categoriaId', e.target.value)}
+                className="filter-select"
+              >
+                <option value="">Todas as categorias</option>
+                {categorias.map(categoria => (
+                  <option key={categoria.id} value={categoria.id}>
+                    {categoria.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-              {/* Categoria */}
-              <div className="filter-group">
-                <label className="filter-label">Categoria</label>
-                <select
-                  value={filters.categoriaId}
-                  onChange={(e) => handleFilterChange('categoriaId', e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="">Todas as categorias</option>
-                  {categorias.map(categoria => (
-                    <option key={categoria.id} value={categoria.id}>
-                      {categoria.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {/* Conta */}
+            <div className="filter-group">
+              <label className="filter-label">Conta</label>
+              <select
+                value={filters.contaId}
+                onChange={(e) => handleFilterChange('contaId', e.target.value)}
+                className="filter-select"
+              >
+                <option value="">Todas as contas</option>
+                {contas.map(conta => (
+                  <option key={conta.id} value={conta.id}>
+                    {conta.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-              {/* Conta */}
-              <div className="filter-group">
-                <label className="filter-label">Conta</label>
-                <select
-                  value={filters.contaId}
-                  onChange={(e) => handleFilterChange('contaId', e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="">Todas as contas</option>
-                  {contas.map(conta => (
-                    <option key={conta.id} value={conta.id}>
-                      {conta.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {/* Cartão */}
+            <div className="filter-group">
+              <label className="filter-label">Cartão</label>
+              <select
+                value={filters.cartaoId}
+                onChange={(e) => handleFilterChange('cartaoId', e.target.value)}
+                className="filter-select"
+              >
+                <option value="">Todos os cartões</option>
+                {cartoes.map(cartao => (
+                  <option key={cartao.id} value={cartao.id}>
+                    {cartao.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-              {/* Cartão */}
-              <div className="filter-group">
-                <label className="filter-label">Cartão</label>
-                <select
-                  value={filters.cartaoId}
-                  onChange={(e) => handleFilterChange('cartaoId', e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="">Todos os cartões</option>
-                  {cartoes.map(cartao => (
-                    <option key={cartao.id} value={cartao.id}>
-                      {cartao.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Ordenação */}
-              <div className="filter-group">
-                <label className="filter-label">Ordenar por</label>
-                <select
-                  value={filters.ordenacao}
-                  onChange={(e) => handleFilterChange('ordenacao', e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="data_desc">Data (mais recente)</option>
-                  <option value="data_asc">Data (mais antiga)</option>
-                  <option value="valor_desc">Valor (maior)</option>
-                  <option value="valor_asc">Valor (menor)</option>
-                </select>
-              </div>
+            {/* Ordenação */}
+            <div className="filter-group">
+              <label className="filter-label">Ordenar por</label>
+              <select
+                value={filters.ordenacao}
+                onChange={(e) => handleFilterChange('ordenacao', e.target.value)}
+                className="filter-select"
+              >
+                <option value="data_desc">Data (mais recente)</option>
+                <option value="data_asc">Data (mais antiga)</option>
+                <option value="valor_desc">Valor (maior)</option>
+                <option value="valor_asc">Valor (menor)</option>
+              </select>
             </div>
           </div>
-        )}
+        </div>
 
         {/* Lista de Transações */}
         <div className="transactions-list">
