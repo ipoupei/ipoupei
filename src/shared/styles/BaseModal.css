@@ -1,7 +1,7 @@
 /* src/styles/BaseModal.css */
 /* Estilos base reutilizáveis para todos os modais */
 
-@import './Variables.css';
+@import '@styles/variables.css';
 
 /* === MODAL BASE === */
 .modal-overlay {
