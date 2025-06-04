@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, UserPlus, Mail, Heart, Check, X, Trash2, Clock, AlertCircle } from 'lucide-react';
-import useAmigos from '@modules/amigos/hooks/useAmigos';
+import useAmigos from '@modules/Amigos/hooks/useAmigos';
 import Card from '@shared/components/ui/Card';
 import Input from '@shared/components/ui/Input';
 import Button from '@shared/components/ui/Button';

@@ -18,7 +18,7 @@ import {
   Phone
 } from 'lucide-react';
 import useAuth from "@modules/auth/hooks/useAuth";
-import AmigosEFamiliares from '@modules/amigos/components/AmigosEFamiliares';
+import AmigosEFamiliares from '@modules/Amigos/components/AmigosEFamiliares';
 import ExcluirConta from '@modules/contas/components/ExcluirConta';
 import { supabase } from '@lib/supabaseClient';
 import '@modules/contas/styles/UserProfile.css';
