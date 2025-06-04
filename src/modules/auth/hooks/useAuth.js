@@ -4,7 +4,8 @@ import { useAuthStore } from '../store/authStore';
 
 /**
  * Hook personalizado para autenticação
- * Usa Zustand store e garante inicialização correta
+ * MELHORADO: Usa initAuth do store + mantém debug logs + evita dupla inicialização
+ * Compatível 100% com o authStore.js original do projeto iPoupei
  */
 const useAuth = () => {
   const {
@@ -19,31 +20,46 @@ const useAuth = () => {
     signOut,
     signUp,
     resetPassword,
-    updateProfile
+    updateProfile,
+    updatePassword,
+    signInWithGoogle,
+    signInWithGitHub,
+    clearError,
+    setUser,
+    setSession,
+    setLoading,
+    setError,
+    setInitialized,
+    getUserName,
+    getUserEmail,
+    isAdmin
   } = useAuthStore();
 
   // Garantir que a autenticação seja inicializada apenas uma vez
+  // MELHORADO: Evita múltiplas inicializações
   useEffect(() => {
-    if (!initialized && !loading) {
+    if (!initialized && !loading && initAuth) {
       console.log('🔄 useAuth: Inicializando autenticação...');
       initAuth();
     }
   }, [initialized, loading, initAuth]);
 
-  // Debug logs para identificar o problema
+  // Debug logs úteis para desenvolvimento
   useEffect(() => {
-    console.log('🔍 useAuth Debug:', {
-      user: !!user,
-      session: !!session,
-      isAuthenticated,
-      loading,
-      initialized,
-      error
-    });
+    if (import.meta.env.DEV) {
+      console.log('🔍 useAuth Debug:', {
+        user: !!user,
+        session: !!session,
+        isAuthenticated,
+        loading,
+        initialized,
+        error: error ? 'Há erro' : 'Sem erro'
+      });
+    }
   }, [user, session, isAuthenticated, loading, initialized, error]);
 
   return {
-    // Estados
+    // Estados principais
     user,
     session,
     isAuthenticated,
@@ -51,17 +67,39 @@ const useAuth = () => {
     initialized,
     error,
     
-    // Ações
+    // Ações de autenticação
     signIn,
     signOut,
     signUp,
     resetPassword,
     updateProfile,
+    updatePassword,
+    signInWithGoogle,
+    signInWithGitHub,
     
-    // Utilidades
+    // Ações auxiliares
+    clearError,
+    setUser,
+    setSession,
+    setLoading,
+    setError,
+    setInitialized,
+    
+    // Funções computadas (getters) do store original
+    getUserName,
+    getUserEmail,
+    isAdmin,
+    
+    // Utilidades extras
     getUserId: () => user?.id,
-    getUserEmail: () => user?.email,
-    isLoggedIn: () => isAuthenticated && !!user
+    isLoggedIn: () => isAuthenticated && !!user,
+    
+    // Debug info (removível em produção)
+    _debug: {
+      source: 'zustand-authStore-enhanced',
+      hasUser: !!user,
+      userEmail: user?.email
+    }
   };
 };
 

@@ -3,75 +3,79 @@ import AppRoutes from '@routes/AppRoutes';
 import './App.css';
 import './index.css';
 import { testarLeituraContas, verificarAutenticacao } from '@lib/supabaseClient';
-import { useAuthStore } from '@modules/auth/store/authStore';
+import { useAuthListener } from '@modules/auth/store/authStore';
 
 /**
- * Componente principal da aplicação
- * Sistema híbrido: mantém AuthProvider para compatibilidade + Zustand
- * ATUALIZADO: Suporte às novas rotas de transações
+ * Componente principal da aplicação iPoupei
+ * MELHORADO: Usa useAuthListener (padrão do authStore) + mantém testes de conexão
+ * Sistema 100% Zustand - SEM dupla inicialização
  */
 function App() {
-  // Estado para informações de teste
+  // Hook de autenticação que inicializa tudo automaticamente
+  // MELHORADO: Usa o padrão correto do authStore.js
+  useAuthListener();
+  
+  // Estado para informações de teste (mantido do código original)
   const [testeConexao, setTesteConexao] = useState({
     executado: false,
     resultado: null,
     mensagem: ""
   });
 
-  // Inicializar Zustand auth
-  const initAuth = useAuthStore(state => state.initAuth);
-
-  // Teste de conexão com o Supabase (apenas em desenvolvimento)
+  // Teste de conexão com o Supabase (mantido e melhorado)
   const executarTestesConexao = async () => {
-    const authResult = await verificarAutenticacao();
-    
-    if (!authResult.isAuthenticated) {
-      setTesteConexao({
-        executado: true,
-        resultado: true,
-        mensagem: "Supabase conectado - pronto para autenticação."
-      });
-      return;
-    }
-    
-    const testResult = await testarLeituraContas();
-    
-    if (testResult.success) {
-      setTesteConexao({
-        executado: true,
-        resultado: true,
-        mensagem: `Conexão com Supabase realizada com sucesso! Foram encontradas ${testResult.data.length} contas.`
-      });
-    } else {
+    try {
+      const authResult = await verificarAutenticacao();
+      
+      if (!authResult.isAuthenticated) {
+        setTesteConexao({
+          executado: true,
+          resultado: true,
+          mensagem: "✅ Supabase conectado - pronto para autenticação."
+        });
+        return;
+      }
+      
+      const testResult = await testarLeituraContas();
+      
+      if (testResult.success) {
+        setTesteConexao({
+          executado: true,
+          resultado: true,
+          mensagem: `✅ Conexão Supabase OK! Encontradas ${testResult.data.length} contas.`
+        });
+      } else {
+        setTesteConexao({
+          executado: true,
+          resultado: false,
+          mensagem: `❌ Erro Supabase: ${testResult.error?.message || 'Erro desconhecido'}`
+        });
+      }
+    } catch (error) {
       setTesteConexao({
         executado: true,
         resultado: false,
-        mensagem: `Erro na conexão com Supabase: ${testResult.error?.message || 'Erro desconhecido'}`
+        mensagem: `❌ Erro inesperado: ${error.message}`
       });
     }
   };
 
-  // Hook de inicialização
+  // Hook de inicialização (melhorado - SEM dupla inicialização)
   useEffect(() => {
-    // Inicializar autenticação do Zustand
-    if (initAuth) {
-      console.log('🔄 Inicializando Zustand Auth...');
-      initAuth();
-    }
-
     const inicializar = async () => {
       // Executa testes apenas em desenvolvimento
       if (import.meta.env.DEV) {
+        console.log('🔧 App: Executando testes de conexão...');
         await executarTestesConexao();
       }
     };
 
     inicializar();
-  }, [initAuth]);
+  }, []); // REMOVIDO initAuth - já é feito pelo useAuthListener
 
   return (
     <>
-      {/* Componente de teste de conexão - apenas em desenvolvimento */}
+      {/* Componente de teste de conexão - mantido e melhorado */}
       {import.meta.env.DEV && testeConexao.executado && (
         <div 
           style={{
@@ -79,26 +83,31 @@ function App() {
             top: 0,
             left: 0,
             right: 0,
-            padding: '10px',
-            background: testeConexao.resultado ? '#d1fae5' : '#fee2e2',
+            padding: '8px 16px',
+            background: testeConexao.resultado 
+              ? 'linear-gradient(90deg, #d1fae5, #a7f3d0)' 
+              : 'linear-gradient(90deg, #fee2e2, #fecaca)',
             color: testeConexao.resultado ? '#065f46' : '#b91c1c',
             zIndex: 9999,
             textAlign: 'center',
             borderBottom: '1px solid',
-            borderColor: testeConexao.resultado ? '#a7f3d0' : '#fecaca',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-            fontSize: '14px'
+            borderColor: testeConexao.resultado ? '#10b981' : '#ef4444',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            fontSize: '13px',
+            fontWeight: '500'
           }}
         >
           <span>🔧 DEV: {testeConexao.mensagem}</span>
           <button 
             style={{
-              marginLeft: '10px',
-              padding: '2px 10px',
-              background: 'rgba(255,255,255,0.5)',
-              border: 'none',
+              marginLeft: '12px',
+              padding: '2px 8px',
+              background: 'rgba(255,255,255,0.7)',
+              border: '1px solid rgba(0,0,0,0.1)',
               borderRadius: '4px',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: 'bold'
             }}
             onClick={() => setTesteConexao({...testeConexao, executado: false})}
           >
