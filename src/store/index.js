@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-// REMOVIDO: import { useAuth } from '../context/AuthContext';
+
 // ADICIONADO: Usar Zustand
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore } from '@modules/auth/store/authStore';;
 import { useNotification } from '../store/uiStore';
 
 // Utilitários mantidos

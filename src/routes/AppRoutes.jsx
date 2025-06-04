@@ -1,18 +1,20 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Login from '../pages/Login';
-import Dashboard from '../pages/Dashboard';
-import ResetPassword from '../pages/ResetPassword';
-import UserProfile from '../pages/UserProfile';
-import TransacoesPage from '../pages/TransacoesPage';
-import RelatoriosHome from '../pages/RelatoriosHome';
-import RelatorioCategoria from '../pages/RelatorioCategoria';
-import RelatorioEvolucao from '../pages/RelatorioEvolucao';
-import RelatorioProjecao from '../pages/RelatorioProjecao';
-import AuthCallback from '../pages/AuthCallback';
-import ProtectedRoute from '../Components/ProtectedRoute';
-import FaturasRoute from './FaturasRoute'; // CORRIGIDO: Remover "routes/" duplicado
-import MainLayout from '../Layouts/MainLayout';
+import Login from '@modules/auth/pages/Login';
+import Dashboard from '@modules/dashboard/pages/Dashboard';
+import ResetPassword from '@modules/auth/pages/ResetPassword';
+import UserProfile from '@modules/contas/components/UserProfile';
+import TransacoesPage from '@modules/transacoes/components/TransacoesPage.jsx';
+import RelatoriosHome from '@modules/relatorios/components/RelatoriosHome.jsx';
+import RelatorioCategoria from '@modules/relatorios/components/RelatorioCategoria.jsx';
+import RelatorioEvolucao from '@modules/relatorios/components/RelatorioEvolucao.jsx';
+import RelatorioProjecao from '@modules/relatorios/components/RelatorioProjecao.jsx';
+import AuthCallback from '@modules/auth/pages/AuthCallback';
+import ProtectedRoute from '@modules/auth/components/ProtectedRoute';
+import FaturasRoute from '@routes/FaturasRoute';
+import MainLayout from '@shared/components/layouts/MainLayout';
+
+
 
 /**
  * Componente para gerenciar as rotas da aplicação

@@ -7,11 +7,11 @@ import {
   Calendar, Clock, CreditCard 
 } from 'lucide-react';
 import useTransacoes from '../hooks/useTransacoes';
-import useContas from '../hooks/useContas';
+import useContas from '@modules/contas/hooks/useContas';
 import useCategorias from '../hooks/useCategorias';
 import useCartoes from '../hooks/useCartoes';
 import useFaturasCartao from '../hooks/useFaturasCartao';
-import { supabase } from '../lib/supabaseClient';
+import { supabase } from '@lib/supabaseClient';
 import TransacoesFilter from '../Components/TransacoesFilter';
 import TransacaoList from '../Components/TransacaoList';
 import EditTransacaoModal from '../Components/EditTransacaoModal';

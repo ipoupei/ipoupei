@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import AppRoutes from './routes/AppRoutes';
+import AppRoutes from '@routes/AppRoutes';
 import './App.css';
-import { testarLeituraContas, verificarAutenticacao } from './lib/supabaseClient';
 import './index.css';
-import { AuthProvider } from './context/AuthContext';
-import { useAuthStore } from './store/authStore';
-
+import { testarLeituraContas, verificarAutenticacao } from '@lib/supabaseClient';
+import { useAuthStore } from '@modules/auth/store/authStore';
 
 /**
  * Componente principal da aplicação
@@ -72,7 +70,7 @@ function App() {
   }, [initAuth]);
 
   return (
-    <AuthProvider>
+    <>
       {/* Componente de teste de conexão - apenas em desenvolvimento */}
       {import.meta.env.DEV && testeConexao.executado && (
         <div 
@@ -111,7 +109,7 @@ function App() {
       
       {/* Sistema de rotas */}
       <AppRoutes />
-    </AuthProvider>
+    </>
   );
 }
 

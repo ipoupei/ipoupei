@@ -4,7 +4,8 @@ import { Routes, Route } from 'react-router-dom';
 import { CreditCard } from 'lucide-react';
 
 // Importação lazy para otimização
-const FaturasCartaoPage = React.lazy(() => import('../pages/FaturasCartaoPage'));
+const FaturasCartaoPage = React.lazy(() => import('@modules/cartoes/components/FaturasCartaoPage'));
+
 
 // Componente de rota principal para faturas
 const FaturasRoute = () => {

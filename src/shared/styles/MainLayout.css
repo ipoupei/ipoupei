@@ -1,0 +1,862 @@
+/* D:\OneDrive\Ipoupei\src\Layouts\MainLayout.css
+
+.main-layout {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+}
+
+/* ================== HEADER PRINCIPAL - SEMPRE MESMO TAMANHO ================== */
+.main-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 1rem 0;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  /* Header NUNCA muda - removendo transition */
+}
+
+.header-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header-left .logo-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.app-title {
+  font-size: 1.875rem;
+  font-weight: 800;
+  margin: 0;
+  background: linear-gradient(45deg, #ffffff, #e2e8f0);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  letter-spacing: -0.02em;
+  /* Título NUNCA muda */
+}
+
+.page-title {
+  font-size: 0.875rem;
+  opacity: 0.9;
+  font-weight: 600;
+  padding: 0.375rem 1rem;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 24px;
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  transition: opacity 0.3s ease;
+}
+
+.header-right .user-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.user-greeting {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  transition: opacity 0.3s ease;
+}
+
+.greeting-text {
+  font-weight: 700;
+  font-size: 1rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.greeting-subtitle {
+  font-size: 0.75rem;
+  opacity: 0.85;
+  font-weight: 500;
+}
+
+.user-avatar-container {
+  position: relative;
+}
+
+.user-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  backdrop-filter: blur(20px);
+  /* Avatar NUNCA muda de tamanho */
+}
+
+.user-avatar:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+  transform: scale(1.05);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.user-menu {
+  position: absolute;
+  top: calc(100% + 0.75rem);
+  right: 0;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  min-width: 180px;
+  z-index: 1001;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(20px);
+}
+
+.user-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  color: #374151;
+  text-decoration: none;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.user-menu-item:hover {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  transform: translateX(4px);
+}
+
+.user-menu-item.logout {
+  color: #dc2626;
+  border-top: 1px solid #f3f4f6;
+}
+
+.user-menu-item.logout:hover {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+}
+
+/* ================== TRILHA DE EVOLUÇÃO - ABAIXO DOS BOTÕES ================== */
+.evolution-track {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border-bottom: 1px solid #e5e7eb;
+  padding: 1rem 0;
+  position: sticky;
+  top: 140px; /* Ajustado para ficar abaixo dos botões */
+  z-index: 997;
+  transition: all 0.3s ease;
+}
+
+/* Trilha some quando rola */
+.main-layout.scrolled .evolution-track {
+  opacity: 0;
+  visibility: hidden;
+  height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.evolution-placeholder {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  text-align: center;
+}
+
+.placeholder-text {
+  font-size: 0.875rem;
+  color: #9ca3af;
+  font-style: italic;
+  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+  padding: 0.75rem 1.5rem;
+  border-radius: 24px;
+  border: 1px dashed #d1d5db;
+  display: inline-block;
+  font-weight: 500;
+}
+
+/* ================== AÇÕES RÁPIDAS - COMPACTA QUANDO ROLA ================== */
+.quick-actions {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border-bottom: 1px solid #e5e7eb;
+  padding: 1.25rem 0;
+  position: sticky;
+  top: 80px; /* Fica grudada no header fixo */
+  z-index: 998;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Ações compactas quando rola */
+.main-layout.scrolled .quick-actions {
+  padding: 0.75rem 0;
+  top: 80px; /* Mantém grudada no header */
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.actions-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  transition: all 0.3s ease;
+}
+
+/* Container mais compacto quando rola */
+.main-layout.scrolled .actions-container {
+  gap: 0.5rem;
+  padding: 0 1rem;
+}
+
+.actions-container::-webkit-scrollbar {
+  display: none;
+}
+
+.action-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  background: white;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 90px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Botões muito mais compactos quando rola - igual mobile */
+.main-layout.scrolled .action-button {
+  min-width: 64px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  gap: 0.25rem;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+/* Labels somem quando rola - apenas ícones */
+.main-layout.scrolled .action-button span {
+  display: none;
+}
+
+.action-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  transition: left 0.6s ease;
+}
+
+.action-button:hover::before {
+  left: 100%;
+}
+
+.action-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* Hover mais sutil quando compacto */
+.main-layout.scrolled .action-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* ================== CORES DOS BOTÕES - MANTÉM AS MESMAS ================== */
+
+/* 1. Dashboard */
+.action-button.dashboard {
+  color: #1f2937;
+  border-color: #d1d5db;
+  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+}
+
+.action-button.dashboard:hover {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  border-color: #6b7280;
+  color: #111827;
+  box-shadow: 0 8px 25px rgba(107, 114, 128, 0.25);
+}
+
+/* 2. Transações */
+.action-button.transacoes {
+  color: #1e40af;
+  border-color: #bfdbfe;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+}
+
+.action-button.transacoes:hover {
+  background: linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%);
+  border-color: #3b82f6;
+  color: #1e3a8a;
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.25);
+}
+
+/* 3. Receitas */
+.action-button.receita {
+  color: #059669;
+  border-color: #d1fae5;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+}
+
+.action-button.receita:hover {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  border-color: #10b981;
+  color: #047857;
+  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.25);
+}
+
+/* 4. Despesas */
+.action-button.despesa {
+  color: #dc2626;
+  border-color: #fecaca;
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+}
+
+.action-button.despesa:hover {
+  background: linear-gradient(135deg, #fee2e2 0%, #fca5a5 100%);
+  border-color: #ef4444;
+  color: #b91c1c;
+  box-shadow: 0 8px 25px rgba(239, 68, 68, 0.25);
+}
+
+/* 5. Cartão */
+.action-button.cartao {
+  color: #7c3aed;
+  border-color: #e9d5ff;
+  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+}
+
+.action-button.cartao:hover {
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  border-color: #8b5cf6;
+  color: #6d28d9;
+  box-shadow: 0 8px 25px rgba(139, 92, 246, 0.25);
+}
+
+/* 6. Transferências */
+.action-button.transferencia {
+  color: #0f766e;
+  border-color: #a7f3d0;
+  background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%);
+}
+
+.action-button.transferencia:hover {
+  background: linear-gradient(135deg, #ccfbf1 0%, #99f6e4 100%);
+  border-color: #14b8a6;
+  color: #0d9488;
+  box-shadow: 0 8px 25px rgba(20, 184, 166, 0.25);
+}
+
+/* 7. Contas */
+.action-button.contas {
+  color: #2563eb;
+  border-color: #bfdbfe;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+}
+
+.action-button.contas:hover {
+  background: linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%);
+  border-color: #3b82f6;
+  color: #1d4ed8;
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.25);
+}
+
+/* 8. Mais */
+.action-button.mais {
+  color: #6b7280;
+  border-color: #d1d5db;
+  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+}
+
+.action-button.mais:hover {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  border-color: #9ca3af;
+  color: #4b5563;
+  box-shadow: 0 8px 25px rgba(107, 114, 128, 0.15);
+}
+
+/* Animação especial para transferir */
+.action-button.transferencia:hover svg {
+  animation: transferAnimation 0.8s ease-in-out;
+}
+
+@keyframes transferAnimation {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
+.mais-menu {
+  position: absolute;
+  top: calc(100% + 0.75rem);
+  right: 1.5rem;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  min-width: 200px;
+  z-index: 1001;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(20px);
+}
+
+/* Menu mais compacto quando rola */
+.main-layout.scrolled .mais-menu {
+  top: calc(100% + 0.5rem);
+  border-radius: 12px;
+  min-width: 180px;
+}
+
+.mais-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  color: #374151;
+  text-decoration: none;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+/* Menu mais compacto quando rola */
+.main-layout.scrolled .mais-menu-item {
+  padding: 0.75rem 1rem;
+  font-size: 0.8125rem;
+}
+
+.mais-menu-item:hover {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  transform: translateX(4px);
+}
+
+/* ================== SEÇÃO DE FILTROS - SOME QUANDO ROLA ================== */
+.filters-section {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border-bottom: 1px solid #e5e7eb;
+  padding: 1rem 0;
+  position: sticky;
+  top: 200px; /* Ajustado para nova ordem */
+  z-index: 996;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+  transition: all 0.3s ease;
+}
+
+/* Filtros somem quando rola */
+.main-layout.scrolled .filters-section {
+  opacity: 0;
+  visibility: hidden;
+  height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.filters-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.period-selector-inline {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.current-period-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 24px;
+  color: #374151;
+  font-weight: 700;
+  min-width: 180px;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.additional-filters {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.period-nav {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid #e5e7eb;
+  background: white;
+  color: #6b7280;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.period-nav:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.period-text {
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+}
+
+.today-button {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  border: none;
+  padding: 0.375rem 0.75rem;
+  border-radius: 16px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-left: 0.5rem;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+}
+
+.today-button:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+}
+
+/* ================== CONTEÚDO PRINCIPAL - MAIS ESPAÇO QUANDO ROLA ================== */
+.main-content {
+  flex: 1;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 2rem 1.5rem;
+  background: transparent;
+  transition: all 0.3s ease;
+}
+
+/* Muito mais espaço quando rola */
+.main-layout.scrolled .main-content {
+  padding: 1rem 1.5rem;
+  margin-top: -1rem; /* Elimina espaço extra */
+}
+
+/* ================== LOADING CONTAINER ================== */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  min-height: 300px;
+}
+
+.loading-container .loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f4f6;
+  border-top: 4px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+.loading-container p {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ================== RESPONSIVIDADE APRIMORADA ================== */
+@media (max-width: 1200px) {
+  .header-content,
+  .evolution-placeholder,
+  .actions-container,
+  .filters-container,
+  .main-content {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+@media (max-width: 1024px) {
+  .actions-container {
+    gap: 0.75rem;
+  }
+  
+  .action-button {
+    min-width: 85px;
+    padding: 0.875rem 1rem;
+  }
+  
+  /* Ainda mais compacto quando rola em tablets */
+  .main-layout.scrolled .action-button {
+    min-width: 60px;
+    padding: 0.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-title {
+    font-size: 1.5rem; /* Tamanho fixo em mobile também */
+  }
+  
+  .page-title {
+    display: none;
+  }
+  
+  .user-greeting {
+    display: none;
+  }
+  
+  .actions-container {
+    gap: 0.5rem;
+  }
+  
+  .action-button {
+    min-width: 80px;
+    padding: 0.75rem 1rem;
+    font-size: 0.75rem;
+  }
+  
+  /* Em mobile, mantém o estilo compacto mesmo sem scroll */
+  .action-button {
+    min-width: 64px;
+    padding: 0.75rem;
+  }
+  
+  .action-button span {
+    display: none;
+  }
+  
+  .filters-container {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  
+  .period-selector-inline {
+    gap: 0.75rem;
+  }
+  
+  .current-period-inline {
+    min-width: 140px;
+    padding: 0.625rem 1rem;
+  }
+  
+  .main-content {
+    padding: 1.5rem 1rem;
+  }
+  
+  .main-layout.scrolled .main-content {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .action-button {
+    min-width: 56px;
+    padding: 0.625rem;
+  }
+  
+  .main-layout.scrolled .action-button {
+    min-width: 52px;
+    padding: 0.5rem;
+  }
+  
+  .period-selector-inline {
+    gap: 0.5rem;
+  }
+  
+  .current-period-inline {
+    min-width: 120px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+  }
+  
+  .period-text {
+    font-size: 0.875rem;
+  }
+  
+  .period-nav {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .main-content {
+    padding: 1rem;
+  }
+  
+  .main-layout.scrolled .main-content {
+    padding: 0.75rem;
+  }
+}
+
+/* ================== ESTADOS DE ACESSIBILIDADE ================== */
+.action-button:focus,
+.period-nav:focus,
+.user-avatar:focus {
+  outline: 3px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.user-menu-item:focus,
+.mais-menu-item:focus {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  outline: none;
+}
+
+/* ================== HIGH CONTRAST ================== */
+@media (prefers-contrast: high) {
+  .action-button,
+  .current-period-inline,
+  .period-nav {
+    border: 2px solid #374151;
+  }
+  
+  .user-menu,
+  .mais-menu {
+    border: 2px solid #374151;
+  }
+}
+
+/* ================== REDUCED MOTION ================== */
+@media (prefers-reduced-motion: reduce) {
+  .main-layout,
+  .main-header,
+  .quick-actions,
+  .evolution-track,
+  .filters-section,
+  .main-content,
+  .action-button,
+  .period-nav,
+  .user-avatar,
+  .today-button {
+    transition: none;
+  }
+  
+  .action-button:hover,
+  .period-nav:hover,
+  .user-avatar:hover,
+  .today-button:hover {
+    transform: none;
+  }
+  
+  .action-button.transferencia:hover svg {
+    animation: none;
+  }
+  
+  @keyframes transferAnimation {
+    0%, 100% { transform: none; }
+  }
+}
+
+/* ================== OTIMIZAÇÕES DE PERFORMANCE ================== */
+.main-layout {
+  will-change: scroll-position;
+}
+
+.main-header,
+.quick-actions,
+.evolution-track,
+.filters-section {
+  will-change: transform, opacity, padding;
+}
+
+.action-button {
+  will-change: transform, box-shadow;
+}
+
+/* Garante que elementos sticky funcionem corretamente */
+.main-header,
+.quick-actions,
+.evolution-track,
+.filters-section {
+  contain: layout style;
+}
+
+/* ================== MELHORIAS VISUAIS ESPECÍFICAS ================== */
+
+/* Gradiente suave quando elementos somem */
+.evolution-track,
+.filters-section {
+  mask: linear-gradient(to bottom, black 0%, black 90%, transparent 100%);
+  -webkit-mask: linear-gradient(to bottom, black 0%, black 90%, transparent 100%);
+}
+
+/* Sombra mais sutil quando compacto */
+.main-layout.scrolled .quick-actions {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+

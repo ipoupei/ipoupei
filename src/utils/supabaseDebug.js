@@ -1,5 +1,5 @@
 // src/utils/supabaseDebug.js - VERIFICADOR DE CONFIGURAÇÃO
-import { supabase } from '../lib/supabaseClient';
+import { supabase } from '@lib/supabaseClient';
 
 /**
  * Utilitário para diagnosticar problemas de configuração do Supabase
