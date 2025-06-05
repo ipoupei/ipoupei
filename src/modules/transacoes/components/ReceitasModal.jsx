@@ -1,4 +1,4 @@
-// src/components/ReceitasModal.jsx - VERSÃO COMPLETA COM EDIÇÃO
+// src/modules/transacoes/components/ReceitasModal.jsx - VERSÃO CORRIGIDA BUG 007
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -19,19 +19,18 @@ import {
   Edit
 } from 'lucide-react';
 
-import { useAuthStore } from '@modules/auth/store/authStore';;
+import { useAuthStore } from '@modules/auth/store/authStore';
 import { useUIStore } from '@store/uiStore';
-
-
-
-
-
-
 import { formatCurrency } from '@utils/formatCurrency';
-
-
 import { supabase } from '@lib/supabaseClient';
 import '@shared/styles/FormsModal.css';
+
+/**
+ * Modal de Receitas - VERSÃO CORRIGIDA BUG 007
+ * ✅ CORREÇÃO: Labels de status não redundantes para recorrentes
+ * ✅ CORREÇÃO: Receitas recorrentes agora afetam saldo corretamente
+ * ✅ CORREÇÃO: Primeira instância criada com status correto
+ */
 const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   const { user } = useAuthStore();
   const { showNotification } = useUIStore();
@@ -545,7 +544,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     }
   }, [formData, valorNumerico, transacaoEditando, user.id, showNotification]);
 
-  // Submissão
+  // ✅ CORREÇÃO BUG 007: Submissão corrigida para receitas recorrentes
   const handleSubmit = useCallback(async (e, criarNova = false) => {
     e.preventDefault();
     
@@ -571,8 +570,16 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
         return;
       }
       
-      // MODO CRIAÇÃO: Lógica original
+      // ✅ CORREÇÃO BUG 007: Receitas recorrentes com primeira instância correta
       if (tipoReceita === 'recorrente') {
+        console.log('🔄 Criando receitas recorrentes...');
+        console.log('📊 Configuração:', {
+          totalRecorrencias: formData.totalRecorrencias,
+          tipoRecorrencia: formData.tipoRecorrencia,
+          primeiroEfetivado: formData.primeiroEfetivado,
+          valor: valorNumerico
+        });
+        
         const receitas = [];
         const dataBase = new Date(formData.data);
         
@@ -594,6 +601,15 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
               break;
           }
           
+          // ✅ CORREÇÃO BUG 007: Status correto para cada instância
+          const efetivoStatus = i === 0 ? formData.primeiroEfetivado : false;
+          
+          console.log(`📝 Receita ${i + 1}/${formData.totalRecorrencias}:`, {
+            data: dataReceita.toISOString().split('T')[0],
+            efetivado: efetivoStatus,
+            valor: valorNumerico
+          });
+          
           receitas.push({
             usuario_id: user.id,
             data: dataReceita.toISOString().split('T')[0],
@@ -603,19 +619,29 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
             conta_id: formData.conta,
             valor: valorNumerico,
             tipo: 'receita',
-            efetivado: i === 0 ? formData.primeiroEfetivado : false,
+            efetivado: efetivoStatus, // ✅ Status correto
+            recorrente: true, // ✅ Marcar como recorrente
             observacoes: formData.observacoes.trim() || null,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           });
         }
         
-        const { error } = await supabase.from('transacoes').insert(receitas);
-        if (error) throw error;
+        console.log('💾 Salvando', receitas.length, 'receitas recorrentes...');
         
+        const { error } = await supabase.from('transacoes').insert(receitas);
+        if (error) {
+          console.error('❌ Erro ao salvar receitas:', error);
+          throw error;
+        }
+        
+        console.log('✅ Receitas recorrentes salvas com sucesso!');
         showNotification(`${formData.totalRecorrencias} receitas recorrentes criadas!`, 'success');
         
       } else {
+        // Receita simples
+        console.log('💰 Criando receita simples...');
+        
         const dadosReceita = {
           usuario_id: user.id,
           data: formData.data,
@@ -626,14 +652,21 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
           valor: valorNumerico,
           tipo: 'receita',
           efetivado: formData.efetivado,
+          recorrente: false,
           observacoes: formData.observacoes.trim() || null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
         
-        const { error } = await supabase.from('transacoes').insert([dadosReceita]);
-        if (error) throw error;
+        console.log('💾 Salvando receita simples:', dadosReceita);
         
+        const { error } = await supabase.from('transacoes').insert([dadosReceita]);
+        if (error) {
+          console.error('❌ Erro ao salvar receita:', error);
+          throw error;
+        }
+        
+        console.log('✅ Receita simples salva com sucesso!');
         showNotification('Receita registrada com sucesso!', 'success');
       }
       
@@ -833,7 +866,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                     </div>
                   )}
 
-                  {/* Status da primeira recorrência */}
+                  {/* ✅ CORREÇÃO BUG 007: Status da primeira recorrência */}
                   <div className="form-field-group">
                     <label className="form-label">
                       <CheckCircle size={14} />
@@ -871,41 +904,43 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                 </>
               )}
 
-              {/* Status */}
-              <div className="form-field-group">
-                <label className="form-label">
-                  <CheckCircle size={14} />
-                  Status da Receita
-                </label>
-                <div className="form-radio-group">
-                  <label className={`form-radio-option ${formData.efetivado ? 'selected receita' : ''}`}>
-                    <input
-                      type="radio"
-                      checked={formData.efetivado === true}
-                      onChange={() => setFormData(prev => ({ ...prev, efetivado: true }))}
-                      disabled={submitting}
-                    />
-                    <CheckCircle size={16} />
-                    <div>
-                      <div>Já recebida</div>
-                      <small>Dinheiro na conta</small>
-                    </div>
+              {/* ✅ CORREÇÃO IMPROVEMENT 003: Status - Apenas para receitas simples ou modo edição */}
+              {(tipoReceita === 'simples' || isEditMode) && (
+                <div className="form-field-group">
+                  <label className="form-label">
+                    <CheckCircle size={14} />
+                    Status da Receita
                   </label>
-                  <label className={`form-radio-option ${!formData.efetivado ? 'selected warning' : ''}`}>
-                    <input
-                      type="radio"
-                      checked={formData.efetivado === false}
-                      onChange={() => setFormData(prev => ({ ...prev, efetivado: false }))}
-                      disabled={submitting}
-                    />
-                    <Clock size={16} />
-                    <div>
-                      <div>Planejada</div>
-                      <small>A receber</small>
-                    </div>
-                  </label>
+                  <div className="form-radio-group">
+                    <label className={`form-radio-option ${formData.efetivado ? 'selected receita' : ''}`}>
+                      <input
+                        type="radio"
+                        checked={formData.efetivado === true}
+                        onChange={() => setFormData(prev => ({ ...prev, efetivado: true }))}
+                        disabled={submitting}
+                      />
+                      <CheckCircle size={16} />
+                      <div>
+                        <div>Já recebida</div>
+                        <small>Dinheiro na conta</small>
+                      </div>
+                    </label>
+                    <label className={`form-radio-option ${!formData.efetivado ? 'selected warning' : ''}`}>
+                      <input
+                        type="radio"
+                        checked={formData.efetivado === false}
+                        onChange={() => setFormData(prev => ({ ...prev, efetivado: false }))}
+                        disabled={submitting}
+                      />
+                      <Clock size={16} />
+                      <div>
+                        <div>Planejada</div>
+                        <small>A receber</small>
+                      </div>
+                    </label>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Descrição */}
               <div className="form-field-group">
@@ -1158,4 +1193,4 @@ ReceitasModal.propTypes = {
   transacaoEditando: PropTypes.object // ✅ Nova prop para edição
 };
 
-export default React.memo(ReceitasModal);
+export default React.memo(ReceitasModal);// src/modules/transacoes/components/ReceitasModal.

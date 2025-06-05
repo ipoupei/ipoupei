@@ -1,4 +1,4 @@
-/* Calendário Financeiro - CSS Simples e Funcional */
+/* Calendário Financeiro - CSS Atualizado para Dados Reais */
 
 .calendario-financeiro-moderno {
   width: 100%;
@@ -8,7 +8,66 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
-/* ================== LEGENDA SIMPLES ================== */
+/* ================== RESUMO DO MÊS ================== */
+.calendario-resumo-mes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.resumo-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border-left: 4px solid #e5e7eb;
+}
+
+.resumo-item.receitas {
+  border-left-color: #10b981;
+}
+
+.resumo-item.despesas {
+  border-left-color: #ef4444;
+}
+
+.resumo-item.saldo {
+  border-left-color: #6366f1;
+}
+
+.resumo-item.transacoes {
+  border-left-color: #8b5cf6;
+}
+
+.resumo-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.resumo-valor {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.resumo-valor.positivo {
+  color: #059669;
+}
+
+.resumo-valor.negativo {
+  color: #dc2626;
+}
+
+/* ================== LEGENDA ATUALIZADA ================== */
 .calendario-legenda-simples {
   display: flex;
   justify-content: center;
@@ -46,6 +105,11 @@
 .legenda-cor.programado {
   background: #f59e0b;
   border: 2px dashed #d97706;
+}
+
+.legenda-cor.pendente {
+  background: #8b5cf6;
+  border: 2px solid #7c3aed;
 }
 
 /* ================== CABEÇALHO DOS DIAS ================== */
@@ -137,6 +201,21 @@
   border-style: dashed;
 }
 
+.calendario-dia.tem-pendente {
+  background: #faf5ff;
+  border-color: #c4b5fd;
+}
+
+.calendario-dia.tem-pendente.tem-receita {
+  background: linear-gradient(135deg, #f0fdf4 0%, #faf5ff 100%);
+  border-color: #a5b4fc;
+}
+
+.calendario-dia.tem-pendente.tem-despesa {
+  background: linear-gradient(135deg, #fef2f2 0%, #faf5ff 100%);
+  border-color: #c4b5fd;
+}
+
 /* ================== NÚMERO DO DIA ================== */
 .dia-numero {
   font-size: 1rem;
@@ -179,6 +258,10 @@
   background: #f59e0b;
 }
 
+.calendario-dia.tem-pendente .quantidade-transacoes {
+  background: #8b5cf6;
+}
+
 .saldo-dia {
   font-size: 0.7rem;
   font-weight: 600;
@@ -209,12 +292,26 @@
   animation: pulse 2s infinite;
 }
 
+.indicador-pendente {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #8b5cf6;
+  border: 2px solid #7c3aed;
+  animation: blink 1.5s infinite;
+}
+
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
 
-/* ================== TOOLTIP ================== */
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0.3; }
+}
+
+/* ================== TOOLTIP ATUALIZADO ================== */
 .dia-tooltip {
   position: absolute;
   bottom: calc(100% + 8px);
@@ -225,7 +322,7 @@
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   padding: 0.75rem;
   z-index: 100;
-  min-width: 180px;
+  min-width: 200px;
   border: 1px solid #e5e7eb;
   pointer-events: none;
 }
@@ -286,6 +383,39 @@
   color: #dc2626;
 }
 
+/* Status das transações no tooltip */
+.tooltip-status {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #f3f4f6;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.status-item {
+  font-size: 0.6875rem;
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.status-item.realizado {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.status-item.programado {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.status-item.pendente {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
 .tooltip-rodape {
   font-size: 0.6875rem;
   color: #6b7280;
@@ -296,33 +426,70 @@
   font-style: italic;
 }
 
-/* ================== LOADING ================== */
+/* ================== LOADING E ERROR ================== */
 .calendario-loading {
   grid-column: 1 / -1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 2rem;
   color: #6b7280;
   font-size: 0.875rem;
+  gap: 1rem;
+}
+
+.loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #e5e7eb;
+  border-top: 2px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.calendario-error {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  gap: 1rem;
+}
+
+.error-icon {
+  font-size: 2rem;
+}
+
+.error-message {
+  color: #dc2626;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.error-retry {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background 0.2s;
+}
+
+.error-retry:hover {
+  background: #2563eb;
 }
 
 /* ================== RESPONSIVIDADE ================== */
 @media (max-width: 768px) {
-  .calendario-financeiro-moderno {
-    padding: 1rem;
-  }
-  
-  .calendario-legenda-simples {
-    gap: 1rem;
-    padding: 0.75rem;
-    flex-wrap: wrap;
-  }
-  
-  .calendario-grid {
-    gap: 0.25rem;
-  }
-  
   .calendario-dia {
     padding: 0.5rem;
     min-height: 60px;
@@ -371,4 +538,17 @@
     font-size: 0.75rem;
     padding: 0.5rem 0;
   }
-}
+}financeiro-moderno {
+    padding: 1rem;
+  }
+  
+  .calendario-legenda-simples {
+    gap: 1rem;
+    padding: 0.75rem;
+    flex-wrap: wrap;
+  }
+  
+  .calendario-grid {
+    gap: 0.25rem;
+  }
+  

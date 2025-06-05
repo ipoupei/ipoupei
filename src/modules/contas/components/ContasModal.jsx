@@ -1,4 +1,4 @@
-// src/components/ContasModal.jsx - VERSÃO REFATORADA E OTIMIZADA COMPLETA
+// src/modules/contas/components/ContasModal.jsx - VERSÃO CORRIGIDA V2 (baseado em DespesasModal)
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -13,28 +13,23 @@ import {
   FileText
 } from 'lucide-react';
 
-import { useAuthStore } from '@modules/auth/store/authStore';;
+import { useAuthStore } from '@modules/auth/store/authStore';
 import { useUIStore } from '@store/uiStore';
-
-
-
-
-
-
 import { formatCurrency } from '@utils/formatCurrency';
-
-
 import { supabase } from '@lib/supabaseClient';
 import '@shared/styles/FormsModal.css';
+
 /**
- * Modal de Contas - Versão Otimizada Completa
- * Reduzido drasticamente, com sincronização automática e correção de saldo
+ * Modal de Contas - Versão Corrigida V2 (baseado na solução do DespesasModal)
+ * ✅ CORREÇÃO: Formatação igual ao DespesasModal que funcionava
+ * ✅ CORREÇÃO: Suporte a valores negativos com sinal de menos
+ * ✅ CORREÇÃO: Recalculo automático para atualizar outras telas
  */
 const ContasModal = ({ isOpen, onClose, onSave }) => {
   const { user } = useAuthStore();
   const { showNotification } = useUIStore();
   
-  const nomeInputRef = useRef(null);
+  const valorInputRef = useRef(null);
 
   // Estados principais
   const [contas, setContas] = useState([]);
@@ -78,6 +73,36 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
     { value: 'carteira', label: 'Carteira', icon: '👛' }
   ];
 
+  // ✅ CORREÇÃO: Formatação IGUAL ao DespesasModal que funcionava
+  const formatarValor = useCallback((valor) => {
+    const apenasNumeros = valor.toString().replace(/\D/g, '');
+    if (!apenasNumeros || apenasNumeros === '0') return '';
+    const valorEmCentavos = parseInt(apenasNumeros, 10);
+    const valorEmReais = valorEmCentavos / 100;
+    return valorEmReais.toLocaleString('pt-BR', { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    });
+  }, []);
+
+  // ✅ CORREÇÃO: Valor numérico IGUAL ao DespesasModal que funcionava
+  const valorNumerico = useMemo(() => {
+    if (!formData.saldo) return 0;
+    
+    const valorString = formData.saldo.toString();
+    if (valorString.includes(',')) {
+      const partes = valorString.split(',');
+      const inteira = partes[0].replace(/\./g, '');
+      const decimal = partes[1] || '00';
+      const valorFinal = parseFloat(`${inteira}.${decimal}`);
+      return isNaN(valorFinal) ? 0 : valorFinal;
+    } else {
+      const apenasNumeros = valorString.replace(/\./g, '');
+      const valorFinal = parseFloat(apenasNumeros) / 100;
+      return isNaN(valorFinal) ? 0 : valorFinal;
+    }
+  }, [formData.saldo]);
+
   // Carregar contas
   const carregarContas = useCallback(async () => {
     if (!user) return;
@@ -106,22 +131,6 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
       carregarContas();
     }
   }, [isOpen, user, carregarContas]);
-
-  // Formatação de valor
-  const formatarValor = useCallback((valor) => {
-    const valorLimpo = valor.toString().replace(/\D/g, '');
-    const valorNumerico = parseFloat(valorLimpo) / 100;
-    if (isNaN(valorNumerico) || valorNumerico === 0) return '';
-    return valorNumerico.toLocaleString('pt-BR', { 
-      minimumFractionDigits: 2, 
-      maximumFractionDigits: 2 
-    });
-  }, []);
-
-  const valorNumerico = useMemo(() => {
-    const valor = parseFloat(formData.saldo.toString().replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
-    return valor;
-  }, [formData.saldo]);
 
   // Cálculo do resumo
   const resumo = useMemo(() => {
@@ -174,9 +183,27 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
     }
   }, [errors]);
 
-  const handleSaldoChange = useCallback((e) => {
-    const valorFormatado = formatarValor(e.target.value);
-    setFormData(prev => ({ ...prev, saldo: valorFormatado }));
+  // ✅ CORREÇÃO: Handler de saldo com suporte a negativos IGUAL ao DespesasModal
+  const handleValorChange = useCallback((e) => {
+    const valorOriginal = e.target.value;
+    
+    // ✅ CORREÇÃO: Permitir sinal de menos no início
+    if (valorOriginal === '' || valorOriginal === '-') {
+      setFormData(prev => ({ ...prev, saldo: valorOriginal }));
+      if (errors.saldo) {
+        setErrors(prev => ({ ...prev, saldo: null }));
+      }
+      return;
+    }
+    
+    // ✅ CORREÇÃO: Detectar se é negativo
+    const isNegativo = valorOriginal.startsWith('-');
+    const valorSemSinal = valorOriginal.replace('-', '');
+    
+    const valorFormatado = formatarValor(valorSemSinal);
+    const valorFinal = isNegativo ? `-${valorFormatado}` : valorFormatado;
+    
+    setFormData(prev => ({ ...prev, saldo: valorFinal }));
     if (errors.saldo) {
       setErrors(prev => ({ ...prev, saldo: null }));
     }
@@ -190,22 +217,27 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
   const iniciarNovaConta = useCallback(() => {
     resetForm();
     setMostrarForm(true);
-    setTimeout(() => nomeInputRef.current?.focus(), 100);
+    setTimeout(() => valorInputRef.current?.focus(), 100);
   }, [resetForm]);
 
   // Iniciar edição
   const iniciarEdicao = useCallback((conta) => {
+    const saldoFormatado = (conta.saldo || 0).toLocaleString('pt-BR', { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    });
+    
     setFormData({
       nome: conta.nome,
       tipo: conta.tipo,
       banco: conta.banco || '',
-      saldo: formatarValor((conta.saldo * 100).toString()),
+      saldo: saldoFormatado,
       cor: conta.cor || '#3B82F6'
     });
     setEditandoConta(conta);
     setMostrarForm(true);
-    setTimeout(() => nomeInputRef.current?.focus(), 100);
-  }, [formatarValor]);
+    setTimeout(() => valorInputRef.current?.focus(), 100);
+  }, []);
 
   // Validação
   const validateForm = useCallback(() => {
@@ -254,7 +286,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
           usuario_id: user.id,
           data: new Date().toISOString().split('T')[0],
           descricao: `Correção de saldo - ${correcaoSaldo.contaNome}`,
-          categoria_id: null, // Sem categoria para correções
+          categoria_id: null,
           conta_id: correcaoSaldo.contaId,
           valor: Math.abs(correcaoSaldo.diferenca),
           tipo: correcaoSaldo.diferenca > 0 ? 'receita' : 'despesa',
@@ -287,8 +319,11 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
       
       if (contaError) throw contaError;
       
-      // Finalizar edição
-      await finalizarEdicao();
+      // ✅ CORREÇÃO: Recarregar e notificar outras telas
+      await carregarContas();
+      if (onSave) onSave();
+      resetForm();
+      showNotification('Conta atualizada com sucesso!', 'success');
       
     } catch (error) {
       console.error('Erro ao aplicar correção:', error);
@@ -297,17 +332,9 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
       setSubmitting(false);
       setCorrecaoSaldo({ show: false, contaId: '', contaNome: '', saldoAtual: 0, novoSaldo: 0, diferenca: 0 });
     }
-  }, [correcaoSaldo, user.id, showNotification]);
+  }, [correcaoSaldo, user.id, showNotification, carregarContas, onSave, resetForm]);
 
-  // Finalizar edição após correção
-  const finalizarEdicao = useCallback(async () => {
-    await carregarContas();
-    resetForm();
-    if (onSave) onSave(); // Notificar outros componentes
-    showNotification('Conta atualizada com sucesso!', 'success');
-  }, [carregarContas, resetForm, onSave, showNotification]);
-
-  // Submissão
+  // ✅ CORREÇÃO: Submissão com valor numérico correto e notificação
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     
@@ -340,7 +367,10 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
         
         if (error) throw error;
         
-        await finalizarEdicao();
+        await carregarContas();
+        resetForm();
+        if (onSave) onSave(); // ✅ Notificar outros componentes
+        showNotification('Conta atualizada com sucesso!', 'success');
         
       } else {
         // Criar nova conta
@@ -364,7 +394,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
         
         await carregarContas();
         resetForm();
-        if (onSave) onSave(); // Notificar outros componentes
+        if (onSave) onSave(); // ✅ Notificar outros componentes
         showNotification('Conta criada com sucesso!', 'success');
       }
       
@@ -374,7 +404,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
     } finally {
       setSubmitting(false);
     }
-  }, [validateForm, editandoConta, verificarMudancaSaldo, valorNumerico, formData, user.id, finalizarEdicao, carregarContas, resetForm, onSave, showNotification]);
+  }, [validateForm, editandoConta, verificarMudancaSaldo, valorNumerico, formData, user.id, carregarContas, resetForm, onSave, showNotification]);
 
   // Arquivar conta
   const arquivarConta = useCallback(async (contaId) => {
@@ -392,7 +422,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
       if (error) throw error;
       
       await carregarContas();
-      if (onSave) onSave(); // Notificar outros componentes
+      if (onSave) onSave(); // ✅ Notificar outros componentes
       showNotification('Conta arquivada com sucesso!', 'success');
       
     } catch (error) {
@@ -406,48 +436,38 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="receitas-modal-overlay">
-      <div className="receitas-modal-container" style={{ maxWidth: '600px' }}>
+    <div className="modal-overlay">
+      <div className="modal-container" style={{ maxWidth: '600px' }}>
         {/* Header */}
-        <div className="receitas-modal-header" style={{ 
+        <div className="modal-header" style={{ 
           background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0.02) 100%)',
           borderBottom: '1px solid rgba(59, 130, 246, 0.1)' 
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              width: '36px',
-              height: '36px',
-              borderRadius: '10px',
+          <h2 className="modal-title">
+            <div className="form-icon-wrapper" style={{
               background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
               color: 'white'
             }}>
               <Building size={18} />
             </div>
             <div>
-              <h2 className="receitas-modal-title" style={{ margin: 0, fontSize: '1.1rem' }}>
-                Gerenciar Contas
-              </h2>
-              <p style={{ margin: 0, fontSize: '0.8rem', color: '#6b7280' }}>
+              <div className="form-title-main">Gerenciar Contas</div>
+              <div className="form-title-subtitle">
                 {resumo.totalContas} conta{resumo.totalContas !== 1 ? 's' : ''} • Total: {formatCurrency(resumo.total)}
-              </p>
+              </div>
             </div>
-          </div>
-          <button className="receitas-modal-close" onClick={onClose}>
+          </h2>
+          <button className="modal-close" onClick={onClose}>
             <X size={18} />
           </button>
         </div>
         
         {/* Content */}
-        <div className="receitas-modal-content">
+        <div className="modal-content">
           {loading ? (
-            <div className="receitas-loading">
-              <div className="receitas-loading-spinner" style={{ borderTopColor: '#3b82f6' }}></div>
-              <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>
-                Carregando contas...
-              </p>
+            <div className="form-loading">
+              <div className="form-loading-spinner" style={{ borderTopColor: '#3b82f6' }}></div>
+              <p>Carregando contas...</p>
             </div>
           ) : (
             <>
@@ -500,7 +520,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
                   <button
                     onClick={iniciarNovaConta}
                     disabled={submitting}
-                    className="receitas-btn receitas-btn-primary"
+                    className="form-btn form-btn-primary"
                     style={{ 
                       padding: '12px 20px',
                       fontSize: '0.9rem',
@@ -515,7 +535,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
 
               {/* Formulário */}
               {mostrarForm && (
-                <form onSubmit={handleSubmit} className="receitas-form" style={{ marginBottom: '24px' }}>
+                <form onSubmit={handleSubmit} className="form" style={{ marginBottom: '24px' }}>
                   <div style={{ 
                     background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.03) 0%, rgba(59, 130, 246, 0.01) 100%)',
                     border: '1px solid rgba(59, 130, 246, 0.1)',
@@ -536,27 +556,27 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
                     </h3>
 
                     {/* Nome e Tipo */}
-                    <div className="receitas-form-row">
-                      <div className="receitas-form-group">
-                        <label className="receitas-form-label">
+                    <div className="form-row">
+                      <div className="form-field">
+                        <label className="form-label">
                           <Building size={14} />
                           Nome da Conta *
                         </label>
                         <input
-                          ref={nomeInputRef}
+                          ref={valorInputRef}
                           type="text"
                           name="nome"
                           value={formData.nome}
                           onChange={handleInputChange}
                           placeholder="Ex: Banco do Brasil, Nubank"
                           disabled={submitting}
-                          className={`receitas-form-input ${errors.nome ? 'error' : ''}`}
+                          className={`form-input ${errors.nome ? 'error' : ''}`}
                         />
-                        {errors.nome && <div className="receitas-form-error">{errors.nome}</div>}
+                        {errors.nome && <div className="form-error">{errors.nome}</div>}
                       </div>
                       
-                      <div className="receitas-form-group">
-                        <label className="receitas-form-label">
+                      <div className="form-field">
+                        <label className="form-label">
                           <FileText size={14} />
                           Tipo *
                         </label>
@@ -565,7 +585,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
                           value={formData.tipo}
                           onChange={handleInputChange}
                           disabled={submitting}
-                          className={`receitas-form-input ${errors.tipo ? 'error' : ''}`}
+                          className={`form-input ${errors.tipo ? 'error' : ''}`}
                         >
                           {tiposConta.map(tipo => (
                             <option key={tipo.value} value={tipo.value}>
@@ -573,14 +593,14 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
                             </option>
                           ))}
                         </select>
-                        {errors.tipo && <div className="receitas-form-error">{errors.tipo}</div>}
+                        {errors.tipo && <div className="form-error">{errors.tipo}</div>}
                       </div>
                     </div>
 
                     {/* Banco e Saldo */}
-                    <div className="receitas-form-row">
-                      <div className="receitas-form-group">
-                        <label className="receitas-form-label">
+                    <div className="form-row">
+                      <div className="form-field">
+                        <label className="form-label">
                           <Building size={14} />
                           Banco (opcional)
                         </label>
@@ -591,35 +611,50 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
                           onChange={handleInputChange}
                           placeholder="Ex: Itaú, Santander"
                           disabled={submitting}
-                          className="receitas-form-input"
+                          className="form-input"
                         />
                       </div>
                       
-                      <div className="receitas-form-group">
-                        <label className="receitas-form-label">
+                      <div className="form-field">
+                        <label className="form-label">
                           <DollarSign size={14} />
                           Saldo Atual
+                          <small style={{ color: '#6b7280', fontWeight: 'normal', marginLeft: '8px' }}>
+                            (Ex: 1000 ou -500,00)
+                          </small>
                         </label>
                         <input
                           type="text"
                           value={formData.saldo}
-                          onChange={handleSaldoChange}
+                          onChange={handleValorChange}
                           placeholder="0,00"
                           disabled={submitting}
-                          className="receitas-form-input receitas-valor-input"
+                          className="form-input valor receita"
                           style={{ 
                             fontSize: '1rem',
                             fontWeight: '600',
-                            color: '#3b82f6',
+                            color: valorNumerico >= 0 ? '#10b981' : '#ef4444',
                             textAlign: 'center'
                           }}
                         />
+                        {/* ✅ Indicador visual do valor que será salvo */}
+                        {formData.saldo && (
+                          <div style={{ 
+                            fontSize: '0.75rem', 
+                            color: valorNumerico >= 0 ? '#059669' : '#dc2626', 
+                            textAlign: 'center',
+                            marginTop: '4px',
+                            fontWeight: '500'
+                          }}>
+                            💾 Será salvo: {formatCurrency(valorNumerico)}
+                          </div>
+                        )}
                       </div>
                     </div>
 
                     {/* Seletor de Cor */}
-                    <div className="receitas-form-group receitas-form-full">
-                      <label className="receitas-form-label">
+                    <div className="form-field-group">
+                      <label className="form-label">
                         <Palette size={14} />
                         Cor da Conta
                       </label>
@@ -645,24 +680,23 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
                     </div>
 
                     {/* Ações */}
-                    <div className="receitas-form-actions">
+                    <div className="form-actions">
                       <button
                         type="button"
                         onClick={resetForm}
                         disabled={submitting}
-                        className="receitas-btn receitas-btn-secondary"
+                        className="form-btn form-btn-secondary"
                       >
                         Cancelar
                       </button>
                       <button
                         type="submit"
                         disabled={submitting}
-                        className="receitas-btn receitas-btn-primary"
-                        style={{ background: '#3b82f6' }}
+                        className="form-btn form-btn-primary receita"
                       >
                         {submitting ? (
                           <>
-                            <div className="receitas-btn-spinner"></div>
+                            <div className="form-spinner"></div>
                             Salvando...
                           </>
                         ) : (
@@ -784,8 +818,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
                   </p>
                   <button
                     onClick={iniciarNovaConta}
-                    className="receitas-btn receitas-btn-primary"
-                    style={{ background: '#3b82f6' }}
+                    className="form-btn form-btn-primary receita"
                   >
                     <Plus size={16} />
                     Criar Primeira Conta
@@ -798,9 +831,9 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
         
         {/* Modal de Correção de Saldo */}
         {correcaoSaldo.show && (
-          <div className="receitas-confirmation-overlay">
-            <div className="receitas-confirmation-container" style={{ maxWidth: '500px' }}>
-              <h3 className="receitas-confirmation-title" style={{ 
+          <div className="confirmation-overlay">
+            <div className="confirmation-container" style={{ maxWidth: '500px' }}>
+              <h3 className="confirmation-title" style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
                 gap: '8px',
@@ -877,10 +910,10 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
                 </div>
               </div>
               
-              <div className="receitas-confirmation-actions" style={{ gap: '8px' }}>
+              <div className="confirmation-actions" style={{ gap: '8px' }}>
                 <button 
                   onClick={() => setCorrecaoSaldo({ show: false, contaId: '', contaNome: '', saldoAtual: 0, novoSaldo: 0, diferenca: 0 })}
-                  className="receitas-confirmation-btn receitas-confirmation-btn-secondary"
+                  className="form-btn form-btn-secondary"
                   disabled={submitting}
                 >
                   Cancelar
@@ -888,16 +921,15 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
                 <button 
                   onClick={() => aplicarCorrecaoSaldo('saldo')}
                   disabled={submitting}
-                  className="receitas-confirmation-btn receitas-confirmation-btn-primary"
-                  style={{ background: '#6b7280' }}
+                  className="form-btn form-btn-secondary"
+                  style={{ background: '#6b7280', color: 'white', border: 'none' }}
                 >
                   {submitting ? 'Ajustando...' : 'Ajustar Saldo'}
                 </button>
                 <button 
                   onClick={() => aplicarCorrecaoSaldo('transacao')}
                   disabled={submitting}
-                  className="receitas-confirmation-btn receitas-confirmation-btn-primary"
-                  style={{ background: correcaoSaldo.diferenca > 0 ? '#10b981' : '#ef4444' }}
+                  className="form-btn form-btn-primary receita"
                 >
                   {submitting ? 'Criando...' : 'Criar Transação'}
                 </button>
