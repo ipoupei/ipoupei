@@ -1,4 +1,4 @@
-// src/pages/TransacoesPage.jsx - Versão com Filtros Fixos e Período Simplificado
+// src/pages/TransacoesPage.jsx - Versão com Layout Compacto
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { 
@@ -6,7 +6,7 @@ import {
   ArrowUp, ArrowDown, ArrowLeftRight, 
   Activity, CreditCard, Wallet,
   Edit, Trash2, CheckCircle, Clock,
-  Plus
+  Plus, X
 } from 'lucide-react';
 
 // Hooks (usando os existentes)
@@ -25,10 +25,14 @@ import TransferenciasModal from '@modules/transacoes/components/TransferenciasMo
 
 // Estilos
 import '@modules/transacoes/styles/TransacoesPage.css';
+
 const TransacoesPage = () => {
   const { user } = useAuth();
   const { showNotification } = useUIStore();
   
+  // Estado para mostrar filtros
+  const [showFilters, setShowFilters] = useState(false);
+
   // Estados para dados (usando dados das views do banco)
   const [categorias, setCategorias] = useState([]);
   const [contas, setContas] = useState([]);
@@ -273,6 +277,28 @@ const TransacoesPage = () => {
     }
   };
 
+  // Função para verificar se há filtros ativos
+  const hasActiveFilters = () => {
+    return (
+      filters.tipo !== 'todas' ||
+      filters.categoriaId !== '' ||
+      filters.contaId !== '' ||
+      filters.cartaoId !== '' ||
+      searchTerm.trim() !== ''
+    );
+  };
+
+  // Função para contar filtros ativos
+  const getActiveFiltersCount = () => {
+    let count = 0;
+    if (filters.tipo !== 'todas') count++;
+    if (filters.categoriaId !== '') count++;
+    if (filters.contaId !== '') count++;
+    if (filters.cartaoId !== '') count++;
+    if (searchTerm.trim() !== '') count++;
+    return count;
+  };
+
   // Função para obter o texto do período atual
   const getPeriodoTexto = () => {
     if (dataInicio && dataFim) {
@@ -378,14 +404,14 @@ const TransacoesPage = () => {
   return (
     <div className="transacoes-page">
       
-      {/* Header Simplificado */}
+      {/* Header Compacto */}
       <div className="page-header">
         <div className="header-title">
           <h1>Transações</h1>
           <p>Gerencie suas receitas, despesas e transferências</p>
         </div>
 
-        {/* Barra de Controles em Uma Linha */}
+        {/* Linha única de controles */}
         <div className="controls-bar">
           {/* Busca */}
           <div className="search-container">
@@ -399,7 +425,7 @@ const TransacoesPage = () => {
             <Search className="search-icon" />
           </div>
 
-          {/* Período */}
+          {/* Período compacto */}
           <div className="period-container">
             <div className="date-input-group">
               <label>De:</label>
@@ -428,6 +454,18 @@ const TransacoesPage = () => {
             </button>
           </div>
 
+          {/* Filtros dropdown */}
+          <div className="filters-dropdown">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`filters-btn ${hasActiveFilters() ? 'active' : ''}`}
+            >
+              <Activity className="w-4 h-4" />
+              Filtros
+              {hasActiveFilters() && <span className="filters-badge">{getActiveFiltersCount()}</span>}
+            </button>
+          </div>
+
           {/* Atualizar */}
           <button
             onClick={fetchTransacoes}
@@ -440,100 +478,7 @@ const TransacoesPage = () => {
       </div>
 
       <div className="main-content">
-        {/* Filtros Sempre Visíveis */}
-        <div className="filters-sidebar">
-          <div className="filters-header">
-            <h3 className="filters-title">Filtros</h3>
-            <button onClick={handleClearFilters} className="btn-clear-filters">
-              Limpar
-            </button>
-          </div>
-
-          <div className="filters-content">
-            {/* Tipo */}
-            <div className="filter-group">
-              <label className="filter-label">Tipo</label>
-              <select
-                value={filters.tipo}
-                onChange={(e) => handleFilterChange('tipo', e.target.value)}
-                className="filter-select"
-              >
-                <option value="todas">Todas</option>
-                <option value="receita">Receitas</option>
-                <option value="despesa">Despesas</option>
-                <option value="transferencia">Transferências</option>
-              </select>
-            </div>
-
-            {/* Categoria */}
-            <div className="filter-group">
-              <label className="filter-label">Categoria</label>
-              <select
-                value={filters.categoriaId}
-                onChange={(e) => handleFilterChange('categoriaId', e.target.value)}
-                className="filter-select"
-              >
-                <option value="">Todas as categorias</option>
-                {categorias.map(categoria => (
-                  <option key={categoria.id} value={categoria.id}>
-                    {categoria.nome}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Conta */}
-            <div className="filter-group">
-              <label className="filter-label">Conta</label>
-              <select
-                value={filters.contaId}
-                onChange={(e) => handleFilterChange('contaId', e.target.value)}
-                className="filter-select"
-              >
-                <option value="">Todas as contas</option>
-                {contas.map(conta => (
-                  <option key={conta.id} value={conta.id}>
-                    {conta.nome}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Cartão */}
-            <div className="filter-group">
-              <label className="filter-label">Cartão</label>
-              <select
-                value={filters.cartaoId}
-                onChange={(e) => handleFilterChange('cartaoId', e.target.value)}
-                className="filter-select"
-              >
-                <option value="">Todos os cartões</option>
-                {cartoes.map(cartao => (
-                  <option key={cartao.id} value={cartao.id}>
-                    {cartao.nome}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Ordenação */}
-            <div className="filter-group">
-              <label className="filter-label">Ordenar por</label>
-              <select
-                value={filters.ordenacao}
-                onChange={(e) => handleFilterChange('ordenacao', e.target.value)}
-                className="filter-select"
-              >
-                <option value="data_desc">Data (mais recente)</option>
-                <option value="data_asc">Data (mais antiga)</option>
-                <option value="valor_desc">Valor (maior)</option>
-                <option value="valor_asc">Valor (menor)</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Lista de Transações */}
+        {/* Lista de Transações - Formato Tabela Compacta */}
         <div className="transactions-list">
           <div className="list-header">
             <span className="results-count">
@@ -569,110 +514,241 @@ const TransacoesPage = () => {
               </div>
             </div>
           ) : (
-            <div className="transactions-grid">
-              {filteredTransacoes.map((transacao) => (
-                <div key={transacao.id} className="transaction-item">
-                  <div className="transaction-main">
-                    <div className="transaction-left">
-                      <div className="transaction-icon">
-                        {getTipoIcon(transacao.tipo)}
+            <div className="transactions-table">
+              {/* Header da tabela */}
+              <div className="table-header">
+                <div className="th-date">Data</div>
+                <div className="th-description">Descrição</div>
+                <div className="th-category">Categoria</div>
+                <div className="th-account">Conta/Cartão</div>
+                <div className="th-value">Valor</div>
+                <div className="th-actions">Ações</div>
+              </div>
+
+              {/* Linhas da tabela */}
+              <div className="table-body">
+                {filteredTransacoes.map((transacao) => (
+                  <div key={transacao.id} className="table-row">
+                    <div className="td-date">
+                      <div className="date-info">
+                        <span className="date-day">
+                          {transacao.data ? format(new Date(transacao.data), 'dd/MM') : '--/--'}
+                        </span>
+                        <span className="date-year">
+                          {transacao.data ? format(new Date(transacao.data), 'yyyy') : '----'}
+                        </span>
                       </div>
-                      <div className="transaction-info">
-                        <div className="transaction-description">
-                          {transacao.descricao}
+                      <div className="status-icon">
+                        {getStatusIcon(transacao.efetivado)}
+                      </div>
+                    </div>
+
+                    <div className="td-description">
+                      <div className="description-content">
+                        <div className="tipo-icon">
+                          {getTipoIcon(transacao.tipo)}
                         </div>
-                        <div className="transaction-details">
-                          {(transacao.categoria?.nome) && (
-                            <span 
-                              className="category-tag" 
-                              style={{ 
-                                backgroundColor: `${transacao.categoria?.cor || '#6B7280'}20`, 
-                                color: transacao.categoria?.cor || '#6B7280'
-                              }}
-                            >
-                              {transacao.categoria?.nome}
-                            </span>
+                        <div className="description-text">
+                          <div className="description-main">
+                            {transacao.descricao}
+                          </div>
+                          {transacao.observacoes && (
+                            <div className="description-notes">
+                              {transacao.observacoes}
+                            </div>
                           )}
-                          <span className="account-info">
-                            {transacao.cartao?.nome ? (
-                              <>
-                                <CreditCard className="w-3 h-3" />
-                                {transacao.cartao?.nome}
-                              </>
-                            ) : (
-                              <>
-                                <Wallet className="w-3 h-3" />
-                                {transacao.conta?.nome || 'Conta'}
-                              </>
-                            )}
-                          </span>
                           {transacao.total_parcelas > 1 && (
-                            <span className="parcela-info">
+                            <div className="parcela-info">
                               {transacao.parcela_atual}/{transacao.total_parcelas}
-                            </span>
+                            </div>
                           )}
                         </div>
                       </div>
                     </div>
 
-                    <div className="transaction-right">
-                      <div className="transaction-value">
-                        <span className={`value ${transacao.tipo === 'receita' ? 'positive' : 'negative'}`}>
-                          {transacao.tipo === 'receita' ? '+' : '-'}
-                          {formatCurrency(transacao.valor)}
+                    <div className="td-category">
+                      {transacao.categoria && (
+                        <span 
+                          className="category-tag" 
+                          style={{ 
+                            backgroundColor: `${transacao.categoria?.cor || '#6B7280'}20`, 
+                            color: transacao.categoria?.cor || '#6B7280',
+                            borderColor: `${transacao.categoria?.cor || '#6B7280'}40`
+                          }}
+                        >
+                          {transacao.categoria?.nome}
                         </span>
-                        <div className="transaction-meta">
-                          <span className="transaction-date">
-                            {transacao.data ? format(new Date(transacao.data), 'dd/MM/yyyy') : 'Sem data'}
-                          </span>
-                          <span className="transaction-status">
-                            {getStatusIcon(transacao.efetivado)}
-                          </span>
-                        </div>
-                      </div>
+                      )}
+                    </div>
 
-                      {/* Botões de ação */}
-                      <div className="transaction-actions">
-                        <button
-                          onClick={() => handleEditTransacao(transacao)}
-                          className="action-btn edit"
-                          title="Editar transação"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-
-                        {!transacao.efetivado && (
-                          <button
-                            onClick={() => handleMarkAsCompleted(transacao.id)}
-                            className="action-btn complete"
-                            title="Marcar como efetivada"
-                          >
-                            <CheckCircle className="w-4 h-4" />
-                          </button>
+                    <div className="td-account">
+                      <div className="account-info">
+                        {transacao.cartao?.nome ? (
+                          <>
+                            <CreditCard className="w-3 h-3" />
+                            <span>{transacao.cartao?.nome}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Wallet className="w-3 h-3" />
+                            <span>{transacao.conta?.nome || 'Conta'}</span>
+                          </>
                         )}
-
-                        <button
-                          onClick={() => handleDeleteTransacao(transacao.id)}
-                          className="action-btn delete"
-                          title="Excluir transação"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
                       </div>
+                    </div>
+
+                    <div className="td-value">
+                      <span className={`value ${transacao.tipo === 'receita' ? 'positive' : 'negative'}`}>
+                        {transacao.tipo === 'receita' ? '+' : '-'}
+                        {formatCurrency(transacao.valor)}
+                      </span>
+                    </div>
+
+                    <div className="td-actions">
+                      <button
+                        onClick={() => handleEditTransacao(transacao)}
+                        className="action-btn edit"
+                        title="Editar transação"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+
+                      {!transacao.efetivado && (
+                        <button
+                          onClick={() => handleMarkAsCompleted(transacao.id)}
+                          className="action-btn complete"
+                          title="Marcar como efetivada"
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => handleDeleteTransacao(transacao.id)}
+                        className="action-btn delete"
+                        title="Excluir transação"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-
-                  {transacao.observacoes && (
-                    <div className="transaction-notes">
-                      {transacao.observacoes}
-                    </div>
-                  )}
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Modal de Filtros */}
+      {showFilters && (
+        <div className="filters-overlay" onClick={() => setShowFilters(false)}>
+          <div className="filters-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="filters-header">
+              <h3 className="filters-title">Filtros</h3>
+              <div className="filters-header-actions">
+                <button onClick={handleClearFilters} className="btn-clear-filters">
+                  Limpar
+                </button>
+                <button onClick={() => setShowFilters(false)} className="btn-close-filters">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="filters-content">
+              {/* Tipo */}
+              <div className="filter-group">
+                <label className="filter-label">Tipo</label>
+                <select
+                  value={filters.tipo}
+                  onChange={(e) => handleFilterChange('tipo', e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="todas">Todas</option>
+                  <option value="receita">Receitas</option>
+                  <option value="despesa">Despesas</option>
+                  <option value="transferencia">Transferências</option>
+                </select>
+              </div>
+
+              {/* Categoria */}
+              <div className="filter-group">
+                <label className="filter-label">Categoria</label>
+                <select
+                  value={filters.categoriaId}
+                  onChange={(e) => handleFilterChange('categoriaId', e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="">Todas as categorias</option>
+                  {categorias.map(categoria => (
+                    <option key={categoria.id} value={categoria.id}>
+                      {categoria.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Conta */}
+              <div className="filter-group">
+                <label className="filter-label">Conta</label>
+                <select
+                  value={filters.contaId}
+                  onChange={(e) => handleFilterChange('contaId', e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="">Todas as contas</option>
+                  {contas.map(conta => (
+                    <option key={conta.id} value={conta.id}>
+                      {conta.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Cartão */}
+              <div className="filter-group">
+                <label className="filter-label">Cartão</label>
+                <select
+                  value={filters.cartaoId}
+                  onChange={(e) => handleFilterChange('cartaoId', e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="">Todos os cartões</option>
+                  {cartoes.map(cartao => (
+                    <option key={cartao.id} value={cartao.id}>
+                      {cartao.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Ordenação */}
+              <div className="filter-group">
+                <label className="filter-label">Ordenar por</label>
+                <select
+                  value={filters.ordenacao}
+                  onChange={(e) => handleFilterChange('ordenacao', e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="data_desc">Data (mais recente)</option>
+                  <option value="data_asc">Data (mais antiga)</option>
+                  <option value="valor_desc">Valor (maior)</option>
+                  <option value="valor_asc">Valor (menor)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="filters-footer">
+              <button 
+                onClick={() => setShowFilters(false)}
+                className="btn-apply-filters"
+              >
+                Aplicar Filtros
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modais com suporte à edição */}
       <ReceitasModal 

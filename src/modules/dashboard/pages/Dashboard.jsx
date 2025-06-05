@@ -4,7 +4,9 @@ import {
   BarChart3,
   Eye,
   ChevronRight as ArrowRight,
-  Calendar
+  Calendar,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -21,9 +23,6 @@ import DonutChartCategoria from '@modules/relatorios/components/DonutChartCatego
 import CalendarioFinanceiro from '@modules/dashboard/components/CalendarioFinanceiro';
 import ProjecaoSaldoGraph from '@modules/dashboard/components/ProjecaoSaldoGraph';
 import DetalhesDoDiaModal from '@modules/dashboard/components/DetalhesDoDiaModal';
-import DashboardContent from '@modules/dashboard/components/DashboardContent';
-
-
 
 // Modais existentes
 import ContasModal from '@modules/contas/components/ContasModal';
@@ -34,9 +33,11 @@ import CategoriasModal from '@modules/categorias/components/CategoriasModal';
 import CartoesModal from '@modules/cartoes/components/CartoesModal';
 import TransferenciasModal from '@modules/transacoes/components/TransferenciasModal';
 
+// IMPORTAR O CSS
+import '../styles/Dashboard.css';
+
 /**
- * Dashboard Content - Versão limpa para uso dentro do MainLayout
- * Apenas cards flip + gráficos + calendário + projeções
+ * Dashboard Content - Versão corrigida com CSS aplicado
  */
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -47,6 +48,7 @@ const Dashboard = () => {
   
   // Estados locais para UI
   const [diaDetalhes, setDiaDetalhes] = useState(null);
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [flippedCards, setFlippedCards] = useState({
     saldo: false,
     receitas: false,
@@ -104,6 +106,32 @@ const Dashboard = () => {
     openModal('detalhesDia');
   };
 
+  // Funções de navegação de período
+  const navigateMonth = (direction) => {
+    setCurrentDate(prev => {
+      const newDate = new Date(prev);
+      newDate.setMonth(newDate.getMonth() + direction);
+      return newDate;
+    });
+  };
+
+  const getFormattedPeriod = () => {
+    return currentDate.toLocaleDateString('pt-BR', { 
+      month: 'long', 
+      year: 'numeric' 
+    });
+  };
+
+  const isCurrentMonth = () => {
+    const now = new Date();
+    return currentDate.getMonth() === now.getMonth() && 
+           currentDate.getFullYear() === now.getFullYear();
+  };
+
+  const goToToday = () => {
+    setCurrentDate(new Date());
+  };
+
   // Se não estiver autenticado, redireciona
   if (!isAuthenticated && !authLoading) {
     navigate('/login');
@@ -147,6 +175,44 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard-content">
+      {/* Seletor de Período - Interno ao Dashboard */}
+      <section className="dashboard-period-selector">
+        <div className="period-selector-container">
+          <div className="period-selector-inline">
+            <button 
+              className="period-nav"
+              onClick={() => navigateMonth(-1)}
+              title="Mês anterior"
+            >
+              <ChevronLeft size={20} />
+            </button>
+
+            <div className="current-period-inline">
+              <Calendar size={18} />
+              <span className="period-text">
+                {getFormattedPeriod()}
+              </span>
+              {!isCurrentMonth() && (
+                <button 
+                  className="today-button" 
+                  onClick={goToToday}
+                >
+                  Hoje
+                </button>
+              )}
+            </div>
+
+            <button 
+              className="period-nav"
+              onClick={() => navigateMonth(1)}
+              title="Próximo mês"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+        </div>
+      </section>
+
       {/* Cards Grid Premium com Flip */}
       <div className="cards-grid">
         {/* Card de Saldo - Verde */}
@@ -259,7 +325,7 @@ const Dashboard = () => {
           </div>
         </div>
         
-        {/* Card de Despesas - Vermelho */}
+        {/* Card de Despesas - Laranja */}
         <div 
           className={`summary-card card-amber ${flippedCards.despesas ? 'flipped' : ''}`}
           onClick={() => handleCardFlip('despesas')}
@@ -458,8 +524,8 @@ const Dashboard = () => {
         <div className="calendar-container">
           <CalendarioFinanceiro 
             data={data} 
-            mes={new Date().getMonth()} 
-            ano={new Date().getFullYear()} 
+            mes={currentDate.getMonth()} 
+            ano={currentDate.getFullYear()} 
             onDiaClick={handleDiaClick}
           />
         </div>
@@ -479,8 +545,8 @@ const Dashboard = () => {
         <div className="projection-container">
           <ProjecaoSaldoGraph 
             data={data?.historico || []} 
-            mesAtual={new Date().getMonth()}
-            anoAtual={new Date().getFullYear()}
+            mesAtual={currentDate.getMonth()}
+            anoAtual={currentDate.getFullYear()}
           />
         </div>
       </div>

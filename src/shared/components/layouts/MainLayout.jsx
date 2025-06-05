@@ -1,4 +1,4 @@
-// src/shared/components/layout/MainLayout.jsx - VERSÃO COMPLETAMENTE LIMPA
+// src/shared/components/layout/MainLayout.jsx - VERSÃO SEM SELETOR DE PERÍODO
 import React, { useState, useEffect, Suspense } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { 
@@ -8,9 +8,6 @@ import {
   CreditCard, 
   ArrowLeftRight,
   Wallet,
-  ChevronLeft,
-  ChevronRight,
-  Calendar,
   MoreHorizontal,
   LogOut,
   BarChart3,
@@ -21,7 +18,6 @@ import {
 
 // IMPORTS LIMPOS USANDO ALIASES DO VITE.CONFIG.JS
 import useAuth from '@modules/auth/hooks/useAuth';
-import usePeriodo from '@modules/transacoes/hooks/usePeriodo';
 import NotificationContainer from '@shared/components/ui/NotificationContainer';
 
 // MODAIS - IMPORTS LIMPOS
@@ -55,15 +51,6 @@ const MainLayout = () => {
     categorias: false
   });
   
-  // Hook de período
-  const {
-    currentDate,
-    navigateMonth,
-    getFormattedPeriod,
-    isCurrentMonth,
-    goToToday
-  } = usePeriodo();
-  
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMaisMenu, setShowMaisMenu] = useState(false);
 
@@ -72,9 +59,9 @@ const MainLayout = () => {
     const handleScroll = () => {
       const scrollTop = window.scrollY;
       
-      if (!isScrolled && scrollTop > 180) {
+      if (!isScrolled && scrollTop > 120) {
         setIsScrolled(true);
-      } else if (isScrolled && scrollTop < 120) {
+      } else if (isScrolled && scrollTop < 80) {
         setIsScrolled(false);
       }
     };
@@ -332,53 +319,11 @@ const MainLayout = () => {
         )}
       </section>
 
-      {/* Trilha de Evolução */}
-      {!isScrolled && (
+      {/* Trilha de Evolução - Apenas no Dashboard */}
+      {!isScrolled && location.pathname === '/dashboard' && (
         <section className="evolution-track">
           <div className="evolution-placeholder">
             <span className="placeholder-text">🚀 Trilha de Evolução - Em desenvolvimento</span>
-          </div>
-        </section>
-      )}
-
-      {/* Seletor de Período */}
-      {!isScrolled && (
-        <section className="filters-section">
-          <div className="filters-container">
-            <div className="period-selector-inline">
-              <button 
-                className="period-nav"
-                onClick={() => navigateMonth(-1)}
-              >
-                <ChevronLeft size={20} />
-              </button>
-
-              <div className="current-period-inline">
-                <Calendar size={18} />
-                <span className="period-text">
-                  {getFormattedPeriod()}
-                </span>
-                {!isCurrentMonth() && (
-                  <button 
-                    className="today-button" 
-                    onClick={goToToday}
-                  >
-                    Hoje
-                  </button>
-                )}
-              </div>
-
-              <button 
-                className="period-nav"
-                onClick={() => navigateMonth(1)}
-              >
-                <ChevronRight size={20} />
-              </button>
-            </div>
-
-            <div className="additional-filters">
-              {/* Espaço para filtros */}
-            </div>
           </div>
         </section>
       )}

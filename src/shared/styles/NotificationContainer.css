@@ -4,12 +4,13 @@
   position: fixed;
   top: 20px;
   right: 20px;
-  z-index: 1000;
+  z-index: 9999; /* Aumentado para ficar acima de todos os elementos */
   display: flex;
   flex-direction: column;
   gap: 12px;
   max-width: 400px;
   width: 100%;
+  pointer-events: none; /* Permite cliques através do container vazio */
 }
 
 .notification {
@@ -23,6 +24,7 @@
   animation: slideIn 0.3s ease-out;
   position: relative;
   min-height: 60px;
+  pointer-events: auto; /* Restaura os cliques para as notificações individuais */
 }
 
 @keyframes slideIn {
