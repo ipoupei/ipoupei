@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   TrendingUp,
   BarChart3,
@@ -16,12 +16,6 @@ import useDashboardData from '@modules/dashboard/hooks/useDashboardData';
 import { formatCurrency } from '@utils/formatCurrency';
 import { getCurrentMonthName } from '@utils/getCurrentMonthName';
 
-
-
-
-
-
-
 // Componentes existentes
 import DonutChartCategoria from '@modules/relatorios/components/DonutChartCategoria';
 import CalendarioFinanceiro from '@modules/dashboard/components/CalendarioFinanceiro';
@@ -32,8 +26,10 @@ import DetalhesDoDiaModal from '@modules/dashboard/components/DetalhesDoDiaModal
 import '@modules/dashboard/styles/DashboardContent.css';
 
 /**
- * Dashboard Content - Versão corrigida com cards flip funcionais
- * Foco apenas nos cards e gráficos - sem header, botões ou seletor de período
+ * Dashboard Content - VERSÃO CORRIGIDA SEM REFRESH AO TROCAR ABA
+ * ✅ Removido useEffect problemático
+ * ✅ Controle manual de inicialização
+ * ✅ Sem dependência de refreshData
  */
 const DashboardContent = () => {
   const navigate = useNavigate();
@@ -46,7 +42,7 @@ const DashboardContent = () => {
   const [diaDetalhes, setDiaDetalhes] = useState(null);
   const [modalDetalhesDiaOpen, setModalDetalhesDiaOpen] = useState(false);
   
-  // Estado para controle dos cards flip - corrigido
+  // Estado para controle dos cards flip
   const [flippedCards, setFlippedCards] = useState({
     saldo: false,
     receitas: false,
@@ -54,13 +50,27 @@ const DashboardContent = () => {
     cartaoCredito: false
   });
 
-  // Carregar dados quando componente monta
+  // ✅ Ref para controlar se já inicializou
+  const hasInitialized = useRef(false);
+
+  // ✅ CORREÇÃO: useEffect APENAS para inicialização, SEM refreshData na dependência
   useEffect(() => {
-    if (isAuthenticated) {
-      console.log('🔄 Dashboard carregando dados...');
+    if (isAuthenticated && !hasInitialized.current) {
+      console.log('🔄 Dashboard inicializando dados (APENAS UMA VEZ)...');
+      hasInitialized.current = true;
       refreshData();
+    } else if (!isAuthenticated) {
+      hasInitialized.current = false;
     }
-  }, [isAuthenticated, refreshData]);
+  }, [isAuthenticated]); // ✅ SEM refreshData nas dependências!
+
+  // ✅ ❌ REMOVIDO: useEffect problemático que causava refresh
+  // useEffect(() => {
+  //   if (isAuthenticated) {
+  //     console.log('🔄 Dashboard carregando dados...');
+  //     refreshData(); // ❌ CAUSAVA REFRESH AO TROCAR ABA
+  //   }
+  // }, [isAuthenticated, refreshData]); // ❌ refreshData mudava constantemente
 
   // Handler para virar um card - corrigido
   const handleCardFlip = (cardType) => {

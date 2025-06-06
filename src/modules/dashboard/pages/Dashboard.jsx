@@ -51,11 +51,11 @@ const Dashboard = () => {
   });
 
   // Carregar dados quando componente monta
-  useEffect(() => {
-    if (isAuthenticated) {
-      refreshData();
-    }
-  }, [isAuthenticated]);
+  //useEffect(() => {
+//    if (isAuthenticated) {
+      //refreshData();
+    //}
+  //}, [isAuthenticated]);
   
   // Handler para virar um card
   const handleCardFlip = (cardType) => {

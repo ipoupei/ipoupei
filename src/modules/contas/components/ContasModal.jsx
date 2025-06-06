@@ -637,18 +637,6 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
                             textAlign: 'center'
                           }}
                         />
-                        {/* ✅ Indicador visual do valor que será salvo */}
-                        {formData.saldo && (
-                          <div style={{ 
-                            fontSize: '0.75rem', 
-                            color: valorNumerico >= 0 ? '#059669' : '#dc2626', 
-                            textAlign: 'center',
-                            marginTop: '4px',
-                            fontWeight: '500'
-                          }}>
-                            💾 Será salvo: {formatCurrency(valorNumerico)}
-                          </div>
-                        )}
                       </div>
                     </div>
 

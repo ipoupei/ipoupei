@@ -1,4 +1,4 @@
-// src/shared/components/layout/MainLayout.jsx - VERSÃO ULTRA OTIMIZADA
+// src/shared/components/layout/MainLayout.jsx - VERSÃO ULTRA OTIMIZADA E CORRIGIDA
 import React, { useState, useEffect, Suspense, useCallback, useMemo, useRef } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { 
@@ -32,7 +32,7 @@ import CategoriasModal from '@modules/categorias/components/CategoriasModal';
 // CSS
 import '@shared/styles/MainLayout.css';
 
-// Componente de Header isolado para evitar re-renders
+// ✅ Componente de Header isolado para evitar re-renders
 const Header = React.memo(({ user, isScrolled, pageTitle, showUserMenu, onToggleUserMenu, onLogout }) => {
   const userName = useMemo(() => {
     return user?.user_metadata?.nome || 
@@ -99,7 +99,7 @@ const Header = React.memo(({ user, isScrolled, pageTitle, showUserMenu, onToggle
   );
 });
 
-// Componente de Ações isolado para evitar re-renders
+// ✅ Componente de Ações isolado para evitar re-renders
 const QuickActions = React.memo(({ 
   isScrolled, 
   showMaisMenu, 
@@ -225,7 +225,7 @@ const MainLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   
-  // Estados básicos - mínimos necessários
+  // ✅ Estados básicos - mínimos necessários
   const [isScrolled, setIsScrolled] = useState(false);
   const [modals, setModals] = useState({
     receitas: false,
@@ -239,41 +239,43 @@ const MainLayout = () => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMaisMenu, setShowMaisMenu] = useState(false);
 
-  // Refs para performance
+  // ✅ Refs para performance
   const isScrollingRef = useRef(false);
   const scrollTimeoutRef = useRef(null);
 
-  // Scroll handler ULTRA otimizado - só muda estado quando necessário
+  // ✅ Scroll handler ULTRA otimizado - LIMITADO
   useEffect(() => {
     let rafId = null;
 
     const handleScroll = () => {
-      if (!isScrollingRef.current) {
-        isScrollingRef.current = true;
+      if (isScrollingRef.current) return; // Evita múltiplas execuções
+
+      isScrollingRef.current = true;
+      
+      rafId = requestAnimationFrame(() => {
+        const scrollY = window.scrollY;
         
-        rafId = requestAnimationFrame(() => {
-          const scrollY = window.scrollY;
-          
-          // Só atualiza se realmente precisa mudar o estado
-          if (scrollY > 120 && !isScrolled) {
-            setIsScrolled(true);
-          } else if (scrollY <= 80 && isScrolled) {
-            setIsScrolled(false);
+        // Só atualiza se realmente precisa mudar o estado
+        setIsScrolled(prev => {
+          const shouldBeScrolled = scrollY > 120;
+          if (shouldBeScrolled !== prev) {
+            return shouldBeScrolled;
           }
-          
-          isScrollingRef.current = false;
+          return prev;
         });
-      }
+        
+        isScrollingRef.current = false;
+      });
     };
 
-    // Throttle extremo - só executa a cada 100ms
+    // ✅ Throttle MÁXIMO - só executa a cada 200ms (era 100ms)
     const throttledScroll = () => {
       if (scrollTimeoutRef.current) return;
       
       scrollTimeoutRef.current = setTimeout(() => {
         handleScroll();
         scrollTimeoutRef.current = null;
-      }, 100);
+      }, 200); // ✅ Aumentado para 200ms
     };
 
     window.addEventListener('scroll', throttledScroll, { passive: true });
@@ -285,9 +287,9 @@ const MainLayout = () => {
         clearTimeout(scrollTimeoutRef.current);
       }
     };
-  }, [isScrolled]);
+  }, []); // ✅ VAZIO - não depende de isScrolled
 
-  // Todas as funções de handler - ESTÁTICAS (não dependem de estados que mudam)
+  // ✅ Handlers ESTÁTICOS (não causam re-renders)
   const openModal = useCallback((modalName) => {
     setModals(prev => ({ ...prev, [modalName]: true }));
   }, []);
@@ -297,7 +299,7 @@ const MainLayout = () => {
   }, []);
 
   const handleTransacaoSalva = useCallback(() => {
-    // Vazio para evitar side effects
+    // Vazio para evitar side effects desnecessários
   }, []);
 
   const handleLogout = useCallback(async () => {
@@ -305,19 +307,19 @@ const MainLayout = () => {
       await signOut();
       navigate('/login');
     } catch (error) {
-      // Silencioso
+      console.error('Erro no logout:', error);
     }
   }, [signOut, navigate]);
 
-  // Handlers de toggle - ESTÁTICOS
+  // ✅ Handlers de toggle - ESTÁTICOS
   const toggleUserMenu = useCallback(() => setShowUserMenu(prev => !prev), []);
   const toggleMaisMenu = useCallback(() => setShowMaisMenu(prev => !prev), []);
 
-  // Handlers de navegação - ESTÁTICOS
+  // ✅ Handlers de navegação - ESTÁTICOS
   const navigateToDashboard = useCallback(() => navigate('/dashboard'), [navigate]);
   const navigateToTransacoes = useCallback(() => navigate('/transacoes'), [navigate]);
 
-  // Handlers de modal - ESTÁTICOS
+  // ✅ Handlers de modal - ESTÁTICOS
   const openReceitas = useCallback(() => openModal('receitas'), [openModal]);
   const openDespesas = useCallback(() => openModal('despesas'), [openModal]);
   const openDespesasCartao = useCallback(() => openModal('despesasCartao'), [openModal]);
@@ -339,9 +341,9 @@ const MainLayout = () => {
     setShowMaisMenu(false);
   }, [navigate]);
 
-  // Click outside handler - ULTRA otimizado
+  // ✅ Click outside handler - ULTRA otimizado COM CONDIÇÕES
   useEffect(() => {
-    if (!showUserMenu && !showMaisMenu) return;
+    if (!showUserMenu && !showMaisMenu) return; // ✅ Early return
 
     const handleClickOutside = (event) => {
       const target = event.target;
@@ -357,9 +359,9 @@ const MainLayout = () => {
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showUserMenu, showMaisMenu]);
+  }, [showUserMenu, showMaisMenu]); // ✅ Só executa quando necessário
 
-  // Valores memoizados - só recalculam quando necessário
+  // ✅ Valores memoizados - OTIMIZADOS
   const pageTitle = useMemo(() => {
     switch (location.pathname) {
       case '/':
@@ -378,7 +380,9 @@ const MainLayout = () => {
     return `main-layout ${isScrolled ? 'scrolled' : ''}`;
   }, [isScrolled]);
 
-  const isDashboard = location.pathname === '/dashboard';
+  const isDashboard = useMemo(() => {
+    return location.pathname === '/dashboard';
+  }, [location.pathname]);
 
   return (
     <div className={layoutClass}>
@@ -409,7 +413,7 @@ const MainLayout = () => {
         onNavigateRelatorios={navigateRelatorios}
       />
 
-      {/* Trilha de Evolução - Condicionalmente renderizada */}
+      {/* ✅ Trilha de Evolução - Condicionalmente renderizada */}
       {!isScrolled && isDashboard && (
         <section className="evolution-track">
           <div className="evolution-placeholder">
@@ -418,7 +422,7 @@ const MainLayout = () => {
         </section>
       )}
 
-      {/* Conteúdo */}
+      {/* ✅ Conteúdo */}
       <main className="main-content">
         <Suspense fallback={
           <div className="loading-container">
@@ -430,7 +434,7 @@ const MainLayout = () => {
         </Suspense>
       </main>
 
-      {/* Modais - Renderização extremamente condicional */}
+      {/* ✅ Modais - Renderização EXTREMAMENTE condicional */}
       {modals.receitas && (
         <ReceitasModal
           isOpen={true}

@@ -169,11 +169,11 @@
 .calendario-dia.dia-atual {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-color: #667eea;
-  color: white;
+  color: rgb(255, 255, 255);
 }
 
 .calendario-dia.dia-atual .dia-numero {
-  color: white;
+  color: #374151;
   font-weight: 700;
 }
 

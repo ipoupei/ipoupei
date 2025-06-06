@@ -1,14 +1,14 @@
-// src/modules/contas/hooks/useContas.js - VERSÃO SIMPLIFICADA E CORRIGIDA
+// src/modules/contas/hooks/useContas.js - VERSÃO CORRIGIDA SEM POLLING AGRESSIVO
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@lib/supabaseClient';
 import { useAuthStore } from '@modules/auth/store/authStore';
 import { useUIStore } from '@store/uiStore';
 
 /**
- * Hook para gerenciar contas - VERSÃO SIMPLIFICADA
- * ✅ BUG 006: Recálculo automático de saldos
- * ✅ Versão mais simples e confiável
- * ✅ Polling como fallback se realtime falhar
+ * Hook para gerenciar contas - VERSÃO CORRIGIDA
+ * ✅ Removido polling agressivo (30s)
+ * ✅ Mantido apenas realtime + refresh manual
+ * ✅ Performance otimizada
  */
 const useContas = () => {
   const { user } = useAuthStore();
@@ -17,6 +17,7 @@ const useContas = () => {
   const [contas, setContas] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [saldoTotal, setSaldoTotal] = useState(0);
 
   // ✅ Função simplificada para calcular saldo real
   const calcularSaldoReal = useCallback(async (contaId, saldoInicial = 0) => {
@@ -74,6 +75,7 @@ const useContas = () => {
   const fetchContas = useCallback(async () => {
     if (!user) {
       setContas([]);
+      setSaldoTotal(0);
       return;
     }
 
@@ -94,6 +96,7 @@ const useContas = () => {
       
       if (!contasData?.length) {
         setContas([]);
+        setSaldoTotal(0);
         return;
       }
       
@@ -114,7 +117,12 @@ const useContas = () => {
       );
       
       setContas(contasComSaldo);
-      console.log('✅ Saldos calculados com sucesso');
+      
+      // Calcular saldo total
+      const total = contasComSaldo.reduce((acc, conta) => acc + (conta.saldo || 0), 0);
+      setSaldoTotal(total);
+      
+      console.log('✅ Saldos calculados com sucesso, total:', total);
       
     } catch (err) {
       console.error('❌ Erro ao buscar contas:', err);
@@ -130,13 +138,13 @@ const useContas = () => {
     fetchContas();
   }, [fetchContas]);
 
-  // ✅ Listener para mudanças em transações (VERSÃO SIMPLIFICADA)
+  // ✅ Listener para mudanças em transações (APENAS REALTIME - SEM POLLING)
   useEffect(() => {
     if (!user) return;
 
-    console.log('👂 Configurando listener para transações...');
+    console.log('👂 Configurando listener para transações (REALTIME APENAS)...');
     
-    // Primeiro: tentar realtime
+    // Apenas realtime - SEM polling
     const channel = supabase
       .channel(`transacoes_${user.id}`)
       .on(
@@ -157,16 +165,16 @@ const useContas = () => {
         console.log('📡 Status do realtime:', status);
       });
 
-    // Segundo: polling como fallback (a cada 30 segundos)
-    const pollInterval = setInterval(() => {
-      console.log('🔄 Atualizando contas via polling...');
-      fetchContas();
-    }, 30000);
+    // ❌ REMOVIDO: Polling a cada 30 segundos (estava causando refreshes constantes)
+    // const pollInterval = setInterval(() => {
+    //   console.log('🔄 Atualizando contas via polling...');
+    //   fetchContas();
+    // }, 30000);
 
     return () => {
       console.log('🧹 Limpando listeners');
       supabase.removeChannel(channel);
-      clearInterval(pollInterval);
+      // clearInterval(pollInterval); // ❌ REMOVIDO
     };
   }, [user, fetchContas]);
 
@@ -253,13 +261,14 @@ const useContas = () => {
   }, [contas]);
 
   const getSaldoTotal = useCallback(() => {
-    return contas.reduce((total, conta) => total + (conta.saldo || 0), 0);
-  }, [contas]);
+    return saldoTotal;
+  }, [saldoTotal]);
 
   return {
     contas,
     loading,
     error,
+    saldoTotal, // ✅ Adicionado para evitar recálculos
     fetchContas,
     addConta,
     updateConta,
