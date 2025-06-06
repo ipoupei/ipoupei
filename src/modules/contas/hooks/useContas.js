@@ -1,14 +1,14 @@
-// src/modules/contas/hooks/useContas.js - VERSÃO CORRIGIDA BUG 006
+// src/modules/contas/hooks/useContas.js - VERSÃO SIMPLIFICADA E CORRIGIDA
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@lib/supabaseClient';
 import { useAuthStore } from '@modules/auth/store/authStore';
 import { useUIStore } from '@store/uiStore';
 
 /**
- * Hook para gerenciar contas
- * ✅ CORREÇÃO BUG 006: Agora escuta mudanças nas transações e recalcula saldos
- * ✅ CORREÇÃO: Saldo calculado dinamicamente = saldo_inicial + receitas - despesas
- * ✅ CORREÇÃO: Invalidação automática quando transações mudam
+ * Hook para gerenciar contas - VERSÃO SIMPLIFICADA
+ * ✅ BUG 006: Recálculo automático de saldos
+ * ✅ Versão mais simples e confiável
+ * ✅ Polling como fallback se realtime falhar
  */
 const useContas = () => {
   const { user } = useAuthStore();
@@ -18,59 +18,61 @@ const useContas = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // ✅ NOVA FUNÇÃO: Calcular saldo real da conta baseado em transações
+  // ✅ Função simplificada para calcular saldo real
   const calcularSaldoReal = useCallback(async (contaId, saldoInicial = 0) => {
     try {
-      console.log(`💰 Calculando saldo real para conta ${contaId}, saldo inicial: ${saldoInicial}`);
+      console.log(`💰 Calculando saldo para conta ${contaId}`);
       
-      // Buscar todas as transações efetivadas desta conta
       const { data: transacoes, error } = await supabase
         .from('transacoes')
-        .select('tipo, valor, efetivado')
-        .eq('conta_id', contaId)
-        .eq('efetivado', true); // Apenas transações efetivadas
+        .select('tipo, valor, efetivado, transferencia, conta_destino_id')
+        .or(`conta_id.eq.${contaId},conta_destino_id.eq.${contaId}`)
+        .eq('efetivado', true);
       
       if (error) {
         console.error('❌ Erro ao buscar transações:', error);
-        return saldoInicial; // Retorna saldo inicial se der erro
-      }
-      
-      if (!transacoes || transacoes.length === 0) {
-        console.log(`📊 Nenhuma transação encontrada, saldo = ${saldoInicial}`);
         return saldoInicial;
       }
       
-      // Calcular saldo: saldo_inicial + receitas - despesas
-      const totalReceitas = transacoes
-        .filter(t => t.tipo === 'receita')
-        .reduce((sum, t) => sum + (t.valor || 0), 0);
+      if (!transacoes?.length) {
+        console.log(`📊 Nenhuma transação, saldo = ${saldoInicial}`);
+        return saldoInicial;
+      }
       
-      const totalDespesas = transacoes
-        .filter(t => t.tipo === 'despesa')
-        .reduce((sum, t) => sum + (t.valor || 0), 0);
+      let saldo = saldoInicial;
       
-      const saldoCalculado = saldoInicial + totalReceitas - totalDespesas;
-      
-      console.log(`📊 Conta ${contaId}:`, {
-        saldoInicial,
-        totalReceitas,
-        totalDespesas,
-        saldoCalculado,
-        transacoes: transacoes.length
+      transacoes.forEach(t => {
+        const valor = t.valor || 0;
+        
+        if (t.transferencia) {
+          // Transferência
+          if (t.conta_destino_id === contaId) {
+            saldo += valor; // Entrada
+          } else {
+            saldo -= valor; // Saída
+          }
+        } else {
+          // Transação normal
+          if (t.tipo === 'receita') {
+            saldo += valor;
+          } else if (t.tipo === 'despesa') {
+            saldo -= valor;
+          }
+        }
       });
       
-      return saldoCalculado;
+      console.log(`📊 Saldo calculado: ${saldo} (base: ${saldoInicial}, transações: ${transacoes.length})`);
+      return saldo;
       
     } catch (error) {
-      console.error('❌ Erro ao calcular saldo real:', error);
+      console.error('❌ Erro no cálculo:', error);
       return saldoInicial;
     }
   }, []);
 
-  // ✅ FUNÇÃO CORRIGIDA: Buscar contas com saldo calculado
+  // ✅ Função principal para buscar contas
   const fetchContas = useCallback(async () => {
     if (!user) {
-      console.log('🚫 fetchContas: Usuário não encontrado');
       setContas([]);
       return;
     }
@@ -79,9 +81,8 @@ const useContas = () => {
       setLoading(true);
       setError(null);
       
-      console.log('🏦 Buscando contas do usuário:', user.id);
+      console.log('🏦 Buscando contas...');
       
-      // Buscar contas básicas
       const { data: contasData, error: contasError } = await supabase
         .from('contas')
         .select('*')
@@ -89,35 +90,31 @@ const useContas = () => {
         .eq('ativo', true)
         .order('created_at', { ascending: true });
       
-      if (contasError) {
-        console.error('❌ Erro ao buscar contas:', contasError);
-        throw contasError;
-      }
+      if (contasError) throw contasError;
       
-      if (!contasData || contasData.length === 0) {
-        console.log('📝 Nenhuma conta encontrada');
+      if (!contasData?.length) {
         setContas([]);
         return;
       }
       
       console.log(`✅ ${contasData.length} contas encontradas, calculando saldos...`);
       
-      // ✅ CORREÇÃO BUG 006: Calcular saldo real para cada conta
-      const contasComSaldoCalculado = await Promise.all(
+      // Calcular saldos para todas as contas
+      const contasComSaldo = await Promise.all(
         contasData.map(async (conta) => {
-          const saldoReal = await calcularSaldoReal(conta.id, conta.saldo || 0);
+          const saldoCalculado = await calcularSaldoReal(conta.id, conta.saldo || 0);
           
           return {
             ...conta,
-            saldo_inicial: conta.saldo || 0, // Manter saldo inicial
-            saldo: saldoReal, // Saldo calculado atual
-            saldo_atual: saldoReal // Alias para compatibilidade
+            saldo_inicial: conta.saldo || 0,
+            saldo: saldoCalculado,
+            saldo_atual: saldoCalculado
           };
         })
       );
       
-      console.log('✅ Saldos calculados para todas as contas');
-      setContas(contasComSaldoCalculado);
+      setContas(contasComSaldo);
+      console.log('✅ Saldos calculados com sucesso');
       
     } catch (err) {
       console.error('❌ Erro ao buscar contas:', err);
@@ -128,51 +125,54 @@ const useContas = () => {
     }
   }, [user, calcularSaldoReal, showNotification]);
 
-  // ✅ Recarregar contas quando usuário muda
+  // ✅ Carregar contas na inicialização
   useEffect(() => {
     fetchContas();
   }, [fetchContas]);
 
-  // ✅ CORREÇÃO BUG 006: Listener para mudanças em transações
+  // ✅ Listener para mudanças em transações (VERSÃO SIMPLIFICADA)
   useEffect(() => {
     if (!user) return;
 
     console.log('👂 Configurando listener para transações...');
     
-    // Escutar mudanças em transações que afetam as contas
+    // Primeiro: tentar realtime
     const channel = supabase
-      .channel('transacoes_changes')
+      .channel(`transacoes_${user.id}`)
       .on(
         'postgres_changes',
         {
-          event: '*', // INSERT, UPDATE, DELETE
+          event: '*',
           schema: 'public',
           table: 'transacoes',
           filter: `usuario_id=eq.${user.id}`
         },
         (payload) => {
-          console.log('🔄 Transação modificada, recalculando saldos...', payload.eventType);
-          
-          // Pequeno delay para garantir que a transação foi commitada
-          setTimeout(() => {
-            fetchContas();
-          }, 500);
+          console.log('🔄 Transação modificada via realtime:', payload.eventType);
+          // Delay pequeno para garantir que a transação foi commitada
+          setTimeout(() => fetchContas(), 1000);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Status do realtime:', status);
+      });
 
-    // Cleanup
+    // Segundo: polling como fallback (a cada 30 segundos)
+    const pollInterval = setInterval(() => {
+      console.log('🔄 Atualizando contas via polling...');
+      fetchContas();
+    }, 30000);
+
     return () => {
-      console.log('🧹 Removendo listener de transações');
+      console.log('🧹 Limpando listeners');
       supabase.removeChannel(channel);
+      clearInterval(pollInterval);
     };
   }, [user, fetchContas]);
 
-  // Adicionar conta
+  // ✅ Operações CRUD simplificadas
   const addConta = useCallback(async (dadosConta) => {
     try {
-      console.log('➕ Adicionando nova conta:', dadosConta);
-      
       const { data, error } = await supabase
         .from('contas')
         .insert([{
@@ -186,12 +186,9 @@ const useContas = () => {
         .single();
 
       if (error) throw error;
-
-      console.log('✅ Conta adicionada:', data);
       
-      // Recalcular todas as contas
+      // Atualizar lista
       await fetchContas();
-      
       return data;
     } catch (error) {
       console.error('❌ Erro ao adicionar conta:', error);
@@ -199,11 +196,8 @@ const useContas = () => {
     }
   }, [user.id, fetchContas]);
 
-  // Atualizar conta
   const updateConta = useCallback(async (contaId, dadosAtualizacao) => {
     try {
-      console.log('📝 Atualizando conta:', contaId, dadosAtualizacao);
-      
       const { data, error } = await supabase
         .from('contas')
         .update({
@@ -216,12 +210,9 @@ const useContas = () => {
         .single();
 
       if (error) throw error;
-
-      console.log('✅ Conta atualizada:', data);
       
-      // Recalcular todas as contas
+      // Atualizar lista
       await fetchContas();
-      
       return data;
     } catch (error) {
       console.error('❌ Erro ao atualizar conta:', error);
@@ -229,11 +220,8 @@ const useContas = () => {
     }
   }, [user.id, fetchContas]);
 
-  // Deletar conta (na verdade, desativar)
   const deleteConta = useCallback(async (contaId) => {
     try {
-      console.log('🗑️ Desativando conta:', contaId);
-      
       const { error } = await supabase
         .from('contas')
         .update({ 
@@ -244,31 +232,26 @@ const useContas = () => {
         .eq('usuario_id', user.id);
 
       if (error) throw error;
-
-      console.log('✅ Conta desativada');
       
-      // Recalcular todas as contas
+      // Atualizar lista
       await fetchContas();
-      
     } catch (error) {
       console.error('❌ Erro ao desativar conta:', error);
       throw error;
     }
   }, [user.id, fetchContas]);
 
-  // ✅ NOVA FUNÇÃO: Forçar recálculo de saldos (útil após transações)
-  const recalcularSaldos = useCallback(async () => {
+  // ✅ Funções utilitárias
+  const recalcularSaldos = useCallback(() => {
     console.log('🔄 Forçando recálculo de saldos...');
-    await fetchContas();
+    return fetchContas();
   }, [fetchContas]);
 
-  // ✅ NOVA FUNÇÃO: Obter saldo de uma conta específica
   const getSaldoConta = useCallback((contaId) => {
     const conta = contas.find(c => c.id === contaId);
     return conta ? conta.saldo : 0;
   }, [contas]);
 
-  // ✅ NOVA FUNÇÃO: Calcular saldo total de todas as contas
   const getSaldoTotal = useCallback(() => {
     return contas.reduce((total, conta) => total + (conta.saldo || 0), 0);
   }, [contas]);
@@ -281,9 +264,9 @@ const useContas = () => {
     addConta,
     updateConta,
     deleteConta,
-    recalcularSaldos, // ✅ Nova função
-    getSaldoConta, // ✅ Nova função
-    getSaldoTotal // ✅ Nova função
+    recalcularSaldos,
+    getSaldoConta,
+    getSaldoTotal
   };
 };
 

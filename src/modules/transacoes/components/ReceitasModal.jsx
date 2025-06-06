@@ -1,4 +1,4 @@
-// src/modules/transacoes/components/ReceitasModal.jsx - VERSÃO CORRIGIDA BUG 007
+// src/modules/transacoes/components/ReceitasModal.jsx - VERSÃO CORRIGIDA BUG 005 E BUG 007
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -26,8 +26,9 @@ import { supabase } from '@lib/supabaseClient';
 import '@shared/styles/FormsModal.css';
 
 /**
- * Modal de Receitas - VERSÃO CORRIGIDA BUG 007
- * ✅ CORREÇÃO: Labels de status não redundantes para recorrentes
+ * Modal de Receitas - VERSÃO CORRIGIDA BUG 005 E BUG 007
+ * ✅ CORREÇÃO BUG 005: Navegação por teclado nos dropdowns
+ * ✅ CORREÇÃO BUG 007: Labels de status não redundantes para recorrentes
  * ✅ CORREÇÃO: Receitas recorrentes agora afetam saldo corretamente
  * ✅ CORREÇÃO: Primeira instância criada com status correto
  */
@@ -36,6 +37,8 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   const { showNotification } = useUIStore();
   
   const valorInputRef = useRef(null);
+  const categoriaInputRef = useRef(null);
+  const subcategoriaInputRef = useRef(null);
   const isEditMode = Boolean(transacaoEditando);
 
   // Estados principais
@@ -53,6 +56,10 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   const [subcategoriaDropdownOpen, setSubcategoriaDropdownOpen] = useState(false);
   const [categoriasFiltradas, setCategoriasFiltradas] = useState([]);
   const [subcategoriasFiltradas, setSubcategoriasFiltradas] = useState([]);
+
+  // ✅ BUG 005: Estados para navegação por teclado
+  const [categoriaSelectedIndex, setCategoriaSelectedIndex] = useState(-1);
+  const [subcategoriaSelectedIndex, setSubcategoriaSelectedIndex] = useState(-1);
 
   // Estado para confirmação
   const [confirmacao, setConfirmacao] = useState({
@@ -228,6 +235,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       ? categorias.filter(cat => cat.nome.toLowerCase().includes(formData.categoriaTexto.toLowerCase()))
       : categorias;
     setCategoriasFiltradas(filtradas);
+    setCategoriaSelectedIndex(-1); // ✅ Reset seleção ao filtrar
   }, [formData.categoriaTexto, categorias]);
 
   useEffect(() => {
@@ -239,7 +247,70 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       ? subcategoriasDaCategoria.filter(sub => sub.nome.toLowerCase().includes(formData.subcategoriaTexto.toLowerCase()))
       : subcategoriasDaCategoria;
     setSubcategoriasFiltradas(filtradas);
+    setSubcategoriaSelectedIndex(-1); // ✅ Reset seleção ao filtrar
   }, [formData.subcategoriaTexto, subcategoriasDaCategoria]);
+
+  // ✅ BUG 005: Função para navegação por teclado nas categorias
+  const handleCategoriaKeyDown = useCallback((e) => {
+    if (!categoriaDropdownOpen || categoriasFiltradas.length === 0) return;
+    
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setCategoriaSelectedIndex(prev => 
+          prev < categoriasFiltradas.length - 1 ? prev + 1 : 0
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setCategoriaSelectedIndex(prev => 
+          prev > 0 ? prev - 1 : categoriasFiltradas.length - 1
+        );
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (categoriaSelectedIndex >= 0 && categoriaSelectedIndex < categoriasFiltradas.length) {
+          handleSelecionarCategoria(categoriasFiltradas[categoriaSelectedIndex]);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setCategoriaDropdownOpen(false);
+        setCategoriaSelectedIndex(-1);
+        break;
+    }
+  }, [categoriaDropdownOpen, categoriasFiltradas, categoriaSelectedIndex]);
+
+  // ✅ BUG 005: Função para navegação por teclado nas subcategorias
+  const handleSubcategoriaKeyDown = useCallback((e) => {
+    if (!subcategoriaDropdownOpen || subcategoriasFiltradas.length === 0) return;
+    
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSubcategoriaSelectedIndex(prev => 
+          prev < subcategoriasFiltradas.length - 1 ? prev + 1 : 0
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSubcategoriaSelectedIndex(prev => 
+          prev > 0 ? prev - 1 : subcategoriasFiltradas.length - 1
+        );
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (subcategoriaSelectedIndex >= 0 && subcategoriaSelectedIndex < subcategoriasFiltradas.length) {
+          handleSelecionarSubcategoria(subcategoriasFiltradas[subcategoriaSelectedIndex]);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setSubcategoriaDropdownOpen(false);
+        setSubcategoriaSelectedIndex(-1);
+        break;
+    }
+  }, [subcategoriaDropdownOpen, subcategoriasFiltradas, subcategoriaSelectedIndex]);
 
   // Reset form
   const resetForm = useCallback(() => {
@@ -263,6 +334,8 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     setTipoReceita('simples');
     setCategoriaDropdownOpen(false);
     setSubcategoriaDropdownOpen(false);
+    setCategoriaSelectedIndex(-1); // ✅ Reset navegação
+    setSubcategoriaSelectedIndex(-1); // ✅ Reset navegação
     setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
   }, []);
 
@@ -337,6 +410,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       subcategoriaTexto: ''
     }));
     setCategoriaDropdownOpen(true);
+    setCategoriaSelectedIndex(-1); // ✅ Reset seleção
     if (errors.categoria) {
       setErrors(prev => ({ ...prev, categoria: null }));
     }
@@ -351,11 +425,13 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       subcategoriaTexto: ''
     }));
     setCategoriaDropdownOpen(false);
+    setCategoriaSelectedIndex(-1); // ✅ Reset seleção
   }, []);
 
   const handleCategoriaBlur = useCallback(() => {
     const timer = setTimeout(() => {
       setCategoriaDropdownOpen(false);
+      setCategoriaSelectedIndex(-1); // ✅ Reset seleção
       if (formData.categoriaTexto && !formData.categoria) {
         const existe = categorias.find(cat => 
           cat.nome.toLowerCase() === formData.categoriaTexto.toLowerCase()
@@ -383,6 +459,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     }));
     if (categoriaSelecionada) {
       setSubcategoriaDropdownOpen(true);
+      setSubcategoriaSelectedIndex(-1); // ✅ Reset seleção
     }
   }, [categoriaSelecionada]);
 
@@ -393,11 +470,13 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       subcategoriaTexto: subcategoria.nome
     }));
     setSubcategoriaDropdownOpen(false);
+    setSubcategoriaSelectedIndex(-1); // ✅ Reset seleção
   }, []);
 
   const handleSubcategoriaBlur = useCallback(() => {
     const timer = setTimeout(() => {
       setSubcategoriaDropdownOpen(false);
+      setSubcategoriaSelectedIndex(-1); // ✅ Reset seleção
       if (formData.subcategoriaTexto && !formData.subcategoria && categoriaSelecionada) {
         const existe = subcategoriasDaCategoria.find(sub => 
           sub.nome.toLowerCase() === formData.subcategoriaTexto.toLowerCase()
@@ -904,7 +983,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                 </>
               )}
 
-              {/* ✅ CORREÇÃO IMPROVEMENT 003: Status - Apenas para receitas simples ou modo edição */}
+              {/* ✅ Status - Apenas para receitas simples ou modo edição */}
               {(tipoReceita === 'simples' || isEditMode) && (
                 <div className="form-field-group">
                   <label className="form-label">
@@ -964,7 +1043,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                 {errors.descricao && <div className="form-error">{errors.descricao}</div>}
               </div>
 
-              {/* Categoria */}
+              {/* ✅ BUG 005: Categoria com navegação por teclado */}
               <div className="form-field-group">
                 <label className="form-label">
                   <Tag size={14} />
@@ -972,11 +1051,13 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                 </label>
                 <div className="form-dropdown-wrapper">
                   <input
+                    ref={categoriaInputRef}
                     type="text"
                     value={formData.categoriaTexto}
                     onChange={handleCategoriaChange}
                     onBlur={handleCategoriaBlur}
                     onFocus={() => setCategoriaDropdownOpen(true)}
+                    onKeyDown={handleCategoriaKeyDown} // ✅ Navegação por teclado
                     placeholder="Digite ou selecione uma categoria"
                     disabled={submitting}
                     autoComplete="off"
@@ -986,11 +1067,14 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                   
                   {categoriaDropdownOpen && categoriasFiltradas.length > 0 && (
                     <div className="form-dropdown-options">
-                      {categoriasFiltradas.map(categoria => (
+                      {categoriasFiltradas.map((categoria, index) => (
                         <div
                           key={categoria.id}
-                          className="form-dropdown-option"
+                          className={`form-dropdown-option ${
+                            index === categoriaSelectedIndex ? 'selected' : ''
+                          }`} // ✅ Highlight da seleção
                           onMouseDown={() => handleSelecionarCategoria(categoria)}
+                          onMouseEnter={() => setCategoriaSelectedIndex(index)} // ✅ Mouse over
                         >
                           <div 
                             className="category-color"
@@ -1005,7 +1089,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                 {errors.categoria && <div className="form-error">{errors.categoria}</div>}
               </div>
 
-              {/* Subcategoria */}
+              {/* ✅ BUG 005: Subcategoria com navegação por teclado */}
               {categoriaSelecionada && (
                 <div className="form-field-group">
                   <label className="form-label">
@@ -1014,11 +1098,13 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                   </label>
                   <div className="form-dropdown-wrapper">
                     <input
+                      ref={subcategoriaInputRef}
                       type="text"
                       value={formData.subcategoriaTexto}
                       onChange={handleSubcategoriaChange}
                       onBlur={handleSubcategoriaBlur}
                       onFocus={() => setSubcategoriaDropdownOpen(true)}
+                      onKeyDown={handleSubcategoriaKeyDown} // ✅ Navegação por teclado
                       placeholder="Digite ou selecione uma subcategoria"
                       disabled={submitting}
                       autoComplete="off"
@@ -1028,11 +1114,14 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                     
                     {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
                       <div className="form-dropdown-options">
-                        {subcategoriasFiltradas.map(subcategoria => (
+                        {subcategoriasFiltradas.map((subcategoria, index) => (
                           <div
                             key={subcategoria.id}
-                            className="form-dropdown-option"
+                            className={`form-dropdown-option ${
+                              index === subcategoriaSelectedIndex ? 'selected' : ''
+                            }`} // ✅ Highlight da seleção
                             onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
+                            onMouseEnter={() => setSubcategoriaSelectedIndex(index)} // ✅ Mouse over
                           >
                             {subcategoria.nome}
                           </div>
@@ -1193,4 +1282,4 @@ ReceitasModal.propTypes = {
   transacaoEditando: PropTypes.object // ✅ Nova prop para edição
 };
 
-export default React.memo(ReceitasModal);// src/modules/transacoes/components/ReceitasModal.
+export default React.memo(ReceitasModal);

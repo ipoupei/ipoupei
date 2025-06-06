@@ -6,7 +6,8 @@ import {
   ChevronRight as ArrowRight,
   Calendar,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  RefreshCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -24,20 +25,11 @@ import CalendarioFinanceiro from '@modules/dashboard/components/CalendarioFinanc
 import ProjecaoSaldoGraph from '@modules/dashboard/components/ProjecaoSaldoGraph';
 import DetalhesDoDiaModal from '@modules/dashboard/components/DetalhesDoDiaModal';
 
-// Modais existentes
-import ContasModal from '@modules/contas/components/ContasModal';
-import DespesasModal from '@modules/transacoes/components/DespesasModal';
-import ReceitasModal from '@modules/transacoes/components/ReceitasModal';
-import DespesasCartaoModal from '@modules/transacoes/components/DespesasCartaoModal';
-import CategoriasModal from '@modules/categorias/components/CategoriasModal';
-import CartoesModal from '@modules/cartoes/components/CartoesModal';
-import TransferenciasModal from '@modules/transacoes/components/TransferenciasModal';
-
 // IMPORTAR O CSS
 import '../styles/Dashboard.css';
 
 /**
- * Dashboard Content - Versão corrigida com CSS aplicado
+ * Dashboard - Versão Final Limpa e Funcional
  */
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -49,6 +41,8 @@ const Dashboard = () => {
   // Estados locais para UI
   const [diaDetalhes, setDiaDetalhes] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [refreshingCalendar, setRefreshingCalendar] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const [flippedCards, setFlippedCards] = useState({
     saldo: false,
     receitas: false,
@@ -56,42 +50,13 @@ const Dashboard = () => {
     cartaoCredito: false
   });
 
-  // Estados para controle de modais
-  const [modalsOpen, setModalsOpen] = useState({
-    contas: false,
-    despesas: false,
-    receitas: false,
-    despesasCartao: false,
-    categorias: false,
-    cartoes: false,
-    transferencias: false,
-    detalhesDia: false
-  });
-
   // Carregar dados quando componente monta
   useEffect(() => {
     if (isAuthenticated) {
-      console.log('🔄 Dashboard carregando dados...');
       refreshData();
     }
-  }, [isAuthenticated, refreshData]);
+  }, [isAuthenticated]);
   
-  // Função para abrir modal
-  const openModal = (modalName) => {
-    setModalsOpen(prev => ({ ...prev, [modalName]: true }));
-  };
-
-  // Função para fechar modal
-  const closeModal = (modalName) => {
-    setModalsOpen(prev => ({ ...prev, [modalName]: false }));
-  };
-
-  // Função para atualizar dados após salvar transação
-  const handleTransacaoSalva = () => {
-    console.log('🔄 Transação salva com sucesso!');
-    refreshData();
-  };
-
   // Handler para virar um card
   const handleCardFlip = (cardType) => {
     setFlippedCards(prev => ({
@@ -102,8 +67,31 @@ const Dashboard = () => {
 
   // Handler para quando um dia é clicado no calendário
   const handleDiaClick = (dia) => {
-    setDiaDetalhes(dia);
-    openModal('detalhesDia');
+    if (dia && dia.movimentos && dia.movimentos.length > 0) {
+      setDiaDetalhes(dia);
+      setShowModal(true);
+    }
+  };
+
+  // Handler para fechar modal
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setDiaDetalhes(null);
+  };
+
+  // Handler para atualizar calendário
+  const handleRefreshCalendario = async () => {
+    if (refreshingCalendar) return;
+    
+    try {
+      setRefreshingCalendar(true);
+      // Força re-render do calendário
+      setCurrentDate(new Date(currentDate));
+    } catch (err) {
+      console.error('Erro ao atualizar calendário:', err);
+    } finally {
+      setTimeout(() => setRefreshingCalendar(false), 1000);
+    }
   };
 
   // Funções de navegação de período
@@ -175,7 +163,7 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard-content">
-      {/* Seletor de Período - Interno ao Dashboard */}
+      {/* Seletor de Período */}
       <section className="dashboard-period-selector">
         <div className="period-selector-container">
           <div className="period-selector-inline">
@@ -516,14 +504,17 @@ const Dashboard = () => {
             <Calendar size={24} className="section-icon" />
             <div>
               <h3 className="section-title">📅 Calendário Financeiro</h3>
-              <p className="calendar-subtitle">Acompanhe suas movimentações diárias em {getCurrentMonthName()}</p>
+              <p className="calendar-subtitle">
+                Acompanhe suas movimentações diárias em {getCurrentMonthName()}
+              </p>
             </div>
           </div>
+          
+
         </div>
         
         <div className="calendar-container">
           <CalendarioFinanceiro 
-            data={data} 
             mes={currentDate.getMonth()} 
             ano={currentDate.getFullYear()} 
             onDiaClick={handleDiaClick}
@@ -551,51 +542,10 @@ const Dashboard = () => {
         </div>
       </div>
       
-      {/* Modais */}
-      <ContasModal 
-        isOpen={modalsOpen.contas} 
-        onClose={() => closeModal('contas')} 
-      />
-      
-      <DespesasModal
-        isOpen={modalsOpen.despesas}
-        onClose={() => closeModal('despesas')}
-        onSave={handleTransacaoSalva}
-      />
-      
-      <ReceitasModal
-        isOpen={modalsOpen.receitas}
-        onClose={() => closeModal('receitas')}
-        onSave={handleTransacaoSalva}
-      />
-      
-      <DespesasCartaoModal
-        isOpen={modalsOpen.despesasCartao}
-        onClose={() => closeModal('despesasCartao')}
-        onSave={handleTransacaoSalva}
-      />
-      
-      <CartoesModal
-        isOpen={modalsOpen.cartoes}
-        onClose={() => closeModal('cartoes')}
-        onSave={handleTransacaoSalva}
-      />
-      
-      <CategoriasModal
-        isOpen={modalsOpen.categorias}
-        onClose={() => closeModal('categorias')}
-        onSave={handleTransacaoSalva}
-      />
-
-      <TransferenciasModal
-        isOpen={modalsOpen.transferencias}
-        onClose={() => closeModal('transferencias')}
-        onSave={handleTransacaoSalva}
-      />
-
+      {/* Modal de Detalhes do Dia */}
       <DetalhesDoDiaModal
-        isOpen={modalsOpen.detalhesDia}
-        onClose={() => closeModal('detalhesDia')}
+        isOpen={showModal}
+        onClose={handleCloseModal}
         dia={diaDetalhes}
       />
     </div>

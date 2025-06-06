@@ -5,7 +5,9 @@ import '@modules/categorias/styles/CategoriasModal.css';
 
 /**
  * Modal para gerenciamento de categorias e subcategorias
- * Versão corrigida com funcionalidades completas de subcategorias
+ * ✅ IMPROVEMENT 001: Cores automáticas inteligentes
+ * ✅ CORREÇÃO: Funcionalidades completas de subcategorias
+ * ✅ MELHORIA: Interface mais intuitiva e responsiva
  */
 const CategoriasModal = ({ isOpen, onClose }) => {
   // Obter dados das categorias do hook existente
@@ -39,19 +41,70 @@ const CategoriasModal = ({ isOpen, onClose }) => {
   // Estados para feedback
   const [feedback, setFeedback] = useState({ show: false, message: '', type: '' });
   
-  // Cores predefinidas para seleção
+  // ✅ IMPROVEMENT 001: Cores predefinidas mais variadas e modernas
   const coresPredefinidas = [
-    '#FF5733', // Vermelho
-    '#33A8FF', // Azul
-    '#FF33A8', // Rosa
-    '#A833FF', // Roxo
-    '#33FF57', // Verde claro
-    '#57FF33', // Lima
-    '#33FFC1', // Verde-água
-    '#C133FF', // Roxo-rosa
-    '#FF8333', // Laranja
-    '#337DFF'  // Azul escuro
+    '#FF6B6B', // Vermelho coral
+    '#4ECDC4', // Verde-água
+    '#45B7D1', // Azul claro
+    '#96CEB4', // Verde menta
+    '#FFEAA7', // Amarelo suave
+    '#DDA0DD', // Roxo claro
+    '#98D8C8', // Verde seafoam
+    '#F7DC6F', // Dourado
+    '#BB8FCE', // Lavanda
+    '#85C1E9', // Azul céu
+    '#F8C471', // Laranja suave
+    '#82E0AA', // Verde lima
+    '#F1948A', // Rosa salmão
+    '#AED6F1', // Azul bebê
+    '#D7BDE2', // Roxo pastel
+    '#A9DFBF', // Verde menta claro
+    '#FAD7A0', // Pêssego
+    '#D5A6BD', // Rosa antigo
+    '#A3E4D7', // Turquesa
+    '#F9E79F'  // Amarelo pastel
   ];
+  
+  // ✅ IMPROVEMENT 001: Função para gerar cor única automática
+  const getUniqueRandomColor = () => {
+    // Obter cores já em uso
+    const coresEmUso = categoriasFiltradas.map(cat => cat.cor?.toUpperCase()).filter(Boolean);
+    
+    // Filtrar cores predefinidas que não estão em uso
+    const coresDisponiveis = coresPredefinidas.filter(cor => 
+      !coresEmUso.includes(cor.toUpperCase())
+    );
+    
+    // Se ainda há cores predefinidas disponíveis, escolher uma aleatória
+    if (coresDisponiveis.length > 0) {
+      const indiceAleatorio = Math.floor(Math.random() * coresDisponiveis.length);
+      return coresDisponiveis[indiceAleatorio];
+    }
+    
+    // Se todas as cores predefinidas estão em uso, gerar uma cor aleatória
+    return gerarCorAleatoria();
+  };
+  
+  // ✅ IMPROVEMENT 001: Função para gerar cor aleatória com boa saturação
+  const gerarCorAleatoria = () => {
+    const hue = Math.floor(Math.random() * 360);
+    const saturation = 65 + Math.floor(Math.random() * 25); // 65-90%
+    const lightness = 55 + Math.floor(Math.random() * 20);  // 55-75%
+    
+    return hslToHex(hue, saturation, lightness);
+  };
+  
+  // ✅ IMPROVEMENT 001: Converter HSL para HEX
+  const hslToHex = (h, s, l) => {
+    l /= 100;
+    const a = s * Math.min(l, 1 - l) / 100;
+    const f = n => {
+      const k = (n + h / 30) % 12;
+      const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+      return Math.round(255 * color).toString(16).padStart(2, '0');
+    };
+    return `#${f(0)}${f(8)}${f(4)}`;
+  };
   
   // Função para mostrar feedback
   const showFeedback = (message, type = 'success') => {
@@ -105,12 +158,17 @@ const CategoriasModal = ({ isOpen, onClose }) => {
     resetarFormularios();
   };
   
-  // Abrir formulário de nova categoria
+  // ✅ IMPROVEMENT 001: Abrir formulário de nova categoria com cor automática
   const handleNovaCategoria = () => {
     resetarFormularios();
     setShowFormCategoria(true);
     setNovaCategoriaNome('');
-    setNovaCategoriaColor('#3498db');
+    
+    // ✅ Definir cor automática inteligente
+    const corAutomatica = getUniqueRandomColor();
+    setNovaCategoriaColor(corAutomatica);
+    
+    console.log(`🎨 Cor automática gerada: ${corAutomatica}`);
   };
   
   // Abrir formulário de nova subcategoria
@@ -139,6 +197,13 @@ const CategoriasModal = ({ isOpen, onClose }) => {
     setEditandoSubcategoria(subcategoria);
     setNovaSubcategoriaNome(subcategoria.nome);
     setCategoriaSelecionada(categoriaId);
+  };
+  
+  // ✅ IMPROVEMENT 001: Função para sugerir nova cor automática
+  const handleSugerirNovaCor = () => {
+    const novaCor = getUniqueRandomColor();
+    setNovaCategoriaColor(novaCor);
+    showFeedback(`Nova cor sugerida: ${novaCor}`, 'info');
   };
   
   // Salvar categoria (nova ou editada)
@@ -270,7 +335,7 @@ const CategoriasModal = ({ isOpen, onClose }) => {
     }
   };
   
-  // Formulário de categoria
+  // ✅ IMPROVEMENT 001: Formulário de categoria com cores automáticas
   const renderFormCategoria = () => {
     return (
       <div className="form-categoria">
@@ -298,18 +363,43 @@ const CategoriasModal = ({ isOpen, onClose }) => {
               className="color-picker"
             />
             <div className="color-preview" style={{ backgroundColor: novaCategoriaColor }}></div>
+            {/* ✅ IMPROVEMENT 001: Botão para sugerir nova cor */}
+            <button
+              type="button"
+              className="button-suggest-color"
+              onClick={handleSugerirNovaCor}
+              title="Sugerir nova cor automática"
+            >
+              🎲 Sortear
+            </button>
           </div>
           
           <div className="cores-container">
-            {coresPredefinidas.map(cor => (
-              <button
-                key={cor}
-                type="button"
-                className={`cor-item ${cor === novaCategoriaColor ? 'selected' : ''}`}
-                style={{ backgroundColor: cor }}
-                onClick={() => setNovaCategoriaColor(cor)}
-              />
-            ))}
+            {coresPredefinidas.map(cor => {
+              // ✅ Verificar se a cor já está em uso
+              const corEmUso = categoriasFiltradas.some(cat => 
+                cat.cor?.toUpperCase() === cor.toUpperCase() && cat.id !== editandoCategoria?.id
+              );
+              
+              return (
+                <button
+                  key={cor}
+                  type="button"
+                  className={`cor-item ${cor === novaCategoriaColor ? 'selected' : ''} ${corEmUso ? 'in-use' : ''}`}
+                  style={{ backgroundColor: cor }}
+                  onClick={() => setNovaCategoriaColor(cor)}
+                  title={corEmUso ? `Cor já usada` : `Usar cor ${cor}`}
+                  disabled={corEmUso}
+                />
+              );
+            })}
+          </div>
+          
+          {/* ✅ IMPROVEMENT 001: Indicador de cores em uso */}
+          <div className="color-usage-info">
+            <small>
+              💡 Cores com ⚫ já estão em uso. Use o botão "🎲 Sortear" para gerar uma cor única.
+            </small>
           </div>
         </div>
         
@@ -520,6 +610,18 @@ const CategoriasModal = ({ isOpen, onClose }) => {
                 <p className="categorias-subtitle">
                   Clique em uma categoria para ver e gerenciar suas subcategorias
                 </p>
+                
+                {/* ✅ IMPROVEMENT 001: Estatísticas de cores */}
+                {categoriasFiltradas.length > 0 && (
+                  <div className="color-stats">
+                    <small>
+                      🎨 {categoriasFiltradas.length} categorias • 
+                      {coresPredefinidas.length - categoriasFiltradas.filter(cat => 
+                        coresPredefinidas.includes(cat.cor)
+                      ).length} cores disponíveis
+                    </small>
+                  </div>
+                )}
               </div>
               
               {loading ? (

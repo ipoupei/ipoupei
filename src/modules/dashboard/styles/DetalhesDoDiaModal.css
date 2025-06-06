@@ -1,436 +1,469 @@
-import React, { useState, useEffect } from 'react';
-import PropTypes from 'prop-types';
-import { 
-  X, 
-  Plus, 
-  Edit3, 
-  Trash2, 
-  Check, 
-  Clock, 
-  AlertCircle,
-  TrendingUp,
-  TrendingDown,
-  Calendar,
-  DollarSign,
-  Tag,
-  CreditCard,
-  Landmark,
-  MoreHorizontal
-} from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { formatCurrency } from '@utils/formatCurrency';
+/* DetalhesDoDiaModal.css - Versão Compacta e Legível */
 
-/**
- * Modal para exibir detalhes das movimentações de um dia específico
- * Permite visualizar, editar e excluir transações
- */
-const DetalhesDoDiaModal = ({ isOpen, onClose, dia }) => {
-  const [movimentacoes, setMovimentacoes] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [showAddForm, setShowAddForm] = useState(false);
+/* ================== OVERLAY PRINCIPAL ================== */
+.detalhes-modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 9999 !important;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+/* ================== CONTAINER DO MODAL (MUITO MENOR) ================== */
+.detalhes-modal-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-width: 520px; /* Muito menor que antes (era 64rem) */
+  max-height: 470vh;
+  overflow: hidden;
+  position: relative;
+  z-index: 10000;
+  animation: modalSlideIn 0.2s ease-out;
+}
+
+/* ================== ANIMAÇÕES ================== */
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ================== HEADER COMPACTO ================== */
+.detalhes-modal-header {
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  padding: 1rem 1.25rem;
+  color: white;
+  position: relative;
+}
+
+.detalhes-modal-close-button {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.detalhes-modal-close-button:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.detalhes-modal-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem 0;
+  padding-right: 2rem;
+}
+
+.detalhes-modal-subtitle {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.8rem;
+  margin: 0;
+  text-transform: capitalize;
+}
+
+/* ================== RESUMO MUITO COMPACTO ================== */
+.detalhes-modal-resumo {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.detalhes-resumo-item {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 0.5rem;
+  text-align: center;
+  backdrop-filter: blur(10px);
+}
+
+.detalhes-resumo-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  margin-bottom: 0.125rem;
+  opacity: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detalhes-resumo-valor {
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ================== CORPO COMPACTO ================== */
+.detalhes-modal-body {
+  padding: 1rem;
+  max-height: 30vh;
+  overflow-y: auto;
+}
+
+.detalhes-modal-body::-webkit-scrollbar {
+  width: 4px;
+}
+
+.detalhes-modal-body::-webkit-scrollbar-track {
+  background: #f8f9fa;
+}
+
+.detalhes-modal-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+}
+
+/* ================== CABEÇALHO DE MOVIMENTAÇÕES ================== */
+.detalhes-movimentacoes-header {
+  margin-bottom: 0.75rem;
+  text-align: center;
+}
+
+.detalhes-movimentacoes-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.125rem 0;
+}
+
+.detalhes-movimentacoes-subtitle {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* ================== LISTA COMPACTA ================== */
+.detalhes-movimentacoes-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* ================== ITEM SUPER COMPACTO ================== */
+.detalhes-movimentacao-item {
+  padding: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid;
+  transition: all 0.15s ease;
+}
+
+.detalhes-movimentacao-item.receita {
+  background: #f0fdf4;
+  border-color: #22c55e;
+}
+
+.detalhes-movimentacao-item.despesa {
+  background: #fef2f2;
+  border-color: #ef4444;
+}
+
+.detalhes-movimentacao-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.detalhes-movimentacao-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.detalhes-movimentacao-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.detalhes-movimentacao-icon.receita {
+  background: #22c55e;
+  color: white;
+}
+
+.detalhes-movimentacao-icon.despesa {
+  background: #ef4444;
+  color: white;
+}
+
+.detalhes-movimentacao-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.detalhes-movimentacao-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.25rem;
+}
+
+.detalhes-movimentacao-descricao {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.detalhes-movimentacao-valor {
+  font-size: 0.875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.detalhes-movimentacao-valor.receita {
+  color: #059669;
+}
+
+.detalhes-movimentacao-valor.despesa {
+  color: #dc2626;
+}
+
+.detalhes-movimentacao-detalhes {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.75rem;
+  color: #374151; /* Cor mais escura para melhor contraste */
+  font-weight: 500;
+}
+
+.detalhes-movimentacao-detalhe {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.detalhes-movimentacao-detalhe svg {
+  color: #6b7280;
+}
+
+.detalhes-movimentacao-observacoes {
+  margin-top: 0.375rem;
+  font-size: 0.7rem;
+  color: #4b5563; /* Cor mais escura */
+  font-style: italic;
+  font-weight: 500;
+}
+
+/* ================== RESUMO FINAL COMPACTO ================== */
+.detalhes-resumo-adicional {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.detalhes-resumo-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  text-align: center;
+}
+
+.detalhes-resumo-coluna {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.detalhes-resumo-coluna-label {
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #374151; /* Cor mais escura */
+}
+
+.detalhes-resumo-coluna-valor {
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.detalhes-resumo-coluna-valor.positivo {
+  color: #059669;
+}
+
+.detalhes-resumo-coluna-valor.negativo {
+  color: #dc2626;
+}
+
+.detalhes-resumo-coluna-valor.neutro {
+  color: #1f2937;
+}
+
+/* ================== FOOTER COMPACTO ================== */
+.detalhes-modal-footer {
+  border-top: 1px solid #e5e7eb;
+  padding: 0.75rem 1rem;
+  background: #f9fafb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.detalhes-modal-info {
+  font-size: 0.75rem;
+  color: #374151; /* Cor mais escura */
+  font-weight: 500;
+}
+
+.detalhes-modal-saldo-info {
+  font-weight: 700;
+}
+
+.detalhes-modal-saldo-info.positivo {
+  color: #059669;
+}
+
+.detalhes-modal-saldo-info.negativo {
+  color: #dc2626;
+}
+
+.detalhes-modal-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.detalhes-modal-button {
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  border: none;
+}
+
+.detalhes-modal-button.secondary {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.detalhes-modal-button.secondary:hover {
+  background: #e5e7eb;
+}
+
+.detalhes-modal-button.primary {
+  background: #3b82f6;
+  color: white;
+}
+
+.detalhes-modal-button.primary:hover {
+  background: #2563eb;
+}
+
+/* ================== ESTADO VAZIO COMPACTO ================== */
+.detalhes-empty-state {
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+.detalhes-empty-icon {
+  width: 3rem;
+  height: 3rem;
+  background: #f3f4f6;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem;
+  color: #9ca3af;
+}
+
+.detalhes-empty-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+.detalhes-empty-description {
+  color: #6b7280;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+/* ================== RESPONSIVIDADE MOBILE ================== */
+@media (max-width: 640px) {
+  .detalhes-modal-container {
+    max-width: 95vw;
+    margin: 0.5rem;
+  }
   
-  // Dados mockados para demonstração
-  const movimentacoesMock = [
-    {
-      id: 1,
-      tipo: 'receita',
-      descricao: 'Salário',
-      valor: 3500.00,
-      categoria: 'Trabalho',
-      conta: 'Nubank',
-      status: 'pago',
-      hora: '09:00',
-      observacoes: 'Pagamento mensal'
-    },
-    {
-      id: 2,
-      tipo: 'despesa',
-      descricao: 'Supermercado',
-      valor: 156.78,
-      categoria: 'Alimentação',
-      conta: 'Cartão Itaú',
-      status: 'pago',
-      hora: '14:30',
-      observacoes: 'Compras da semana'
-    },
-    {
-      id: 3,
-      tipo: 'despesa',
-      descricao: 'Conta de Luz',
-      valor: 89.50,
-      categoria: 'Casa',
-      conta: 'Conta Corrente',
-      status: 'pendente',
-      hora: '16:45',
-      observacoes: 'Vencimento hoje'
-    },
-    {
-      id: 4,
-      tipo: 'receita',
-      descricao: 'Freelance',
-      valor: 800.00,
-      categoria: 'Trabalho Extra',
-      conta: 'Pix',
-      status: 'programado',
-      hora: '18:00',
-      observacoes: 'Projeto web'
-    }
-  ];
-
-  // Carrega movimentações quando o modal abre
-  useEffect(() => {
-    if (isOpen && dia) {
-      setLoading(true);
-      // Simulando carregamento de dados
-      setTimeout(() => {
-        setMovimentacoes(movimentacoesMock);
-        setLoading(false);
-      }, 500);
-    }
-  }, [isOpen, dia]);
-
-  // Fecha o modal e limpa estados
-  const handleClose = () => {
-    setEditingId(null);
-    setShowAddForm(false);
-    onClose();
-  };
-
-  // Calcula totais
-  const totalReceitas = movimentacoes
-    .filter(mov => mov.tipo === 'receita')
-    .reduce((acc, mov) => acc + mov.valor, 0);
+  .detalhes-modal-header {
+    padding: 0.75rem 1rem;
+  }
   
-  const totalDespesas = movimentacoes
-    .filter(mov => mov.tipo === 'despesa')
-    .reduce((acc, mov) => acc + mov.valor, 0);
+  .detalhes-modal-body {
+    padding: 0.75rem;
+    max-height: 60vh;
+  }
   
-  const saldoDia = totalReceitas - totalDespesas;
+  .detalhes-modal-resumo {
+    grid-template-columns: 1fr;
+    gap: 0.375rem;
+  }
+  
+  .detalhes-resumo-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+  
+  .detalhes-modal-footer {
+    padding: 0.5rem 0.75rem;
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
+  }
+  
+  .detalhes-movimentacao-detalhes {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .detalhes-movimentacao-main {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.125rem;
+  }
+}
 
-  // Handlers
-  const handleEdit = (id) => {
-    setEditingId(id);
-  };
+/* ================== GARANTIAS ================== */
+body.modal-open {
+  overflow: hidden !important;
+}
 
-  const handleDelete = (id) => {
-    if (window.confirm('Tem certeza que deseja excluir esta movimentação?')) {
-      setMovimentacoes(prev => prev.filter(mov => mov.id !== id));
-    }
-  };
-
-  const handleStatusChange = (id, novoStatus) => {
-    setMovimentacoes(prev => 
-      prev.map(mov => 
-        mov.id === id ? { ...mov, status: novoStatus } : mov
-      )
-    );
-  };
-
-  const handleAddNew = () => {
-    setShowAddForm(true);
-  };
-
-  // Componente de item de movimentação
-  const MovimentacaoItem = ({ movimentacao }) => {
-    const isReceita = movimentacao.tipo === 'receita';
-    const [showOptions, setShowOptions] = useState(false);
-    
-    const getStatusIcon = () => {
-      switch (movimentacao.status) {
-        case 'pago':
-          return <Check size={16} className="text-green-600" />;
-        case 'pendente':
-          return <Clock size={16} className="text-yellow-600" />;
-        case 'programado':
-          return <Calendar size={16} className="text-blue-600" />;
-        default:
-          return <AlertCircle size={16} className="text-gray-400" />;
-      }
-    };
-
-    const getStatusColor = () => {
-      switch (movimentacao.status) {
-        case 'pago':
-          return 'bg-green-50 text-green-700 border-green-200';
-        case 'pendente':
-          return 'bg-yellow-50 text-yellow-700 border-yellow-200';
-        case 'programado':
-          return 'bg-blue-50 text-blue-700 border-blue-200';
-        default:
-          return 'bg-gray-50 text-gray-700 border-gray-200';
-      }
-    };
-
-    const getStatusText = () => {
-      switch (movimentacao.status) {
-        case 'pago':
-          return 'Pago';
-        case 'pendente':
-          return 'Pendente';
-        case 'programado':
-          return 'Programado';
-        default:
-          return 'Indefinido';
-      }
-    };
-
-    return (
-      <div className={`
-        p-4 rounded-xl border-2 transition-all duration-200
-        ${isReceita ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}
-        hover:shadow-md hover:scale-[1.02]
-      `}>
-        <div className="flex items-start justify-between">
-          <div className="flex items-start space-x-3 flex-1">
-            {/* Ícone do tipo */}
-            <div className={`
-              p-2 rounded-lg
-              ${isReceita ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}
-            `}>
-              {isReceita ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
-            </div>
-            
-            {/* Informações principais */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between mb-2">
-                <div>
-                  <h4 className="font-semibold text-gray-800 text-base">
-                    {movimentacao.descricao}
-                  </h4>
-                  <p className={`
-                    text-lg font-bold
-                    ${isReceita ? 'text-green-600' : 'text-red-600'}
-                  `}>
-                    {isReceita ? '+' : '-'} {formatCurrency(movimentacao.valor)}
-                  </p>
-                </div>
-                
-                {/* Menu de opções */}
-                <div className="relative">
-                  <button
-                    onClick={() => setShowOptions(!showOptions)}
-                    className="p-1 rounded-full hover:bg-gray-100 transition-colors"
-                  >
-                    <MoreHorizontal size={16} className="text-gray-400" />
-                  </button>
-                  
-                  {showOptions && (
-                    <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10 min-w-[140px]">
-                      <button
-                        onClick={() => {
-                          handleEdit(movimentacao.id);
-                          setShowOptions(false);
-                        }}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center space-x-2"
-                      >
-                        <Edit3 size={14} />
-                        <span>Editar</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          handleDelete(movimentacao.id);
-                          setShowOptions(false);
-                        }}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 text-red-600 flex items-center space-x-2"
-                      >
-                        <Trash2 size={14} />
-                        <span>Excluir</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              {/* Informações secundárias */}
-              <div className="space-y-2 text-sm text-gray-600">
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-1">
-                    <Tag size={12} />
-                    <span>{movimentacao.categoria}</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    {movimentacao.conta.includes('Cartão') ? (
-                      <CreditCard size={12} />
-                    ) : (
-                      <Landmark size={12} />
-                    )}
-                    <span>{movimentacao.conta}</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <Clock size={12} />
-                    <span>{movimentacao.hora}</span>
-                  </div>
-                </div>
-                
-                {movimentacao.observacoes && (
-                  <p className="text-xs text-gray-500 italic">
-                    {movimentacao.observacoes}
-                  </p>
-                )}
-              </div>
-              
-              {/* Status */}
-              <div className="flex items-center justify-between mt-3">
-                <div className={`
-                  inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium border
-                  ${getStatusColor()}
-                `}>
-                  {getStatusIcon()}
-                  <span>{getStatusText()}</span>
-                </div>
-                
-                {/* Botões de ação rápida para status */}
-                {movimentacao.status !== 'pago' && (
-                  <button
-                    onClick={() => handleStatusChange(movimentacao.id, 'pago')}
-                    className="text-xs text-green-600 hover:text-green-700 font-medium"
-                  >
-                    Marcar como pago
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  if (!isOpen || !dia) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-        {/* Header do Modal */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold mb-1">
-                {dia ? format(new Date(dia.ano, dia.mes, dia.dia), 'dd \'de\' MMMM', { locale: ptBR }) : 'Detalhes do Dia'}
-              </h2>
-              <p className="text-blue-100">
-                {dia ? format(new Date(dia.ano, dia.mes, dia.dia), 'EEEE', { locale: ptBR }) : ''}
-              </p>
-            </div>
-            <button
-              onClick={handleClose}
-              className="p-2 rounded-full hover:bg-white hover:bg-opacity-20 transition-colors"
-            >
-              <X size={24} />
-            </button>
-          </div>
-          
-          {/* Resumo do Dia */}
-          <div className="grid grid-cols-3 gap-4 mt-6">
-            <div className="bg-white bg-opacity-10 rounded-lg p-3 text-center">
-              <p className="text-green-200 text-sm font-medium">Receitas</p>
-              <p className="text-xl font-bold">{formatCurrency(totalReceitas)}</p>
-            </div>
-            <div className="bg-white bg-opacity-10 rounded-lg p-3 text-center">
-              <p className="text-red-200 text-sm font-medium">Despesas</p>
-              <p className="text-xl font-bold">{formatCurrency(totalDespesas)}</p>
-            </div>
-            <div className="bg-white bg-opacity-10 rounded-lg p-3 text-center">
-              <p className="text-blue-200 text-sm font-medium">Saldo</p>
-              <p className={`text-xl font-bold ${saldoDia >= 0 ? 'text-green-200' : 'text-red-200'}`}>
-                {formatCurrency(saldoDia)}
-              </p>
-            </div>
-          </div>
-        </div>
-        
-        {/* Conteúdo do Modal */}
-        <div className="p-6 overflow-y-auto max-h-[60vh]">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full"></div>
-              <span className="ml-3 text-gray-600">Carregando movimentações...</span>
-            </div>
-          ) : movimentacoes.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Calendar size={32} className="text-gray-400" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-800 mb-2">
-                Nenhuma movimentação registrada
-              </h3>
-              <p className="text-gray-600 mb-4">
-                Não há receitas ou despesas cadastradas para este dia.
-              </p>
-              <button
-                onClick={handleAddNew}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Adicionar primeira movimentação
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {/* Botão para adicionar nova movimentação */}
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-semibold text-gray-800">
-                  Movimentações ({movimentacoes.length})
-                </h3>
-                <button
-                  onClick={handleAddNew}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  <Plus size={18} />
-                  <span>Nova movimentação</span>
-                </button>
-              </div>
-              
-              {/* Lista de movimentações */}
-              <div className="space-y-3">
-                {movimentacoes.map(movimentacao => (
-                  <MovimentacaoItem 
-                    key={movimentacao.id} 
-                    movimentacao={movimentacao} 
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-        
-        {/* Footer do Modal */}
-        <div className="border-t border-gray-200 p-4 bg-gray-50">
-          <div className="flex justify-between items-center">
-            <div className="text-sm text-gray-600">
-              {movimentacoes.length} movimentação(ões) encontrada(s)
-            </div>
-            <div className="flex space-x-3">
-              <button
-                onClick={handleClose}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-              >
-                Fechar
-              </button>
-              <button
-                onClick={handleAddNew}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Adicionar movimentação
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-DetalhesDoDiaModal.propTypes = {
-  isOpen: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired,
-  dia: PropTypes.shape({
-    dia: PropTypes.number,
-    mes: PropTypes.number,
-    ano: PropTypes.number,
-    movimentacoes: PropTypes.array
-  })
-};
-
-export default DetalhesDoDiaModal;
+.detalhes-modal-overlay {
+  position: fixed !important;
+  z-index: 9999 !important;
+}
