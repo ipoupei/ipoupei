@@ -1,4 +1,3 @@
-// src/hooks/useDashboardData.js
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@lib/supabaseClient';
 import useCategorias from '@modules/categorias/hooks/useCategorias';
@@ -7,31 +6,109 @@ import useCartoes from '@modules/cartoes/hooks/useCartoes';
 import useTransacoes from '@modules/transacoes/hooks/useTransacoes';
 import useAuth from '@/modules/auth/hooks/useAuth'; 
 
-/**
- * Hook simplificado para dashboard com dados reais do usuário
- * Versão corrigida que evita problemas de relacionamento no Supabase
- */
-const useDashboardData = () => {
+const useDashboardData = (dataReferencia = new Date()) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [perfilUsuario, setPerfilUsuario] = useState(null);
 
-  // Hooks de dados existentes
   const { categorias } = useCategorias();
   const { contas, saldoTotal, loading: contasLoading } = useContas();
   const { cartoes, limiteTotal, loading: cartoesLoading } = useCartoes();
-  const { 
-    transacoes, 
-    getTotalReceitas, 
-    getTotalDespesas,
-    getReceitasPorCategoria,
-    getDespesasPorCategoria,
-    loading: transacoesLoading 
-  } = useTransacoes();
+  const { transacoes, getTotalReceitas, getTotalDespesas, getReceitasPorCategoria, getDespesasPorCategoria, loading: transacoesLoading } = useTransacoes();
   const { user, isAuthenticated } = useAuth();
 
-  // Busca dados do perfil do usuário
+  const calcularSaldoConta = (conta, transacoes, incluirPrevistos = false) => {
+    let transacoesFiltradas;
+
+    if (incluirPrevistos) {
+    const ultimoDiaMes = new Date(dataReferencia.getFullYear(), dataReferencia.getMonth() + 1, 0);
+      transacoesFiltradas = transacoes.filter(trans =>
+        trans.conta_id === conta.id &&
+        ((trans.status === 'realizado' && new Date(trans.data) <= new Date()) ||
+         (trans.status === 'pendente' && new Date(trans.data_prevista) <= ultimoDiaMes))
+    );
+          } else {
+      transacoesFiltradas = transacoes.filter(trans =>
+        trans.conta_id === conta.id &&
+        trans.status === 'realizado' &&
+        new Date(trans.data) <= new Date()
+      );
+          }
+
+    return transacoesFiltradas.reduce((saldo, trans) =>
+      saldo + (trans.tipo === 'receita' ? trans.valor : -trans.valor),
+      conta.saldo_inicial || 0
+    );
+      };
+
+  const calcularSaldos = (contas, transacoes) => {
+    const saldoAtual = contas.reduce((total, conta) => {
+      const saldoConta = calcularSaldoConta(conta, transacoes, false);
+      return total + saldoConta;
+    }, 0);
+
+    const saldoPrevisto = contas.reduce((total, conta) => {
+      const saldoConta = calcularSaldoConta(conta, transacoes, true);
+      return total + saldoConta;
+    }, 0);
+
+    const ultimoDiaMes = new Date(dataReferencia.getFullYear(), dataReferencia.getMonth() + 1, 0);
+    const transacoesFuturas = transacoes.filter(trans =>
+      trans.status === 'pendente' &&
+      new Date(trans.data_prevista) <= ultimoDiaMes
+    );
+
+    console.log('Transações futuras encontradas:', {
+      total: transacoesFuturas.length,
+      receitas: transacoesFuturas.filter(t => t.tipo === 'receita').length,
+      despesas: transacoesFuturas.filter(t => t.tipo === 'despesa').length,
+      mes: dataReferencia.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
+    });
+  return {
+      atual: saldoAtual,
+      previsto: saldoPrevisto,
+      temTransacoesFuturas: transacoesFuturas.length > 0
+  };
+};
+
+  const calcularMovimentos = (transacoes, tipo) => {
+    const ultimoDiaMes = new Date(dataReferencia.getFullYear(), dataReferencia.getMonth() + 1, 0);
+
+    const transacoesFiltradas = transacoes.filter(trans =>
+      trans.tipo.toLowerCase() === tipo.toLowerCase()
+    );
+
+    const atual = transacoesFiltradas
+      .filter(trans =>
+        trans.status === 'realizado' &&
+        new Date(trans.data) <= new Date()
+      )
+      .reduce((total, trans) => total + (trans.valor || 0), 0);
+
+    const previsto = transacoesFiltradas
+      .filter(trans =>
+        (trans.status === 'realizado' && new Date(trans.data) <= new Date()) ||
+        (trans.status === 'pendente' && new Date(trans.data_prevista) <= ultimoDiaMes)
+      )
+      .reduce((total, trans) => total + (trans.valor || 0), 0);
+
+    return { atual, previsto };
+  };
+
+  const calcularCartoes = (transacoes) => {
+    const transacoesCartao = transacoes.filter(trans =>
+      trans.tipo === 'despesa' &&
+      trans.meio_pagamento === 'cartao_credito' &&
+      trans.status !== 'pago'
+    );
+
+    const atual = transacoesCartao.reduce((total, trans) => total + trans.valor, 0);
+    const limite = limiteTotal || 0;
+
+    return { atual, limite };
+  };
+
   const fetchPerfilUsuario = useCallback(async () => {
     if (!isAuthenticated || !user) {
       setPerfilUsuario(null);
@@ -49,13 +126,12 @@ const useDashboardData = () => {
         console.warn('⚠️ Erro ao buscar perfil (usando fallback):', error.message);
       }
 
-      // Se não encontrou perfil ou houve erro, criar um básico
       if (!perfil || error) {
         const novoPerfilData = {
           id: user.id,
-          nome: user.user_metadata?.full_name || 
-                user.user_metadata?.nome || 
-                user.email?.split('@')[0] || 
+          nome: user.user_metadata?.full_name ||
+                user.user_metadata?.nome ||
+                user.email?.split('@')[0] ||
                 'Usuário',
           email: user.email,
           avatar_url: user.user_metadata?.avatar_url || null,
@@ -63,7 +139,6 @@ const useDashboardData = () => {
           updated_at: new Date().toISOString()
         };
 
-        // Tenta criar novo perfil, mas não falha se der erro
         try {
           const { data: novoPerfil, error: createError } = await supabase
             .from('perfil_usuario')
@@ -87,21 +162,19 @@ const useDashboardData = () => {
       return { success: true };
     } catch (err) {
       console.error('❌ Erro ao buscar perfil (usando fallback):', err);
-      // Fallback com dados básicos do auth
       setPerfilUsuario({
         id: user.id,
-        nome: user.user_metadata?.full_name || 
-              user.user_metadata?.nome || 
-              user.email?.split('@')[0] || 
+        nome: user.user_metadata?.full_name ||
+              user.user_metadata?.nome ||
+              user.email?.split('@')[0] ||
               'Usuário',
         email: user.email,
         avatar_url: user.user_metadata?.avatar_url || null
       });
-      return { success: true }; // Não falha, usa dados básicos
+      return { success: true };
     }
   }, [isAuthenticated, user]);
 
-  // Busca perfil quando usuário muda
   useEffect(() => {
     if (isAuthenticated && user) {
       fetchPerfilUsuario();
@@ -110,7 +183,6 @@ const useDashboardData = () => {
     }
   }, [isAuthenticated, user, fetchPerfilUsuario]);
 
-  // Calcula dados do dashboard quando dependências mudam
   useEffect(() => {
     if (!isAuthenticated || !perfilUsuario) {
       setData(null);
@@ -118,7 +190,6 @@ const useDashboardData = () => {
       return;
     }
 
-    // Se ainda está carregando dados essenciais, aguarda
     if (contasLoading || cartoesLoading || transacoesLoading) {
       setLoading(true);
       return;
@@ -128,126 +199,93 @@ const useDashboardData = () => {
       setLoading(true);
       setError(null);
 
-      console.log('📊 Calculando dados do dashboard...', {
-        contas: contas.length,
-        cartoes: cartoes.length,
-        transacoes: transacoes.length,
-        categorias: categorias.length
+      const saldos = calcularSaldos(contas, transacoes);
+      const receitas = calcularMovimentos(transacoes, 'receita');
+      const despesas = calcularMovimentos(transacoes, 'despesa');
+      const dadosCartao = calcularCartoes(transacoes);
+
+      console.log('Debug valores atualizados:', {
+        saldoAtual: saldos.atual,
+        saldoPrevisto: saldos.previsto,
+        temTransacoesFuturas: saldos.temTransacoesFuturas,
+        receitaAtual: receitas.atual,
+        receitaPrevista: receitas.previsto,
+        despesaAtual: despesas.atual,
+        despesaPrevista: despesas.previsto,
+        dataReferencia: dataReferencia.toLocaleDateString('pt-BR')
       });
 
-      // Calcula totais de receitas e despesas reais
-      const totalReceitas = getTotalReceitas();
-      const totalDespesas = getTotalDespesas();
-      const receitasPorCategoria = getReceitasPorCategoria();
-      const despesasPorCategoria = getDespesasPorCategoria();
-
-      // Calcula projeções baseadas nos dados históricos
-      const projecaoReceitas = totalReceitas * 1.05; // 5% de crescimento
-      const projecaoDespesas = totalDespesas * 0.95; // 5% de redução
-      const projecaoSaldo = saldoTotal + (projecaoReceitas - projecaoDespesas);
-      const projecaoCartao = (limiteTotal || 0) * 0.25; // 25% do limite
-
-      // Monta dados finais do dashboard
       const dashboardData = {
-        // Dados do usuário
         usuario: {
           id: perfilUsuario.id,
           nome: perfilUsuario.nome,
           email: perfilUsuario.email,
           avatar_url: perfilUsuario.avatar_url
         },
-        
-        // Saldo atual e projetado
+
         saldo: {
-          atual: saldoTotal || 0,
-          previsto: projecaoSaldo,
+          atual: saldos.atual,
+          previsto: saldos.previsto,
+          temTransacoesFuturas: saldos.temTransacoesFuturas,
           ultimaAtualizacao: new Date().toLocaleString('pt-BR')
         },
-        
-        // Dados detalhados das contas para o card flip
+
         contasDetalhadas: contas.map(conta => ({
           nome: conta.nome,
-          tipo: conta.tipo === 'corrente' ? 'Conta Corrente' : 
-                conta.tipo === 'poupanca' ? 'Poupança' : 
-                conta.tipo === 'investimento' ? 'Investimento' : 
-                conta.tipo === 'carteira' ? 'Carteira' : 'Outros',
-          saldo: conta.saldo || 0,
+          tipo: conta.tipo,
+          saldo: calcularSaldoConta(conta, transacoes),
           cor: conta.cor || '#3B82F6'
         })),
-        
-        // Receitas atuais e projetadas
+
         receitas: {
-          atual: totalReceitas,
-          previsto: projecaoReceitas,
+          atual: receitas.atual,
+          previsto: receitas.previsto,
           ultimaAtualizacao: new Date().toLocaleString('pt-BR'),
-          categorias: receitasPorCategoria.slice(0, 5) // Top 5 categorias
+          categorias: getReceitasPorCategoria().slice(0, 5)
         },
-        
-        // Despesas atuais e projetadas
+
         despesas: {
-          atual: totalDespesas,
-          previsto: projecaoDespesas,
+          atual: despesas.atual,
+          previsto: despesas.previsto,
           ultimaAtualizacao: new Date().toLocaleString('pt-BR'),
-          categorias: despesasPorCategoria.slice(0, 5) // Top 5 categorias
+          categorias: getDespesasPorCategoria().slice(0, 5)
         },
-        
-        // Cartão de crédito
+
         cartaoCredito: {
-          atual: (limiteTotal || 0) * 0.3, // Simula 30% usado
-          previsto: projecaoCartao,
-          limite: limiteTotal || 0,
+          atual: dadosCartao.atual,
+          limite: dadosCartao.limite,
           ultimaAtualizacao: new Date().toLocaleString('pt-BR')
         },
-        
-        // Dados detalhados dos cartões para o card flip
+
         cartoesDetalhados: cartoes.map(cartao => ({
           nome: cartao.nome,
-          bandeira: cartao.bandeira === 'visa' ? 'Visa' : 
-                   cartao.bandeira === 'mastercard' ? 'Mastercard' : 
-                   cartao.bandeira === 'elo' ? 'Elo' : 
-                   cartao.bandeira || 'Outro',
+          bandeira: cartao.bandeira,
           limite: cartao.limite || 0,
-          usado: (cartao.limite || 0) * 0.3, // Simula 30% usado
+          usado: dadosCartao.atual,
           cor: cartao.cor || '#8B5CF6'
         })),
-        
-        // Dados para gráficos
-        receitasPorCategoria: receitasPorCategoria.length > 0 ? receitasPorCategoria : [
-          { nome: "Sem receitas", valor: 0, color: "#E5E7EB" }
-        ],
-        
-        despesasPorCategoria: despesasPorCategoria.length > 0 ? despesasPorCategoria : [
-          { nome: "Sem despesas", valor: 0, color: "#E5E7EB" }
-        ],
-        
-        // Resumo geral
+
+        receitasPorCategoria: getReceitasPorCategoria(),
+        despesasPorCategoria: getDespesasPorCategoria(),
+
         resumo: {
           totalContas: contas.length,
           totalCartoes: cartoes.length,
           totalCategorias: categorias.length,
           totalTransacoes: transacoes.length,
-          saldoLiquido: saldoTotal || 0,
-          balanco: totalReceitas - totalDespesas,
-          percentualGasto: totalReceitas > 0 ? ((totalDespesas / totalReceitas) * 100).toFixed(1) : 0
+          saldoLiquido: saldos.atual,
+          balanco: receitas.atual - despesas.atual,
+          percentualGasto: receitas.atual > 0 ?
+            ((despesas.atual / receitas.atual) * 100).toFixed(1) : 0
         },
-        
-        // Histórico para gráficos (dados básicos)
+
         historico: [],
-        
-        // Timestamp da última atualização
         ultimaAtualizacao: new Date().toLocaleString('pt-BR')
       };
 
       setData(dashboardData);
       setLoading(false);
       setError(null);
-
-      console.log('✅ Dashboard calculado com sucesso:', {
-        saldoTotal: saldoTotal,
-        totalReceitas,
-        totalDespesas,
-        balanco: totalReceitas - totalDespesas
-      });
 
     } catch (err) {
       console.error('❌ Erro ao calcular dados do dashboard:', err);
@@ -261,28 +299,23 @@ const useDashboardData = () => {
     contas,
     cartoes,
     transacoes,
-    saldoTotal,
+    dataReferencia,
     limiteTotal,
     contasLoading,
     cartoesLoading,
     transacoesLoading,
-    getTotalReceitas,
-    getTotalDespesas,
     getReceitasPorCategoria,
     getDespesasPorCategoria
   ]);
 
-  // Função de refresh simplificada
   const refreshCalendario = useCallback(async () => {
-    // Para o calendário, vamos deixar ele fazer sua própria busca
-    // Isso evita problemas de sincronização
     console.log('🔄 Refresh do calendário solicitado');
     return Promise.resolve();
   }, []);
 
-  return { 
-    data, 
-    loading, 
+  return {
+    data,
+    loading,
     error,
     perfilUsuario,
     refreshData: fetchPerfilUsuario,

@@ -1,6 +1,6 @@
 /* src/styles/Transacoes.css */
 @import '@styles/variables.css';
-@import '@styles/BaseModal.css';
+@import '@styles/FormsModal.css';
 
 /* === Layout Principal === */
 .transacoes-page {

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { CreditCard, Calendar, DollarSign, Landmark, Check, AlertCircle } from 'lucide-react';
 import InputMoney from '@shared/components/ui/InputMoney';
-import '@shared/styles/BaseModal.css';
+import '@shared/styles/FormsModal.css';
 import '@modules/cartoes/styles/CartaoForm.css';
 
 /**
