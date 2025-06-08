@@ -1,15 +1,17 @@
-// src/pages/TransacoesPage.jsx - Versão com Layout Compacto
+// src/pages/TransacoesPage.jsx - Versão Otimizada com Consultas no Banco
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { 
   Search, RefreshCw, 
   ArrowUp, ArrowDown, ArrowLeftRight, 
   Activity, CreditCard, Wallet,
   Edit, Trash2, CheckCircle, Clock,
-  Plus, X
+  Plus, X, ChevronLeft, ChevronRight,
+  ArrowUpDown, ArrowUpIcon, ArrowDownIcon
 } from 'lucide-react';
 
-// Hooks (usando os existentes)
+// Hooks
 import useAuth from '@modules/auth/hooks/useAuth';
 import { useUIStore } from '@store/uiStore';
 
@@ -33,15 +35,16 @@ const TransacoesPage = () => {
   // Estado para mostrar filtros
   const [showFilters, setShowFilters] = useState(false);
 
-  // Estados para dados (usando dados das views do banco)
+  // Estados para dados de referência
   const [categorias, setCategorias] = useState([]);
   const [contas, setContas] = useState([]);
   const [cartoes, setCartoes] = useState([]);
 
-  // Estados essenciais
+  // Estados principais
   const [transacoes, setTransacoes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [totalTransacoes, setTotalTransacoes] = useState(0);
 
   // Estados dos modais
   const [modals, setModals] = useState({
@@ -54,27 +57,87 @@ const TransacoesPage = () => {
   // Estado para edição
   const [transacaoEditando, setTransacaoEditando] = useState(null);
 
-  // Estados para período (sempre personalizado agora)
-  const [dataInicio, setDataInicio] = useState('');
-  const [dataFim, setDataFim] = useState('');
+  // Estados para período (navegação flexível)
+  const [periodoAtual, setPeriodoAtual] = useState(new Date());
+  const [periodoPersonalizado, setPeriodoPersonalizado] = useState({
+    ativo: false,
+    dataInicio: '',
+    dataFim: ''
+  });
 
-  // Filtros (sempre visíveis)
+  // Filtros com suporte a status e ordenação expandida
   const [filters, setFilters] = useState({
     tipo: 'todas',
     categoriaId: '',
     contaId: '',
     cartaoId: '',
-    ordenacao: 'data_desc'
+    status: 'todas', // 'todas', 'efetivadas', 'pendentes'
+    ordenacao: 'data',
+    direcaoOrdenacao: 'desc'
   });
 
-  // Inicializar com período do mês atual
-  useEffect(() => {
-    const hoje = new Date();
-    const inicioMes = startOfMonth(hoje);
-    const fimMes = endOfMonth(hoje);
+  // Paginação
+  const [paginacao, setPaginacao] = useState({
+    pagina: 1,
+    itensPorPagina: 50,
+    totalPaginas: 0
+  });
+
+  // Calcular período atual (mês ou personalizado)
+  const periodoCalculado = useMemo(() => {
+    if (periodoPersonalizado.ativo && periodoPersonalizado.dataInicio && periodoPersonalizado.dataFim) {
+      return {
+        inicio: periodoPersonalizado.dataInicio,
+        fim: periodoPersonalizado.dataFim,
+        label: `${format(new Date(periodoPersonalizado.dataInicio), 'dd/MM/yyyy')} - ${format(new Date(periodoPersonalizado.dataFim), 'dd/MM/yyyy')}`,
+        isPersonalizado: true
+      };
+    }
     
-    setDataInicio(format(inicioMes, 'yyyy-MM-dd'));
-    setDataFim(format(fimMes, 'yyyy-MM-dd'));
+    const inicio = startOfMonth(periodoAtual);
+    const fim = endOfMonth(periodoAtual);
+    
+    return {
+      inicio: format(inicio, 'yyyy-MM-dd'),
+      fim: format(fim, 'yyyy-MM-dd'),
+      label: format(periodoAtual, 'MMMM yyyy', { locale: ptBR }),
+      isPersonalizado: false
+    };
+  }, [periodoAtual, periodoPersonalizado]);
+
+  // Navegação de período (sempre reseta para mês inteiro)
+  const navegarPeriodo = useCallback((direcao) => {
+    setPeriodoPersonalizado({ ativo: false, dataInicio: '', dataFim: '' }); // Desativa período personalizado
+    setPeriodoAtual(prev => {
+      if (direcao === 'anterior') {
+        return subMonths(prev, 1);
+      } else {
+        return addMonths(prev, 1);
+      }
+    });
+    setPaginacao(prev => ({ ...prev, pagina: 1 }));
+  }, []);
+
+  const voltarParaHoje = useCallback(() => {
+    setPeriodoPersonalizado({ ativo: false, dataInicio: '', dataFim: '' });
+    setPeriodoAtual(new Date());
+    setPaginacao(prev => ({ ...prev, pagina: 1 }));
+  }, []);
+
+  // ✅ NOVO: Ativar período personalizado
+  const ativarPeriodoPersonalizado = useCallback((dataInicio, dataFim) => {
+    setPeriodoPersonalizado({
+      ativo: true,
+      dataInicio,
+      dataFim
+    });
+    setPaginacao(prev => ({ ...prev, pagina: 1 }));
+  }, []);
+
+  // ✅ NOVO: Resetar para período mensal
+  const resetarParaPeriodoMensal = useCallback(() => {
+    setPeriodoPersonalizado({ ativo: false, dataInicio: '', dataFim: '' });
+    setPaginacao(prev => ({ ...prev, pagina: 1 }));
   }, []);
 
   // Buscar dados básicos usando as tabelas otimizadas
@@ -84,70 +147,133 @@ const TransacoesPage = () => {
     try {
       console.log('📊 Buscando dados básicos...');
 
-      // Buscar categorias ativas
-      const { data: categoriasData } = await supabase
-        .from('categorias')
-        .select('id, nome, cor, tipo')
-        .eq('usuario_id', user.id)
-        .eq('ativo', true)
-        .order('nome');
+      const [categoriasRes, contasRes, cartoesRes] = await Promise.all([
+        supabase
+          .from('categorias')
+          .select('id, nome, cor, tipo')
+          .eq('usuario_id', user.id)
+          .eq('ativo', true)
+          .order('nome'),
+        
+        supabase
+          .from('contas')
+          .select('id, nome, tipo, saldo')
+          .eq('usuario_id', user.id)
+          .eq('ativo', true)
+          .order('nome'),
+        
+        supabase
+          .from('cartoes')
+          .select('id, nome, bandeira')
+          .eq('usuario_id', user.id)
+          .eq('ativo', true)
+          .order('nome')
+      ]);
 
-      // Buscar contas ativas  
-      const { data: contasData } = await supabase
-        .from('contas')
-        .select('id, nome, tipo, saldo')
-        .eq('usuario_id', user.id)
-        .eq('ativo', true)
-        .order('nome');
-
-      // Buscar cartões ativos
-      const { data: cartoesData } = await supabase
-        .from('cartoes')
-        .select('id, nome, bandeira')
-        .eq('usuario_id', user.id)
-        .eq('ativo', true)
-        .order('nome');
-
-      setCategorias(categoriasData || []);
-      setContas(contasData || []);
-      setCartoes(cartoesData || []);
+      setCategorias(categoriasRes.data || []);
+      setContas(contasRes.data || []);
+      setCartoes(cartoesRes.data || []);
 
       console.log('✅ Dados básicos carregados:', {
-        categorias: categoriasData?.length || 0,
-        contas: contasData?.length || 0,
-        cartoes: cartoesData?.length || 0
+        categorias: categoriasRes.data?.length || 0,
+        contas: contasRes.data?.length || 0,
+        cartoes: cartoesRes.data?.length || 0
       });
 
     } catch (error) {
       console.error('❌ Erro ao buscar dados básicos:', error);
+      showNotification('Erro ao carregar dados básicos', 'error');
     }
-  }, [user?.id]);
+  }, [user?.id, showNotification]);
 
-  // Função para buscar transações do período selecionado
+  // Função otimizada para buscar transações com filtros no banco
   const fetchTransacoes = useCallback(async () => {
-    if (!user?.id || !dataInicio || !dataFim) return;
+    if (!user?.id) return;
 
     try {
       setLoading(true);
-      console.log('🔍 Buscando transações do período...');
+      console.log('🔍 Buscando transações do período:', periodoCalculado);
       
-      console.log('📅 Período:', { dataInicio, dataFim });
-      
-      // Buscar transações do período
-      const { data, error } = await supabase
+      // Construir query base - EXCLUINDO transferências internas
+      let query = supabase
         .from('transacoes')
         .select(`
           id, descricao, valor, data, tipo, observacoes,
           categoria_id, conta_id, cartao_id, efetivado,
-          transferencia, parcela_atual, total_parcelas,
-          grupo_parcelamento, fatura_vencimento,
+          parcela_atual, total_parcelas, fatura_vencimento,
           created_at, updated_at
-        `)
+        `, { count: 'exact' })
         .eq('usuario_id', user.id)
-        .gte('data', dataInicio)
-        .lte('data', dataFim)
-        .order('data', { ascending: false })
-        .order('created_at', { ascending: false });
+        .gte('data', periodoCalculado.inicio)
+        .lte('data', periodoCalculado.fim)
+        .neq('transferencia', true); // ✅ EXCLUIR transferências internas
+
+      // Aplicar filtros no banco
+      if (filters.tipo !== 'todas') {
+        query = query.eq('tipo', filters.tipo);
+      }
+
+      if (filters.categoriaId) {
+        query = query.eq('categoria_id', filters.categoriaId);
+      }
+
+      if (filters.contaId) {
+        query = query.eq('conta_id', filters.contaId);
+      }
+
+      if (filters.cartaoId) {
+        query = query.eq('cartao_id', filters.cartaoId);
+      }
+
+      // ✅ NOVO: Filtro de status (efetivadas/pendentes)
+      if (filters.status === 'efetivadas') {
+        query = query.eq('efetivado', true);
+      } else if (filters.status === 'pendentes') {
+        query = query.eq('efetivado', false);
+      }
+
+      // Busca textual no banco
+      if (searchTerm.trim()) {
+        query = query.or(`descricao.ilike.%${searchTerm}%,observacoes.ilike.%${searchTerm}%`);
+      }
+
+      // ✅ NOVO: Ordenação expandida no banco (incluindo conta e categoria)
+      const isAscending = filters.direcaoOrdenacao === 'asc';
+      
+      switch (filters.ordenacao) {
+        case 'data':
+          query = query.order('data', { ascending: isAscending })
+                      .order('created_at', { ascending: !isAscending });
+          break;
+        case 'descricao':
+          query = query.order('descricao', { ascending: isAscending });
+          break;
+        case 'valor':
+          query = query.order('valor', { ascending: isAscending });
+          break;
+        case 'categoria':
+          // Ordenar por categoria_id e depois enriquecer com dados
+          query = query.order('categoria_id', { ascending: isAscending, nullsFirst: !isAscending });
+          break;
+        case 'conta':
+          // Ordenar por conta_id primeiro, depois cartao_id
+          query = query.order('conta_id', { ascending: isAscending, nullsFirst: !isAscending })
+                      .order('cartao_id', { ascending: isAscending, nullsFirst: !isAscending });
+          break;
+        case 'efetivado':
+          query = query.order('efetivado', { ascending: isAscending })
+                      .order('data', { ascending: !isAscending });
+          break;
+        default:
+          query = query.order('data', { ascending: false })
+                      .order('created_at', { ascending: false });
+      }
+
+      // Paginação
+      const offset = (paginacao.pagina - 1) * paginacao.itensPorPagina;
+      query = query.range(offset, offset + paginacao.itensPorPagina - 1);
+
+      const { data, error, count } = await query;
 
       if (error) throw error;
       
@@ -159,74 +285,59 @@ const TransacoesPage = () => {
         cartao: cartoes.find(c => c.id === transacao.cartao_id)
       }));
 
-      setTransacoes(enrichedData);
-      console.log('✅ Transações carregadas:', enrichedData.length);
+      // ✅ NOVO: Ordenação pós-processamento para categoria e conta (quando necessário)
+      let finalData = enrichedData;
+      
+      if (filters.ordenacao === 'categoria') {
+        finalData = enrichedData.sort((a, b) => {
+          const nomeA = a.categoria?.nome || '';
+          const nomeB = b.categoria?.nome || '';
+          const resultado = nomeA.localeCompare(nomeB);
+          return filters.direcaoOrdenacao === 'asc' ? resultado : -resultado;
+        });
+      } else if (filters.ordenacao === 'conta') {
+        finalData = enrichedData.sort((a, b) => {
+          const nomeA = a.cartao?.nome || a.conta?.nome || '';
+          const nomeB = b.cartao?.nome || b.conta?.nome || '';
+          const resultado = nomeA.localeCompare(nomeB);
+          return filters.direcaoOrdenacao === 'asc' ? resultado : -resultado;
+        });
+      }
+
+      setTransacoes(finalData);
+      setTotalTransacoes(count || 0);
+      
+      // Atualizar paginação
+      const totalPaginas = Math.ceil((count || 0) / paginacao.itensPorPagina);
+      setPaginacao(prev => ({ ...prev, totalPaginas }));
+
+      console.log('✅ Transações carregadas:', {
+        encontradas: enrichedData.length,
+        total: count,
+        pagina: paginacao.pagina,
+        totalPaginas
+      });
 
     } catch (error) {
       console.error('❌ Erro ao buscar transações:', error);
       showNotification('Erro ao carregar transações: ' + error.message, 'error');
       setTransacoes([]);
+      setTotalTransacoes(0);
     } finally {
       setLoading(false);
     }
-  }, [user?.id, categorias, contas, cartoes, showNotification, dataInicio, dataFim]);
-
-  // Filtrar transações localmente
-  const filteredTransacoes = useMemo(() => {
-    let result = [...transacoes];
-
-    // Filtro de tipo
-    if (filters.tipo !== 'todas') {
-      result = result.filter(t => t.tipo === filters.tipo);
-    }
-
-    // Filtro de categoria
-    if (filters.categoriaId) {
-      result = result.filter(t => t.categoria_id === filters.categoriaId);
-    }
-
-    // Filtro de conta
-    if (filters.contaId) {
-      result = result.filter(t => t.conta_id === filters.contaId);
-    }
-
-    // Filtro de cartão
-    if (filters.cartaoId) {
-      result = result.filter(t => t.cartao_id === filters.cartaoId);
-    }
-
-    // Busca textual
-    if (searchTerm.trim()) {
-      const termo = searchTerm.toLowerCase();
-      result = result.filter(t => 
-        t.descricao?.toLowerCase().includes(termo) ||
-        t.observacoes?.toLowerCase().includes(termo) ||
-        t.categoria?.nome?.toLowerCase().includes(termo) ||
-        t.conta?.nome?.toLowerCase().includes(termo) ||
-        t.cartao?.nome?.toLowerCase().includes(termo)
-      );
-    }
-
-    // Ordenação
-    const [campo, direcao] = filters.ordenacao.split('_');
-    result.sort((a, b) => {
-      let aVal = a[campo];
-      let bVal = b[campo];
-      
-      if (campo === 'data') {
-        aVal = new Date(aVal);
-        bVal = new Date(bVal);
-      }
-      
-      if (direcao === 'asc') {
-        return aVal > bVal ? 1 : -1;
-      } else {
-        return aVal < bVal ? 1 : -1;
-      }
-    });
-
-    return result;
-  }, [transacoes, filters, searchTerm]);
+  }, [
+    user?.id, 
+    periodoCalculado, 
+    filters, 
+    searchTerm, 
+    paginacao.pagina, 
+    paginacao.itensPorPagina,
+    categorias, 
+    contas, 
+    cartoes, 
+    showNotification
+  ]);
 
   // Carregar dados inicial
   useEffect(() => {
@@ -235,93 +346,111 @@ const TransacoesPage = () => {
     }
   }, [fetchBasicData]);
 
-  // Carregar transações quando o período mudar ou dados básicos estiverem prontos
+  // Carregar transações quando necessário
   useEffect(() => {
-    if (user?.id && categorias.length > 0 && dataInicio && dataFim) {
+    if (user?.id && categorias.length > 0) {
       fetchTransacoes();
     }
-  }, [fetchTransacoes, user?.id, categorias.length, dataInicio, dataFim]);
+  }, [fetchTransacoes, user?.id, categorias.length]);
 
-  // Handlers
-  const handleFilterChange = (key, value) => {
+  // ✅ NOVO: Handler para ordenação por clique no cabeçalho
+  const handleSort = useCallback((campo) => {
+    setFilters(prev => {
+      const novaOrdenacao = campo;
+      const novaDirecao = prev.ordenacao === campo && prev.direcaoOrdenacao === 'desc' 
+        ? 'asc' 
+        : 'desc';
+      
+      return {
+        ...prev,
+        ordenacao: novaOrdenacao,
+        direcaoOrdenacao: novaDirecao
+      };
+    });
+    
+    // Reset para primeira página ao ordenar
+    setPaginacao(prev => ({ ...prev, pagina: 1 }));
+  }, []);
+
+  // Função para obter ícone de ordenação
+  const getSortIcon = useCallback((campo) => {
+    if (filters.ordenacao !== campo) {
+      return <ArrowUpDown className="w-3 h-3 opacity-30" />;
+    }
+    
+    return filters.direcaoOrdenacao === 'asc' 
+      ? <ArrowUpIcon className="w-3 h-3 text-blue-600" />
+      : <ArrowDownIcon className="w-3 h-3 text-blue-600" />;
+  }, [filters.ordenacao, filters.direcaoOrdenacao]);
+
+  // Handlers para filtros
+  const handleFilterChange = useCallback((key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
-  };
+    setPaginacao(prev => ({ ...prev, pagina: 1 })); // Reset página ao filtrar
+  }, []);
 
-  const handleClearFilters = () => {
+  const handleClearFilters = useCallback(() => {
     setFilters({
       tipo: 'todas',
       categoriaId: '',
       contaId: '',
       cartaoId: '',
-      ordenacao: 'data_desc'
+      status: 'todas',
+      ordenacao: 'data',
+      direcaoOrdenacao: 'desc'
     });
     setSearchTerm('');
-    
-    // Volta para o mês atual
-    const hoje = new Date();
-    const inicioMes = startOfMonth(hoje);
-    const fimMes = endOfMonth(hoje);
-    
-    setDataInicio(format(inicioMes, 'yyyy-MM-dd'));
-    setDataFim(format(fimMes, 'yyyy-MM-dd'));
-  };
-
-  // Handler para aplicar período
-  const handleAplicarPeriodo = () => {
-    if (dataInicio && dataFim) {
-      if (new Date(dataInicio) > new Date(dataFim)) {
-        showNotification('Data de início deve ser anterior à data final', 'error');
-        return;
-      }
-      fetchTransacoes();
-    }
-  };
+    setPaginacao(prev => ({ ...prev, pagina: 1 }));
+  }, []);
 
   // Função para verificar se há filtros ativos
-  const hasActiveFilters = () => {
+  const hasActiveFilters = useCallback(() => {
     return (
       filters.tipo !== 'todas' ||
       filters.categoriaId !== '' ||
       filters.contaId !== '' ||
       filters.cartaoId !== '' ||
+      filters.status !== 'todas' ||
       searchTerm.trim() !== ''
     );
-  };
+  }, [filters, searchTerm]);
 
   // Função para contar filtros ativos
-  const getActiveFiltersCount = () => {
+  const getActiveFiltersCount = useCallback(() => {
     let count = 0;
     if (filters.tipo !== 'todas') count++;
     if (filters.categoriaId !== '') count++;
     if (filters.contaId !== '') count++;
     if (filters.cartaoId !== '') count++;
+    if (filters.status !== 'todas') count++;
     if (searchTerm.trim() !== '') count++;
     return count;
-  };
+  }, [filters, searchTerm]);
 
-  // Função para obter o texto do período atual
-  const getPeriodoTexto = () => {
-    if (dataInicio && dataFim) {
-      const inicio = format(new Date(dataInicio), 'dd/MM/yyyy');
-      const fim = format(new Date(dataFim), 'dd/MM/yyyy');
-      return `${inicio} - ${fim}`;
-    }
-    return 'Período não definido';
-  };
+  // Handlers para paginação
+  const handlePageChange = useCallback((novaPagina) => {
+    setPaginacao(prev => ({ ...prev, pagina: novaPagina }));
+  }, []);
 
-  // Handler para abrir modais
-  const handleOpenModal = (modalName) => {
+  // Handler para busca com debounce
+  const handleSearchChange = useCallback((termo) => {
+    setSearchTerm(termo);
+    setPaginacao(prev => ({ ...prev, pagina: 1 }));
+  }, []);
+
+  // Handlers para modais
+  const handleOpenModal = useCallback((modalName) => {
     setModals(prev => ({ ...prev, [modalName]: true }));
-  };
+  }, []);
 
-  const handleCloseModal = (modalName) => {
+  const handleCloseModal = useCallback((modalName) => {
     setModals(prev => ({ ...prev, [modalName]: false }));
     setTransacaoEditando(null);
-  };
+  }, []);
 
-  const handleSaveModal = () => {
+  const handleSaveModal = useCallback(() => {
     fetchTransacoes(); // Recarrega transações
-  };
+  }, [fetchTransacoes]);
 
   // Editar transação
   const handleEditTransacao = useCallback((transacao) => {
@@ -335,18 +464,13 @@ const TransacoesPage = () => {
     } else if (transacao.tipo === 'despesa') {
       if (transacao.cartao_id) {
         handleOpenModal('despesasCartao');
-      } else if (transacao.transferencia) {
-        showNotification('Edição de transferências será implementada em breve', 'info');
-        return;
       } else {
         handleOpenModal('despesas');
       }
-    } else if (transacao.tipo === 'transferencia' || transacao.transferencia) {
-      handleOpenModal('transferencias');
     }
-  }, [showNotification]);
+  }, [handleOpenModal]);
 
-  const handleDeleteTransacao = async (transacaoId) => {
+  const handleDeleteTransacao = useCallback(async (transacaoId) => {
     if (!window.confirm('Tem certeza que deseja excluir esta transação?')) return;
 
     try {
@@ -364,9 +488,9 @@ const TransacoesPage = () => {
       console.error('❌ Erro ao excluir transação:', error);
       showNotification('Erro ao excluir transação', 'error');
     }
-  };
+  }, [user.id, showNotification, fetchTransacoes]);
 
-  const handleMarkAsCompleted = async (transacaoId) => {
+  const handleMarkAsCompleted = useCallback(async (transacaoId) => {
     try {
       const { error } = await supabase
         .from('transacoes')
@@ -383,23 +507,23 @@ const TransacoesPage = () => {
       console.error('❌ Erro ao efetivar transação:', error);
       showNotification('Erro ao efetivar transação', 'error');
     }
-  };
+  }, [user.id, showNotification, fetchTransacoes]);
 
   // Ícones helper
-  const getTipoIcon = (tipo) => {
+  const getTipoIcon = useCallback((tipo) => {
     switch (tipo) {
       case 'receita': return <ArrowUp className="w-4 h-4 text-green-600" />;
       case 'despesa': return <ArrowDown className="w-4 h-4 text-red-600" />;
       case 'transferencia': return <ArrowLeftRight className="w-4 h-4 text-blue-600" />;
       default: return <Activity className="w-4 h-4 text-gray-600" />;
     }
-  };
+  }, []);
 
-  const getStatusIcon = (efetivada) => {
+  const getStatusIcon = useCallback((efetivada) => {
     return efetivada ? 
       <CheckCircle className="w-4 h-4 text-green-600" /> : 
       <Clock className="w-4 h-4 text-orange-600" />;
-  };
+  }, []);
 
   return (
     <div className="transacoes-page">
@@ -419,20 +543,74 @@ const TransacoesPage = () => {
               type="text"
               placeholder="Buscar transações..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="search-input"
             />
             <Search className="search-icon" />
           </div>
 
-          {/* Período compacto */}
+          {/* ✅ NOVO: Navegação de período flexível */}
           <div className="period-container">
+            <button
+              onClick={() => navegarPeriodo('anterior')}
+              className="period-nav-btn"
+              disabled={loading || periodoPersonalizado.ativo}
+              title="Mês anterior"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            
+            <div className="period-label-container">
+              <div className="period-label">
+                {periodoCalculado.label}
+              </div>
+              {periodoPersonalizado.ativo && (
+                <button
+                  onClick={resetarParaPeriodoMensal}
+                  className="period-reset-btn"
+                  title="Voltar para navegação mensal"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+            
+            <button
+              onClick={() => navegarPeriodo('proximo')}
+              className="period-nav-btn"
+              disabled={loading || periodoPersonalizado.ativo}
+              title="Próximo mês"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            
+            <button
+              onClick={voltarParaHoje}
+              className="period-today-btn"
+              disabled={loading}
+              title="Voltar para o mês atual"
+            >
+              Hoje
+            </button>
+          </div>
+
+          {/* ✅ NOVO: Seletor de período personalizado */}
+          <div className="custom-period-container">
             <div className="date-input-group">
               <label>De:</label>
               <input
                 type="date"
-                value={dataInicio}
-                onChange={(e) => setDataInicio(e.target.value)}
+                value={periodoPersonalizado.ativo ? periodoPersonalizado.dataInicio : format(startOfMonth(periodoAtual), 'yyyy-MM-dd')}
+                onChange={(e) => {
+                  const novaDataInicio = e.target.value;
+                  const dataFim = periodoPersonalizado.ativo && periodoPersonalizado.dataFim 
+                    ? periodoPersonalizado.dataFim 
+                    : format(endOfMonth(periodoAtual), 'yyyy-MM-dd');
+                  
+                  if (novaDataInicio && dataFim) {
+                    ativarPeriodoPersonalizado(novaDataInicio, dataFim);
+                  }
+                }}
                 className="date-input"
               />
             </div>
@@ -440,18 +618,20 @@ const TransacoesPage = () => {
               <label>Até:</label>
               <input
                 type="date"
-                value={dataFim}
-                onChange={(e) => setDataFim(e.target.value)}
+                value={periodoPersonalizado.ativo ? periodoPersonalizado.dataFim : format(endOfMonth(periodoAtual), 'yyyy-MM-dd')}
+                onChange={(e) => {
+                  const novaDataFim = e.target.value;
+                  const dataInicio = periodoPersonalizado.ativo && periodoPersonalizado.dataInicio 
+                    ? periodoPersonalizado.dataInicio 
+                    : format(startOfMonth(periodoAtual), 'yyyy-MM-dd');
+                  
+                  if (dataInicio && novaDataFim) {
+                    ativarPeriodoPersonalizado(dataInicio, novaDataFim);
+                  }
+                }}
                 className="date-input"
               />
             </div>
-            <button
-              onClick={handleAplicarPeriodo}
-              className="apply-period-btn"
-              disabled={!dataInicio || !dataFim}
-            >
-              Aplicar
-            </button>
           </div>
 
           {/* Filtros dropdown */}
@@ -482,7 +662,7 @@ const TransacoesPage = () => {
         <div className="transactions-list">
           <div className="list-header">
             <span className="results-count">
-              {loading ? 'Carregando...' : `${filteredTransacoes.length} transações em ${getPeriodoTexto()}`}
+              {loading ? 'Carregando...' : `${totalTransacoes} transações em ${periodoCalculado.label}`}
             </span>
           </div>
 
@@ -491,11 +671,11 @@ const TransacoesPage = () => {
               <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
               <p>Carregando transações...</p>
             </div>
-          ) : filteredTransacoes.length === 0 ? (
+          ) : transacoes.length === 0 ? (
             <div className="empty-state">
               <Activity className="w-12 h-12 text-gray-400" />
               <h3>Nenhuma transação encontrada</h3>
-              <p>Não há transações no período selecionado ({getPeriodoTexto()})</p>
+              <p>Não há transações no período de {periodoCalculado.label}</p>
               <div className="empty-actions">
                 <button 
                   onClick={() => handleOpenModal('receitas')}
@@ -515,19 +695,62 @@ const TransacoesPage = () => {
             </div>
           ) : (
             <div className="transactions-table">
-              {/* Header da tabela */}
+              {/* ✅ NOVO: Header da tabela com ordenação expandida */}
               <div className="table-header">
-                <div className="th-date">Data</div>
-                <div className="th-description">Descrição</div>
-                <div className="th-category">Categoria</div>
-                <div className="th-account">Conta/Cartão</div>
-                <div className="th-value">Valor</div>
+                <div 
+                  className="th-date sortable"
+                  onClick={() => handleSort('data')}
+                  title="Ordenar por data"
+                >
+                  <span>Data</span>
+                  
+                </div>
+                <div 
+                  className="th-description sortable"
+                  onClick={() => handleSort('descricao')}
+                  title="Ordenar por descrição"
+                >
+                  <span>Descrição</span>
+                  
+                </div>
+                <div 
+                  className="th-category sortable"
+                  onClick={() => handleSort('categoria')}
+                  title="Ordenar por categoria"
+                >
+                  <span>Categoria</span>
+                  
+                </div>
+                <div 
+                  className="th-account sortable"
+                  onClick={() => handleSort('conta')}
+                  title="Ordenar por conta/cartão"
+                >
+                  <span>Conta</span>
+                  
+                </div>
+                <div 
+                  className="th-value sortable"
+                  onClick={() => handleSort('valor')}
+                  title="Ordenar por valor"
+                >
+                  <span>Valor</span>
+                  
+                </div>
+                <div 
+                  className="th-status sortable"
+                  onClick={() => handleSort('efetivado')}
+                  title="Ordenar por status"
+                >
+                  <span>Status</span>
+                  
+                </div>
                 <div className="th-actions">Ações</div>
               </div>
 
               {/* Linhas da tabela */}
               <div className="table-body">
-                {filteredTransacoes.map((transacao) => (
+                {transacoes.map((transacao) => (
                   <div key={transacao.id} className="table-row">
                     <div className="td-date">
                       <div className="date-info">
@@ -537,9 +760,6 @@ const TransacoesPage = () => {
                         <span className="date-year">
                           {transacao.data ? format(new Date(transacao.data), 'yyyy') : '----'}
                         </span>
-                      </div>
-                      <div className="status-icon">
-                        {getStatusIcon(transacao.efetivado)}
                       </div>
                     </div>
 
@@ -604,6 +824,16 @@ const TransacoesPage = () => {
                       </span>
                     </div>
 
+                    {/* ✅ NOVA: Coluna de Status */}
+                    <div className="td-status">
+                      <div className="status-info">
+                        {getStatusIcon(transacao.efetivado)}
+                        <span className="status-text">
+                          {transacao.efetivado ? 'Efetivada' : 'Pendente'}
+                        </span>
+                      </div>
+                    </div>
+
                     <div className="td-actions">
                       <button
                         onClick={() => handleEditTransacao(transacao)}
@@ -636,10 +866,44 @@ const TransacoesPage = () => {
               </div>
             </div>
           )}
+
+          {/* ✅ NOVA: Paginação */}
+          {totalTransacoes > paginacao.itensPorPagina && (
+            <div className="pagination">
+              <div className="pagination-info">
+                Página {paginacao.pagina} de {paginacao.totalPaginas} 
+                ({totalTransacoes} transações)
+              </div>
+              
+              <div className="pagination-controls">
+                <button
+                  onClick={() => handlePageChange(paginacao.pagina - 1)}
+                  disabled={paginacao.pagina <= 1 || loading}
+                  className="pagination-button"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Anterior
+                </button>
+                
+                <span className="page-info">
+                  {paginacao.pagina} / {paginacao.totalPaginas}
+                </span>
+                
+                <button
+                  onClick={() => handlePageChange(paginacao.pagina + 1)}
+                  disabled={paginacao.pagina >= paginacao.totalPaginas || loading}
+                  className="pagination-button"
+                >
+                  Próxima
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Modal de Filtros */}
+      {/* Modal de Filtros com novo filtro de Status */}
       {showFilters && (
         <div className="filters-overlay" onClick={() => setShowFilters(false)}>
           <div className="filters-modal" onClick={(e) => e.stopPropagation()}>
@@ -667,7 +931,20 @@ const TransacoesPage = () => {
                   <option value="todas">Todas</option>
                   <option value="receita">Receitas</option>
                   <option value="despesa">Despesas</option>
-                  <option value="transferencia">Transferências</option>
+                </select>
+              </div>
+
+              {/* ✅ NOVO: Status */}
+              <div className="filter-group">
+                <label className="filter-label">Status</label>
+                <select
+                  value={filters.status}
+                  onChange={(e) => handleFilterChange('status', e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="todas">Todas</option>
+                  <option value="efetivadas">Efetivadas</option>
+                  <option value="pendentes">Pendentes</option>
                 </select>
               </div>
 
@@ -726,14 +1003,26 @@ const TransacoesPage = () => {
               <div className="filter-group">
                 <label className="filter-label">Ordenar por</label>
                 <select
-                  value={filters.ordenacao}
-                  onChange={(e) => handleFilterChange('ordenacao', e.target.value)}
+                  value={`${filters.ordenacao}_${filters.direcaoOrdenacao}`}
+                  onChange={(e) => {
+                    const [campo, direcao] = e.target.value.split('_');
+                    handleFilterChange('ordenacao', campo);
+                    handleFilterChange('direcaoOrdenacao', direcao);
+                  }}
                   className="filter-select"
                 >
                   <option value="data_desc">Data (mais recente)</option>
                   <option value="data_asc">Data (mais antiga)</option>
                   <option value="valor_desc">Valor (maior)</option>
                   <option value="valor_asc">Valor (menor)</option>
+                  <option value="descricao_asc">Descrição (A-Z)</option>
+                  <option value="descricao_desc">Descrição (Z-A)</option>
+                  <option value="categoria_asc">Categoria (A-Z)</option>
+                  <option value="categoria_desc">Categoria (Z-A)</option>
+                  <option value="conta_asc">Conta/Cartão (A-Z)</option>
+                  <option value="conta_desc">Conta/Cartão (Z-A)</option>
+                  <option value="efetivado_desc">Status (efetivadas primeiro)</option>
+                  <option value="efetivado_asc">Status (pendentes primeiro)</option>
                 </select>
               </div>
             </div>
