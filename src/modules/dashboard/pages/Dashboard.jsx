@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 // Hooks personalizados existentes
 import useAuth from "@modules/auth/hooks/useAuth";
 import useDashboardData from '@modules/dashboard/hooks/useDashboardData';
+import usePeriodo from '@modules/transacoes/hooks/usePeriodo'; // ✅ Hook de período
 
 // Utilitários
 import { formatCurrency } from '@utils/formatCurrency';
@@ -29,7 +30,10 @@ import DetalhesDoDiaModal from '@modules/dashboard/components/DetalhesDoDiaModal
 import '../styles/Dashboard.css';
 
 /**
- * Dashboard - Versão Final Limpa e Funcional
+ * Dashboard - Versão com Controle de Período via usePeriodo
+ * ✅ Mantém seletor de período no Dashboard
+ * ✅ Usa usePeriodo para sincronizar estado global
+ * ✅ Reativo a mudanças de período
  */
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -38,9 +42,18 @@ const Dashboard = () => {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const { data, loading, error, refreshData } = useDashboardData();
   
+  // ✅ Hook de período para controle global
+  const { 
+    currentDate,
+    navigateMonth, 
+    goToToday, 
+    isCurrentMonth,
+    getFormattedPeriod,
+    getCurrentMonth
+  } = usePeriodo();
+  
   // Estados locais para UI
   const [diaDetalhes, setDiaDetalhes] = useState(null);
-  const [currentDate, setCurrentDate] = useState(new Date());
   const [refreshingCalendar, setRefreshingCalendar] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [flippedCards, setFlippedCards] = useState({
@@ -50,12 +63,14 @@ const Dashboard = () => {
     cartaoCredito: false
   });
 
-  // Carregar dados quando componente monta
-  //useEffect(() => {
-//    if (isAuthenticated) {
-      //refreshData();
-    //}
-  //}, [isAuthenticated]);
+  // ✅ Log para debug - mostrar quando período muda
+  useEffect(() => {
+    console.log('📅 Dashboard - período atualizado:', {
+      data: currentDate,
+      mesFormatado: getFormattedPeriod(),
+      periodo: `${currentDate.getMonth() + 1}/${currentDate.getFullYear()}`
+    });
+  }, [currentDate, getFormattedPeriod]);
   
   // Handler para virar um card
   const handleCardFlip = (cardType) => {
@@ -85,8 +100,8 @@ const Dashboard = () => {
     
     try {
       setRefreshingCalendar(true);
-      // Força re-render do calendário
-      setCurrentDate(new Date(currentDate));
+      // Força refresh dos dados
+      refreshData();
     } catch (err) {
       console.error('Erro ao atualizar calendário:', err);
     } finally {
@@ -94,30 +109,15 @@ const Dashboard = () => {
     }
   };
 
-  // Funções de navegação de período
-  const navigateMonth = (direction) => {
-    setCurrentDate(prev => {
-      const newDate = new Date(prev);
-      newDate.setMonth(newDate.getMonth() + direction);
-      return newDate;
-    });
+  // ✅ Handlers de navegação de período - Agora usa usePeriodo
+  const handleNavigateMonth = (direction) => {
+    console.log('📅 Navegando mês:', direction > 0 ? 'próximo' : 'anterior');
+    navigateMonth(direction);
   };
 
-  const getFormattedPeriod = () => {
-    return currentDate.toLocaleDateString('pt-BR', { 
-      month: 'long', 
-      year: 'numeric' 
-    });
-  };
-
-  const isCurrentMonth = () => {
-    const now = new Date();
-    return currentDate.getMonth() === now.getMonth() && 
-           currentDate.getFullYear() === now.getFullYear();
-  };
-
-  const goToToday = () => {
-    setCurrentDate(new Date());
+  const handleGoToToday = () => {
+    console.log('📅 Voltando para o mês atual');
+    goToToday();
   };
 
   // Se não estiver autenticado, redireciona
@@ -163,13 +163,13 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard-content">
-      {/* Seletor de Período */}
+      {/* ✅ Seletor de Período - Agora controlado via usePeriodo */}
       <section className="dashboard-period-selector">
         <div className="period-selector-container">
           <div className="period-selector-inline">
             <button 
               className="period-nav"
-              onClick={() => navigateMonth(-1)}
+              onClick={() => handleNavigateMonth(-1)}
               title="Mês anterior"
             >
               <ChevronLeft size={20} />
@@ -183,7 +183,7 @@ const Dashboard = () => {
               {!isCurrentMonth() && (
                 <button 
                   className="today-button" 
-                  onClick={goToToday}
+                  onClick={handleGoToToday}
                 >
                   Hoje
                 </button>
@@ -192,7 +192,7 @@ const Dashboard = () => {
 
             <button 
               className="period-nav"
-              onClick={() => navigateMonth(1)}
+              onClick={() => handleNavigateMonth(1)}
               title="Próximo mês"
             >
               <ChevronRight size={20} />
@@ -448,55 +448,42 @@ const Dashboard = () => {
         </div>
       </div>
       
-      {/* Seção de gráficos */}
-      <div className="charts-grid">
-        <div className="chart-card">
-          <div className="chart-header">
-            <div className="chart-title-section">
-              <TrendingUp size={20} className="chart-icon" />
-              <h3 className="chart-title">Receitas por categoria</h3>
-            </div>
-            <button 
-              className="chart-action"
-              onClick={() => navigate('/relatorios/categorias')}
-            >
-              Ver todas
-            </button>
-          </div>
-          
-          <div className="chart-container">
-            <DonutChartCategoria 
-              data={receitasPorCategoria.length > 0 ? receitasPorCategoria : [
-                { nome: "Sem receitas", valor: 0, color: "#E5E7EB" }
-              ]} 
-            />
-          </div>
-        </div>
-        
-        <div className="chart-card">
-          <div className="chart-header">
-            <div className="chart-title-section">
-              <BarChart3 size={20} className="chart-icon" />
-              <h3 className="chart-title">Despesas por categoria</h3>
-            </div>
-            <button 
-              className="chart-action red"
-              onClick={() => navigate('/relatorios/categorias')}
-            >
-              Ver todas
-            </button>
-          </div>
-          
-          <div className="chart-container">
-            <DonutChartCategoria 
-              data={despesasPorCategoria.length > 0 ? despesasPorCategoria : [
-                { nome: "Sem despesas", valor: 0, color: "#E5E7EB" }
-              ]} 
-            />
-          </div>
-        </div>
-      </div>
-
+{/* Seção de gráficos */}
+<div className="charts-grid">
+ <div className="chart-card">
+   <div className="chart-header">
+     <div className="chart-title-section">
+       <TrendingUp size={20} className="chart-icon" />
+       <h3 className="chart-title">Receitas por categoria</h3>
+     </div>
+   </div>
+   
+   <div className="chart-container">
+     <DonutChartCategoria 
+       data={receitasPorCategoria.length > 0 ? receitasPorCategoria : [
+         { nome: "Sem receitas", valor: 0, color: "#E5E7EB" }
+       ]} 
+     />
+   </div>
+ </div>
+ 
+ <div className="chart-card">
+   <div className="chart-header">
+     <div className="chart-title-section">
+       <BarChart3 size={20} className="chart-icon" />
+       <h3 className="chart-title">Despesas por categoria</h3>
+     </div>
+   </div>
+   
+   <div className="chart-container">
+     <DonutChartCategoria 
+       data={despesasPorCategoria.length > 0 ? despesasPorCategoria : [
+         { nome: "Sem despesas", valor: 0, color: "#E5E7EB" }
+       ]} 
+     />
+   </div>
+ </div>
+</div>
       {/* Calendário Financeiro */}
       <div className="calendar-section">
         <div className="calendar-header">
@@ -505,15 +492,14 @@ const Dashboard = () => {
             <div>
               <h3 className="section-title">📅 Calendário Financeiro</h3>
               <p className="calendar-subtitle">
-                Acompanhe suas movimentações diárias em {getCurrentMonthName()}
+                Acompanhe suas movimentações diárias em {getCurrentMonth()}
               </p>
             </div>
           </div>
-          
-
         </div>
         
         <div className="calendar-container">
+          {/* ✅ Calendário sincronizado com período global */}
           <CalendarioFinanceiro 
             mes={currentDate.getMonth()} 
             ano={currentDate.getFullYear()} 
@@ -534,6 +520,7 @@ const Dashboard = () => {
           </div>
         </div>
         <div className="projection-container">
+          {/* ✅ Projeção sincronizada com período global */}
           <ProjecaoSaldoGraph 
             data={data?.historico || []} 
             mesAtual={currentDate.getMonth()}

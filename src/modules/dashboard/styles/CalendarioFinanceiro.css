@@ -67,51 +67,6 @@
   color: #dc2626;
 }
 
-/* ================== LEGENDA ATUALIZADA ================== */
-.calendario-legenda-simples {
-  display: flex;
-  justify-content: center;
-  gap: 2rem;
-  margin-bottom: 1.5rem;
-  padding: 1rem;
-  background: #f8fafc;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-}
-
-.legenda-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #374151;
-}
-
-.legenda-cor {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-}
-
-.legenda-cor.receita {
-  background: #10b981;
-}
-
-.legenda-cor.despesa {
-  background: #ef4444;
-}
-
-.legenda-cor.programado {
-  background: #f59e0b;
-  border: 2px dashed #d97706;
-}
-
-.legenda-cor.pendente {
-  background: #8b5cf6;
-  border: 2px solid #7c3aed;
-}
-
 /* ================== CABEÇALHO DOS DIAS ================== */
 .calendario-cabecalho {
   display: grid;

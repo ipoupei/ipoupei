@@ -25,12 +25,7 @@ import DetalhesDoDiaModal from '@modules/dashboard/components/DetalhesDoDiaModal
 // CSS
 import '@modules/dashboard/styles/DashboardContent.css';
 
-/**
- * Dashboard Content - VERSÃO CORRIGIDA SEM REFRESH AO TROCAR ABA
- * ✅ Removido useEffect problemático
- * ✅ Controle manual de inicialização
- * ✅ Sem dependência de refreshData
- */
+
 const DashboardContent = () => {
   const navigate = useNavigate();
   
@@ -63,14 +58,6 @@ const DashboardContent = () => {
       hasInitialized.current = false;
     }
   }, [isAuthenticated]); // ✅ SEM refreshData nas dependências!
-
-  // ✅ ❌ REMOVIDO: useEffect problemático que causava refresh
-  // useEffect(() => {
-  //   if (isAuthenticated) {
-  //     console.log('🔄 Dashboard carregando dados...');
-  //     refreshData(); // ❌ CAUSAVA REFRESH AO TROCAR ABA
-  //   }
-  // }, [isAuthenticated, refreshData]); // ❌ refreshData mudava constantemente
 
   // Handler para virar um card - corrigido
   const handleCardFlip = (cardType) => {
