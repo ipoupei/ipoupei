@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { DollarSign, HelpCircle } from 'lucide-react';
-import InputMoney from '../../../Components/ui/InputMoney';
+import InputMoney from '@shared/components/ui/InputMoney';
 
 /**
  * Componente da etapa de renda mensal

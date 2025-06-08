@@ -13,6 +13,7 @@ import AuthCallback from '@modules/auth/pages/AuthCallback';
 import ProtectedRoute from '@modules/auth/components/ProtectedRoute';
 import FaturasRoute from '@routes/FaturasRoute';
 import MainLayout from '@shared/components/layouts/MainLayout';
+import Diagnostico from '@modules/diagnostico/pages/Diagnostico';
 
 
 
@@ -42,6 +43,10 @@ const AppRoutes = () => {
           {/* Dashboard */}
           <Route index element={<Dashboard />} />
           <Route path="dashboard" element={<Dashboard />} />
+
+          {/* Diagnóstico */}
+          <Route path="/diagnostico" element={<Diagnostico />} />
+
           
           {/* Transações */}
           <Route path="transacoes" element={<TransacoesPage />} />

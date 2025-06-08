@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import JornadaSelection from '../../../pages/diagnostico/JornadaSelection.jsx';
+import JornadaSelection from './JornadaSelection.jsx';
 import DiagnosticoForm from './DiagnosticoForm';
-import DiagnosticoSummary from '../../../pages/diagnostico/DiagnosticoSummary.jsx';
-import useDiagnostico from '../../../hooks/useDiagnostico.js';
+import DiagnosticoSummary from './DiagnosticoSummary.jsx';
+import useDiagnostico from '../hooks/useDiagnostico.js';
 import { X } from 'lucide-react';
-import './Diagnostico.css';
+import '../styles/Diagnostico.css';
 
 /**
  * Componente principal que gerencia o fluxo do diagnóstico financeiro

@@ -3,14 +3,14 @@ import PropTypes from 'prop-types';
 import { ChevronLeft, ChevronRight, Save } from 'lucide-react';
 
 // Importação dos componentes de etapas
-import IntroEtapa from './Etapas/IntroEtapa';
-import PercepcaoEtapa from './Etapas/PercepcaoEtapa';
-import RendaEtapa from './Etapas/RendaEtapa';
-import ContasEtapa from './Etapas/ContasEtapa';
-import CartoesEtapa from './Etapas/CartoesEtapa';
-import DividasEtapa from './Etapas/DividasEtapa';
-import DespesasFixasEtapa from './Etapas/DespesasFixasEtapa';
-import DespesasVariaveisEtapa from './Etapas/DespesasVariaveisEtapa';
+import IntroEtapa from '../Etapas/IntroEtapa';
+import PercepcaoEtapa from '../Etapas/PercepcaoEtapa';
+import RendaEtapa from '../Etapas/RendaEtapa';
+import ContasEtapa from '../Etapas/ContasEtapa';
+import CartoesEtapa from '../Etapas/CartoesEtapa';
+import DividasEtapa from '../Etapas/DividasEtapa';
+import DespesasFixasEtapa from '../Etapas/DespesasFixasEtapa';
+import DespesasVariaveisEtapa from '../Etapas/DespesasVariaveisEtapa';
 
 /**
  * Componente principal do formulário de diagnóstico

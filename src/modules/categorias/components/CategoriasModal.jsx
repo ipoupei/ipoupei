@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import useCategorias from '@modules/categorias/hooks/useCategorias';
+import CategoriasSugeridasModal from './CategoriasSugeridasModal';
 import '@modules/categorias/styles/CategoriasModal.css';
 
 /**
@@ -8,6 +9,7 @@ import '@modules/categorias/styles/CategoriasModal.css';
  * ✅ IMPROVEMENT 001: Cores automáticas inteligentes
  * ✅ CORREÇÃO: Funcionalidades completas de subcategorias
  * ✅ MELHORIA: Interface mais intuitiva e responsiva
+ * ✅ NOVO: Integração com categorias sugeridas
  */
 const CategoriasModal = ({ isOpen, onClose }) => {
   // Obter dados das categorias do hook existente
@@ -40,6 +42,9 @@ const CategoriasModal = ({ isOpen, onClose }) => {
   
   // Estados para feedback
   const [feedback, setFeedback] = useState({ show: false, message: '', type: '' });
+  
+  // ✅ NOVO: Estado para modal de categorias sugeridas
+  const [showSugeridas, setShowSugeridas] = useState(false);
   
   // ✅ IMPROVEMENT 001: Cores predefinidas mais variadas e modernas
   const coresPredefinidas = [
@@ -169,6 +174,16 @@ const CategoriasModal = ({ isOpen, onClose }) => {
     setNovaCategoriaColor(corAutomatica);
     
     console.log(`🎨 Cor automática gerada: ${corAutomatica}`);
+  };
+  
+  // ✅ NOVO: Handler para abrir modal de categorias sugeridas
+  const handleAbrirSugeridas = () => {
+    setShowSugeridas(true);
+  };
+  
+  // ✅ NOVO: Handler para fechar modal de categorias sugeridas
+  const handleFecharSugeridas = () => {
+    setShowSugeridas(false);
   };
   
   // Abrir formulário de nova subcategoria
@@ -567,109 +582,140 @@ const CategoriasModal = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-container">
-        <div className="modal-header">
-          <h2>Gestão de categorias e subcategorias</h2>
-          <button className="close-button" onClick={onClose}>
-            ✕
-          </button>
-        </div>
-
-        {/* Feedback de sucesso/erro */}
-        {feedback.show && (
-          <div className={`feedback-message ${feedback.type}`}>
-            {feedback.message}
+    <>
+      <div className="modal-overlay">
+        <div className="modal-container">
+          <div className="modal-header">
+            <h2>Gestão de categorias e subcategorias</h2>
+            <button className="close-button" onClick={onClose}>
+              ✕
+            </button>
           </div>
-        )}
 
-        <div className="tipo-selector">
-          <button 
-            className={`tipo-button ${tipoAtual === 'despesa' ? 'active' : ''}`} 
-            onClick={() => handleChangeTipo('despesa')}
-          >
-            Despesas
-          </button>
-          <button 
-            className={`tipo-button ${tipoAtual === 'receita' ? 'active' : ''}`}
-            onClick={() => handleChangeTipo('receita')}
-          >
-            Receitas
-          </button>
-        </div>
+          {/* Feedback de sucesso/erro */}
+          {feedback.show && (
+            <div className={`feedback-message ${feedback.type}`}>
+              {feedback.message}
+            </div>
+          )}
 
-        <div className="modal-content">
-          {showFormCategoria ? (
-            renderFormCategoria()
-          ) : showFormSubcategoria ? (
-            renderFormSubcategoria()
-          ) : (
-            <div className="categorias-container">
-              <div className="categorias-header">
-                <h3>Categorias de {tipoAtual === 'despesa' ? 'Despesas' : 'Receitas'}</h3>
-                <p className="categorias-subtitle">
-                  Clique em uma categoria para ver e gerenciar suas subcategorias
-                </p>
+          <div className="tipo-selector">
+            <button 
+              className={`tipo-button ${tipoAtual === 'despesa' ? 'active' : ''}`} 
+              onClick={() => handleChangeTipo('despesa')}
+            >
+              Despesas
+            </button>
+            <button 
+              className={`tipo-button ${tipoAtual === 'receita' ? 'active' : ''}`}
+              onClick={() => handleChangeTipo('receita')}
+            >
+              Receitas
+            </button>
+          </div>
+
+          <div className="modal-content">
+            {showFormCategoria ? (
+              renderFormCategoria()
+            ) : showFormSubcategoria ? (
+              renderFormSubcategoria()
+            ) : (
+              <div className="categorias-container">
+                <div className="categorias-header">
+                  <h3>Categorias de {tipoAtual === 'despesa' ? 'Despesas' : 'Receitas'}</h3>
+                  <p className="categorias-subtitle">
+                    Clique em uma categoria para ver e gerenciar suas subcategorias
+                  </p>
+                  
+                  {/* ✅ IMPROVEMENT 001: Estatísticas de cores */}
+                  {categoriasFiltradas.length > 0 && (
+                    <div className="color-stats">
+                      <small>
+                        🎨 {categoriasFiltradas.length} categorias • 
+                        {coresPredefinidas.length - categoriasFiltradas.filter(cat => 
+                          coresPredefinidas.includes(cat.cor)
+                        ).length} cores disponíveis
+                      </small>
+                    </div>
+                  )}
+                </div>
                 
-                {/* ✅ IMPROVEMENT 001: Estatísticas de cores */}
-                {categoriasFiltradas.length > 0 && (
-                  <div className="color-stats">
-                    <small>
-                      🎨 {categoriasFiltradas.length} categorias • 
-                      {coresPredefinidas.length - categoriasFiltradas.filter(cat => 
-                        coresPredefinidas.includes(cat.cor)
-                      ).length} cores disponíveis
-                    </small>
+                {loading ? (
+                  <div className="loading">
+                    <div className="loading-spinner"></div>
+                    <p>Carregando categorias...</p>
+                  </div>
+                ) : categoriasFiltradas.length > 0 ? (
+                  <div className="categorias-list">
+                    {categoriasFiltradas.map(renderCategoria)}
+                  </div>
+                ) : (
+                  <div className="empty-state">
+                    <div className="empty-icon">📊</div>
+                    <p>Você ainda não criou nenhuma categoria de {tipoAtual === 'despesa' ? 'despesas' : 'receitas'}.</p>
+                    <p>Comece criando uma categoria ou importe nossas sugestões!</p>
+                    
+                    {/* ✅ NOVO: Botões para empty state */}
+                    <div className="empty-actions">
+                      <button 
+                        className="button primary"
+                        onClick={handleNovaCategoria}
+                      >
+                        ➕ Criar categoria
+                      </button>
+                      
+                      <button 
+                        className="button secondary"
+                        onClick={handleAbrirSugeridas}
+                      >
+                        💡 Ver sugestões
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
-              
-              {loading ? (
-                <div className="loading">
-                  <div className="loading-spinner"></div>
-                  <p>Carregando categorias...</p>
+            )}
+          </div>
+
+          <div className="modal-footer">
+            {!showFormCategoria && !showFormSubcategoria && (
+              <>
+                {/* ✅ NOVO: Footer com layout melhorado */}
+                <div className="footer-left">
+                  <button 
+                    className="button tertiary"
+                    onClick={handleAbrirSugeridas}
+                  >
+                    💡 Categorias sugeridas
+                  </button>
                 </div>
-              ) : categoriasFiltradas.length > 0 ? (
-                <div className="categorias-list">
-                  {categoriasFiltradas.map(renderCategoria)}
-                </div>
-              ) : (
-                <div className="empty-state">
-                  <div className="empty-icon">📊</div>
-                  <p>Você ainda não criou nenhuma categoria de {tipoAtual === 'despesa' ? 'despesas' : 'receitas'}.</p>
-                  <p>Vamos começar criando sua primeira categoria?</p>
+                
+                <div className="footer-right">
                   <button 
                     className="button primary"
                     onClick={handleNovaCategoria}
                   >
-                    ➕ Criar primeira categoria
+                    ➕ Nova Categoria
+                  </button>
+                  <button 
+                    className="button secondary"
+                    onClick={onClose}
+                  >
+                    Fechar
                   </button>
                 </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="modal-footer">
-          {!showFormCategoria && !showFormSubcategoria && (
-            <>
-              <button 
-                className="button primary"
-                onClick={handleNovaCategoria}
-              >
-                ➕ Nova Categoria
-              </button>
-              <button 
-                className="button secondary"
-                onClick={onClose}
-              >
-                Fechar
-              </button>
-            </>
-          )}
+              </>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* ✅ NOVO: Modal de categorias sugeridas */}
+      <CategoriasSugeridasModal 
+        isOpen={showSugeridas}
+        onClose={handleFecharSugeridas}
+      />
+    </>
   );
 };
 

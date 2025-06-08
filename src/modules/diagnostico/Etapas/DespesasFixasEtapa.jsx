@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Home, HelpCircle, Calculator, TrendingUp } from 'lucide-react';
-import InputMoney from '../../../Components/ui/InputMoney';
+import InputMoney from '@shared/components/ui/InputMoney';
 import { formatCurrency } from '@utils/formatCurrency';
+
 
 
 

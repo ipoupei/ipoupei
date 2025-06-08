@@ -1,0 +1,321 @@
+/* Estilos específicos para a PercepcaoEtapa */
+
+/* Slider customizado para escala de emojis */
+.percepcao-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 12px;
+  background: linear-gradient(to right, #fecaca 0%, #fef3c7 50%, #dcfce7 100%);
+  border-radius: 6px;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.percepcao-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  background: white;
+  border: 3px solid #3b82f6;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+}
+
+.percepcao-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+.percepcao-slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  background: white;
+  border: 3px solid #3b82f6;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+}
+
+/* Barra de intensidade customizada */
+.intensidade-container {
+  position: relative;
+  background: #e5e7eb;
+  border-radius: 8px;
+  height: 16px;
+  overflow: hidden;
+}
+
+.intensidade-fill {
+  height: 100%;
+  border-radius: 8px;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.intensidade-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, transparent 25%, rgba(255,255,255,0.1) 25%, rgba(255,255,255,0.1) 50%, transparent 50%, transparent 75%, rgba(255,255,255,0.1) 75%);
+  background-size: 8px 8px;
+  animation: move-stripes 0.5s linear infinite;
+}
+
+@keyframes move-stripes {
+  0% { background-position: 0 0; }
+  100% { background-position: 8px 0; }
+}
+
+/* Radio buttons com emoji melhorados */
+.percepcao-radio-group {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.percepcao-radio-option {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.percepcao-radio-option::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.percepcao-radio-option:hover::before {
+  left: 100%;
+}
+
+.percepcao-radio-option:hover {
+  border-color: #cbd5e1;
+  background: linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.percepcao-radio-option.selected {
+  border-color: #3b82f6;
+  background: linear-gradient(145deg, #eff6ff 0%, #dbeafe 100%);
+  color: #1d4ed8;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.2);
+}
+
+.percepcao-radio-option.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  color: #3b82f6;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.percepcao-emoji {
+  font-size: 24px;
+  margin-right: 12px;
+  filter: grayscale(0.3);
+  transition: filter 0.3s ease;
+}
+
+.percepcao-radio-option:hover .percepcao-emoji,
+.percepcao-radio-option.selected .percepcao-emoji {
+  filter: grayscale(0);
+}
+
+/* Input de texto melhorado */
+.percepcao-text-input {
+  width: 100%;
+  padding: 16px 20px;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 500;
+  text-align: center;
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.percepcao-text-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background: white;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+  transform: scale(1.02);
+}
+
+.percepcao-text-input::placeholder {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* Indicador de progresso do preenchimento */
+.percepcao-progress {
+  background: #e5e7eb;
+  border-radius: 8px;
+  height: 8px;
+  overflow: hidden;
+  margin: 24px 0;
+}
+
+.percepcao-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #10b981);
+  border-radius: 8px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.percepcao-progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, transparent 25%, rgba(255,255,255,0.2) 25%, rgba(255,255,255,0.2) 50%, transparent 50%, transparent 75%, rgba(255,255,255,0.2) 75%);
+  background-size: 16px 16px;
+  animation: progress-stripes 1s linear infinite;
+}
+
+@keyframes progress-stripes {
+  0% { background-position: 0 0; }
+  100% { background-position: 16px 0; }
+}
+
+/* Tooltip para explicações */
+.percepcao-tooltip {
+  position: relative;
+  display: inline-block;
+  cursor: help;
+}
+
+.percepcao-tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1f2937;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 1000;
+}
+
+.percepcao-tooltip::before {
+  content: '';
+  position: absolute;
+  bottom: 115%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #1f2937;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.percepcao-tooltip:hover::after,
+.percepcao-tooltip:hover::before {
+  opacity: 1;
+}
+
+/* Animações de entrada */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.percepcao-fade-in {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.percepcao-fade-in:nth-child(1) { animation-delay: 0.1s; }
+.percepcao-fade-in:nth-child(2) { animation-delay: 0.2s; }
+.percepcao-fade-in:nth-child(3) { animation-delay: 0.3s; }
+.percepcao-fade-in:nth-child(4) { animation-delay: 0.4s; }
+.percepcao-fade-in:nth-child(5) { animation-delay: 0.5s; }
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .percepcao-radio-option {
+    padding: 12px 16px;
+  }
+  
+  .percepcao-emoji {
+    font-size: 20px;
+    margin-right: 8px;
+  }
+  
+  .percepcao-text-input {
+    padding: 12px 16px;
+    font-size: 16px;
+  }
+  
+  .percepcao-slider::-webkit-slider-thumb {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .percepcao-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* Estados de validação */
+.percepcao-field-error {
+  border-color: #ef4444 !important;
+  background: #fef2f2 !important;
+}
+
+.percepcao-field-success {
+  border-color: #10b981 !important;
+  background: #f0fdf4 !important;
+}
+
+/* Pulso sutil para campos ativos */
+@keyframes subtle-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.01); }
+}
+
+.percepcao-active-field {
+  animation: subtle-pulse 2s infinite;
+}

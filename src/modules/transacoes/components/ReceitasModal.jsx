@@ -1,4 +1,4 @@
-// src/modules/transacoes/components/ReceitasModal.jsx - OTIMIZADO COM BACKEND
+// src/modules/transacoes/components/ReceitasModal.jsx - CORRIGIDO BUG DA DATA NA EDIÇÃO
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -27,7 +27,8 @@ import useContas from '@modules/contas/hooks/useContas'; // ✅ Hook otimizado
 import '@shared/styles/FormsModal.css';
 
 /**
- * Modal de Receitas - OTIMIZADO COM BACKEND
+ * Modal de Receitas - CORRIGIDO BUG DA DATA NA EDIÇÃO
+ * ✅ CORREÇÃO BUG: Campo de data não vem mais vazio ao editar
  * ✅ CORREÇÃO BUG: Mostra saldo atual correto das contas via SQL
  * ✅ Performance otimizada com funções do backend
  * ✅ Receitas atualizam saldo automaticamente via triggers
@@ -88,11 +89,46 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
 
   const [errors, setErrors] = useState({});
 
-  // ✅ Preencher formulário para edição
+  // ✅ CORREÇÃO DO BUG: Função para converter data para formato compatível com input date
+  const formatarDataParaInput = useCallback((dataString) => {
+    if (!dataString) return new Date().toISOString().split('T')[0];
+    
+    try {
+      // Se já está no formato YYYY-MM-DD, retorna como está
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dataString)) {
+        return dataString;
+      }
+      
+      // Se é uma data ISO (2023-05-31T10:15:30Z) ou timestamp
+      const data = new Date(dataString);
+      
+      // Verificar se a data é válida
+      if (isNaN(data.getTime())) {
+        console.warn('Data inválida recebida:', dataString);
+        return new Date().toISOString().split('T')[0];
+      }
+      
+      // Converter para formato YYYY-MM-DD (timezone local)
+      const ano = data.getFullYear();
+      const mes = String(data.getMonth() + 1).padStart(2, '0');
+      const dia = String(data.getDate()).padStart(2, '0');
+      
+      return `${ano}-${mes}-${dia}`;
+    } catch (error) {
+      console.error('Erro ao formatar data:', error, dataString);
+      return new Date().toISOString().split('T')[0];
+    }
+  }, []);
+
+  // ✅ CORREÇÃO DO BUG: Preencher formulário para edição com data corretamente formatada
   const preencherFormularioEdicao = useCallback(() => {
     if (!transacaoEditando) return;
     
     console.log('🖊️ Preenchendo formulário para edição:', transacaoEditando);
+    
+    // ✅ CORREÇÃO: Formatar data corretamente para o input
+    const dataFormatada = formatarDataParaInput(transacaoEditando.data);
+    console.log('📅 Data original:', transacaoEditando.data, '-> Data formatada:', dataFormatada);
     
     // Determinar tipo de receita baseado na descrição
     let tipoDetectado = 'simples';
@@ -114,7 +150,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     setTipoReceita(tipoDetectado);
     setFormData({
       valor: valorFormatado,
-      data: transacaoEditando.data || new Date().toISOString().split('T')[0],
+      data: dataFormatada, // ✅ CORREÇÃO: Usar data formatada corretamente
       descricao: transacaoEditando.descricao?.replace(/\s\(\d+\/\d+\)$/, '') || '',
       categoria: transacaoEditando.categoria_id || '',
       categoriaTexto: categoria?.nome || '',
@@ -127,7 +163,9 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       tipoRecorrencia: 'mensal',
       primeiroEfetivado: true
     });
-  }, [transacaoEditando, categorias, subcategorias]);
+
+    console.log('✅ Formulário preenchido com data:', dataFormatada);
+  }, [transacaoEditando, categorias, subcategorias, formatarDataParaInput]);
 
   // ✅ Carregar categorias e subcategorias
   const carregarDados = useCallback(async () => {
@@ -157,7 +195,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     }
   }, [isOpen, user, carregarDados]);
 
-  // Preencher formulário quando dados estão carregados e há transação para editar
+  // ✅ CORREÇÃO DO BUG: Preencher formulário quando dados estão carregados e há transação para editar
   useEffect(() => {
     if (isOpen && categorias.length > 0 && transacaoEditando) {
       preencherFormularioEdicao();
@@ -594,8 +632,9 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   // ✅ Atualizar transação existente
   const atualizarTransacao = useCallback(async () => {
     try {
+      // ✅ CORREÇÃO DO BUG: Enviar data no formato correto para o banco
       const dadosAtualizacao = {
-        data: formData.data,
+        data: formData.data, // Já está no formato YYYY-MM-DD
         descricao: formData.descricao.trim(),
         categoria_id: formData.categoria,
         subcategoria_id: formData.subcategoria || null,
@@ -605,6 +644,8 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
         observacoes: formData.observacoes.trim() || null,
         updated_at: new Date().toISOString()
       };
+
+      console.log('📤 Enviando dados de atualização:', dadosAtualizacao);
 
       const { error } = await supabase
         .from('transacoes')
@@ -869,6 +910,13 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                     className={`form-input ${errors.data ? 'error' : ''}`}
                   />
                   {errors.data && <div className="form-error">{errors.data}</div>}
+                  
+                  {/* ✅ DEBUG: Mostrar valor da data para verificar se está correto */}
+                  {process.env.NODE_ENV === 'development' && isEditMode && (
+                    <div style={{ fontSize: '0.7rem', color: '#6b7280', marginTop: '2px' }}>
+                      Debug: {formData.data || 'vazio'}
+                    </div>
+                  )}
                 </div>
               </div>
 

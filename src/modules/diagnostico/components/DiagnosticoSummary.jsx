@@ -1,7 +1,10 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Check, AlertCircle, TrendingDown, TrendingUp, Zap, ListChecks } from 'lucide-react';
-import { formatCurrency } from '../../utils/formatCurrency';
+import { formatCurrency } from '@utils/formatCurrency';
+
+
+
 
 /**
  * Componente para exibir o resumo do diagnóstico financeiro

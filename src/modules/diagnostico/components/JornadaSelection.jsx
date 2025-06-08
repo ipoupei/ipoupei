@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import Card from '../../Components/ui/Card';
+import Card from '@shared/components/ui/Card';
 import { LineChart, TrendingUp, BarChart2, Clock, CheckCircle } from 'lucide-react';
 
 /**

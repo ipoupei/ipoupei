@@ -1,4 +1,4 @@
-// src/shared/components/layout/MainLayout.jsx - VERSÃO ULTRA OTIMIZADA E CORRIGIDA
+// src/shared/components/layout/MainLayout.jsx - COM DIAGNÓSTICO SIMPLES
 import React, { useState, useEffect, Suspense, useCallback, useMemo, useRef } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { 
@@ -13,7 +13,8 @@ import {
   BarChart3,
   Tags,
   Home,
-  List
+  List,
+  Brain
 } from 'lucide-react';
 
 // IMPORTS LIMPOS
@@ -28,13 +29,10 @@ import ContasModal from '@modules/contas/components/ContasModal';
 import TransferenciasModal from '@modules/transacoes/components/TransferenciasModal';
 import CartoesModal from '@modules/cartoes/components/CartoesModal';
 import CategoriasModal from '@modules/categorias/components/CategoriasModal';
-// Adicione esta linha
 import TrilhaDashboard from '@modules/dashboard/components/TrilhaDashboard';
-
 
 // CSS
 import '@shared/styles/MainLayout.css';
-
 
 // ✅ Componente de Header isolado para evitar re-renders
 const Header = React.memo(({ user, isScrolled, pageTitle, showUserMenu, onToggleUserMenu, onLogout }) => {
@@ -103,13 +101,14 @@ const Header = React.memo(({ user, isScrolled, pageTitle, showUserMenu, onToggle
   );
 });
 
-// ✅ Componente de Ações isolado para evitar re-renders
+// ✅ Componente de Ações isolado - COM DIAGNÓSTICO SIMPLES
 const QuickActions = React.memo(({ 
   isScrolled, 
   showMaisMenu, 
   onToggleMaisMenu,
   onNavigateDashboard,
   onNavigateTransacoes,
+  onNavigateDiagnostico,
   onOpenReceitas,
   onOpenDespesas,
   onOpenDespesasCartao,
@@ -129,6 +128,15 @@ const QuickActions = React.memo(({
         >
           <Home size={isScrolled ? 16 : 20} />
           <span>Dashboard</span>
+        </button>
+
+        <button 
+          className="action-button diagnostico"
+          onClick={onNavigateDiagnostico}
+          data-tooltip="Diagnóstico Financeiro"
+        >
+          <Brain size={isScrolled ? 16 : 20} />
+          <span>Diagnóstico</span>
         </button>
 
         <button 
@@ -177,15 +185,6 @@ const QuickActions = React.memo(({
         </button>
 
         <button 
-          className="action-button contas"
-          onClick={onOpenContas}
-          data-tooltip="Contas"
-        >
-          <Wallet size={isScrolled ? 16 : 20} />
-          <span>Contas</span>
-        </button>
-
-        <button 
           className="action-button mais"
           onClick={onToggleMaisMenu}
           data-tooltip="Mais"
@@ -197,6 +196,13 @@ const QuickActions = React.memo(({
 
       {showMaisMenu && (
         <div className="mais-menu">
+          <button 
+            className="mais-menu-item"
+            onClick={onOpenContas}
+          >
+            <Wallet size={16} />
+            Minhas Contas
+          </button>
           <button 
             className="mais-menu-item"
             onClick={onOpenCartoes}
@@ -252,14 +258,13 @@ const MainLayout = () => {
     let rafId = null;
 
     const handleScroll = () => {
-      if (isScrollingRef.current) return; // Evita múltiplas execuções
+      if (isScrollingRef.current) return;
 
       isScrollingRef.current = true;
       
       rafId = requestAnimationFrame(() => {
         const scrollY = window.scrollY;
         
-        // Só atualiza se realmente precisa mudar o estado
         setIsScrolled(prev => {
           const shouldBeScrolled = scrollY > 120;
           if (shouldBeScrolled !== prev) {
@@ -272,14 +277,13 @@ const MainLayout = () => {
       });
     };
 
-    // ✅ Throttle MÁXIMO - só executa a cada 200ms (era 100ms)
     const throttledScroll = () => {
       if (scrollTimeoutRef.current) return;
       
       scrollTimeoutRef.current = setTimeout(() => {
         handleScroll();
         scrollTimeoutRef.current = null;
-      }, 200); // ✅ Aumentado para 200ms
+      }, 200);
     };
 
     window.addEventListener('scroll', throttledScroll, { passive: true });
@@ -291,7 +295,7 @@ const MainLayout = () => {
         clearTimeout(scrollTimeoutRef.current);
       }
     };
-  }, []); // ✅ VAZIO - não depende de isScrolled
+  }, []);
 
   // ✅ Handlers ESTÁTICOS (não causam re-renders)
   const openModal = useCallback((modalName) => {
@@ -322,13 +326,17 @@ const MainLayout = () => {
   // ✅ Handlers de navegação - ESTÁTICOS
   const navigateToDashboard = useCallback(() => navigate('/dashboard'), [navigate]);
   const navigateToTransacoes = useCallback(() => navigate('/transacoes'), [navigate]);
+  const navigateToDiagnostico = useCallback(() => navigate('/diagnostico'), [navigate]);
 
   // ✅ Handlers de modal - ESTÁTICOS
   const openReceitas = useCallback(() => openModal('receitas'), [openModal]);
   const openDespesas = useCallback(() => openModal('despesas'), [openModal]);
   const openDespesasCartao = useCallback(() => openModal('despesasCartao'), [openModal]);
   const openTransferencias = useCallback(() => openModal('transferencias'), [openModal]);
-  const openContas = useCallback(() => openModal('contas'), [openModal]);
+  const openContas = useCallback(() => {
+    openModal('contas');
+    setShowMaisMenu(false);
+  }, [openModal]);
   
   const openCartoes = useCallback(() => {
     openModal('cartoes');
@@ -347,7 +355,7 @@ const MainLayout = () => {
 
   // ✅ Click outside handler - ULTRA otimizado COM CONDIÇÕES
   useEffect(() => {
-    if (!showUserMenu && !showMaisMenu) return; // ✅ Early return
+    if (!showUserMenu && !showMaisMenu) return;
 
     const handleClickOutside = (event) => {
       const target = event.target;
@@ -363,7 +371,7 @@ const MainLayout = () => {
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showUserMenu, showMaisMenu]); // ✅ Só executa quando necessário
+  }, [showUserMenu, showMaisMenu]);
 
   // ✅ Valores memoizados - OTIMIZADOS
   const pageTitle = useMemo(() => {
@@ -373,6 +381,8 @@ const MainLayout = () => {
         return 'Acompanhamento Mensal';
       case '/transacoes':
         return 'Transações';
+      case '/diagnostico':
+        return 'Diagnóstico Financeiro';
       case '/relatorios':
         return 'Relatórios';
       default:
@@ -407,6 +417,7 @@ const MainLayout = () => {
         onToggleMaisMenu={toggleMaisMenu}
         onNavigateDashboard={navigateToDashboard}
         onNavigateTransacoes={navigateToTransacoes}
+        onNavigateDiagnostico={navigateToDiagnostico}
         onOpenReceitas={openReceitas}
         onOpenDespesas={openDespesas}
         onOpenDespesasCartao={openDespesasCartao}
@@ -418,15 +429,15 @@ const MainLayout = () => {
       />
 
       {/* ✅ Trilha de Evolução - Condicionalmente renderizada */}
-{!isScrolled && isDashboard && (
-  <section className="evolution-track">
-    <TrilhaDashboard 
-      passos={[]} 
-      passoAtual="3"
-      onPassoClick={(passo) => console.log('Passo clicado:', passo)}
-    />
-  </section>
-)}
+      {!isScrolled && isDashboard && (
+        <section className="evolution-track">
+          <TrilhaDashboard 
+            passos={[]} 
+            passoAtual="3"
+            onPassoClick={(passo) => console.log('Passo clicado:', passo)}
+          />
+        </section>
+      )}
 
       {/* ✅ Conteúdo */}
       <main className="main-content">

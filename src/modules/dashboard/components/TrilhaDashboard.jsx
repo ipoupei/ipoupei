@@ -16,9 +16,8 @@ import {
   MapPin
 } from 'lucide-react';
 
-// Importar o CSS
+// Importar o CSS atualizado
 import '../styles/TrilhaDashboard.css';
-
 
 // Mapeamento de ícones para cada passo
 const iconesPorPasso = {
@@ -58,16 +57,6 @@ const TrilhaDashboard = ({
 
   const dadosParaUsar = passos.length > 0 ? passos : dadosExemplo;
 
-  // Calcular estatísticas
-  const estatisticas = useMemo(() => {
-    const concluidos = dadosParaUsar.filter(p => p.status === 'concluido').length;
-    const emProgresso = dadosParaUsar.filter(p => p.status === 'em_progresso').length;
-    const pendentes = dadosParaUsar.filter(p => p.status === 'nao_iniciado').length;
-    const progressoPercentual = Math.round(((concluidos + emProgresso * 0.5) / dadosParaUsar.length) * 100);
-    
-    return { concluidos, emProgresso, pendentes, progressoPercentual };
-  }, [dadosParaUsar]);
-
   // Calcular largura da linha de progresso
   const progressoLinha = useMemo(() => {
     if (dadosParaUsar.length === 0) return 0;
@@ -80,7 +69,7 @@ const TrilhaDashboard = ({
     const progressoTotal = (passosCompletos + passosEmProgresso * 0.5) / totalPassos;
     
     // Ajustar para a linha (considerando que a linha vai de centro a centro dos círculos)
-    return Math.min(progressoTotal * 100, 85); // Máximo 85% para não passar do último círculo
+    return Math.min(progressoTotal * 100, 90); // Máximo 90% para não passar do último círculo
   }, [dadosParaUsar]);
 
   const getStatusClass = (status) => {
@@ -129,13 +118,7 @@ const TrilhaDashboard = ({
 
   return (
     <div className={`trilha-container ${className}`}>
-      {/* Header */}
-      <div className="trilha-header">
-
-
-      </div>
-
-      {/* Trilha Horizontal */}
+      {/* Trilha Horizontal Compacta */}
       <div className="trilha-horizontal">
         {/* Linha de progresso */}
         <div className="trilha-linha-progresso">
@@ -147,13 +130,13 @@ const TrilhaDashboard = ({
               height: '100%',
               borderRadius: '2px',
               transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)',
-              boxShadow: '0 0 8px rgba(59, 130, 246, 0.4)'
+              boxShadow: '0 0 6px rgba(59, 130, 246, 0.4)'
             }}
           />
         </div>
 
         {/* Passos */}
-        {dadosParaUsar.map((passo) => {
+        {dadosParaUsar.map((passo, index) => {
           const IconePasso = iconesPorPasso[passo.ordem] || TrendingUp;
           const StatusIcon = getStatusIcon(passo.status);
           const statusClass = getStatusClass(passo.status);
@@ -174,18 +157,19 @@ const TrilhaDashboard = ({
                   handlePassoClick(passo);
                 }
               }}
+              data-tooltip-position={index < 2 ? 'right' : index >= dadosParaUsar.length - 2 ? 'left' : 'center'}
             >
               {/* Indicador "Você está aqui" */}
               {isAtual && (
                 <div className="trilha-passo-marcador">
-                  📍 Você está aqui
+                  📍 Atual
                 </div>
               )}
 
               {/* Círculo do passo */}
               <div className={`trilha-passo-circulo ${statusClass}`}>
                 {/* Ícone principal */}
-                <IconePasso size={24} className="trilha-passo-icone" />
+                <IconePasso size={18} className="trilha-passo-icone" />
                 
                 {/* Número do passo */}
                 <span className="trilha-passo-numero">
@@ -195,7 +179,7 @@ const TrilhaDashboard = ({
                 {/* Ícone de status (pequeno) */}
                 {passo.status !== 'nao_iniciado' && (
                   <div className={`trilha-passo-status-icone ${passo.status}`}>
-                    <StatusIcon size={12} />
+                    <StatusIcon size={10} />
                   </div>
                 )}
               </div>
@@ -208,13 +192,16 @@ const TrilhaDashboard = ({
                 
                 <div className={`trilha-passo-badge ${badge.class}`}>
                   <span>{badge.icon}</span>
-                  <span>{badge.text}</span>
                 </div>
               </div>
 
-              {/* Tooltip */}
+              {/* Tooltip com posicionamento inteligente */}
               {hoveredPasso === passo.id && (
-                <div className="trilha-tooltip">
+                <div className={`trilha-tooltip ${
+                  index < 2 ? 'trilha-tooltip-right' : 
+                  index >= dadosParaUsar.length - 2 ? 'trilha-tooltip-left' : 
+                  'trilha-tooltip-center'
+                }`}>
                   <div className="trilha-tooltip-texto">
                     {passo.descricao || "Descrição não disponível"}
                   </div>
@@ -224,8 +211,6 @@ const TrilhaDashboard = ({
           );
         })}
       </div>
-
-
     </div>
   );
 };
