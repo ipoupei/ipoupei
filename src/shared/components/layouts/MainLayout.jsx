@@ -28,9 +28,13 @@ import ContasModal from '@modules/contas/components/ContasModal';
 import TransferenciasModal from '@modules/transacoes/components/TransferenciasModal';
 import CartoesModal from '@modules/cartoes/components/CartoesModal';
 import CategoriasModal from '@modules/categorias/components/CategoriasModal';
+// Adicione esta linha
+import TrilhaDashboard from '@modules/dashboard/components/TrilhaDashboard';
+
 
 // CSS
 import '@shared/styles/MainLayout.css';
+
 
 // ✅ Componente de Header isolado para evitar re-renders
 const Header = React.memo(({ user, isScrolled, pageTitle, showUserMenu, onToggleUserMenu, onLogout }) => {
@@ -414,13 +418,15 @@ const MainLayout = () => {
       />
 
       {/* ✅ Trilha de Evolução - Condicionalmente renderizada */}
-      {!isScrolled && isDashboard && (
-        <section className="evolution-track">
-          <div className="evolution-placeholder">
-            <span className="placeholder-text">🚀 Trilha de Evolução - Em desenvolvimento</span>
-          </div>
-        </section>
-      )}
+{!isScrolled && isDashboard && (
+  <section className="evolution-track">
+    <TrilhaDashboard 
+      passos={[]} 
+      passoAtual="3"
+      onPassoClick={(passo) => console.log('Passo clicado:', passo)}
+    />
+  </section>
+)}
 
       {/* ✅ Conteúdo */}
       <main className="main-content">

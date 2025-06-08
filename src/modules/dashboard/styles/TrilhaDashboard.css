@@ -1,0 +1,421 @@
+/* src/modules/dashboard/styles/TrilhaDashboard.css */
+
+/* ================== CONTAINER PRINCIPAL ================== */
+.trilha-container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0rem 0rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.trilha-container::-webkit-scrollbar {
+  display: none;
+}
+
+/* ================== HEADER DA TRILHA ================== */
+.trilha-header {
+  text-align: center;
+  margin-bottom: 0rem;
+}
+
+.trilha-title {
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 0rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.trilha-subtitle {
+  color: #6b7280;
+  font-size: 0rem;
+  font-weight: 500;
+}
+
+/* ================== TRILHA HORIZONTAL ================== */
+.trilha-horizontal {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  min-width: fit-content;
+  padding: 1rem 0;
+  gap: 0.5rem;
+}
+
+/* Linha de progresso horizontal */
+.trilha-linha-progresso {
+  position: absolute;
+  top: 2.5rem;
+  left: 4rem;
+  right: 4rem;
+  height: 4px;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  border-radius: 2px;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.trilha-linha-progresso::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(135deg, #10b981 0%, #3b82f6 50%, #8b5cf6 100%);
+  border-radius: 2px;
+  transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+}
+
+/* ================== PASSO INDIVIDUAL ================== */
+.trilha-passo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+  min-width: 120px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.trilha-passo:hover {
+  transform: translateY(-4px);
+}
+
+/* Círculo do passo */
+.trilha-passo-circulo {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 1px solid;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.trilha-passo:hover .trilha-passo-circulo {
+  transform: scale(1.1);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+/* Estados do círculo */
+.trilha-passo-concluido {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-color: #10b981;
+  color: white;
+}
+
+.trilha-passo-em-progresso {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-color: #3b82f6;
+  color: white;
+}
+
+.trilha-passo-nao-iniciado {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-color: #d1d5db;
+  color: #6b7280;
+}
+
+/* Ícone principal do passo */
+.trilha-passo-icone {
+  margin-bottom: 1px;
+}
+
+/* Número do passo */
+.trilha-passo-numero {
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Ícone de status (pequeno) */
+.trilha-passo-status-icone {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+}
+
+.trilha-passo-status-icone.concluido {
+  background: #10b981;
+  color: white;
+}
+
+.trilha-passo-status-icone.em-progresso {
+  background: #3b82f6;
+  color: white;
+}
+
+/* Indicador "Você está aqui" */
+.trilha-passo-atual {
+  position: relative;
+}
+
+.trilha-passo-atual .trilha-passo-circulo {
+  animation: pulseRing 2s infinite;
+}
+
+@keyframes pulseRing {
+  0% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(251, 191, 36, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 0 20px rgba(251, 191, 36, 0);
+  }
+}
+
+.trilha-passo-marcador {
+  position: absolute;
+  top: -3rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: #92400e;
+  padding: 0.375rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);
+  border: 2px solid white;
+}
+
+.trilha-passo-marcador::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid #fbbf24;
+}
+
+/* ================== CONTEÚDO DO PASSO ================== */
+.trilha-passo-conteudo {
+  margin-top: 1rem;
+  text-align: center;
+  width: 100%;
+}
+
+.trilha-passo-titulo {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  line-height: 1.2;
+  margin-bottom: 0.5rem;
+}
+
+.trilha-passo-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  gap: 0.25rem;
+}
+
+.trilha-passo-badge.concluido {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.trilha-passo-badge.em-progresso {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.trilha-passo-badge.nao-iniciado {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* ================== TOOLTIP ================== */
+.trilha-tooltip {
+  position: absolute;
+  bottom: calc(100% + 0rem);
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  z-index: 50;
+  width: 240px;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(20px);
+}
+
+.trilha-passo:hover .trilha-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(-4px);
+}
+
+.trilha-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 8px solid white;
+}
+
+.trilha-tooltip-texto {
+  font-size: 0.875rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+/* ================== RESPONSIVIDADE ================== */
+@media (max-width: 1024px) {
+  .trilha-horizontal {
+    gap: 0.75rem;
+  }
+  
+  .trilha-passo {
+    min-width: 100px;
+  }
+  
+  .trilha-passo-circulo {
+    width: 70px;
+    height: 70px;
+  }
+  
+  .trilha-tooltip {
+    width: 200px;
+  }
+}
+
+@media (max-width: 768px) {
+  .trilha-container {
+    padding: 0.75rem 1rem;
+  }
+  
+  .trilha-title {
+    font-size: 1.25rem;
+  }
+  
+  .trilha-horizontal {
+    gap: 0.5rem;
+    padding: 1.5rem 0;
+  }
+  
+  .trilha-passo {
+    min-width: 80px;
+  }
+  
+  .trilha-passo-circulo {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .trilha-passo-icone {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .trilha-passo-numero {
+    font-size: 0.675rem;
+  }
+  
+  .trilha-tooltip {
+    display: none; /* Oculta tooltip em mobile */
+  }
+  
+  .trilha-estatisticas {
+    margin-top: 2rem;
+    padding: 1rem;
+  }
+  
+  .trilha-estatistica-numero {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .trilha-horizontal {
+    gap: 0.25rem;
+  }
+  
+  .trilha-passo {
+    min-width: 70px;
+  }
+  
+  .trilha-passo-circulo {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .trilha-passo-titulo {
+    font-size: 0.75rem;
+  }
+  
+  .trilha-passo-badge {
+    font-size: 0.625rem;
+    padding: 0.125rem 0.375rem;
+  }
+}
+
+/* ================== MELHORIAS DE PERFORMANCE ================== */
+.trilha-horizontal {
+  will-change: scroll-position;
+}
+
+.trilha-passo {
+  will-change: transform;
+}
+
+.trilha-passo-circulo {
+  will-change: transform, box-shadow;
+}
+
+/* ================== ACESSIBILIDADE ================== */
+.trilha-passo:focus {
+  outline: 3px solid #3b82f6;
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trilha-passo-atual .trilha-passo-circulo {
+    animation: none;
+  }
+  
+  .trilha-passo,
+  .trilha-passo-circulo,
+  .trilha-tooltip {
+    transition: none;
+  }
+}

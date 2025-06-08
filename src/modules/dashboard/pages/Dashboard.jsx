@@ -29,6 +29,9 @@ import DetalhesDoDiaModal from '@modules/dashboard/components/DetalhesDoDiaModal
 // IMPORTAR O CSS
 import '../styles/Dashboard.css';
 
+
+
+
 /**
  * Dashboard - Versão com Controle de Período via usePeriodo
  * ✅ Mantém seletor de período no Dashboard
