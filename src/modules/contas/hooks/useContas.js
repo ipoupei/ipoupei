@@ -1,15 +1,15 @@
-// src/modules/contas/hooks/useContas.js - RECONSTRUÍDO DO ZERO
+// src/modules/contas/hooks/useContas.js - VERSÃO FINAL COM TRIGGERS AUTOMÁTICOS
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@lib/supabaseClient';
 import { useAuthStore } from '@modules/auth/store/authStore';
 import { useUIStore } from '@store/uiStore';
 
 /**
- * Hook para gerenciar contas - VERSÃO LIMPA
- * ✅ Código limpo e organizado
- * ✅ Usuário dinâmico
- * ✅ Saldo via função SQL com fallback
- * ✅ Todas as funcionalidades essenciais
+ * Hook para gerenciar contas - VERSÃO FINAL COM TRIGGERS
+ * ✅ Saldos atualizados automaticamente via triggers SQL
+ * ✅ Performance máxima (sem cálculos repetitivos)
+ * ✅ Consistência garantida pelo banco de dados
+ * ✅ Funções de manutenção e validação integradas
  */
 const useContas = () => {
   const { user } = useAuthStore();
@@ -22,61 +22,7 @@ const useContas = () => {
   const [error, setError] = useState(null);
   const [saldoTotal, setSaldoTotal] = useState(0);
 
-  // ✅ FUNÇÃO 1: Calcular saldo de uma conta específica
-  const calcularSaldoConta = useCallback(async (contaId, saldoInicial = 0) => {
-    try {
-      const { data: transacoes, error } = await supabase
-        .from('transacoes')
-        .select('tipo, valor, efetivado, transferencia')
-        .eq('conta_id', contaId)
-        .eq('efetivado', true);
-
-      if (error) {
-        console.error('Erro ao buscar transações:', error);
-        return saldoInicial;
-      }
-
-      let saldo = saldoInicial;
-      
-      transacoes?.forEach(t => {
-        // Ignorar transferências
-        if (t.transferencia) return;
-        
-        if (t.tipo === 'receita') {
-          saldo += t.valor || 0;
-        } else if (t.tipo === 'despesa') {
-          saldo -= t.valor || 0;
-        }
-      });
-
-      return saldo;
-    } catch (err) {
-      console.error('Erro no cálculo de saldo:', err);
-      return saldoInicial;
-    }
-  }, []);
-
-  // ✅ FUNÇÃO 2: Buscar saldo total via SQL (com fallback)
-  const buscarSaldoTotalSQL = useCallback(async () => {
-    if (!user?.id) return null;
-
-    try {
-      const { data, error } = await supabase
-        .rpc('gpt_saldo_atual', { usuario: user.id });
-
-      if (error) {
-        console.warn('Função SQL falhou:', error.message);
-        return null;
-      }
-
-      return Number(data) || 0;
-    } catch (err) {
-      console.warn('Erro na função SQL:', err.message);
-      return null;
-    }
-  }, [user]);
-
-  // ✅ FUNÇÃO 3: Buscar todas as contas
+  // ✅ FUNÇÃO 1: Buscar contas usando função SQL otimizada (com triggers)
   const fetchContas = useCallback(async (incluirArquivadas = false) => {
     if (!user?.id) {
       setContas([]);
@@ -89,74 +35,97 @@ const useContas = () => {
       setLoading(true);
       setError(null);
 
-      console.log('🏦 Buscando contas do usuário:', user.email);
+      console.log('🏦 Buscando contas via SQL otimizada para:', user.email);
 
-      // Buscar contas ativas
+      // ✅ Buscar contas ativas (saldos já calculados pelos triggers)
       const { data: contasAtivas, error: erroAtivas } = await supabase
-        .from('contas')
-        .select('*')
-        .eq('usuario_id', user.id)
-        .eq('ativo', true)
-        .order('created_at');
+        .rpc('obter_saldos_por_conta', {
+          p_usuario_id: user.id,
+          p_incluir_inativas: false
+        });
 
-      if (erroAtivas) throw erroAtivas;
+      if (erroAtivas) {
+        console.error('Erro na função SQL para contas ativas:', erroAtivas);
+        throw erroAtivas;
+      }
 
-      // Buscar contas arquivadas se necessário
+      // ✅ Buscar contas arquivadas se necessário
       let contasArquiv = [];
       if (incluirArquivadas) {
-        const { data: arquivadas, error: erroArquivadas } = await supabase
-          .from('contas')
-          .select('*')
-          .eq('usuario_id', user.id)
-          .eq('ativo', false)
-          .order('updated_at', { ascending: false });
+        const { data: todasContas, error: erroTodasContas } = await supabase
+          .rpc('obter_saldos_por_conta', {
+            p_usuario_id: user.id,
+            p_incluir_inativas: true
+          });
 
-        if (!erroArquivadas) {
-          contasArquiv = arquivadas || [];
+        if (erroTodasContas) {
+          console.warn('Erro na função SQL para todas as contas:', erroTodasContas);
+        } else {
+          // Filtrar apenas as inativas
+          contasArquiv = (todasContas || []).filter(conta => !conta.ativa);
         }
       }
 
-      // Calcular saldos das contas ativas
-      const contasComSaldo = await Promise.all(
-        (contasAtivas || []).map(async (conta) => {
-          const saldoCalculado = await calcularSaldoConta(conta.id, conta.saldo_inicial || 0);
-          return {
-            ...conta,
-            saldo_atual: saldoCalculado,
-            saldo: saldoCalculado // Compatibilidade
-          };
-        })
-      );
+      // ✅ Transformar dados para formato esperado (saldos já corretos!)
+      const contasFormatadas = (contasAtivas || []).map(conta => ({
+        id: conta.conta_id,
+        nome: conta.conta_nome,
+        tipo: conta.conta_tipo,
+        saldo: conta.saldo_atual, // ✅ Já calculado pelos triggers!
+        saldo_atual: conta.saldo_atual,
+        saldo_inicial: conta.saldo_inicial,
+        cor: conta.cor,
+        banco: conta.banco,
+        icone: conta.icone,
+        ativo: conta.ativa,
+        incluir_soma_total: conta.incluir_soma,
+        total_transacoes_mes: conta.total_transacoes_mes || 0,
+        observacoes: conta.observacoes,
+        created_at: conta.created_at,
+        updated_at: conta.updated_at
+      }));
 
-      // Calcular saldos das contas arquivadas
-      const contasArquivComSaldo = await Promise.all(
-        contasArquiv.map(async (conta) => {
-          const saldoCalculado = await calcularSaldoConta(conta.id, conta.saldo_inicial || 0);
-          return {
-            ...conta,
-            saldo_atual: saldoCalculado,
-            saldo: saldoCalculado,
-            arquivada: true
-          };
-        })
-      );
+      const contasArquivadasFormatadas = contasArquiv.map(conta => ({
+        id: conta.conta_id,
+        nome: conta.conta_nome,
+        tipo: conta.conta_tipo,
+        saldo: conta.saldo_atual,
+        saldo_atual: conta.saldo_atual,
+        saldo_inicial: conta.saldo_inicial,
+        cor: conta.cor,
+        banco: conta.banco,
+        icone: conta.icone,
+        ativo: conta.ativa,
+        incluir_soma_total: conta.incluir_soma,
+        total_transacoes_mes: conta.total_transacoes_mes || 0,
+        observacoes: conta.observacoes,
+        created_at: conta.created_at,
+        updated_at: conta.updated_at,
+        arquivada: true
+      }));
 
       // Atualizar estados
-      setContas(contasComSaldo);
-      setContasArquivadas(contasArquivComSaldo);
+      setContas(contasFormatadas);
+      setContasArquivadas(contasArquivadasFormatadas);
 
-      // Calcular saldo total (SQL primeiro, fallback depois)
-      const saldoSQL = await buscarSaldoTotalSQL();
-      if (saldoSQL !== null) {
-        setSaldoTotal(saldoSQL);
-        console.log('✅ Saldo total (SQL):', saldoSQL);
-      } else {
-        const saldoLocal = contasComSaldo.reduce((acc, c) => acc + (c.saldo_atual || 0), 0);
+      // ✅ Calcular saldo total (usando função SQL ou localmente)
+      const { data: saldoSQL, error: erroSaldo } = await supabase
+        .rpc('gpt_saldo_atual', { usuario: user.id });
+
+      if (erroSaldo) {
+        console.warn('Erro na função SQL de saldo total:', erroSaldo);
+        // Fallback: somar saldos localmente
+        const saldoLocal = contasFormatadas
+          .filter(c => c.incluir_soma_total)
+          .reduce((acc, c) => acc + (c.saldo || 0), 0);
         setSaldoTotal(saldoLocal);
-        console.log('✅ Saldo total (local):', saldoLocal);
+        console.log('✅ Saldo total (fallback):', saldoLocal);
+      } else {
+        setSaldoTotal(Number(saldoSQL) || 0);
+        console.log('✅ Saldo total (SQL):', saldoSQL);
       }
 
-      console.log('✅ Contas carregadas:', contasComSaldo.length);
+      console.log('✅ Contas carregadas (saldos via triggers):', contasFormatadas.length);
 
     } catch (err) {
       console.error('❌ Erro ao buscar contas:', err);
@@ -165,20 +134,95 @@ const useContas = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, calcularSaldoConta, buscarSaldoTotalSQL, showNotification]);
+  }, [user, showNotification]);
+
+  // ✅ FUNÇÃO 2: Validar consistência dos saldos
+  const validarConsistencia = useCallback(async () => {
+    if (!user?.id) return null;
+
+    try {
+      const { data, error } = await supabase
+        .rpc('validar_consistencia_saldos', { p_usuario_id: user.id });
+
+      if (error) {
+        console.error('Erro ao validar consistência:', error);
+        return null;
+      }
+
+      const inconsistencias = data?.filter(conta => conta.inconsistente) || [];
+      
+      if (inconsistencias.length > 0) {
+        console.warn('⚠️ Inconsistências encontradas:', inconsistencias);
+        showNotification(
+          `${inconsistencias.length} conta(s) com saldo inconsistente. Recalculando...`, 
+          'warning'
+        );
+        
+        // Recalcular automaticamente
+        await recalcularSaldos();
+      } else {
+        console.log('✅ Todos os saldos estão consistentes');
+      }
+
+      return { total: data?.length || 0, inconsistencias: inconsistencias.length };
+    } catch (error) {
+      console.error('Erro na validação:', error);
+      return null;
+    }
+  }, [user?.id, showNotification]);
+
+  // ✅ FUNÇÃO 3: Recalcular saldos de todas as contas
+  const recalcularSaldos = useCallback(async () => {
+    if (!user?.id) return;
+
+    try {
+      console.log('🔄 Recalculando saldos via SQL...');
+
+      const { data, error } = await supabase
+        .rpc('recalcular_saldos_usuario', { p_usuario_id: user.id });
+
+      if (error) {
+        console.error('Erro ao recalcular saldos:', error);
+        showNotification('Erro ao recalcular saldos', 'error');
+        return;
+      }
+
+      const contasAtualizadas = data?.filter(conta => Math.abs(conta.diferenca) > 0.01) || [];
+      
+      if (contasAtualizadas.length > 0) {
+        console.log('✅ Saldos recalculados:', contasAtualizadas);
+        showNotification(
+          `${contasAtualizadas.length} conta(s) tiveram saldo corrigido`, 
+          'success'
+        );
+      }
+
+      // Recarregar contas com dados atualizados
+      await fetchContas();
+      
+    } catch (error) {
+      console.error('Erro ao recalcular saldos:', error);
+      showNotification('Erro ao recalcular saldos', 'error');
+    }
+  }, [user?.id, showNotification, fetchContas]);
 
   // ✅ FUNÇÃO 4: Adicionar nova conta
   const addConta = useCallback(async (dadosConta) => {
     if (!user?.id) throw new Error('Usuário não autenticado');
 
     try {
+      const saldoInicial = dadosConta.saldo || dadosConta.saldoInicial || 0;
+      
       const { data, error } = await supabase
         .from('contas')
         .insert([{
           ...dadosConta,
           usuario_id: user.id,
           ativo: true,
-          saldo_inicial: dadosConta.saldo || 0,
+          saldo_inicial: saldoInicial,
+          saldo: saldoInicial, // ✅ Triggers manterão este valor atualizado
+          incluir_soma_total: true,
+          ordem: 1,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }])
@@ -187,6 +231,7 @@ const useContas = () => {
 
       if (error) throw error;
 
+      // ✅ Não precisa recalcular - triggers fazem automaticamente
       await fetchContas();
       showNotification(`Conta "${dadosConta.nome}" criada com sucesso`, 'success');
       return data;
@@ -208,6 +253,7 @@ const useContas = () => {
         delete dadosAtualizacao.saldo;
       }
 
+      // ✅ Se alterando saldo_inicial, os triggers recalcularão automaticamente
       const { data, error } = await supabase
         .from('contas')
         .update({
@@ -220,6 +266,11 @@ const useContas = () => {
         .single();
 
       if (error) throw error;
+
+      // ✅ Se mudou saldo_inicial, forçar recálculo via trigger
+      if (dadosAtualizacao.saldo_inicial !== undefined) {
+        await supabase.rpc('atualizar_saldo_conta', { p_conta_id: contaId });
+      }
 
       await fetchContas();
       showNotification('Conta atualizada com sucesso', 'success');
@@ -302,7 +353,7 @@ const useContas = () => {
     }
   }, [contasArquivadas, user, fetchContas, showNotification]);
 
-  // ✅ FUNÇÃO 8: Excluir conta
+  // ✅ FUNÇÃO 8: Excluir conta (com validação)
   const excluirConta = useCallback(async (contaId, confirmacao = false) => {
     if (!user?.id) return { success: false, error: 'Usuário não autenticado' };
 
@@ -321,7 +372,7 @@ const useContas = () => {
 
       if (erroCount) throw erroCount;
 
-      if (totalTransacoes > 0) {
+      if (totalTransacoes > 0 && !confirmacao) {
         return {
           success: false,
           error: 'POSSUI_TRANSACOES',
@@ -330,15 +381,7 @@ const useContas = () => {
         };
       }
 
-      if (!confirmacao) {
-        return {
-          success: false,
-          error: 'CONFIRMACAO_NECESSARIA',
-          message: 'Confirmação necessária para excluir a conta.'
-        };
-      }
-
-      // Excluir
+      // Excluir (triggers limparão saldo automaticamente)
       const { error } = await supabase
         .from('contas')
         .delete()
@@ -379,7 +422,7 @@ const useContas = () => {
       }
 
       if (metodo === 'saldo_inicial') {
-        // Alterar saldo inicial
+        // Alterar saldo inicial (triggers recalcularão)
         const novoSaldoInicial = conta.saldo_inicial + diferenca;
 
         const { error } = await supabase
@@ -392,10 +435,14 @@ const useContas = () => {
           .eq('usuario_id', user.id);
 
         if (error) throw error;
+        
+        // Forçar recálculo via trigger
+        await supabase.rpc('atualizar_saldo_conta', { p_conta_id: contaId });
+        
         showNotification(`Saldo inicial alterado para ${novoSaldoInicial.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`, 'success');
 
       } else {
-        // Criar transação de ajuste
+        // Criar transação de ajuste (triggers atualizarão saldo)
         const ajuste = {
           usuario_id: user.id,
           conta_id: contaId,
@@ -418,7 +465,8 @@ const useContas = () => {
         showNotification(`Ajuste de ${Math.abs(diferenca).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} criado`, 'success');
       }
 
-      await fetchContas(true);
+      // ✅ Aguardar um pouco para triggers executarem
+      setTimeout(() => fetchContas(true), 500);
       return { success: true };
 
     } catch (error) {
@@ -430,11 +478,41 @@ const useContas = () => {
     }
   }, [user, contas, contasArquivadas, fetchContas, showNotification]);
 
-  // ✅ UTILITÁRIOS
-  const recalcularSaldos = useCallback(() => {
-    return fetchContas();
-  }, [fetchContas]);
+  // ✅ FUNÇÃO 10: Sincronizar todos os saldos do sistema
+  const sincronizarSaldosSistema = useCallback(async () => {
+    if (!user?.id) return;
 
+    try {
+      console.log('🔄 Sincronizando saldos do sistema...');
+
+      const { data, error } = await supabase
+        .rpc('sincronizar_saldos_sistema');
+
+      if (error) {
+        console.error('Erro na sincronização:', error);
+        showNotification('Erro na sincronização', 'error');
+        return;
+      }
+
+      const resultado = data?.[0];
+      if (resultado?.contas_atualizadas > 0) {
+        showNotification(
+          `Sincronização concluída: ${resultado.contas_atualizadas}/${resultado.total_contas_processadas} contas atualizadas`,
+          'success'
+        );
+      } else {
+        showNotification('Todos os saldos já estavam sincronizados', 'info');
+      }
+
+      await fetchContas();
+      
+    } catch (error) {
+      console.error('Erro na sincronização:', error);
+      showNotification('Erro na sincronização', 'error');
+    }
+  }, [user?.id, showNotification, fetchContas]);
+
+  // ✅ UTILITÁRIOS
   const getSaldoConta = useCallback((contaId) => {
     const conta = contas.find(c => c.id === contaId);
     return conta ? conta.saldo_atual : 0;
@@ -458,12 +536,29 @@ const useContas = () => {
     fetchContas();
   }, [fetchContas]);
 
+  // Validar consistência periodicamente
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const validarPeriodicamente = async () => {
+      await validarConsistencia();
+    };
+
+    // Validar na inicialização
+    setTimeout(validarPeriodicamente, 2000);
+
+    // Validar a cada 5 minutos
+    const interval = setInterval(validarPeriodicamente, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [user?.id, validarConsistencia]);
+
   // Listener para mudanças em tempo real
   useEffect(() => {
     if (!user?.id) return;
 
     const channel = supabase
-      .channel(`transacoes_${user.id}`)
+      .channel(`contas_transacoes_${user.id}`)
       .on(
         'postgres_changes',
         {
@@ -473,7 +568,20 @@ const useContas = () => {
           filter: `usuario_id=eq.${user.id}`
         },
         () => {
+          // ✅ Pequeno delay para triggers executarem
           setTimeout(() => fetchContas(), 1000);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'contas',
+          filter: `usuario_id=eq.${user.id}`
+        },
+        () => {
+          setTimeout(() => fetchContas(), 500);
         }
       )
       .subscribe();
@@ -481,9 +589,9 @@ const useContas = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, fetchContas]);
+  }, [user?.id, fetchContas]);
 
-  // ✅ RETORNO
+  // ✅ RETORNO COMPLETO
   return {
     // Estados
     contas,
@@ -504,13 +612,15 @@ const useContas = () => {
     excluirConta,
     corrigirSaldoConta,
 
+    // Validação e manutenção
+    validarConsistencia,
+    sincronizarSaldosSistema,
+
     // Utilitários
     getSaldoConta,
     getSaldoTotal,
     getTodasContas,
-    fetchContasArquivadas,
-    calcularSaldoConta,
-    buscarSaldoTotalSQL
+    fetchContasArquivadas
   };
 };
 

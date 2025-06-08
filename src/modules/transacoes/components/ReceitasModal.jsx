@@ -1,4 +1,4 @@
-// src/modules/transacoes/components/ReceitasModal.jsx - VERSÃO CORRIGIDA BUG 005 E BUG 007
+// src/modules/transacoes/components/ReceitasModal.jsx - OTIMIZADO COM BACKEND
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -23,18 +23,19 @@ import { useAuthStore } from '@modules/auth/store/authStore';
 import { useUIStore } from '@store/uiStore';
 import { formatCurrency } from '@utils/formatCurrency';
 import { supabase } from '@lib/supabaseClient';
+import useContas from '@modules/contas/hooks/useContas'; // ✅ Hook otimizado
 import '@shared/styles/FormsModal.css';
 
 /**
- * Modal de Receitas - VERSÃO CORRIGIDA BUG 005 E BUG 007
- * ✅ CORREÇÃO BUG 005: Navegação por teclado nos dropdowns
- * ✅ CORREÇÃO BUG 007: Labels de status não redundantes para recorrentes
- * ✅ CORREÇÃO: Receitas recorrentes agora afetam saldo corretamente
- * ✅ CORREÇÃO: Primeira instância criada com status correto
+ * Modal de Receitas - OTIMIZADO COM BACKEND
+ * ✅ CORREÇÃO BUG: Mostra saldo atual correto das contas via SQL
+ * ✅ Performance otimizada com funções do backend
+ * ✅ Receitas atualizam saldo automaticamente via triggers
  */
 const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   const { user } = useAuthStore();
   const { showNotification } = useUIStore();
+  const { contas, recalcularSaldos } = useContas(); // ✅ Usar hook otimizado
   
   const valorInputRef = useRef(null);
   const categoriaInputRef = useRef(null);
@@ -49,7 +50,6 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   // Estados para dados
   const [categorias, setCategorias] = useState([]);
   const [subcategorias, setSubcategorias] = useState([]);
-  const [contas, setContas] = useState([]);
 
   // Estados para dropdowns
   const [categoriaDropdownOpen, setCategoriaDropdownOpen] = useState(false);
@@ -57,7 +57,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   const [categoriasFiltradas, setCategoriasFiltradas] = useState([]);
   const [subcategoriasFiltradas, setSubcategoriasFiltradas] = useState([]);
 
-  // ✅ BUG 005: Estados para navegação por teclado
+  // Estados para navegação por teclado
   const [categoriaSelectedIndex, setCategoriaSelectedIndex] = useState(-1);
   const [subcategoriaSelectedIndex, setSubcategoriaSelectedIndex] = useState(-1);
 
@@ -88,7 +88,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
 
   const [errors, setErrors] = useState({});
 
-  // ✅ NOVA FUNÇÃO: Preencher formulário para edição
+  // ✅ Preencher formulário para edição
   const preencherFormularioEdicao = useCallback(() => {
     if (!transacaoEditando) return;
     
@@ -115,7 +115,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     setFormData({
       valor: valorFormatado,
       data: transacaoEditando.data || new Date().toISOString().split('T')[0],
-      descricao: transacaoEditando.descricao?.replace(/\s\(\d+\/\d+\)$/, '') || '', // Remove sufixo de recorrência
+      descricao: transacaoEditando.descricao?.replace(/\s\(\d+\/\d+\)$/, '') || '',
       categoria: transacaoEditando.categoria_id || '',
       categoriaTexto: categoria?.nome || '',
       subcategoria: transacaoEditando.subcategoria_id || '',
@@ -129,12 +129,33 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     });
   }, [transacaoEditando, categorias, subcategorias]);
 
+  // ✅ Carregar categorias e subcategorias
+  const carregarDados = useCallback(async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      const [categoriasRes, subcategoriasRes] = await Promise.all([
+        supabase.from('categorias').select('*').eq('usuario_id', user.id).eq('tipo', 'receita').eq('ativo', true).order('nome'),
+        supabase.from('subcategorias').select('*').eq('usuario_id', user.id).eq('ativo', true).order('nome')
+      ]);
+
+      setCategorias(categoriasRes.data || []);
+      setSubcategorias(subcategoriasRes.data || []);
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+      showNotification('Erro ao carregar dados', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [user, showNotification]);
+
   // Carregar dados quando modal abre
   useEffect(() => {
     if (isOpen && user) {
       carregarDados();
     }
-  }, [isOpen, user]);
+  }, [isOpen, user, carregarDados]);
 
   // Preencher formulário quando dados estão carregados e há transação para editar
   useEffect(() => {
@@ -143,29 +164,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     }
   }, [isOpen, categorias.length, transacaoEditando, preencherFormularioEdicao]);
 
-  const carregarDados = async () => {
-    if (!user) return;
-    
-    setLoading(true);
-    try {
-      const [categoriasRes, subcategoriasRes, contasRes] = await Promise.all([
-        supabase.from('categorias').select('*').eq('usuario_id', user.id).eq('tipo', 'receita').eq('ativo', true).order('nome'),
-        supabase.from('subcategorias').select('*').eq('usuario_id', user.id).eq('ativo', true).order('nome'),
-        supabase.from('contas').select('*').eq('usuario_id', user.id).eq('ativo', true).order('nome')
-      ]);
-
-      setCategorias(categoriasRes.data || []);
-      setSubcategorias(subcategoriasRes.data || []);
-      setContas(contasRes.data || []);
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      showNotification('Erro ao carregar dados', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Formatação de valor DEFINITIVAMENTE CORRIGIDA
+  // ✅ Formatação de valor
   const formatarValor = useCallback((valor) => {
     const apenasNumeros = valor.toString().replace(/\D/g, '');
     if (!apenasNumeros || apenasNumeros === '0') return '';
@@ -177,7 +176,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     });
   }, []);
 
-  // Valor numérico DEFINITIVAMENTE CORRIGIDO
+  // ✅ Valor numérico
   const valorNumerico = useMemo(() => {
     if (!formData.valor) return 0;
     const valorString = formData.valor.toString();
@@ -194,7 +193,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     }
   }, [formData.valor]);
 
-  // Dados derivados
+  // ✅ Dados derivados - contas vêm do hook otimizado
   const contasAtivas = useMemo(() => 
     contas.filter(conta => conta.ativo !== false), 
     [contas]
@@ -235,7 +234,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       ? categorias.filter(cat => cat.nome.toLowerCase().includes(formData.categoriaTexto.toLowerCase()))
       : categorias;
     setCategoriasFiltradas(filtradas);
-    setCategoriaSelectedIndex(-1); // ✅ Reset seleção ao filtrar
+    setCategoriaSelectedIndex(-1);
   }, [formData.categoriaTexto, categorias]);
 
   useEffect(() => {
@@ -247,10 +246,10 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       ? subcategoriasDaCategoria.filter(sub => sub.nome.toLowerCase().includes(formData.subcategoriaTexto.toLowerCase()))
       : subcategoriasDaCategoria;
     setSubcategoriasFiltradas(filtradas);
-    setSubcategoriaSelectedIndex(-1); // ✅ Reset seleção ao filtrar
+    setSubcategoriaSelectedIndex(-1);
   }, [formData.subcategoriaTexto, subcategoriasDaCategoria]);
 
-  // ✅ BUG 005: Função para navegação por teclado nas categorias
+  // ✅ Navegação por teclado nas categorias
   const handleCategoriaKeyDown = useCallback((e) => {
     if (!categoriaDropdownOpen || categoriasFiltradas.length === 0) return;
     
@@ -281,7 +280,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     }
   }, [categoriaDropdownOpen, categoriasFiltradas, categoriaSelectedIndex]);
 
-  // ✅ BUG 005: Função para navegação por teclado nas subcategorias
+  // ✅ Navegação por teclado nas subcategorias
   const handleSubcategoriaKeyDown = useCallback((e) => {
     if (!subcategoriaDropdownOpen || subcategoriasFiltradas.length === 0) return;
     
@@ -334,8 +333,8 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     setTipoReceita('simples');
     setCategoriaDropdownOpen(false);
     setSubcategoriaDropdownOpen(false);
-    setCategoriaSelectedIndex(-1); // ✅ Reset navegação
-    setSubcategoriaSelectedIndex(-1); // ✅ Reset navegação
+    setCategoriaSelectedIndex(-1);
+    setSubcategoriaSelectedIndex(-1);
     setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
   }, []);
 
@@ -410,7 +409,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       subcategoriaTexto: ''
     }));
     setCategoriaDropdownOpen(true);
-    setCategoriaSelectedIndex(-1); // ✅ Reset seleção
+    setCategoriaSelectedIndex(-1);
     if (errors.categoria) {
       setErrors(prev => ({ ...prev, categoria: null }));
     }
@@ -425,13 +424,13 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       subcategoriaTexto: ''
     }));
     setCategoriaDropdownOpen(false);
-    setCategoriaSelectedIndex(-1); // ✅ Reset seleção
+    setCategoriaSelectedIndex(-1);
   }, []);
 
   const handleCategoriaBlur = useCallback(() => {
     const timer = setTimeout(() => {
       setCategoriaDropdownOpen(false);
-      setCategoriaSelectedIndex(-1); // ✅ Reset seleção
+      setCategoriaSelectedIndex(-1);
       if (formData.categoriaTexto && !formData.categoria) {
         const existe = categorias.find(cat => 
           cat.nome.toLowerCase() === formData.categoriaTexto.toLowerCase()
@@ -459,7 +458,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     }));
     if (categoriaSelecionada) {
       setSubcategoriaDropdownOpen(true);
-      setSubcategoriaSelectedIndex(-1); // ✅ Reset seleção
+      setSubcategoriaSelectedIndex(-1);
     }
   }, [categoriaSelecionada]);
 
@@ -470,13 +469,13 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       subcategoriaTexto: subcategoria.nome
     }));
     setSubcategoriaDropdownOpen(false);
-    setSubcategoriaSelectedIndex(-1); // ✅ Reset seleção
+    setSubcategoriaSelectedIndex(-1);
   }, []);
 
   const handleSubcategoriaBlur = useCallback(() => {
     const timer = setTimeout(() => {
       setSubcategoriaDropdownOpen(false);
-      setSubcategoriaSelectedIndex(-1); // ✅ Reset seleção
+      setSubcategoriaSelectedIndex(-1);
       if (formData.subcategoriaTexto && !formData.subcategoria && categoriaSelecionada) {
         const existe = subcategoriasDaCategoria.find(sub => 
           sub.nome.toLowerCase() === formData.subcategoriaTexto.toLowerCase()
@@ -592,7 +591,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     return Object.keys(newErrors).length === 0;
   }, [formData, tipoReceita, valorNumerico]);
 
-  // ✅ NOVA FUNÇÃO: Atualizar transação existente
+  // ✅ Atualizar transação existente
   const atualizarTransacao = useCallback(async () => {
     try {
       const dadosAtualizacao = {
@@ -623,7 +622,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     }
   }, [formData, valorNumerico, transacaoEditando, user.id, showNotification]);
 
-  // ✅ CORREÇÃO BUG 007: Submissão corrigida para receitas recorrentes
+  // ✅ Submissão otimizada
   const handleSubmit = useCallback(async (e, criarNova = false) => {
     e.preventDefault();
     
@@ -635,9 +634,12 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     try {
       setSubmitting(true);
       
-      // ✅ MODO EDIÇÃO: Atualizar transação existente
+      // ✅ MODO EDIÇÃO
       if (isEditMode) {
         await atualizarTransacao();
+        
+        // ✅ Recalcular saldos via SQL
+        await recalcularSaldos();
         
         if (onSave) onSave();
         
@@ -649,15 +651,9 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
         return;
       }
       
-      // ✅ CORREÇÃO BUG 007: Receitas recorrentes com primeira instância correta
+      // ✅ MODO CRIAÇÃO - Receitas recorrentes
       if (tipoReceita === 'recorrente') {
         console.log('🔄 Criando receitas recorrentes...');
-        console.log('📊 Configuração:', {
-          totalRecorrencias: formData.totalRecorrencias,
-          tipoRecorrencia: formData.tipoRecorrencia,
-          primeiroEfetivado: formData.primeiroEfetivado,
-          valor: valorNumerico
-        });
         
         const receitas = [];
         const dataBase = new Date(formData.data);
@@ -680,14 +676,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
               break;
           }
           
-          // ✅ CORREÇÃO BUG 007: Status correto para cada instância
           const efetivoStatus = i === 0 ? formData.primeiroEfetivado : false;
-          
-          console.log(`📝 Receita ${i + 1}/${formData.totalRecorrencias}:`, {
-            data: dataReceita.toISOString().split('T')[0],
-            efetivado: efetivoStatus,
-            valor: valorNumerico
-          });
           
           receitas.push({
             usuario_id: user.id,
@@ -698,29 +687,21 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
             conta_id: formData.conta,
             valor: valorNumerico,
             tipo: 'receita',
-            efetivado: efetivoStatus, // ✅ Status correto
-            recorrente: true, // ✅ Marcar como recorrente
+            efetivado: efetivoStatus,
+            recorrente: true,
             observacoes: formData.observacoes.trim() || null,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           });
         }
         
-        console.log('💾 Salvando', receitas.length, 'receitas recorrentes...');
-        
         const { error } = await supabase.from('transacoes').insert(receitas);
-        if (error) {
-          console.error('❌ Erro ao salvar receitas:', error);
-          throw error;
-        }
+        if (error) throw error;
         
-        console.log('✅ Receitas recorrentes salvas com sucesso!');
         showNotification(`${formData.totalRecorrencias} receitas recorrentes criadas!`, 'success');
         
       } else {
-        // Receita simples
-        console.log('💰 Criando receita simples...');
-        
+        // ✅ Receita simples
         const dadosReceita = {
           usuario_id: user.id,
           data: formData.data,
@@ -737,17 +718,14 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
           updated_at: new Date().toISOString()
         };
         
-        console.log('💾 Salvando receita simples:', dadosReceita);
-        
         const { error } = await supabase.from('transacoes').insert([dadosReceita]);
-        if (error) {
-          console.error('❌ Erro ao salvar receita:', error);
-          throw error;
-        }
+        if (error) throw error;
         
-        console.log('✅ Receita simples salva com sucesso!');
         showNotification('Receita registrada com sucesso!', 'success');
       }
+      
+      // ✅ Recalcular saldos via SQL
+      await recalcularSaldos();
       
       if (onSave) onSave();
       
@@ -775,7 +753,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     } finally {
       setSubmitting(false);
     }
-  }, [validateForm, user.id, formData, tipoReceita, valorNumerico, onSave, showNotification, resetForm, onClose, isEditMode, atualizarTransacao]);
+  }, [validateForm, user.id, formData, tipoReceita, valorNumerico, isEditMode, atualizarTransacao, recalcularSaldos, onSave, showNotification, resetForm, onClose]);
 
   if (!isOpen) return null;
 
@@ -803,6 +781,9 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
               <div className="form-title-subtitle">
                 {isEditMode ? 'Atualize os dados da receita' :
                  tipoReceita === 'recorrente' ? 'Rendas que se repetem' : 'Registre uma nova renda'}
+                {contasAtivas.length > 0 && (
+                  <> • {contasAtivas.length} conta{contasAtivas.length > 1 ? 's' : ''} disponível{contasAtivas.length > 1 ? 'is' : ''}</>
+                )}
               </div>
             </div>
           </h2>
@@ -821,7 +802,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
           ) : (
             <form onSubmit={(e) => handleSubmit(e, false)} className="form">
               
-              {/* ✅ Tipo de Receita - Oculto no modo edição */}
+              {/* Tipo de Receita - Oculto no modo edição */}
               {!isEditMode && (
                 <div className="form-field-group">
                   <label className="form-label">
@@ -891,7 +872,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                 </div>
               </div>
 
-              {/* Campos específicos para recorrente - Oculto no modo edição */}
+              {/* Campos específicos para recorrente */}
               {tipoReceita === 'recorrente' && !isEditMode && (
                 <>
                   <div className="form-row">
@@ -945,7 +926,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                     </div>
                   )}
 
-                  {/* ✅ CORREÇÃO BUG 007: Status da primeira recorrência */}
+                  {/* Status da primeira recorrência */}
                   <div className="form-field-group">
                     <label className="form-label">
                       <CheckCircle size={14} />
@@ -983,7 +964,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                 </>
               )}
 
-              {/* ✅ Status - Apenas para receitas simples ou modo edição */}
+              {/* Status - Apenas para receitas simples ou modo edição */}
               {(tipoReceita === 'simples' || isEditMode) && (
                 <div className="form-field-group">
                   <label className="form-label">
@@ -1043,7 +1024,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                 {errors.descricao && <div className="form-error">{errors.descricao}</div>}
               </div>
 
-              {/* ✅ BUG 005: Categoria com navegação por teclado */}
+              {/* Categoria com navegação por teclado */}
               <div className="form-field-group">
                 <label className="form-label">
                   <Tag size={14} />
@@ -1057,7 +1038,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                     onChange={handleCategoriaChange}
                     onBlur={handleCategoriaBlur}
                     onFocus={() => setCategoriaDropdownOpen(true)}
-                    onKeyDown={handleCategoriaKeyDown} // ✅ Navegação por teclado
+                    onKeyDown={handleCategoriaKeyDown}
                     placeholder="Digite ou selecione uma categoria"
                     disabled={submitting}
                     autoComplete="off"
@@ -1072,9 +1053,9 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                           key={categoria.id}
                           className={`form-dropdown-option ${
                             index === categoriaSelectedIndex ? 'selected' : ''
-                          }`} // ✅ Highlight da seleção
+                          }`}
                           onMouseDown={() => handleSelecionarCategoria(categoria)}
-                          onMouseEnter={() => setCategoriaSelectedIndex(index)} // ✅ Mouse over
+                          onMouseEnter={() => setCategoriaSelectedIndex(index)}
                         >
                           <div 
                             className="category-color"
@@ -1089,7 +1070,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                 {errors.categoria && <div className="form-error">{errors.categoria}</div>}
               </div>
 
-              {/* ✅ BUG 005: Subcategoria com navegação por teclado */}
+              {/* Subcategoria com navegação por teclado */}
               {categoriaSelecionada && (
                 <div className="form-field-group">
                   <label className="form-label">
@@ -1104,7 +1085,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                       onChange={handleSubcategoriaChange}
                       onBlur={handleSubcategoriaBlur}
                       onFocus={() => setSubcategoriaDropdownOpen(true)}
-                      onKeyDown={handleSubcategoriaKeyDown} // ✅ Navegação por teclado
+                      onKeyDown={handleSubcategoriaKeyDown}
                       placeholder="Digite ou selecione uma subcategoria"
                       disabled={submitting}
                       autoComplete="off"
@@ -1119,9 +1100,9 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                             key={subcategoria.id}
                             className={`form-dropdown-option ${
                               index === subcategoriaSelectedIndex ? 'selected' : ''
-                            }`} // ✅ Highlight da seleção
+                            }`}
                             onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
-                            onMouseEnter={() => setSubcategoriaSelectedIndex(index)} // ✅ Mouse over
+                            onMouseEnter={() => setSubcategoriaSelectedIndex(index)}
                           >
                             {subcategoria.nome}
                           </div>
@@ -1132,7 +1113,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                 </div>
               )}
 
-              {/* Conta */}
+              {/* ✅ CORREÇÃO BUG: Conta com saldo atual correto */}
               <div className="form-field-group">
                 <label className="form-label">
                   <Building size={14} />
@@ -1148,11 +1129,18 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                   <option value="">Selecione uma conta</option>
                   {contasAtivas.map(conta => (
                     <option key={conta.id} value={conta.id}>
-                      {conta.nome} - {formatCurrency(conta.saldo_atual || conta.saldo || 0)}
+                      {conta.nome} - {formatCurrency(conta.saldo || 0)}
                     </option>
                   ))}
                 </select>
                 {errors.conta && <div className="form-error">{errors.conta}</div>}
+                
+                {/* ✅ Mostrar total de contas disponíveis */}
+                {contasAtivas.length === 0 && (
+                  <div className="form-info">
+                    <small>Nenhuma conta ativa encontrada. Crie uma conta primeiro.</small>
+                  </div>
+                )}
               </div>
 
               {/* Observações */}
@@ -1191,7 +1179,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                   Cancelar
                 </button>
                 
-                {/* ✅ Botão "Continuar Adicionando" apenas no modo criação */}
+                {/* Botão "Continuar Adicionando" apenas no modo criação */}
                 {!isEditMode && (
                   <button
                     type="button"
@@ -1279,7 +1267,7 @@ ReceitasModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   onSave: PropTypes.func,
-  transacaoEditando: PropTypes.object // ✅ Nova prop para edição
+  transacaoEditando: PropTypes.object
 };
 
 export default React.memo(ReceitasModal);
