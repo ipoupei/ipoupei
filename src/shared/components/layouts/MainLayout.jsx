@@ -129,16 +129,6 @@ const QuickActions = React.memo(({
           <Home size={isScrolled ? 16 : 20} />
           <span>Dashboard</span>
         </button>
-
-        <button 
-          className="action-button diagnostico"
-          onClick={onNavigateDiagnostico}
-          data-tooltip="Diagnóstico Financeiro"
-        >
-          <Brain size={isScrolled ? 16 : 20} />
-          <span>Diagnóstico</span>
-        </button>
-
         <button 
           className="action-button transacoes"
           onClick={onNavigateTransacoes}

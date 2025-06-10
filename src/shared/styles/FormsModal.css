@@ -2110,3 +2110,2710 @@
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), 0 10px 25px rgba(0, 0, 0, 0.15);
 }
+/* ===== ESTILOS ESPECÍFICOS PARA RECEITAS MODAL ===== */
+/* Adicionar ao arquivo FormsModal.css existente */
+
+/* ===== LAYOUT RECEITAS ===== */
+.modal-container.receitas-layout {
+  max-width: 600px;
+  width: 90%;
+}
+
+.modal-header.simple {
+  padding: 12px 20px;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.modal-header.simple .modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1F2937;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-icon-wrapper {
+  background: #F59E0B;
+  color: white;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  padding: 16px 20px;
+}
+
+/* ===== CORES ESPECÍFICAS DAS RECEITAS ===== */
+.receita-valor {
+  color: #10b981 !important;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* ===== SEÇÃO 1: VALOR E DATA - COMPACTO ===== */
+.primeira-linha {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.valor-field .form-label,
+.data-field .form-label {
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.valor-input,
+.data-input {
+  font-size: 14px;
+  padding: 8px 12px;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.valor-input:focus,
+.data-input:focus {
+  border-color: #3B82F6;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+/* ===== SEÇÃO 2: ESCOLHA DO TIPO - COMPACTO ===== */
+.tipo-section {
+  margin-bottom: 16px;
+}
+
+.section-header {
+  margin-bottom: 8px;
+}
+
+.section-subtitle {
+  color: #6B7280;
+  font-size: 12px;
+}
+
+.tipos-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.tipo-button {
+  background: white;
+  border: 1px solid #D1D5DB;
+  border-radius: 8px;
+  padding: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.tipo-button:hover:not(:disabled) {
+  border-color: var(--cor-tipo);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.tipo-button.active {
+  border-color: var(--cor-tipo);
+  background: color-mix(in srgb, var(--cor-tipo) 5%, white);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.tipo-icon {
+  color: var(--cor-tipo);
+  padding: 4px;
+  background: color-mix(in srgb, var(--cor-tipo) 10%, white);
+  border-radius: 4px;
+  border: 1px solid var(--cor-tipo);
+  flex-shrink: 0;
+}
+
+.tipo-content {
+  flex: 1;
+}
+
+.tipo-nome {
+  font-weight: 600;
+  font-size: 12px;
+  color: #1F2937;
+  margin-bottom: 1px;
+}
+
+.tipo-desc {
+  font-size: 10px;
+  color: #6B7280;
+}
+
+/* ===== SEÇÃO 3: STATUS - COMPACTO ===== */
+.status-section {
+  margin-bottom: 16px;
+}
+
+.status-label {
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.status-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.status-option {
+  background: white;
+  border: 1px solid #D1D5DB;
+  border-radius: 8px;
+  padding: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-option:hover {
+  border-color: #10B981;
+}
+
+.status-option.selected {
+  border-color: #10B981;
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.status-option input[type="radio"] {
+  display: none;
+}
+
+.status-option svg {
+  color: #10B981;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+}
+
+.status-content {
+  flex: 1;
+}
+
+.status-title {
+  font-weight: 500;
+  font-size: 12px;
+  color: #1F2937;
+  margin-bottom: 1px;
+}
+
+.status-subtitle {
+  font-size: 10px;
+  color: #6B7280;
+}
+
+/* ===== SEÇÃO 4: CAMPOS ESPECÍFICOS - COMPACTO ===== */
+.tipo-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* ===== SEÇÃO 5: PREVIEW - COMPACTO ===== */
+.preview-card {
+  background: #F9FAFB;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.preview-card.previsivel {
+  background: rgba(16, 185, 129, 0.05);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.preview-card.parcelada {
+  background: rgba(59, 130, 246, 0.05);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.preview-card.extra {
+  background: rgba(245, 158, 11, 0.05);
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.preview-content {
+  font-size: 12px;
+  color: #4B5563;
+  line-height: 1.4;
+}
+
+.preview-valor {
+  font-weight: 600;
+  color: #1F2937;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.preview-info {
+  font-size: 11px;
+  color: #6B7280;
+}
+
+/* ===== CAMPOS GERAIS - COMPACTO ===== */
+.descricao-field,
+.conta-field,
+.observacoes-field {
+  margin-bottom: 16px;
+}
+
+.categorias-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-input {
+  font-size: 14px;
+  padding: 8px 12px;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.form-input:focus {
+  border-color: #3B82F6;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.form-input.error {
+  border-color: #EF4444;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.1);
+}
+
+.subcategoria-input {
+  background: #F9FAFB;
+  color: #10B981;
+  font-weight: 500;
+}
+
+.observacoes-textarea {
+  resize: vertical;
+  min-height: 50px;
+}
+
+/* ===== AÇÕES - COMPACTO ===== */
+.receitas-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 16px;
+  border-top: 1px solid #E5E7EB;
+}
+
+.form-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 13px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.cancelar-btn {
+  background: white;
+  border: 1px solid #D1D5DB;
+  color: #6B7280;
+}
+
+.cancelar-btn:hover:not(:disabled) {
+  border-color: #9CA3AF;
+  background: #F9FAFB;
+}
+
+.continuar-btn,
+.adicionar-btn {
+  border: none;
+  color: white;
+}
+
+.form-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.form-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ===== DROPDOWN - COMPACTO ===== */
+.form-dropdown-wrapper {
+  position: relative;
+}
+
+.form-dropdown-icon {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9CA3AF;
+  pointer-events: none;
+  width: 12px;
+  height: 12px;
+}
+
+.form-dropdown-options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  box-shadow: 0 8px 12px -3px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.form-dropdown-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid #F3F4F6;
+  font-size: 13px;
+}
+
+.form-dropdown-option:hover,
+.form-dropdown-option.selected {
+  background: #F9FAFB;
+}
+
+.category-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ===== LABELS E TEXTOS ===== */
+.form-label {
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.form-label small {
+  font-weight: 400;
+  color: #6B7280;
+  font-size: 11px;
+}
+
+.form-error {
+  color: #EF4444;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.form-char-counter {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  font-size: 11px;
+  color: #6B7280;
+}
+
+.text-danger {
+  color: #EF4444;
+}
+
+.form-info small {
+  color: #6B7280;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* ===== LOADING ===== */
+.form-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  color: #6B7280;
+}
+
+.form-loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #E5E7EB;
+  border-top-color: #3B82F6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 8px;
+}
+
+.form-spinner {
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== RESPONSIVIDADE ===== */
+@media (max-width: 768px) {
+  .modal-container.receitas-layout {
+    width: 95%;
+    max-width: none;
+  }
+
+  .primeira-linha,
+  .tipo-fields,
+  .categorias-row,
+  .status-options {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .tipos-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .receitas-actions {
+    flex-direction: column;
+  }
+}
+
+/* ===== DROPDOWN CONTEXTO RECEITA ===== */
+.form-dropdown-option.receita-context:hover {
+  background: color-mix(in srgb, #10B981 8%, white);
+}
+
+.form-dropdown-option.receita-context.selected {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%) !important;
+  color: white !important;
+  transform: translateX(2px);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.form-dropdown-option.receita-context.selected .category-color {
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+/* ===== FALLBACK PARA NAVEGADORES SEM SUPORTE A COLOR-MIX ===== */
+@supports not (color: color-mix(in srgb, red 50%, blue)) {
+  .tipo-button.active {
+    background: rgba(from var(--cor-tipo) r g b / 0.05);
+  }
+
+  .tipo-icon {
+    background: rgba(from var(--cor-tipo) r g b / 0.1);
+  }
+}
+/* ===== ESTILOS ESPECÍFICOS PARA DESPESAS MODAL ===== */
+/* Adicionar ao arquivo FormsModal.css existente */
+
+/* ===== LAYOUT DESPESAS ===== */
+.modal-container.despesas-layout {
+  max-width: 600px;
+  width: 90%;
+}
+
+/* ===== CORES ESPECÍFICAS DAS DESPESAS ===== */
+.despesa-valor {
+  color: #ef4444 !important;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* ===== TIPOS DE DESPESA COM TOOLTIPS ===== */
+.despesas-form .tipos-buttons.despesa-tipos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.tipo-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.despesas-form .tipo-button {
+  background: white;
+  border: 1px solid #D1D5DB;
+  border-radius: 8px;
+  padding: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;/* ===== ESTILOS ESPECÍFICOS PARA DESPESAS MODAL ===== */
+/* Adicionar ao arquivo FormsModal.css existente */
+
+/* ===== LAYOUT DESPESAS ===== */
+.modal-container.despesas-layout {
+  max-width: 600px;
+  width: 90%;
+}
+
+/* ===== CORES ESPECÍFICAS DAS DESPESAS ===== */
+.despesa-valor {
+  color: #ef4444 !important;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* ===== TIPOS DE DESPESA COM TOOLTIPS ===== */
+.despesas-form .tipos-buttons.despesa-tipos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.tipo-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.despesas-form .tipo-button {
+  background: white;
+  border: 1px solid #D1D5DB;
+  border-radius: 8px;
+  padding: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  position: relative;
+  width: 100%;
+}
+
+.despesas-form .tipo-button:hover:not(:disabled) {
+  border-color: var(--cor-tipo);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.despesas-form .tipo-button.active {
+  border-color: var(--cor-tipo);
+  background: color-mix(in srgb, var(--cor-tipo) 5%, white);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.despesas-form .tipo-icon {
+  color: var(--cor-tipo);
+  padding: 4px;
+  background: color-mix(in srgb, var(--cor-tipo) 10%, white);
+  border-radius: 4px;
+  border: 1px solid var(--cor-tipo);
+  flex-shrink: 0;
+}
+
+/* ===== TOOLTIPS PARA TIPOS ===== */
+.tipo-tooltip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9CA3AF;
+  cursor: help;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.tipo-tooltip:hover {
+  opacity: 1;
+  color: #6B7280;
+}
+
+.tooltip-content {
+  position: absolute;
+  bottom: 120%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1F2937;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  width: 200px;
+  text-align: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.tooltip-content::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #1F2937;
+}
+
+.tipo-tooltip:hover .tooltip-content {
+  opacity: 1;
+  visibility: visible;
+  bottom: 125%;
+}
+
+/* ===== PREVIEW CARDS ESPECÍFICAS ===== */
+.preview-card.despesa-extra {
+  background: color-mix(in srgb, #F59E0B 8%, white);
+  border: 1px solid color-mix(in srgb, #F59E0B 20%, white);
+  color: #F59E0B;
+}
+
+.preview-card.despesa-previsivel {
+  background: color-mix(in srgb, #EF4444 8%, white);
+  border: 1px solid color-mix(in srgb, #EF4444 20%, white);
+  color: #EF4444;
+}
+
+.preview-card.despesa-parcelada {
+  background: color-mix(in srgb, #8B5CF6 8%, white);
+  border: 1px solid color-mix(in srgb, #8B5CF6 20%, white);
+  color: #8B5CF6;
+}
+
+/* ===== SEÇÃO DE PAGAMENTO ===== */
+.pagamento-section {
+  margin-bottom: 16px;
+}
+
+.pagamento-section .form-label {
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.pagamento-radio {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.pagamento-radio .form-radio-option {
+  background: white;
+  border: 1px solid #D1D5DB;
+  border-radius: 8px;
+  padding: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+}
+
+.pagamento-radio .form-radio-option:hover {
+  border-color: #6B7280;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.pagamento-radio .form-radio-option.selected {
+  border-color: #3B82F6;
+  background: color-mix(in srgb, #3B82F6 5%, white);
+  color: #3B82F6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+}
+
+.pagamento-radio .form-radio-option input[type="radio"] {
+  display: none;
+}
+
+.pagamento-radio .form-radio-option svg {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.pagamento-radio .form-radio-option > div {
+  flex: 1;
+}
+
+.pagamento-radio .form-radio-option > div > div:first-child {
+  font-weight: 500;
+  font-size: 12px;
+  color: inherit;
+  margin-bottom: 1px;
+}
+
+.pagamento-radio .form-radio-option > div > small {
+  font-size: 10px;
+  opacity: 0.8;
+  color: inherit;
+}
+
+/* ===== CAMPO CARTÃO ESPECÍFICO ===== */
+.cartao-field .form-label {
+  color: #8B5CF6;
+  font-weight: 600;
+}
+
+.cartao-field .cartao-select {
+  border-color: #D1D5DB;
+  transition: all 0.2s ease;
+}
+
+.cartao-field .cartao-select:focus {
+  border-color: #8B5CF6;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #8B5CF6 10%, white);
+}
+
+/* ===== SUBCATEGORIA FUNCIONAL ===== */
+.subcategoria-field {
+  position: relative;
+}
+
+.subcategoria-field .form-dropdown-wrapper {
+  position: relative;
+}
+
+.subcategoria-field .form-input:disabled {
+  background-color: #F9FAFB;
+  color: #9CA3AF;
+  cursor: not-allowed;
+}
+
+.subcategoria-field .form-input:not(:disabled) {
+  background-color: white;
+  color: #374151;
+}
+
+/* Quando categoria selecionada, subcategoria fica habilitada */
+.subcategoria-field .form-input:not(:disabled):focus {
+  border-color: #10B981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
+}
+
+/* ===== BOTÕES ESPECÍFICOS ===== */
+.despesas-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 16px;
+  border-top: 1px solid #E5E7EB;
+}
+
+.despesas-actions .form-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 13px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.adicionar-btn.despesa-extra {
+  background: #F59E0B;
+  color: white;
+  border: none;
+}
+
+.adicionar-btn.despesa-extra:hover:not(:disabled) {
+  background: #D97706;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.adicionar-btn.despesa-previsivel {
+  background: #EF4444;
+  color: white;
+  border: none;
+}
+
+.adicionar-btn.despesa-previsivel:hover:not(:disabled) {
+  background: #DC2626;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.adicionar-btn.despesa-parcelada {
+  background: #8B5CF6;
+  color: white;
+  border: none;
+}
+
+.adicionar-btn.despesa-parcelada:hover:not(:disabled) {
+  background: #7C3AED;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+/* ===== DROPDOWN CONTEXTO DESPESA ===== */
+.form-dropdown-option.despesa-context:hover {
+  background: color-mix(in srgb, #EF4444 8%, white);
+}
+
+.form-dropdown-option.despesa-context.selected {
+  background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%) !important;
+  color: white !important;
+  transform: translateX(2px);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.form-dropdown-option.despesa-context.selected .category-color {
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+/* ===== STATUS OPTIONS ESPECÍFICAS ===== */
+.despesas-form .status-option.selected {
+  border-color: #EF4444;
+  background: color-mix(in srgb, #EF4444 5%, white);
+  color: #EF4444;
+}
+
+.despesas-form .status-option:hover {
+  border-color: #EF4444;
+}
+
+.despesas-form .status-option svg {
+  color: #EF4444;
+}
+
+/* ===== SEÇÃO TIPOS COMPACTA ===== */
+.despesas-form .section-subtitle {
+  color: #6B7280;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+/* ===== MODAL DE CONFIRMAÇÃO ===== */
+.confirmation-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 20px;
+}
+
+.confirmation-container {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(239, 68, 68, 0.1);
+}
+
+.confirmation-title {
+  margin: 0 0 12px 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.confirmation-message {
+  margin: 0 0 20px 0;
+  color: #6b7280;
+  line-height: 1.5;
+  font-size: 0.875rem;
+}
+
+.confirmation-message strong {
+  color: #EF4444;
+  font-weight: 600;
+}
+
+.confirmation-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.confirmation-actions .form-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.confirmation-actions .form-btn-secondary {
+  border: 1px solid #D1D5DB;
+  background: white;
+  color: #6B7280;
+}
+
+.confirmation-actions .form-btn-secondary:hover {
+  border-color: #EF4444;
+  color: #EF4444;
+}
+
+.confirmation-actions .form-btn-primary.despesa {
+  background: #EF4444;
+  color: white;
+  font-weight: 600;
+}
+
+.confirmation-actions .form-btn-primary.despesa:hover {
+  background: #DC2626;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+/* ===== RESPONSIVIDADE ESPECÍFICA ===== */
+@media (max-width: 768px) {
+  .modal-container.despesas-layout {
+    width: 95%;
+    max-width: none;
+  }
+
+  .despesas-form .tipos-buttons.despesa-tipos {
+    grid-template-columns: 1fr;
+  }
+
+  .tipo-wrapper {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .tipo-tooltip {
+    position: static;
+  }
+
+  .tooltip-content {
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    width: auto;
+    transform: none;
+  }
+
+  .pagamento-radio {
+    grid-template-columns: 1fr;
+  }
+
+  .despesas-actions {
+    flex-direction: column;
+  }
+
+  .despesas-form .form-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .confirmation-container {
+    margin: 0 20px;
+    max-width: none;
+  }
+
+  .confirmation-actions {
+    flex-direction: column-reverse;
+  }
+
+  .confirmation-actions .form-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ===== ESTADOS DE LOADING ===== */
+.despesas-form .form-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  color: #6B7280;
+}
+
+.despesas-form .form-loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #E5E7EB;
+  border-top-color: #EF4444;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 8px;
+}
+
+/* ===== MELHORIAS DE ACESSIBILIDADE ===== */
+.despesas-form .tipo-button:focus {
+  outline: 2px solid var(--cor-tipo);
+  outline-offset: 2px;
+}
+
+.despesas-form .form-radio-option:focus {
+  outline: 2px solid #3B82F6;
+  outline-offset: 2px;
+}
+
+.tipo-tooltip:focus .tooltip-content,
+.tipo-tooltip:focus-within .tooltip-content {
+  opacity: 1;
+  visibility: visible;
+  bottom: 125%;
+}
+
+/* ===== ANIMAÇÕES ESPECÍFICAS ===== */
+.despesas-form .tipo-button.active .tipo-icon {
+  animation: pulse-despesa 2s infinite;
+}
+
+@keyframes pulse-despesa {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+.tooltip-content {
+  animation: tooltip-appear 0.2s ease-out;
+}
+
+@keyframes tooltip-appear {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* ===== FALLBACK PARA NAVEGADORES SEM SUPORTE A COLOR-MIX ===== */
+@supports not (color: color-mix(in srgb, red 50%, blue)) {
+  .preview-card.despesa-extra {
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+  }
+
+  .preview-card.despesa-previsivel {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+  }
+
+  .preview-card.despesa-parcelada {
+    background: rgba(139, 92, 246, 0.08);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+  }
+
+  .despesas-form .tipo-button.active {
+    background: rgba(from var(--cor-tipo) r g b / 0.05);
+  }
+
+  .despesas-form .tipo-icon {
+    background: rgba(from var(--cor-tipo) r g b / 0.1);
+  }
+
+  .pagamento-radio .form-radio-option.selected {
+    background: rgba(59, 130, 246, 0.05);
+  }
+}
+
+/* ===== HIGH CONTRAST MODE ===== */
+@media (prefers-contrast: high) {
+  .despesas-form .tipo-button.active {
+    border: 2px solid var(--cor-tipo);
+    background: white;
+  }
+
+  .despesas-form .form-radio-option.selected {
+    border: 2px solid #3B82F6;
+    background: white;
+  }
+
+  .tooltip-content {
+    background: #000000;
+    border: 1px solid #ffffff;
+  }
+}
+
+/* ===== REDUCED MOTION ===== */
+@media (prefers-reduced-motion: reduce) {
+  .despesas-form .tipo-button,
+  .despesas-form .form-radio-option,
+  .despesas-actions .form-btn,
+  .tooltip-content {
+    transition: none;
+    animation: none;
+  }
+
+  .despesas-form .tipo-button.active .tipo-icon {
+    animation: none;
+  }
+
+  .despesas-form .tipo-button:hover,
+  .adicionar-btn:hover {
+    transform: none;
+  }
+}
+
+/* ===== PREVIEW CARDS ESPECÍFICAS ===== */
+.preview-card.despesa-extra {
+  background: color-mix(in srgb, #F59E0B 8%, white);
+  border: 1px solid color-mix(in srgb, #F59E0B 20%, white);
+  color: #F59E0B;
+}
+
+.preview-card.despesa-previsivel {
+  background: color-mix(in srgb, #EF4444 8%, white);
+  border: 1px solid color-mix(in srgb, #EF4444 20%, white);
+  color: #EF4444;
+}
+
+.preview-card.despesa-parcelada {
+  background: color-mix(in srgb, #8B5CF6 8%, white);
+  border: 1px solid color-mix(in srgb, #8B5CF6 20%, white);
+  color: #8B5CF6;
+}
+
+/* ===== SEÇÃO DE PAGAMENTO ===== */
+.pagamento-section {
+  margin-bottom: 16px;
+}
+
+.pagamento-section .form-label {
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.pagamento-radio {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.pagamento-radio .form-radio-option {
+  background: white;
+  border: 1px solid #D1D5DB;
+  border-radius: 8px;
+  padding: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+}
+
+.pagamento-radio .form-radio-option:hover {
+  border-color: #6B7280;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.pagamento-radio .form-radio-option.selected {
+  border-color: #3B82F6;
+  background: color-mix(in srgb, #3B82F6 5%, white);
+  color: #3B82F6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+}
+
+.pagamento-radio .form-radio-option input[type="radio"] {
+  display: none;
+}
+
+.pagamento-radio .form-radio-option svg {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.pagamento-radio .form-radio-option > div {
+  flex: 1;
+}
+
+.pagamento-radio .form-radio-option > div > div:first-child {
+  font-weight: 500;
+  font-size: 12px;
+  color: inherit;
+  margin-bottom: 1px;
+}
+
+.pagamento-radio .form-radio-option > div > small {
+  font-size: 10px;
+  opacity: 0.8;
+  color: inherit;
+}
+
+/* ===== CAMPO CARTÃO ESPECÍFICO ===== */
+.cartao-field .form-label {
+  color: #8B5CF6;
+  font-weight: 600;
+}
+
+.cartao-field .cartao-select {
+  border-color: #D1D5DB;
+  transition: all 0.2s ease;
+}
+
+.cartao-field .cartao-select:focus {
+  border-color: #8B5CF6;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #8B5CF6 10%, white);
+}
+
+/* ===== BOTÕES ESPECÍFICOS ===== */
+.despesas-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 16px;
+  border-top: 1px solid #E5E7EB;
+}
+
+.despesas-actions .form-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 13px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.adicionar-btn.despesa-extra {
+  background: #F59E0B;
+  color: white;
+  border: none;
+}
+
+.adicionar-btn.despesa-extra:hover:not(:disabled) {
+  background: #D97706;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.adicionar-btn.despesa-previsivel {
+  background: #EF4444;
+  color: white;
+  border: none;
+}
+
+.adicionar-btn.despesa-previsivel:hover:not(:disabled) {
+  background: #DC2626;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.adicionar-btn.despesa-parcelada {
+  background: #8B5CF6;
+  color: white;
+  border: none;
+}
+
+.adicionar-btn.despesa-parcelada:hover:not(:disabled) {
+  background: #7C3AED;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+/* ===== DROPDOWN CONTEXTO DESPESA ===== */
+.form-dropdown-option.despesa-context:hover {
+  background: color-mix(in srgb, #EF4444 8%, white);
+}
+
+.form-dropdown-option.despesa-context.selected {
+  background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%) !important;
+  color: white !important;
+  transform: translateX(2px);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.form-dropdown-option.despesa-context.selected .category-color {
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+/* ===== STATUS OPTIONS ESPECÍFICAS ===== */
+.despesas-form .status-option.selected {
+  border-color: #EF4444;
+  background: color-mix(in srgb, #EF4444 5%, white);
+  color: #EF4444;
+}
+
+.despesas-form .status-option:hover {
+  border-color: #EF4444;
+}
+
+.despesas-form .status-option svg {
+  color: #EF4444;
+}
+
+/* ===== SEÇÃO TIPOS COMPACTA ===== */
+.despesas-form .section-subtitle {
+  color: #6B7280;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+/* ===== RESPONSIVIDADE ESPECÍFICA ===== */
+@media (max-width: 768px) {
+  .modal-container.despesas-layout {
+    width: 95%;
+    max-width: none;
+  }
+
+  .despesas-form .tipos-buttons.despesa-tipos {
+    grid-template-columns: 1fr;
+  }
+
+  .pagamento-radio {
+    grid-template-columns: 1fr;
+  }
+
+  .despesas-actions {
+    flex-direction: column;
+  }
+
+  .despesas-form .form-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+/* ===== ESTADOS DE LOADING ===== */
+.despesas-form .form-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  color: #6B7280;
+}
+
+.despesas-form .form-loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #E5E7EB;
+  border-top-color: #EF4444;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 8px;
+}
+
+/* ===== MELHORIAS DE ACESSIBILIDADE ===== */
+.despesas-form .tipo-button:focus {
+  outline: 2px solid var(--cor-tipo);
+  outline-offset: 2px;
+}
+
+.despesas-form .form-radio-option:focus {
+  outline: 2px solid #3B82F6;
+  outline-offset: 2px;
+}
+
+/* ===== ANIMAÇÕES ESPECÍFICAS ===== */
+.despesas-form .tipo-button.active .tipo-icon {
+  animation: pulse-despesa 2s infinite;
+}
+
+@keyframes pulse-despesa {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+/* ===== FALLBACK PARA NAVEGADORES SEM SUPORTE A COLOR-MIX ===== */
+@supports not (color: color-mix(in srgb, red 50%, blue)) {
+  .preview-card.despesa-extra {
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+  }
+
+  .preview-card.despesa-previsivel {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+  }
+
+  .preview-card.despesa-parcelada {
+    background: rgba(139, 92, 246, 0.08);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+  }
+
+  .despesas-form .tipo-button.active {
+    background: rgba(from var(--cor-tipo) r g b / 0.05);
+  }
+
+  .despesas-form .tipo-icon {
+    background: rgba(from var(--cor-tipo) r g b / 0.1);
+  }
+
+  .pagamento-radio .form-radio-option.selected {
+    background: rgba(59, 130, 246, 0.05);
+  }
+}
+
+/* ===== HIGH CONTRAST MODE ===== */
+@media (prefers-contrast: high) {
+  .despesas-form .tipo-button.active {
+    border: 2px solid var(--cor-tipo);
+    background: white;
+  }
+
+  .despesas-form .form-radio-option.selected {
+    border: 2px solid #3B82F6;
+    background: white;
+  }
+}
+
+/* ===== REDUCED MOTION ===== */
+@media (prefers-reduced-motion: reduce) {
+  .despesas-form .tipo-button,
+  .despesas-form .form-radio-option,
+  .despesas-actions .form-btn {
+    transition: none;
+  }
+
+  .despesas-form .tipo-button.active .tipo-icon {
+    animation: none;
+  }
+
+  .despesas-form .tipo-button:hover,
+  .adicionar-btn:hover {
+    transform: none;
+  }
+}
+/* ===== ESTILOS ESPECÍFICOS PARA RECEITAS MODAL ===== */
+/* Adicionar ao arquivo FormsModal.css existente */
+
+/* ===== LAYOUT RECEITAS ===== */
+.modal-container.receitas-layout {
+  max-width: 600px;
+  width: 90%;
+}
+
+.modal-header.simple {
+  padding: 12px 20px;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.modal-header.simple .modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1F2937;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-icon-wrapper {
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  padding: 16px 20px;
+}
+
+/* ===== CORES ESPECÍFICAS DAS RECEITAS ===== */
+.receita-valor {
+  color: #10b981 !important;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* ===== TIPOS DE RECEITA COM TOOLTIPS MELHORADOS ===== */
+.receitas-form .tipos-buttons.receita-tipos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.tipo-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.receitas-form .tipo-button {
+  background: white;
+  border: 1px solid #D1D5DB;
+  border-radius: 8px;
+  padding: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  position: relative;
+  width: 100%;
+}
+
+.receitas-form .tipo-button:hover:not(:disabled) {
+  border-color: var(--cor-tipo);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.receitas-form .tipo-button.active {
+  border-color: var(--cor-tipo);
+  background: color-mix(in srgb, var(--cor-tipo) 5%, white);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.receitas-form .tipo-icon {
+  color: var(--cor-tipo);
+  padding: 4px;
+  background: color-mix(in srgb, var(--cor-tipo) 10%, white);
+  border-radius: 4px;
+  border: 1px solid var(--cor-tipo);
+  flex-shrink: 0;
+}
+
+/* ===== TOOLTIPS MELHORADOS ===== */
+.tipo-tooltip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9CA3AF;
+  cursor: help;
+  opacity: 0.6;
+  transition: all 0.2s ease;
+  position: relative;
+  padding: 2px;
+  border-radius: 50%;
+}
+
+.tipo-tooltip:hover {
+  opacity: 1;
+  color: #6B7280;
+  background: rgba(107, 114, 128, 0.1);
+}
+
+.tooltip-content {
+  position: absolute;
+  bottom: 130%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1F2937;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  width: 240px;
+  text-align: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  z-index: 1000;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+}
+
+.tooltip-content::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #1F2937;
+}
+
+.tipo-tooltip:hover .tooltip-content,
+.tipo-tooltip:focus .tooltip-content {
+  opacity: 1;
+  visibility: visible;
+  bottom: 140%;
+}
+
+/* ===== SEÇÃO 1: VALOR E DATA - COMPACTO ===== */
+.primeira-linha {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.valor-field .form-label,
+.data-field .form-label {
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.valor-input,
+.data-input {
+  font-size: 14px;
+  padding: 8px 12px;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.valor-input:focus,
+.data-input:focus {
+  border-color: #3B82F6;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+/* ===== SEÇÃO 2: ESCOLHA DO TIPO - COMPACTO ===== */
+.tipo-section {
+  margin-bottom: 16px;
+}
+
+.section-header {
+  margin-bottom: 8px;
+}
+
+.section-subtitle {
+  color: #6B7280;
+  font-size: 12px;
+}
+
+.tipos-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.tipo-content {
+  flex: 1;
+}
+
+.tipo-nome {
+  font-weight: 600;
+  font-size: 12px;
+  color: #1F2937;
+  margin-bottom: 1px;
+}
+
+.tipo-desc {
+  font-size: 10px;
+  color: #6B7280;
+}
+
+/* ===== SEÇÃO 3: STATUS - COMPACTO ===== */
+.status-section {
+  margin-bottom: 16px;
+}
+
+.status-label {
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.status-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.status-option {
+  background: white;
+  border: 1px solid #D1D5DB;
+  border-radius: 8px;
+  padding: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-option:hover {
+  border-color: #10B981;
+}
+
+.status-option.selected {
+  border-color: #10B981;
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.status-option input[type="radio"] {
+  display: none;
+}
+
+.status-option svg {
+  color: #10B981;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+}
+
+.status-content {
+  flex: 1;
+}
+
+.status-title {
+  font-weight: 500;
+  font-size: 12px;
+  color: #1F2937;
+  margin-bottom: 1px;
+}
+
+.status-subtitle {
+  font-size: 10px;
+  color: #6B7280;
+}
+
+/* ===== SEÇÃO 4: CAMPOS ESPECÍFICOS - COMPACTO ===== */
+.tipo-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* ===== SEÇÃO 5: PREVIEW - COMPACTO ===== */
+.preview-card {
+  background: #F9FAFB;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.preview-card.receita-previsivel {
+  background: rgba(16, 185, 129, 0.05);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.preview-card.receita-parcelada {
+  background: rgba(59, 130, 246, 0.05);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.preview-card.receita-extra {
+  background: rgba(245, 158, 11, 0.05);
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.preview-content {
+  font-size: 12px;
+  color: #4B5563;
+  line-height: 1.4;
+}
+
+.preview-valor {
+  font-weight: 600;
+  color: #1F2937;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.preview-info {
+  font-size: 11px;
+  color: #6B7280;
+}
+
+/* ===== CAMPOS GERAIS - COMPACTO ===== */
+.descricao-field,
+.conta-field,
+.observacoes-field {
+  margin-bottom: 16px;
+}
+
+.categorias-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-input {
+  font-size: 14px;
+  padding: 8px 12px;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.form-input:focus {
+  border-color: #3B82F6;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.form-input.error {
+  border-color: #EF4444;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.1);
+}
+
+.subcategoria-input {
+  background: #F9FAFB;
+  color: #10B981;
+  font-weight: 500;
+}
+
+.subcategoria-input:not(:disabled) {
+  background: white;
+  color: #374151;
+}
+
+.observacoes-textarea {
+  resize: vertical;
+  min-height: 50px;
+}
+
+/* ===== AÇÕES - COMPACTO ===== */
+.receitas-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 16px;
+  border-top: 1px solid #E5E7EB;
+}
+
+.form-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 13px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.cancelar-btn {
+  background: white;
+  border: 1px solid #D1D5DB;
+  color: #6B7280;
+}
+
+.cancelar-btn:hover:not(:disabled) {
+  border-color: #9CA3AF;
+  background: #F9FAFB;
+}
+
+.continuar-btn,
+.adicionar-btn {
+  border: none;
+  color: white;
+}
+
+.form-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.form-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ===== DROPDOWN - COMPACTO ===== */
+.form-dropdown-wrapper {
+  position: relative;
+}
+
+.form-dropdown-icon {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9CA3AF;
+  pointer-events: none;
+  width: 12px;
+  height: 12px;
+}
+
+.form-dropdown-options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  box-shadow: 0 8px 12px -3px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.form-dropdown-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid #F3F4F6;
+  font-size: 13px;
+}
+
+.form-dropdown-option:hover,
+.form-dropdown-option.selected {
+  background: #F9FAFB;
+}
+
+.category-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ===== LABELS E TEXTOS ===== */
+.form-label {
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.form-label small {
+  font-weight: 400;
+  color: #6B7280;
+  font-size: 11px;
+}
+
+.form-error {
+  color: #EF4444;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.form-char-counter {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  font-size: 11px;
+  color: #6B7280;
+}
+
+.text-danger {
+  color: #EF4444;
+}
+
+.form-info small {
+  color: #6B7280;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* ===== LOADING ===== */
+.form-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  color: #6B7280;
+}
+
+.form-loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #E5E7EB;
+  border-top-color: #3B82F6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 8px;
+}
+
+.form-spinner {
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== DROPDOWN CONTEXTO RECEITA ===== */
+.form-dropdown-option.receita-context:hover {
+  background: color-mix(in srgb, #10B981 8%, white);
+}
+
+.form-dropdown-option.receita-context.selected {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%) !important;
+  color: white !important;
+  transform: translateX(2px);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.form-dropdown-option.receita-context.selected .category-color {
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+/* ===== MODAL DE CONFIRMAÇÃO ===== */
+.confirmation-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 20px;
+}
+
+.confirmation-container {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(16, 185, 129, 0.1);
+}
+
+.confirmation-title {
+  margin: 0 0 12px 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.confirmation-message {
+  margin: 0 0 20px 0;
+  color: #6b7280;
+  line-height: 1.5;
+  font-size: 0.875rem;
+}
+
+.confirmation-message strong {
+  color: #10B981;
+  font-weight: 600;
+}
+
+.confirmation-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.confirmation-actions .form-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.confirmation-actions .form-btn-secondary {
+  border: 1px solid #D1D5DB;
+  background: white;
+  color: #6B7280;
+}
+
+.confirmation-actions .form-btn-secondary:hover {
+  border-color: #10B981;
+  color: #10B981;
+}
+
+.confirmation-actions .form-btn-primary.receita {
+  background: #10B981;
+  color: white;
+  font-weight: 600;
+}
+
+.confirmation-actions .form-btn-primary.receita:hover {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+/* ===== RESPONSIVIDADE ===== */
+@media (max-width: 768px) {
+  .modal-container.receitas-layout {
+    width: 95%;
+    max-width: none;
+  }
+
+  .primeira-linha,
+  .tipo-fields,
+  .categorias-row,
+  .status-options {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .tipos-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .receitas-actions {
+    flex-direction: column;
+  }
+
+  /* ===== TOOLTIPS RESPONSIVOS ===== */
+  .tipo-wrapper {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .tooltip-content {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 280px;
+    bottom: auto;
+    background: rgba(31, 41, 55, 0.95);
+    backdrop-filter: blur(8px);
+  }
+
+  .tooltip-content::after {
+    display: none;
+  }
+
+  .tipo-tooltip:hover .tooltip-content,
+  .tipo-tooltip:focus .tooltip-content {
+    bottom: auto;
+  }
+
+  .confirmation-container {
+    margin: 0 20px;
+    max-width: none;
+  }
+
+  .confirmation-actions {
+    flex-direction: column-reverse;
+  }
+
+  .confirmation-actions .form-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ===== FALLBACK PARA NAVEGADORES SEM SUPORTE A COLOR-MIX ===== */
+@supports not (color: color-mix(in srgb, red 50%, blue)) {
+  .receitas-form .tipo-button.active {
+    background: rgba(from var(--cor-tipo) r g b / 0.05);
+  }
+
+  .receitas-form .tipo-icon {
+    background: rgba(from var(--cor-tipo) r g b / 0.1);
+  }
+}
+
+/* ===== HIGH CONTRAST MODE ===== */
+@media (prefers-contrast: high) {
+  .receitas-form .tipo-button.active {
+    border: 2px solid var(--cor-tipo);
+    background: white;
+  }
+
+  .tooltip-content {
+    background: #000000;
+    border: 1px solid #ffffff;
+  }
+
+  .tooltip-content::after {
+    border-top-color: #000000;
+  }
+}
+
+/* ===== REDUCED MOTION ===== */
+@media (prefers-reduced-motion: reduce) {
+  .receitas-form .tipo-button,
+  .form-btn,
+  .tooltip-content,
+  .tipo-tooltip {
+    transition: none;
+    animation: none;
+  }
+
+  .receitas-form .tipo-button:hover,
+  .form-btn:hover {
+    transform: none;
+  }
+}
+
+/* ===== MELHORIAS DE ACESSIBILIDADE PARA TOOLTIPS ===== */
+.tipo-tooltip {
+  outline: none;
+}
+
+.tipo-tooltip:focus {
+  outline: 2px solid #3B82F6;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.tipo-tooltip:focus .tooltip-content {
+  opacity: 1;
+  visibility: visible;
+  bottom: 140%;
+}
+
+/* ===== ANIMAÇÃO SUAVE PARA TOOLTIPS ===== */
+@keyframes tooltip-appear {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.tooltip-content {
+  animation: tooltip-appear 0.15s ease-out;
+}
+
+/* ===== TOOLTIP MAIS LEGÍVEL ===== */
+.tooltip-content {
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+} 1px solid #E5E7EB;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.preview-card.previsivel {
+  background: rgba(16, 185, 129, 0.05);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.preview-card.parcelada {
+  background: rgba(59, 130, 246, 0.05);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.preview-card.extra {
+  background: rgba(245, 158, 11, 0.05);
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.preview-content {
+  font-size: 12px;
+  color: #4B5563;
+  line-height: 1.4;
+}
+
+.preview-valor {
+  font-weight: 600;
+  color: #1F2937;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.preview-info {
+  font-size: 11px;
+  color: #6B7280;
+}
+
+/* ===== CAMPOS GERAIS - COMPACTO ===== */
+.descricao-field,
+.conta-field,
+.observacoes-field {
+  margin-bottom: 16px;
+}
+
+.categorias-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-input {
+  font-size: 14px;
+  padding: 8px 12px;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.form-input:focus {
+  border-color: #3B82F6;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.form-input.error {
+  border-color: #EF4444;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.1);
+}
+
+.subcategoria-input {
+  background: #F9FAFB;
+  color: #10B981;
+  font-weight: 500;
+}
+
+.observacoes-textarea {
+  resize: vertical;
+  min-height: 50px;
+}
+
+/* ===== AÇÕES - COMPACTO ===== */
+.receitas-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 16px;
+  border-top: 1px solid #E5E7EB;
+}
+
+.form-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 13px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.cancelar-btn {
+  background: white;
+  border: 1px solid #D1D5DB;
+  color: #6B7280;
+}
+
+.cancelar-btn:hover:not(:disabled) {
+  border-color: #9CA3AF;
+  background: #F9FAFB;
+}
+
+.continuar-btn,
+.adicionar-btn {
+  border: none;
+  color: white;
+}
+
+.form-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.form-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ===== DROPDOWN - COMPACTO ===== */
+.form-dropdown-wrapper {
+  position: relative;
+}
+
+.form-dropdown-icon {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9CA3AF;
+  pointer-events: none;
+  width: 12px;
+  height: 12px;
+}
+
+.form-dropdown-options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  box-shadow: 0 8px 12px -3px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.form-dropdown-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid #F3F4F6;
+  font-size: 13px;
+}
+
+.form-dropdown-option:hover,
+.form-dropdown-option.selected {
+  background: #F9FAFB;
+}
+
+.category-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ===== LABELS E TEXTOS ===== */
+.form-label {
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.form-label small {
+  font-weight: 400;
+  color: #6B7280;
+  font-size: 11px;
+}
+
+.form-error {
+  color: #EF4444;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.form-char-counter {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  font-size: 11px;
+  color: #6B7280;
+}
+
+.text-danger {
+  color: #EF4444;
+}
+
+.form-info small {
+  color: #6B7280;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* ===== LOADING ===== */
+.form-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  color: #6B7280;
+}
+
+.form-loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #E5E7EB;
+  border-top-color: #3B82F6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 8px;
+}
+
+.form-spinner {
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== RESPONSIVIDADE ===== */
+@media (max-width: 768px) {
+  .modal-container.receitas-layout {
+    width: 95%;
+    max-width: none;
+  }
+
+  .primeira-linha,
+  .tipo-fields,
+  .categorias-row,
+  .status-options {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .tipos-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .receitas-actions {
+    flex-direction: column;
+  }
+}
+
+/* ===== DROPDOWN CONTEXTO RECEITA ===== */
+.form-dropdown-option.receita-context:hover {
+  background: color-mix(in srgb, #10B981 8%, white);
+}
+
+.form-dropdown-option.receita-context.selected {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%) !important;
+  color: white !important;
+  transform: translateX(2px);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.form-dropdown-option.receita-context.selected .category-color {
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+/* ===== FALLBACK PARA NAVEGADORES SEM SUPORTE A COLOR-MIX ===== */
+@supports not (color: color-mix(in srgb, red 50%, blue)) {
+  .tipo-button.active {
+    background: rgba(from var(--cor-tipo) r g b / 0.05);
+  }
+
+  .tipo-icon {
+    background: rgba(from var(--cor-tipo) r g b / 0.1);
+  }
+}

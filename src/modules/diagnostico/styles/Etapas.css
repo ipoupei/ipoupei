@@ -1,0 +1,1175 @@
+/* src/modules/diagnostico/styles/Etapas.css */
+
+/* ================== CONTAINER PRINCIPAL DA ETAPA ================== */
+.etapa-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  animation: slideUp 0.6s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ================== HEADER DA ETAPA ================== */
+.etapa-header {
+  text-align: center;
+  margin-bottom: 3rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.etapa-icon {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.5rem;
+  color: white;
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 12px 32px rgba(102, 126, 234, 0.4);
+  }
+}
+
+.etapa-title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0 0 0.75rem 0;
+  background: linear-gradient(135deg, #1e293b 0%, #475569 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.02em;
+}
+
+.etapa-subtitle {
+  font-size: 1.125rem;
+  color: #64748b;
+  margin: 0;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+/* ================== CONTEÚDO DA ETAPA ================== */
+.etapa-content {
+  margin-bottom: 3rem;
+}
+
+/* ================== SEÇÃO INTRODUTÓRIA ================== */
+.intro-section {
+  margin-bottom: 2.5rem;
+  padding: 2rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+}
+
+.intro-text {
+  font-size: 1rem;
+  line-height: 1.7;
+  color: #374151;
+  margin: 0 0 1rem 0;
+  font-weight: 500;
+}
+
+.intro-text.secondary {
+  color: #6b7280;
+  font-weight: 400;
+  margin-bottom: 0;
+}
+
+/* ================== SUGESTÕES DE TIPOS ================== */
+.sugestoes-section {
+  margin-bottom: 2.5rem;
+}
+
+.sugestoes-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #374151;
+  margin: 0 0 1.5rem 0;
+  text-align: center;
+}
+
+.tipos-conta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.tipo-conta-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.tipo-conta-card:hover {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.tipo-icone {
+  font-size: 1.5rem;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.tipo-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.tipo-nome {
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+.tipo-descricao {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* ================== AÇÃO PRINCIPAL ================== */
+.acao-principal {
+  text-align: center;
+  margin: 2.5rem 0;
+}
+
+.btn-adicionar-conta {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border: none !important;
+  color: white !important;
+  padding: 1rem 2rem !important;
+  font-size: 1.125rem !important;
+  font-weight: 700 !important;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
+  min-width: 240px !important;
+  justify-content: center !important;
+}
+
+.btn-adicionar-conta:hover {
+  background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 12px 32px rgba(102, 126, 234, 0.4) !important;
+}
+
+.btn-adicionar-conta:active {
+  transform: translateY(0) !important;
+}
+
+/* ================== STATUS DAS CONTAS ================== */
+.contas-status {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border: 1px solid #bbf7d0;
+  border-radius: 16px;
+  padding: 2rem;
+  margin: 2rem 0;
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.status-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.status-icon.success {
+  color: #16a34a;
+  background: white;
+  border-radius: 50%;
+  padding: 4px;
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.2);
+}
+
+.status-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #166534;
+  margin: 0;
+}
+
+/* ================== LISTA DE CONTAS ================== */
+.contas-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.conta-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.conta-item:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.conta-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 0.875rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.conta-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.conta-nome {
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+.conta-tipo {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.conta-saldo {
+  font-weight: 700;
+  color: #059669;
+  font-size: 0.875rem;
+  background: #f0fdf4;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid #bbf7d0;
+}
+
+/* ================== ADICIONAR MAIS CONTAS ================== */
+.adicionar-mais {
+  text-align: center;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* ================== DICA SECTION ================== */
+.dica-section {
+  margin: 2.5rem 0;
+}
+
+.dica-card {
+  display: flex;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border: 1px solid #fbbf24;
+  border-radius: 16px;
+  border-left: 4px solid #f59e0b;
+}
+
+.dica-icon {
+  font-size: 1.5rem;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dica-content {
+  flex: 1;
+}
+
+.dica-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #92400e;
+  margin: 0 0 0.5rem 0;
+}
+
+.dica-text {
+  font-size: 0.875rem;
+  color: #78350f;
+  margin: 0;
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+/* ================== NAVEGAÇÃO DA ETAPA ================== */
+.etapa-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 2rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.btn-voltar {
+  background: white !important;
+  border: 1px solid #e5e7eb !important;
+  color: #6b7280 !important;
+  padding: 0.75rem 1.5rem !important;
+  font-weight: 600 !important;
+  border-radius: 12px !important;
+  transition: all 0.3s ease !important;
+}
+
+.btn-voltar:hover {
+  border-color: #d1d5db !important;
+  color: #374151 !important;
+  background: #f9fafb !important;
+}
+
+.btn-continuar {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border: none !important;
+  color: white !important;
+  padding: 0.75rem 1.5rem !important;
+  font-weight: 700 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3) !important;
+  transition: all 0.3s ease !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+}
+
+.btn-continuar:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4) !important;
+}
+
+.btn-continuar:disabled {
+  background: #e5e7eb !important;
+  color: #9ca3af !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+/* ================== ESTADOS ESPECIAIS ================== */
+
+/* Loading State */
+.etapa-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f4f6;
+  border-top: 4px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* Empty State */
+.etapa-empty {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: #6b7280;
+}
+
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.6;
+}
+
+.empty-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+  color: #374151;
+}
+
+.empty-description {
+  font-size: 0.875rem;
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ================== RESPONSIVIDADE ================== */
+@media (max-width: 768px) {
+  .etapa-container {
+    margin: 1rem;
+    padding: 1.5rem;
+    border-radius: 16px;
+  }
+
+  .etapa-icon {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 1rem;
+  }
+
+  .etapa-title {
+    font-size: 1.5rem;
+  }
+
+  .etapa-subtitle {
+    font-size: 1rem;
+  }
+
+  .intro-section {
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .tipos-conta-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .tipo-conta-card {
+    padding: 1rem;
+  }
+
+  .btn-adicionar-conta {
+    min-width: 200px !important;
+    font-size: 1rem !important;
+    padding: 0.875rem 1.5rem !important;
+  }
+
+  .dica-card {
+    padding: 1.25rem;
+    gap: 0.75rem;
+  }
+
+  .etapa-navigation {
+    flex-direction: column-reverse;
+    gap: 0.75rem;
+  }
+
+  .btn-voltar,
+  .btn-continuar {
+    width: 100%;
+    justify-content: center !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .etapa-container {
+    margin: 0.5rem;
+    padding: 1rem;
+  }
+
+  .etapa-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+  }
+
+  .etapa-title {
+    font-size: 1.25rem;
+  }
+
+  .intro-section {
+    padding: 1rem;
+  }
+
+  .intro-text {
+    font-size: 0.875rem;
+  }
+
+  .tipos-conta-grid {
+    gap: 0.5rem;
+  }
+
+  .tipo-conta-card {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  .tipo-icone {
+    width: 32px;
+    height: 32px;
+    font-size: 1.25rem;
+  }
+
+  .conta-item {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  .conta-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .dica-card {
+    padding: 1rem;
+    gap: 0.5rem;
+  }
+
+  .dica-icon {
+    font-size: 1.25rem;
+    width: 28px;
+    height: 28px;
+  }
+}
+
+/* ================== ACESSIBILIDADE ================== */
+@media (prefers-reduced-motion: reduce) {
+  .etapa-container,
+  .etapa-icon,
+  .contas-status,
+  .tipo-conta-card,
+  .conta-item,
+  .btn-adicionar-conta,
+  .btn-continuar {
+    animation: none;
+    transition: none;
+  }
+
+  .btn-adicionar-conta:hover,
+  .btn-continuar:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+@media (prefers-contrast: high) {
+  .etapa-container {
+    border: 2px solid #374151;
+  }
+
+  .tipo-conta-card,
+  .conta-item {
+    border: 2px solid #e5e7eb;
+  }
+
+  .btn-adicionar-conta,
+  .btn-continuar {
+    border: 2px solid transparent !important;
+  }
+}
+
+/* ================== FOCUS STATES ================== */
+.tipo-conta-card:focus,
+.conta-item:focus,
+.btn-adicionar-conta:focus,
+.btn-voltar:focus,
+.btn-continuar:focus {
+  outline: 3px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* ================== PRINT STYLES ================== */
+@media print {
+  .etapa-container {
+    box-shadow: none;
+    border: 1px solid #000;
+  }
+
+  .etapa-navigation {
+    display: none;
+  }
+
+  .btn-adicionar-conta {
+    display: none;
+  }
+}
+
+/* ================== TEMAS ADICIONAIS ================== */
+
+/* Tema de Alto Contraste para Acessibilidade */
+.etapa-container.high-contrast {
+  background: #ffffff;
+  border: 2px solid #000000;
+  color: #000000;
+}
+
+.etapa-container.high-contrast .etapa-title {
+  color: #000000;
+  -webkit-text-fill-color: #000000;
+}
+
+/* ================== ESTILOS ESPECÍFICOS POR ETAPA ================== */
+
+/* Etapa de Introdução */
+.etapa-container.intro-etapa .etapa-icon {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.etapa-container.intro-etapa .btn-continuar {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
+}
+
+.etapa-container.intro-etapa .btn-continuar:hover:not(:disabled) {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4) !important;
+}
+
+/* Etapa de Percepção */
+.etapa-container.percepcao-etapa .etapa-icon {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.etapa-container.percepcao-etapa .btn-continuar {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3) !important;
+}
+
+/* Etapa de Renda */
+.etapa-container.renda-etapa .etapa-icon {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.etapa-container.renda-etapa .btn-continuar {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
+}
+
+/* Etapa de Contas */
+.etapa-container.contas-etapa .etapa-icon {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+
+.etapa-container.contas-etapa .btn-continuar {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3) !important;
+}
+
+/* Etapa de Cartões */
+.etapa-container.cartoes-etapa .etapa-icon {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+
+.etapa-container.cartoes-etapa .btn-continuar {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%) !important;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3) !important;
+}
+
+/* Etapa de Despesas Fixas */
+.etapa-container.despesas-fixas-etapa .etapa-icon {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.etapa-container.despesas-fixas-etapa .btn-continuar {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3) !important;
+}
+
+/* Etapa de Despesas Variáveis */
+.etapa-container.despesas-variaveis-etapa .etapa-icon {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+}
+
+.etapa-container.despesas-variaveis-etapa .btn-continuar {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%) !important;
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3) !important;
+}
+
+/* Etapa de Dívidas */
+.etapa-container.dividas-etapa .etapa-icon {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+}
+
+.etapa-container.dividas-etapa .btn-continuar {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3) !important;
+}
+
+/* ================== COMPONENTES REUTILIZÁVEIS ================== */
+
+/* Seção de Formulário */
+.form-section {
+  margin-bottom: 2rem;
+}
+
+.form-section-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #374151;
+  margin: 0 0 1rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.form-section-description {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0 0 1.5rem 0;
+  line-height: 1.6;
+}
+
+/* Grid de Opções */
+.opcoes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.opcao-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.opcao-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  transition: left 0.6s ease;
+}
+
+.opcao-card:hover::before {
+  left: 100%;
+}
+
+.opcao-card:hover {
+  border-color: #667eea;
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+}
+
+.opcao-card.selected {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.2);
+}
+
+.opcao-card.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 24px;
+  height: 24px;
+  background: #10b981;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.opcao-icone {
+  font-size: 2rem;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.3s ease;
+}
+
+.opcao-card:hover .opcao-icone,
+.opcao-card.selected .opcao-icone {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: #667eea;
+  transform: scale(1.1);
+}
+
+.opcao-titulo {
+  font-weight: 700;
+  color: #374151;
+  font-size: 1rem;
+  margin: 0;
+}
+
+.opcao-descricao {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Input Customizado */
+.input-group {
+  margin-bottom: 1.5rem;
+}
+
+.input-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+.input-field {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  background: #fafbff;
+}
+
+.input-field.error {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.input-error {
+  font-size: 0.75rem;
+  color: #ef4444;
+  margin-top: 0.25rem;
+  font-weight: 500;
+}
+
+.input-helper {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
+}
+
+/* Select Customizado */
+.select-field {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  font-size: 1rem;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.select-field:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Range Slider */
+.range-group {
+  margin: 1.5rem 0;
+}
+
+.range-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.range-value {
+  font-weight: 700;
+  color: #667eea;
+  background: #eff6ff;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+}
+
+.range-slider {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: #e5e7eb;
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+}
+
+.range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  transition: all 0.3s ease;
+}
+
+.range-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+.range-slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+/* Progress Bar */
+.progress-container {
+  margin: 2rem 0;
+}
+
+.progress-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 4px;
+  transition: width 0.6s ease;
+  position: relative;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  animation: progressShine 2s infinite;
+}
+
+@keyframes progressShine {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+/* Cards de Resumo */
+.resumo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.resumo-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.resumo-card:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.resumo-valor {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #374151;
+  margin: 0 0 0.5rem 0;
+}
+
+.resumo-label {
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-weight: 500;
+  margin: 0;
+}
+
+.resumo-card.positivo .resumo-valor {
+  color: #10b981;
+}
+
+.resumo-card.negativo .resumo-valor {
+  color: #ef4444;
+}
+
+.resumo-card.neutro .resumo-valor {
+  color: #6b7280;
+}
+
+/* ================== ANIMAÇÕES EXTRAS ================== */
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.slide-in-left {
+  animation: slideInLeft 0.6s ease-out;
+}
+
+.slide-in-right {
+  animation: slideInRight 0.6s ease-out;
+}
+
+/* ================== UTILITÁRIOS ================== */
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+
+.font-bold { font-weight: 700; }
+.font-semibold { font-weight: 600; }
+.font-medium { font-weight: 500; }
+
+.text-success { color: #10b981; }
+.text-danger { color: #ef4444; }
+.text-warning { color: #f59e0b; }
+.text-info { color: #3b82f6; }
+
+.bg-success { background-color: #f0fdf4; }
+.bg-danger { background-color: #fef2f2; }
+.bg-warning { background-color: #fffbeb; }
+.bg-info { background-color: #eff6ff; }
+
+.border-success { border-color: #10b981; }
+.border-danger { border-color: #ef4444; }
+.border-warning { border-color: #f59e0b; }
+.border-info { border-color: #3b82f6; }
+
+.mb-0 { margin-bottom: 0; }
+.mb-1 { margin-bottom: 0.5rem; }
+.mb-2 { margin-bottom: 1rem; }
+.mb-3 { margin-bottom: 1.5rem; }
+.mb-4 { margin-bottom: 2rem; }
+
+.mt-0 { margin-top: 0; }
+.mt-1 { margin-top: 0.5rem; }
+.mt-2 { margin-top: 1rem; }
+.mt-3 { margin-top: 1.5rem; }
+.mt-4 { margin-top: 2rem; }

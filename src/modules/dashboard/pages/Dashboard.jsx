@@ -26,6 +26,7 @@ import CalendarioFinanceiro from '@modules/dashboard/components/CalendarioFinanc
 import ProjecaoSaldoGraph from '@modules/dashboard/components/ProjecaoSaldoGraph';
 import DetalhesDoDiaModal from '@modules/dashboard/components/DetalhesDoDiaModal';
 
+
 // IMPORTAR O CSS
 import '../styles/Dashboard.css';
 

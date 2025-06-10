@@ -1,200 +1,233 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import JornadaSelection from './JornadaSelection.jsx';
-import DiagnosticoForm from './DiagnosticoForm';
-import DiagnosticoSummary from './DiagnosticoSummary.jsx';
+import { useNavigate } from 'react-router-dom';
+
+// Componentes
+import WelcomeModal from './WelcomeModal';
+import ContasEtapa from '../Etapas/ContasEtapa';
+import CartoesEtapa from '../Etapas/CartoesEtapa';
+import DespesasFixasEtapa from '../Etapas/DespesasFixasEtapa';
+import DespesasVariaveisEtapa from '../Etapas/DespesasVariaveisEtapa';
+import DividasEtapa from '../Etapas/DividasEtapa';
+import DiagnosticoSummary from './DiagnosticoSummary';
+
+
+// Hooks
 import useDiagnostico from '../hooks/useDiagnostico.js';
-import { X } from 'lucide-react';
+
+// Estilos
 import '../styles/Diagnostico.css';
 
 /**
- * Componente principal que gerencia o fluxo do diagnóstico financeiro
- * Controla a navegação entre as diferentes etapas do diagnóstico
+ * Router que gerencia a jornada linear de diagnóstico
+ * Cada etapa é uma página completa
  */
 const DiagnosticoRouter = ({ 
   isFirstTime = false, 
   onComplete = () => {}, 
   onSkipToDashboard = () => {} 
 }) => {
-  // Estados para controle de fluxo
-  const [stage, setStage] = useState('jornada'); // jornada, diagnostico, summary
-  const [selectedJornada, setSelectedJornada] = useState(null); // 'simples' ou 'completo'
+  const navigate = useNavigate();
   
-  // Hook de diagnóstico
-  const { 
-    diagnosticoData, 
-    setDiagnosticoData, 
-    saveDiagnostico, 
-    calculaResultados,
-    loading, 
-    error 
-  } = useDiagnostico();
+  // Lista ordenada de etapas
+  const etapas = [
+    'contas',
+    'cartoes', 
+    'despesas-fixas',
+    'despesas-variaveis', 
+    'dividas',
+    'summary'
+  ];
+  
+  // Estados
+  const [showWelcome, setShowWelcome] = useState(isFirstTime);
+  const [currentEtapaIndex, setCurrentEtapaIndex] = useState(0);
+  const [diagnosticoData, setDiagnosticoData] = useState({});
+  
+  // Hook do diagnóstico
+  const { saveDiagnostico, loading, error } = useDiagnostico();
+  
+  // Etapa atual
+  const currentEtapa = etapas[currentEtapaIndex];
+  
+  // Handlers do Welcome Modal
+  const handleSkipToDashboard = () => {
+    console.log('🏃‍♂️ Pulando para dashboard');
+    setShowWelcome(false);
+    onSkipToDashboard();
+  };
 
-  // Manipulador para seleção de jornada
-  const handleJornadaSelect = (jornada) => {
-    setSelectedJornada(jornada);
+  const handleStartDiagnosticoCompleto = () => {
+    console.log('🎯 Iniciando diagnóstico completo');
+    setShowWelcome(false);
+    // Poderia começar em uma etapa de "percepção" se existir
+    setCurrentEtapaIndex(0); // Por enquanto começa nas contas
+  };
+
+  const handleStartContas = () => {
+    console.log('🏦 Iniciando jornada pelas contas');
+    setShowWelcome(false);
+    setCurrentEtapaIndex(0); // Começa na etapa de contas
+  };
+
+  // Handlers de navegação entre etapas
+  const handleNextEtapa = useCallback(() => {
+    console.log(`➡️ Avançando da etapa ${currentEtapa}`);
     
-    // Se usuário escolher apenas controlar gastos, vai direto para o dashboard
-    if (jornada === 'simples') {
-      onSkipToDashboard();
-      return;
-    }
-    
-    // Se escolher transformação financeira, segue para o diagnóstico completo
-    setStage('diagnostico');
-  };
-
-  // Manipulador para submissão do diagnóstico completo
-  const handleDiagnosticoSubmit = async (formData) => {
-    try {
-      // Atualiza os dados do diagnóstico
-      setDiagnosticoData(formData);
-      
-      // Salva os dados
-      await saveDiagnostico(formData);
-      
-      // Calcula resultados e gera insights
-      await calculaResultados();
-      
-      // Avança para o resumo
-      setStage('summary');
-    } catch (error) {
-      console.error('Erro ao processar diagnóstico:', error);
-    }
-  };
-
-  // Manipulador para finalização do diagnóstico
-  const handleFinalizarDiagnostico = () => {
-    // Chama callback para informar que o diagnóstico foi concluído
-    onComplete();
-  };
-
-  // Manipulador para cancelar o diagnóstico
-  const handleCancelarDiagnostico = () => {
-    if (isFirstTime) {
-      // Se é primeira vez, pergunta se quer ir direto para dashboard
-      if (window.confirm('Deseja pular o diagnóstico e ir direto para o painel de controle?')) {
-        onSkipToDashboard();
-      }
+    if (currentEtapaIndex < etapas.length - 1) {
+      setCurrentEtapaIndex(prev => prev + 1);
     } else {
-      // Se não é primeira vez, apenas confirma o cancelamento
-      if (window.confirm('Tem certeza que deseja cancelar o diagnóstico? Seu progresso será perdido.')) {
-        onComplete(); // Volta para onde estava
-      }
+      // Última etapa - finalizar
+      handleFinalizarDiagnostico();
     }
-  };
+  }, [currentEtapaIndex, currentEtapa, etapas.length]);
 
-  // Renderiza o loading state
+  const handlePrevEtapa = useCallback(() => {
+    console.log(`⬅️ Voltando da etapa ${currentEtapa}`);
+    
+    if (currentEtapaIndex > 0) {
+      setCurrentEtapaIndex(prev => prev - 1);
+    } else {
+      // Primeira etapa - voltar para welcome
+      setShowWelcome(true);
+    }
+  }, [currentEtapaIndex, currentEtapa]);
+
+  const handleUpdateEtapaData = useCallback((etapa, data) => {
+    console.log(`📝 Atualizando dados da etapa ${etapa}:`, data);
+    setDiagnosticoData(prev => ({
+      ...prev,
+      [etapa]: data
+    }));
+  }, []);
+
+  const handleFinalizarDiagnostico = useCallback(async () => {
+    console.log('🎉 Finalizando diagnóstico com dados:', diagnosticoData);
+    
+    try {
+      // Salvar dados do diagnóstico
+      await saveDiagnostico(diagnosticoData);
+      
+      // Chamar callback de conclusão
+      onComplete();
+    } catch (error) {
+      console.error('❌ Erro ao finalizar diagnóstico:', error);
+    }
+  }, [diagnosticoData, saveDiagnostico, onComplete]);
+
+  // Renderizar etapa atual
+  const renderCurrentEtapa = useCallback(() => {
+    const etapaProps = {
+      onNext: handleNextEtapa,
+      onPrev: handlePrevEtapa,
+      etapaData: diagnosticoData[currentEtapa] || {},
+      onUpdateEtapa: handleUpdateEtapaData,
+      isFirstEtapa: currentEtapaIndex === 0,
+      isLastEtapa: currentEtapaIndex === etapas.length - 1,
+      etapaAtual: currentEtapaIndex + 1,
+      totalEtapas: etapas.length
+    };
+
+    switch (currentEtapa) {
+      case 'contas':
+        return <ContasEtapa {...etapaProps} />;
+      
+      case 'cartoes':
+        return <CartoesEtapa {...etapaProps} />;
+      
+      case 'despesas-fixas':
+        return <DespesasFixasEtapa {...etapaProps} />;
+      
+      case 'despesas-variaveis':
+        return <DespesasVariaveisEtapa {...etapaProps} />;
+      
+      case 'dividas':
+        return <DividasEtapa {...etapaProps} />;
+      
+      case 'summary':
+        return (
+          <DiagnosticoSummary 
+            diagnosticoData={diagnosticoData}
+            onFinish={handleFinalizarDiagnostico}
+          />
+        );
+      
+      default:
+        return <ContasEtapa {...etapaProps} />;
+    }
+  }, [
+    currentEtapa, 
+    currentEtapaIndex, 
+    etapas.length, 
+    diagnosticoData, 
+    handleNextEtapa, 
+    handlePrevEtapa, 
+    handleUpdateEtapaData,
+    handleFinalizarDiagnostico
+  ]);
+
+  // Loading state
   if (loading) {
     return (
       <div className="diagnostico-wrapper">
         <div className="diagnostico-container">
           <div className="loading-container">
             <div className="loading-spinner"></div>
-            <p className="loading-text">Processando seu diagnóstico...</p>
+            <p className="loading-text">Salvando seu progresso...</p>
           </div>
         </div>
       </div>
     );
   }
 
-  // Renderiza o componente correto com base no estágio atual
-  const renderStage = () => {
-    switch (stage) {
-      case 'jornada':
-        return (
-          <JornadaSelection 
-            onSelect={handleJornadaSelect}
-            isFirstTime={isFirstTime}
-          />
-        );
-      case 'diagnostico':
-        return (
-          <DiagnosticoForm 
-            onSubmit={handleDiagnosticoSubmit} 
-            onCancel={handleCancelarDiagnostico}
-            initialData={diagnosticoData}
-          />
-        );
-      case 'summary':
-        return (
-          <DiagnosticoSummary 
-            diagnosticoData={diagnosticoData} 
-            onFinish={handleFinalizarDiagnostico} 
-          />
-        );
-      default:
-        return (
-          <JornadaSelection 
-            onSelect={handleJornadaSelect}
-            isFirstTime={isFirstTime}
-          />
-        );
-    }
-  };
-
   return (
     <div className="diagnostico-wrapper">
-      <div className="diagnostico-container">
-        {/* Header */}
-        <div className="diagnostico-header">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <h1 className="diagnostico-title">
-                {isFirstTime && stage === 'jornada' ? 'Bem-vindo ao iPoupei!' : 'Diagnóstico Financeiro'}
-              </h1>
-              <p className="diagnostico-subtitle">
-                {isFirstTime && stage === 'jornada' 
-                  ? 'Vamos começar organizando sua vida financeira. Escolha como deseja usar o iPoupei.'
-                  : 'Vamos entender sua situação atual para te ajudar melhor'
-                }
-              </p>
+      {/* Welcome Modal */}
+      <WelcomeModal
+        isOpen={showWelcome}
+        onClose={() => setShowWelcome(false)}
+        onStartDiagnostico={handleStartDiagnosticoCompleto}
+        onSkipToDashboard={handleSkipToDashboard}
+        onStartContas={handleStartContas}
+      />
+
+      {/* Container das Etapas */}
+      {!showWelcome && (
+        <div className="diagnostico-container">
+          {/* Progress Bar */}
+          <div className="diagnostico-progress">
+            <div className="progress-header">
+              <h2 className="progress-title">
+                Etapa {currentEtapaIndex + 1} de {etapas.length}
+              </h2>
+              <div className="progress-bar">
+                <div 
+                  className="progress-fill"
+                  style={{ 
+                    width: `${((currentEtapaIndex + 1) / etapas.length) * 100}%` 
+                  }}
+                />
+              </div>
             </div>
-            {stage !== 'jornada' && (
-              <button 
-                onClick={handleCancelarDiagnostico}
-                className="btn btn-secondary"
-                style={{ 
-                  background: 'rgba(255,255,255,0.2)', 
-                  color: 'white', 
-                  border: '1px solid rgba(255,255,255,0.3)',
-                  padding: '0.5rem'
-                }}
-                aria-label="Cancelar diagnóstico"
-              >
-                <X size={20} />
-              </button>
-            )}
+          </div>
+
+          {/* Error display */}
+          {error && (
+            <div className="info-box error">
+              <div className="info-icon">⚠️</div>
+              <div className="info-content">
+                <h4>Erro no diagnóstico</h4>
+                <p>{error}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Etapa Atual */}
+          <div className="diagnostico-etapa">
+            {renderCurrentEtapa()}
           </div>
         </div>
-
-        {/* Banner especial para primeira vez */}
-        {isFirstTime && stage === 'jornada' && (
-          <div className="info-box success" style={{ margin: '1.5rem 2rem' }}>
-            <div className="info-icon">🎉</div>
-            <div className="info-content">
-              <h4>Seja bem-vindo ao iPoupei!</h4>
-              <p>Estamos muito felizes em ter você aqui. Vamos começar sua jornada financeira da melhor forma possível.</p>
-            </div>
-          </div>
-        )}
-
-        {/* Error display */}
-        {error && (
-          <div className="info-box error" style={{ margin: '1.5rem 2rem' }}>
-            <div className="info-icon">⚠️</div>
-            <div className="info-content">
-              <h4>Erro ao processar diagnóstico</h4>
-              <p>{error}</p>
-            </div>
-          </div>
-        )}
-        
-        {/* Content */}
-        <div className="diagnostico-content">
-          {renderStage()}
-        </div>
-      </div>
+      )}
     </div>
   );
 };

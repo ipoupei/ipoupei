@@ -21,6 +21,11 @@ import DonutChartCategoria from '@modules/relatorios/components/DonutChartCatego
 import CalendarioFinanceiro from '@modules/dashboard/components/CalendarioFinanceiro';
 import ProjecaoSaldoGraph from '@modules/dashboard/components/ProjecaoSaldoGraph';
 import DetalhesDoDiaModal from '@modules/dashboard/components/DetalhesDoDiaModal';
+import DiagnosticoWidget from '../../diagnostico/components/DiagnosticoWidget';
+
+
+import { DiagnosticoBanner } from '../modules/diagnostico/components/DiagnosticoWidget';
+
 
 // CSS
 import '@modules/dashboard/styles/DashboardContent.css';
@@ -37,6 +42,17 @@ const DashboardContent = () => {
   const [diaDetalhes, setDiaDetalhes] = useState(null);
   const [modalDetalhesDiaOpen, setModalDetalhesDiaOpen] = useState(false);
   
+// Adicionar o widget:
+const DashboardContent = () => {
+  return (
+    <div className="dashboard-content">
+      {/* Seus widgets existentes */}
+      <DiagnosticoWidget />
+      {/* Resto do conteúdo */}
+    </div>
+  );
+};
+
   // Estado para controle dos cards flip
   const [flippedCards, setFlippedCards] = useState({
     saldo: false,

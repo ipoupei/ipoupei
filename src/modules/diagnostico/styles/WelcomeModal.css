@@ -1,0 +1,829 @@
+/* src/modules/diagnostico/styles/WelcomeModal.css */
+
+/* ==========================================
+   WELCOME MODAL - DIAGNÓSTICO FINANCEIRO
+   ========================================== */
+
+/* Overlay com blur e fade-in */
+.welcome-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+  animation: overlayFadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes overlayFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(8px);
+  }
+}
+
+/* Container principal do modal */
+.welcome-modal-container {
+  background: white;
+  border-radius: 24px;
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+  max-width: 56rem;
+  width: 100%;
+  max-height: 90vh;
+  overflow: hidden;
+  animation: modalSlideIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Header com gradiente animado */
+.welcome-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+  background-size: 200% 200%;
+  animation: gradientShift 6s ease infinite;
+  padding: 3rem 2rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.welcome-header::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  animation: shimmer 3s linear infinite;
+}
+
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+  100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+}
+
+/* Ícone principal do header */
+.welcome-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 5rem;
+  height: 5rem;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  margin-bottom: 1.5rem;
+  position: relative;
+  z-index: 1;
+  animation: iconFloat 3s ease-in-out infinite;
+}
+
+@keyframes iconFloat {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+.welcome-icon svg {
+  color: white;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+}
+
+/* Títulos do header */
+.welcome-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: white;
+  margin-bottom: 0.75rem;
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.welcome-subtitle {
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.9);
+  position: relative;
+  z-index: 1;
+}
+
+/* Conteúdo principal */
+.welcome-content {
+  padding: 3rem 2rem;
+  overflow-y: auto;
+}
+
+/* Mensagem principal */
+.welcome-message {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.welcome-message-text {
+  font-size: 1.25rem;
+  line-height: 1.8;
+  color: #374151;
+  max-width: 48rem;
+  margin: 0 auto 1.5rem;
+}
+
+.welcome-message-text strong {
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.welcome-message-subtitle {
+  color: #6b7280;
+  font-size: 1.1rem;
+  margin-top: 1rem;
+}
+
+/* Grid de benefícios */
+.benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Card de benefício */
+.benefit-card {
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid #e5e7eb;
+  border-radius: 0.875rem;
+  padding: 1.5rem;
+  text-align: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.benefit-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+  transition: left 0.6s ease;
+}
+
+.benefit-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  border-color: #d1d5db;
+}
+
+.benefit-card:hover::before {
+  left: 100%;
+}
+
+.benefit-card.blue {
+  background: linear-gradient(145deg, #eff6ff 0%, #dbeafe 100%);
+  border-color: #bfdbfe;
+}
+
+.benefit-card.emerald {
+  background: linear-gradient(145deg, #ecfdf5 0%, #d1fae5 100%);
+  border-color: #a7f3d0;
+}
+
+.benefit-card.purple {
+  background: linear-gradient(145deg, #faf5ff 0%, #e9d5ff 100%);
+  border-color: #ddd6fe;
+}
+
+/* Ícone do benefício */
+.benefit-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  margin-bottom: 1rem;
+  transition: transform 0.3s ease;
+}
+
+.benefit-card:hover .benefit-icon {
+  transform: scale(1.1) rotate(5deg);
+}
+
+.benefit-icon.blue {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: white;
+}
+
+.benefit-icon.emerald {
+  background: linear-gradient(135deg, #10b981, #047857);
+  color: white;
+}
+
+.benefit-icon.purple {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  color: white;
+}
+
+/* Título e texto do benefício */
+.benefit-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+}
+
+.benefit-text {
+  color: #6b7280;
+  line-height: 1.5;
+  font-size: 0.9rem;
+}
+
+/* Call to Action destacado */
+.welcome-cta {
+  background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 50%, #fecaca 100%);
+  border: 2px solid #f59e0b;
+  border-radius: 1rem;
+  padding: 2rem;
+  margin-bottom: 3rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.welcome-cta::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: ctaShimmer 4s linear infinite;
+}
+
+@keyframes ctaShimmer {
+  0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+  100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+}
+
+.cta-content {
+  display: flex;
+  align-items: flex-start;
+  position: relative;
+  z-index: 1;
+}
+
+.cta-emoji {
+  font-size: 2rem;
+  margin-right: 1rem;
+  flex-shrink: 0;
+}
+
+.cta-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #92400e;
+  margin-bottom: 0.5rem;
+}
+
+.cta-text {
+  color: #a16207;
+  line-height: 1.6;
+}
+
+.cta-text strong {
+  color: #92400e;
+}
+
+/* Área dos botões */
+.welcome-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+@media (min-width: 640px) {
+  .welcome-actions {
+    flex-direction: row;
+    justify-content: center;
+  }
+}
+
+/* Botão secundário */
+.welcome-btn-secondary {
+  display: flex;
+  align-items: center;
+  padding: 0.875rem 1.5rem;
+  border: 2px solid #d1d5db;
+  background: white;
+  color: #374151;
+  border-radius: 0.75rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.welcome-btn-secondary:hover {
+  border-color: #9ca3af;
+  background: #f9fafb;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Botão principal */
+.welcome-btn-primary {
+  display: flex;
+  align-items: center;
+  padding: 1.25rem 2rem;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 50%, #10b981 100%);
+  background-size: 200% 200%;
+  color: white;
+  border: none;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  font-size: 1.1rem;
+  text-decoration: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3);
+}
+
+.welcome-btn-primary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), transparent);
+  transition: opacity 0.3s ease;
+  opacity: 0;
+}
+
+.welcome-btn-primary:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 20px 25px -5px rgba(59, 130, 246, 0.4);
+  animation: buttonPulse 0.3s ease;
+}
+
+.welcome-btn-primary:hover::before {
+  opacity: 1;
+}
+
+.welcome-btn-primary:hover .btn-arrow {
+  transform: translateX(4px);
+}
+
+@keyframes buttonPulse {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.btn-arrow {
+  margin-left: 0.5rem;
+  transition: transform 0.3s ease;
+}
+
+/* Informação adicional */
+.welcome-info {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.welcome-info-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.welcome-info-emoji {
+  margin-right: 0.5rem;
+}
+
+/* Footer */
+.welcome-footer {
+  background: linear-gradient(145deg, #f8fafc 0%, #e2e8f0 100%);
+  padding: 1.5rem 2rem;
+  text-align: center;
+  border-top: 1px solid #e5e7eb;
+}
+
+.welcome-footer-text {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.welcome-footer-brand {
+  font-weight: 600;
+  color: #3b82f6;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .benefits-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .benefit-card {
+    padding: 1.25rem;
+    min-height: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .welcome-modal-container {
+    margin: 1rem;
+    border-radius: 16px;
+  }
+  
+  .welcome-header {
+    padding: 2rem 1.5rem;
+  }
+  
+  .welcome-title {
+    font-size: 2rem;
+  }
+  
+  .welcome-subtitle {
+    font-size: 1rem;
+  }
+  
+  .welcome-content {
+    padding: 2rem 1.5rem;
+  }
+  
+  .welcome-message-text {
+    font-size: 1.1rem;
+  }
+  
+  .welcome-cta {
+    padding: 1.5rem;
+  }
+  
+  .cta-content {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .cta-emoji {
+    margin-right: 0;
+    margin-bottom: 1rem;
+  }
+}
+
+/* Animações de entrada escalonadas */
+.welcome-content > * {
+  animation: fadeInUp 0.6s ease-out forwards;
+  opacity: 0;
+}
+
+.welcome-content > *:nth-child(1) { animation-delay: 0.1s; }
+.welcome-content > *:nth-child(2) { animation-delay: 0.2s; }
+.welcome-content > *:nth-child(3) { animation-delay: 0.3s; }
+.welcome-content > *:nth-child(4) { animation-delay: 0.4s; }
+.welcome-content > *:nth-child(5) { animation-delay: 0.5s; }
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Efeitos especiais de hover nos ícones */
+.benefit-icon svg,
+.welcome-icon svg {
+  transition: all 0.3s ease;
+}
+
+.benefit-card:hover .benefit-icon svg {
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.2));
+}
+
+/* Preloader suave */
+.welcome-modal-overlay.loading {
+  animation: none;
+  opacity: 0;
+}
+
+.welcome-modal-container.loading {
+  animation: none;
+  opacity: 0;
+  transform: scale(0.9);
+}
+/* Adicione este CSS ao arquivo existente WelcomeModal.css */
+
+/* ================== SEÇÃO DE OPÇÃO PRÁTICA ================== */
+.welcome-practical-option {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border: 1px solid #bbf7d0;
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin: 2rem 0;
+  text-align: center;
+  border-left: 4px solid #10b981;
+  animation: practicalPulse 3s ease-in-out infinite;
+}
+
+@keyframes practicalPulse {
+  0%, 100% {
+    border-left-color: #10b981;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1);
+  }
+  50% {
+    border-left-color: #059669;
+    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.2);
+  }
+}
+
+.practical-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #065f46;
+  margin: 0 0 0.75rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.practical-description {
+  font-size: 0.875rem;
+  color: #047857;
+  margin: 0 0 1.5rem 0;
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+/* ================== BOTÃO PRÁTICO ================== */
+.welcome-btn-practical {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  padding: 0.875rem 1.5rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  text-transform: none;
+  letter-spacing: -0.01em;
+  position: relative;
+  overflow: hidden;
+}
+
+.welcome-btn-practical::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.6s ease;
+}
+
+.welcome-btn-practical:hover::before {
+  left: 100%;
+}
+
+.welcome-btn-practical:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+}
+
+.welcome-btn-practical:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.welcome-btn-practical .btn-arrow {
+  transition: transform 0.3s ease;
+}
+
+.welcome-btn-practical:hover .btn-arrow {
+  transform: translateX(3px);
+}
+
+/* ================== RESPONSIVIDADE PARA NOVA SEÇÃO ================== */
+@media (max-width: 768px) {
+  .welcome-practical-option {
+    padding: 1.25rem;
+    margin: 1.5rem 0;
+  }
+
+  .practical-title {
+    font-size: 1rem;
+    gap: 0.375rem;
+  }
+
+  .practical-description {
+    font-size: 0.8125rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .welcome-btn-practical {
+    padding: 0.75rem 1.25rem;
+    font-size: 0.8125rem;
+    gap: 0.375rem;
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .welcome-practical-option {
+    padding: 1rem;
+    border-left-width: 3px;
+  }
+
+  .practical-title {
+    font-size: 0.9375rem;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .practical-description {
+    font-size: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .welcome-btn-practical {
+    padding: 0.625rem 1rem;
+    font-size: 0.75rem;
+    border-radius: 10px;
+  }
+}
+
+/* ================== ESTADOS ESPECIAIS ================== */
+
+/* Estado de destaque quando é a primeira visita */
+.welcome-practical-option.first-visit {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border-color: #93c5fd;
+  border-left-color: #3b82f6;
+}
+
+.welcome-practical-option.first-visit .practical-title {
+  color: #1e40af;
+}
+
+.welcome-practical-option.first-visit .practical-description {
+  color: #1d4ed8;
+}
+
+.welcome-practical-option.first-visit .welcome-btn-practical {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.welcome-practical-option.first-visit .welcome-btn-practical:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+}
+
+/* ================== ANIMAÇÃO DE CHAMADA DE ATENÇÃO ================== */
+.welcome-btn-practical.highlight {
+  animation: highlightButton 2s ease-in-out infinite;
+}
+
+@keyframes highlightButton {
+  0%, 100% {
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 8px 24px rgba(16, 185, 129, 0.5);
+    transform: scale(1.02);
+  }
+}
+
+/* ================== INDICADOR DE OPÇÃO RECOMENDADA ================== */
+.welcome-practical-option::after {
+  content: '⭐ RECOMENDADO';
+  position: absolute;
+  top: -8px;
+  right: 12px;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+  animation: recommendedBadge 3s ease-in-out infinite;
+}
+
+@keyframes recommendedBadge {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+/* ================== VERSÃO REDUZIDA PARA MOBILE ================== */
+@media (max-width: 480px) {
+  .welcome-practical-option::after {
+    content: '⭐';
+    font-size: 0.875rem;
+    padding: 0.125rem 0.25rem;
+    top: -6px;
+    right: 8px;
+  }
+}
+
+/* ================== FOCUS STATES ================== */
+.welcome-btn-practical:focus {
+  outline: 3px solid rgba(16, 185, 129, 0.5);
+  outline-offset: 2px;
+}
+
+/* ================== DARK MODE SUPPORT ================== */
+@media (prefers-color-scheme: dark) {
+  .welcome-practical-option {
+    background: linear-gradient(135deg, #065f46 0%, #047857 100%);
+    border-color: #10b981;
+    color: #d1fae5;
+  }
+
+  .practical-title {
+    color: #a7f3d0;
+  }
+
+  .practical-description {
+    color: #d1fae5;
+  }
+}
+
+/* ================== REDUCED MOTION ================== */
+@media (prefers-reduced-motion: reduce) {
+  .welcome-practical-option,
+  .welcome-btn-practical,
+  .welcome-practical-option::after {
+    animation: none;
+  }
+
+  .welcome-btn-practical:hover {
+    transform: none;
+  }
+
+  .welcome-btn-practical .btn-arrow {
+    transition: none;
+  }
+
+  .welcome-btn-practical:hover .btn-arrow {
+    transform: none;
+  }
+}

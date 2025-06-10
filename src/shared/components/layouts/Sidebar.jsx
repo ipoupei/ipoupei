@@ -30,6 +30,7 @@ const Sidebar = ({
   ...props
 }) => {
   // Itens de navegação - podem ser personalizados/estendidos
+  
   const navItems = [
     {
       id: 'dashboard',
@@ -42,6 +43,12 @@ const Sidebar = ({
       label: 'Transações',
       icon: <BarChart2 size={20} />,
       path: '/transacoes'
+    },
+    {
+    path: 'diagnostico',
+    icon: '🎯',
+    label: 'Diagnóstico',
+    description: 'Analise sua situação financeira'
     },
     {
       id: 'receitas',

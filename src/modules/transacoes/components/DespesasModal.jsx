@@ -1,4 +1,4 @@
-// src/components/DespesasModal.jsx - VERSÃO ORIGINAL COM EDIÇÃO ADICIONADA
+// src/modules/transacoes/components/DespesasModal.jsx - VERSÃO COMPLETA
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -10,32 +10,30 @@ import {
   DollarSign, 
   Repeat, 
   Hash, 
-  CreditCard, 
   Building,
   CheckCircle,
   Clock,
   PlusCircle,
   X,
   Search,
-  Edit
+  Edit,
+  ShoppingBag,
+  CreditCard,
+  Receipt,
+  HelpCircle
 } from 'lucide-react';
 
-import { useAuthStore } from '@modules/auth/store/authStore';;
+import { useAuthStore } from '@modules/auth/store/authStore';
 import { useUIStore } from '@store/uiStore';
-
-
-
-
-
-
 import { formatCurrency } from '@utils/formatCurrency';
-
-
 import { supabase } from '@lib/supabaseClient';
+import useContas from '@modules/contas/hooks/useContas';
 import '@shared/styles/FormsModal.css';
+
 const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   const { user } = useAuthStore();
   const { showNotification } = useUIStore();
+  const { contas, recalcularSaldos } = useContas();
   
   const valorInputRef = useRef(null);
   const isEditMode = Boolean(transacaoEditando);
@@ -43,18 +41,18 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   // Estados principais
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [tipoDespesa, setTipoDespesa] = useState('simples');
+  const [tipoDespesa, setTipoDespesa] = useState('extra');
 
   // Estados para dados
   const [categorias, setCategorias] = useState([]);
   const [subcategorias, setSubcategorias] = useState([]);
-  const [contas, setContas] = useState([]);
+  const [cartoes, setCartoes] = useState([]);
 
   // Estados para dropdowns
   const [categoriaDropdownOpen, setCategoriaDropdownOpen] = useState(false);
   const [subcategoriaDropdownOpen, setSubcategoriaDropdownOpen] = useState(false);
-  const [categoriasFiltradas, setCategoriasFiltradas] = useState([]);
-  const [subcategoriasFiltradas, setSubcategoriasFiltradas] = useState([]);
+  const [categoriaSelectedIndex, setCategoriaSelectedIndex] = useState(-1);
+  const [subcategoriaSelectedIndex, setSubcategoriaSelectedIndex] = useState(-1);
 
   // Estado para confirmação
   const [confirmacao, setConfirmacao] = useState({
@@ -74,30 +72,183 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     subcategoria: '',
     subcategoriaTexto: '',
     conta: '',
+    cartao: '',
     efetivado: true,
     observacoes: '',
+    frequenciaPrevisivel: 'mensal',
+    numeroParcelas: 12,
+    frequenciaParcelada: 'mensal',
+    usarCartao: false,
     totalRecorrencias: 12,
     tipoRecorrencia: 'mensal',
     primeiroEfetivado: true,
-    numeroParcelas: 2,
     primeiraParcela: new Date().toISOString().split('T')[0]
   });
 
   const [errors, setErrors] = useState({});
 
-  // ✅ NOVA FUNÇÃO: Preencher formulário para edição
+  // ===== CONFIGURAÇÕES =====
+  const tiposDespesa = [
+    { 
+      id: 'extra', 
+      nome: 'Extra', 
+      icone: <ShoppingBag size={16} />, 
+      descricao: 'Gasto único', 
+      cor: '#F59E0B',
+      tooltip: 'Gastos pontuais que não se repetem: presentes, reparos, compras esporádicas, emergências.'
+    },
+    { 
+      id: 'previsivel', 
+      nome: 'Previsível', 
+      icone: <Repeat size={16} />, 
+      descricao: 'Gasto fixo', 
+      cor: '#EF4444',
+      tooltip: 'Gastos que se repetem regularmente: aluguel, financiamentos, planos, assinaturas.'
+    },
+    { 
+      id: 'parcelada', 
+      nome: 'Parcelada', 
+      icone: <CreditCard size={16} />, 
+      descricao: 'Em parcelas', 
+      cor: '#8B5CF6',
+      tooltip: 'Compras divididas em várias parcelas: eletrodomésticos, viagens, cursos.'
+    }
+  ];
+
+  const opcoesFrequencia = [
+    { value: 'semanal', label: 'Semanal' },
+    { value: 'quinzenal', label: 'Quinzenal' },
+    { value: 'mensal', label: 'Mensal' },
+    { value: 'anual', label: 'Anual' }
+  ];
+
+  const opcoesParcelas = Array.from({ length: 60 }, (_, i) => ({
+    value: i + 1,
+    label: `${i + 1} ${i === 0 ? 'parcela' : 'parcelas'}`
+  }));
+
+  const opcoesQuantidade = Array.from({ length: 60 }, (_, i) => ({
+    value: i + 1,
+    label: `${i + 1} ${i === 0 ? 'vez' : 'vezes'}`
+  }));
+
+  // ===== FUNÇÕES UTILITÁRIAS =====
+  const formatarValor = useCallback((valor) => {
+    const apenasNumeros = valor.toString().replace(/\D/g, '');
+    if (!apenasNumeros || apenasNumeros === '0') return '';
+    const valorEmCentavos = parseInt(apenasNumeros, 10);
+    const valorEmReais = valorEmCentavos / 100;
+    return valorEmReais.toLocaleString('pt-BR', { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    });
+  }, []);
+
+  const valorNumerico = useMemo(() => {
+    if (!formData.valor) return 0;
+    const valorString = formData.valor.toString();
+    if (valorString.includes(',')) {
+      const partes = valorString.split(',');
+      const inteira = partes[0].replace(/\./g, '');
+      const decimal = partes[1] || '00';
+      const valorFinal = parseFloat(`${inteira}.${decimal}`);
+      return isNaN(valorFinal) ? 0 : valorFinal;
+    } else {
+      const apenasNumeros = valorString.replace(/\./g, '');
+      const valorFinal = parseFloat(apenasNumeros) / 100;
+      return isNaN(valorFinal) ? 0 : valorFinal;
+    }
+  }, [formData.valor]);
+
+  const contasAtivas = useMemo(() => 
+    contas.filter(conta => conta.ativo !== false), 
+    [contas]
+  );
+
+  const cartoesAtivos = useMemo(() => 
+    cartoes.filter(cartao => cartao.ativo !== false), 
+    [cartoes]
+  );
+
+  const categoriaSelecionada = useMemo(() => 
+    categorias.find(cat => cat.id === formData.categoria), 
+    [categorias, formData.categoria]
+  );
+
+  const subcategoriasDaCategoria = useMemo(() => 
+    subcategorias.filter(sub => sub.categoria_id === formData.categoria), 
+    [subcategorias, formData.categoria]
+  );
+
+  const categoriasFiltradas = useMemo(() => {
+    if (!categorias.length) return [];
+    return formData.categoriaTexto 
+      ? categorias.filter(cat => cat.nome.toLowerCase().includes(formData.categoriaTexto.toLowerCase()))
+      : categorias;
+  }, [formData.categoriaTexto, categorias]);
+
+  const subcategoriasFiltradas = useMemo(() => {
+    if (!subcategoriasDaCategoria.length) return [];
+    return formData.subcategoriaTexto 
+      ? subcategoriasDaCategoria.filter(sub => sub.nome.toLowerCase().includes(formData.subcategoriaTexto.toLowerCase()))
+      : subcategoriasDaCategoria;
+  }, [formData.subcategoriaTexto, subcategoriasDaCategoria]);
+
+  // ===== CÁLCULOS PARA PREVIEW =====
+  const calculos = useMemo(() => {
+    const valor = valorNumerico;
+    
+    switch (tipoDespesa) {
+      case 'previsivel':
+        const frequenciaTexto = {
+          'semanal': 'semanalmente',
+          'quinzenal': 'quinzenalmente', 
+          'mensal': 'mensalmente',
+          'anual': 'anualmente'
+        }[formData.frequenciaPrevisivel] || 'mensalmente';
+
+        return {
+          valorUnico: valor,
+          frequenciaTexto,
+          tipo: 'previsivel',
+          mensagemPrincipal: `Você gastará ${formatCurrency(valor)} ${frequenciaTexto}`,
+          mensagemSecundaria: 'Será criada automaticamente para o futuro. Você pode editar quando precisar.'
+        };
+        
+      case 'parcelada':
+        return {
+          valorUnico: valor,
+          totalParcelas: formData.numeroParcelas,
+          valorTotal: valor * formData.numeroParcelas,
+          tipo: 'parcelada',
+          mensagemPrincipal: `${formatCurrency(valor)} × ${formData.numeroParcelas} = ${formatCurrency(valor * formData.numeroParcelas)}`,
+          mensagemSecundaria: `${formData.numeroParcelas} parcelas • Frequência: ${formData.frequenciaParcelada}`
+        };
+        
+      case 'extra':
+      default:
+        return {
+          valorUnico: valor,
+          tipo: 'extra',
+          mensagemPrincipal: formatCurrency(valor),
+          mensagemSecundaria: 'Gasto único'
+        };
+    }
+  }, [tipoDespesa, valorNumerico, formData.frequenciaPrevisivel, formData.numeroParcelas, formData.frequenciaParcelada]);
+
+  // ===== PREENCHIMENTO PARA EDIÇÃO =====
   const preencherFormularioEdicao = useCallback(() => {
     if (!transacaoEditando) return;
     
     console.log('🖊️ Preenchendo formulário para edição:', transacaoEditando);
     
     // Determinar tipo de despesa baseado na descrição e dados
-    let tipoDetectado = 'simples';
+    let tipoDetectado = 'extra';
     if (transacaoEditando.descricao && /\(\d+\/\d+\)/.test(transacaoEditando.descricao)) {
       if (transacaoEditando.total_parcelas > 1) {
         tipoDetectado = 'parcelada';
       } else {
-        tipoDetectado = 'recorrente';
+        tipoDetectado = 'previsivel';
       }
     }
     
@@ -116,217 +267,43 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     setFormData({
       valor: valorFormatado,
       data: transacaoEditando.data || new Date().toISOString().split('T')[0],
-      descricao: transacaoEditando.descricao?.replace(/\s\(\d+\/\d+\)$/, '') || '', // Remove sufixo de parcela/recorrência
+      descricao: transacaoEditando.descricao?.replace(/\s\(\d+\/\d+\)$/, '') || '',
       categoria: transacaoEditando.categoria_id || '',
       categoriaTexto: categoria?.nome || '',
       subcategoria: transacaoEditando.subcategoria_id || '',
       subcategoriaTexto: subcategoria?.nome || '',
       conta: transacaoEditando.conta_id || '',
+      cartao: transacaoEditando.cartao_id || '',
       efetivado: transacaoEditando.efetivado ?? true,
       observacoes: transacaoEditando.observacoes || '',
+      frequenciaPrevisivel: 'mensal',
+      numeroParcelas: transacaoEditando.total_parcelas || 12,
+      frequenciaParcelada: 'mensal',
+      usarCartao: Boolean(transacaoEditando.cartao_id),
       totalRecorrencias: 12,
       tipoRecorrencia: 'mensal',
       primeiroEfetivado: true,
-      numeroParcelas: transacaoEditando.total_parcelas || 2,
       primeiraParcela: transacaoEditando.data || new Date().toISOString().split('T')[0]
     });
   }, [transacaoEditando, categorias, subcategorias]);
 
-  // Carregar dados quando modal abre
-  useEffect(() => {
-    if (isOpen && user) {
-      carregarDados();
-    }
-  }, [isOpen, user]);
-
-  // ✅ Preencher formulário quando dados estão carregados e há transação para editar
-  useEffect(() => {
-    if (isOpen && categorias.length > 0 && transacaoEditando) {
-      preencherFormularioEdicao();
-    }
-  }, [isOpen, categorias.length, transacaoEditando, preencherFormularioEdicao]);
-
-  const carregarDados = async () => {
-    if (!user) return;
-    
-    setLoading(true);
-    try {
-      const [categoriasRes, subcategoriasRes, contasRes] = await Promise.all([
-        supabase.from('categorias').select('*').eq('usuario_id', user.id).eq('tipo', 'despesa').eq('ativo', true).order('nome'),
-        supabase.from('subcategorias').select('*').eq('usuario_id', user.id).eq('ativo', true).order('nome'),
-        supabase.from('contas').select('*').eq('usuario_id', user.id).eq('ativo', true).order('nome')
-      ]);
-
-      setCategorias(categoriasRes.data || []);
-      setSubcategorias(subcategoriasRes.data || []);
-      setContas(contasRes.data || []);
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      showNotification('Erro ao carregar dados', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Formatação de valor DEFINITIVAMENTE CORRIGIDA
-  const formatarValor = useCallback((valor) => {
-    const apenasNumeros = valor.toString().replace(/\D/g, '');
-    if (!apenasNumeros || apenasNumeros === '0') return '';
-    const valorEmCentavos = parseInt(apenasNumeros, 10);
-    const valorEmReais = valorEmCentavos / 100;
-    return valorEmReais.toLocaleString('pt-BR', { 
-      minimumFractionDigits: 2, 
-      maximumFractionDigits: 2 
-    });
-  }, []);
-
-  // Valor numérico DEFINITIVAMENTE CORRIGIDO
-  const valorNumerico = useMemo(() => {
-    if (!formData.valor) return 0;
-    
-    const valorString = formData.valor.toString();
-    if (valorString.includes(',')) {
-      const partes = valorString.split(',');
-      const inteira = partes[0].replace(/\./g, '');
-      const decimal = partes[1] || '00';
-      const valorFinal = parseFloat(`${inteira}.${decimal}`);
-      return isNaN(valorFinal) ? 0 : valorFinal;
-    } else {
-      const apenasNumeros = valorString.replace(/\./g, '');
-      const valorFinal = parseFloat(apenasNumeros) / 100;
-      return isNaN(valorFinal) ? 0 : valorFinal;
-    }
-  }, [formData.valor]);
-
-  // Dados derivados
-  const contasAtivas = useMemo(() => 
-    contas.filter(conta => conta.ativo !== false), 
-    [contas]
-  );
-
-  const categoriaSelecionada = useMemo(() => 
-    categorias.find(cat => cat.id === formData.categoria), 
-    [categorias, formData.categoria]
-  );
-
-  const subcategoriasDaCategoria = useMemo(() => 
-    subcategorias.filter(sub => sub.categoria_id === formData.categoria), 
-    [subcategorias, formData.categoria]
-  );
-
-  // Opções para selects
-  const opcoesRecorrencia = [
-    { value: 'semanal', label: 'Semanal' },
-    { value: 'quinzenal', label: 'Quinzenal' },
-    { value: 'mensal', label: 'Mensal' },
-    { value: 'anual', label: 'Anual' }
-  ];
-
-  const opcoesQuantidade = Array.from({ length: 60 }, (_, i) => ({
-    value: i + 1,
-    label: `${i + 1} ${i === 0 ? 'vez' : 'vezes'}`
-  }));
-
-  const opcoesParcelas = Array.from({ length: 47 }, (_, i) => ({
-    value: i + 2,
-    label: `${i + 2}x`
-  }));
-
-  // Cálculos
-  const valorTotal = useMemo(() => {
-    return tipoDespesa === 'recorrente' ? valorNumerico * formData.totalRecorrencias : valorNumerico;
-  }, [valorNumerico, formData.totalRecorrencias, tipoDespesa]);
-
-  const valorParcela = useMemo(() => {
-    return tipoDespesa === 'parcelada' && formData.numeroParcelas > 0 
-      ? valorNumerico / formData.numeroParcelas 
-      : valorNumerico;
-  }, [valorNumerico, formData.numeroParcelas, tipoDespesa]);
-
-  // Effects para filtros de categoria
-  useEffect(() => {
-    if (!categorias.length) return;
-    const filtradas = formData.categoriaTexto 
-      ? categorias.filter(cat => cat.nome.toLowerCase().includes(formData.categoriaTexto.toLowerCase()))
-      : categorias;
-    setCategoriasFiltradas(filtradas);
-  }, [formData.categoriaTexto, categorias]);
-
-  useEffect(() => {
-    if (!subcategoriasDaCategoria.length) {
-      setSubcategoriasFiltradas([]);
-      return;
-    }
-    const filtradas = formData.subcategoriaTexto 
-      ? subcategoriasDaCategoria.filter(sub => sub.nome.toLowerCase().includes(formData.subcategoriaTexto.toLowerCase()))
-      : subcategoriasDaCategoria;
-    setSubcategoriasFiltradas(filtradas);
-  }, [formData.subcategoriaTexto, subcategoriasDaCategoria]);
-
-  // Reset form
-  const resetForm = useCallback(() => {
-    const dataAtual = new Date().toISOString().split('T')[0];
-    setFormData({
-      valor: '',
-      data: dataAtual,
-      descricao: '',
-      categoria: '',
-      categoriaTexto: '',
-      subcategoria: '',
-      subcategoriaTexto: '',
-      conta: '',
-      efetivado: true,
-      observacoes: '',
-      totalRecorrencias: 12,
-      tipoRecorrencia: 'mensal',
-      primeiroEfetivado: true,
-      numeroParcelas: 2,
-      primeiraParcela: dataAtual
-    });
-    setErrors({});
-    setTipoDespesa('simples');
-    setCategoriaDropdownOpen(false);
-    setSubcategoriaDropdownOpen(false);
-    setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
-  }, []);
-
-  useEffect(() => {
-    if (isOpen && !transacaoEditando) {
-      resetForm();
-      const timer = setTimeout(() => valorInputRef.current?.focus(), 150);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen, transacaoEditando, resetForm]);
-
-  // Handler para ESC e cancelar
-  const handleCancelar = useCallback(() => {
-    resetForm();
-    onClose();
-  }, [resetForm, onClose]);
-
-  useEffect(() => {
-    const handleEscape = (e) => {
-      if (e.key === 'Escape' && isOpen) {
-        handleCancelar();
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      return () => document.removeEventListener('keydown', handleEscape);
-    }
-  }, [isOpen, handleCancelar]);
-
-  // Handlers de input
+  // ===== HANDLERS DE INPUT =====
   const handleInputChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
     let inputValue = type === 'checkbox' ? checked : value;
     
-    if (name === 'totalRecorrencias' || name === 'numeroParcelas') {
-      inputValue = parseFloat(value) || 0;
+    if (name === 'numeroParcelas' || name === 'totalRecorrencias') {
+      inputValue = parseFloat(value) || 1;
     }
     
-    if (name === 'categoria') {
+    if (name === 'usarCartao') {
+      setFormData(prev => ({ 
+        ...prev, 
+        [name]: inputValue,
+        conta: inputValue ? '' : prev.conta,
+        cartao: inputValue ? prev.cartao : ''
+      }));
+    } else if (name === 'categoria') {
       setFormData(prev => ({ 
         ...prev, 
         [name]: inputValue, 
@@ -350,7 +327,17 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     }
   }, [formatarValor, errors.valor]);
 
-  // Handlers de categoria
+  const handleTipoChange = useCallback((novoTipo) => {
+    setTipoDespesa(novoTipo);
+    setErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors.numeroParcelas;
+      delete newErrors.totalRecorrencias;
+      return newErrors;
+    });
+  }, []);
+
+  // ===== HANDLERS DE CATEGORIA =====
   const handleCategoriaChange = useCallback((e) => {
     const { value } = e.target;
     setFormData(prev => ({
@@ -361,6 +348,7 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       subcategoriaTexto: ''
     }));
     setCategoriaDropdownOpen(true);
+    setCategoriaSelectedIndex(-1);
     if (errors.categoria) {
       setErrors(prev => ({ ...prev, categoria: null }));
     }
@@ -375,11 +363,15 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       subcategoriaTexto: ''
     }));
     setCategoriaDropdownOpen(false);
+    setCategoriaSelectedIndex(-1);
   }, []);
 
   const handleCategoriaBlur = useCallback(() => {
-    const timer = setTimeout(() => {
+    setTimeout(() => {
       setCategoriaDropdownOpen(false);
+      setCategoriaSelectedIndex(-1);
+      
+      // Verificar se precisa criar categoria
       if (formData.categoriaTexto && !formData.categoria) {
         const existe = categorias.find(cat => 
           cat.nome.toLowerCase() === formData.categoriaTexto.toLowerCase()
@@ -394,10 +386,39 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
         }
       }
     }, 200);
-    return () => clearTimeout(timer);
   }, [formData.categoriaTexto, formData.categoria, categorias]);
 
-  // Handlers de subcategoria
+  const handleCategoriaKeyDown = useCallback((e) => {
+    if (!categoriaDropdownOpen || categoriasFiltradas.length === 0) return;
+    
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setCategoriaSelectedIndex(prev => 
+          prev < categoriasFiltradas.length - 1 ? prev + 1 : 0
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setCategoriaSelectedIndex(prev => 
+          prev > 0 ? prev - 1 : categoriasFiltradas.length - 1
+        );
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (categoriaSelectedIndex >= 0 && categoriaSelectedIndex < categoriasFiltradas.length) {
+          handleSelecionarCategoria(categoriasFiltradas[categoriaSelectedIndex]);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setCategoriaDropdownOpen(false);
+        setCategoriaSelectedIndex(-1);
+        break;
+    }
+  }, [categoriaDropdownOpen, categoriasFiltradas, categoriaSelectedIndex, handleSelecionarCategoria]);
+
+  // ===== HANDLERS DE SUBCATEGORIA =====
   const handleSubcategoriaChange = useCallback((e) => {
     const { value } = e.target;
     setFormData(prev => ({ 
@@ -407,6 +428,7 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     }));
     if (categoriaSelecionada) {
       setSubcategoriaDropdownOpen(true);
+      setSubcategoriaSelectedIndex(-1);
     }
   }, [categoriaSelecionada]);
 
@@ -417,11 +439,15 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       subcategoriaTexto: subcategoria.nome
     }));
     setSubcategoriaDropdownOpen(false);
+    setSubcategoriaSelectedIndex(-1);
   }, []);
 
   const handleSubcategoriaBlur = useCallback(() => {
-    const timer = setTimeout(() => {
+    setTimeout(() => {
       setSubcategoriaDropdownOpen(false);
+      setSubcategoriaSelectedIndex(-1);
+      
+      // Verificar se precisa criar subcategoria
       if (formData.subcategoriaTexto && !formData.subcategoria && categoriaSelecionada) {
         const existe = subcategoriasDaCategoria.find(sub => 
           sub.nome.toLowerCase() === formData.subcategoriaTexto.toLowerCase()
@@ -436,10 +462,39 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
         }
       }
     }, 200);
-    return () => clearTimeout(timer);
   }, [formData.subcategoriaTexto, formData.subcategoria, formData.categoria, categoriaSelecionada, subcategoriasDaCategoria]);
 
-  // Criar categoria/subcategoria
+  const handleSubcategoriaKeyDown = useCallback((e) => {
+    if (!subcategoriaDropdownOpen || subcategoriasFiltradas.length === 0) return;
+    
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSubcategoriaSelectedIndex(prev => 
+          prev < subcategoriasFiltradas.length - 1 ? prev + 1 : 0
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSubcategoriaSelectedIndex(prev => 
+          prev > 0 ? prev - 1 : subcategoriasFiltradas.length - 1
+        );
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (subcategoriaSelectedIndex >= 0 && subcategoriaSelectedIndex < subcategoriasFiltradas.length) {
+          handleSelecionarSubcategoria(subcategoriasFiltradas[subcategoriaSelectedIndex]);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setSubcategoriaDropdownOpen(false);
+        setSubcategoriaSelectedIndex(-1);
+        break;
+    }
+  }, [subcategoriaDropdownOpen, subcategoriasFiltradas, subcategoriaSelectedIndex, handleSelecionarSubcategoria]);
+
+  // ===== CRIAR CATEGORIA/SUBCATEGORIA =====
   const handleConfirmarCriacao = useCallback(async () => {
     try {
       if (confirmacao.type === 'categoria') {
@@ -501,7 +556,63 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
   }, [confirmacao, user.id, showNotification]);
 
-  // Validação
+  // ===== CARREGAR DADOS =====
+  const carregarDados = useCallback(async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      const [categoriasRes, subcategoriasRes, cartoesRes] = await Promise.all([
+        supabase.from('categorias').select('*').eq('usuario_id', user.id).eq('tipo', 'despesa').eq('ativo', true).order('nome'),
+        supabase.from('subcategorias').select('*').eq('usuario_id', user.id).eq('ativo', true).order('nome'),
+        supabase.from('cartoes').select('*').eq('usuario_id', user.id).eq('ativo', true).order('nome')
+      ]);
+
+      setCategorias(categoriasRes.data || []);
+      setSubcategorias(subcategoriasRes.data || []);
+      setCartoes(cartoesRes.data || []);
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+      showNotification('Erro ao carregar dados', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [user, showNotification]);
+
+  // ===== RESET FORM =====
+  const resetForm = useCallback(() => {
+    const dataAtual = new Date().toISOString().split('T')[0];
+    setFormData({
+      valor: '',
+      data: dataAtual,
+      descricao: '',
+      categoria: '',
+      categoriaTexto: '',
+      subcategoria: '',
+      subcategoriaTexto: '',
+      conta: '',
+      cartao: '',
+      efetivado: true,
+      observacoes: '',
+      frequenciaPrevisivel: 'mensal',
+      numeroParcelas: 12,
+      frequenciaParcelada: 'mensal',
+      usarCartao: false,
+      totalRecorrencias: 12,
+      tipoRecorrencia: 'mensal',
+      primeiroEfetivado: true,
+      primeiraParcela: dataAtual
+    });
+    setErrors({});
+    setTipoDespesa('extra');
+    setCategoriaDropdownOpen(false);
+    setSubcategoriaDropdownOpen(false);
+    setCategoriaSelectedIndex(-1);
+    setSubcategoriaSelectedIndex(-1);
+    setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
+  }, []);
+
+  // ===== VALIDAÇÃO =====
   const validateForm = useCallback(() => {
     const newErrors = {};
     
@@ -517,14 +628,26 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     if (!formData.categoria && !formData.categoriaTexto.trim()) {
       newErrors.categoria = "Categoria é obrigatória";
     }
-    if (!formData.conta) {
+    if (formData.usarCartao && !formData.cartao) {
+      newErrors.cartao = "Cartão é obrigatório quando selecionado";
+    }
+    if (!formData.usarCartao && !formData.conta) {
       newErrors.conta = "Conta é obrigatória";
     }
     if (formData.observacoes && formData.observacoes.length > 300) {
       newErrors.observacoes = "Máximo de 300 caracteres";
     }
     
-    if (tipoDespesa === 'recorrente') {
+    if (tipoDespesa === 'parcelada') {
+      if (formData.numeroParcelas < 1) {
+        newErrors.numeroParcelas = "Número de parcelas deve ser pelo menos 1";
+      }
+      if (formData.numeroParcelas > 60) {
+        newErrors.numeroParcelas = "Máximo de 60 parcelas";
+      }
+    }
+
+    if (tipoDespesa === 'previsivel') {
       if (formData.totalRecorrencias < 1) {
         newErrors.totalRecorrencias = "Quantidade deve ser pelo menos 1";
       }
@@ -532,24 +655,12 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
         newErrors.totalRecorrencias = "Máximo de 60 recorrências";
       }
     }
-
-    if (tipoDespesa === 'parcelada') {
-      if (formData.numeroParcelas < 2) {
-        newErrors.numeroParcelas = "Mínimo de 2 parcelas";
-      }
-      if (formData.numeroParcelas > 48) {
-        newErrors.numeroParcelas = "Máximo de 48 parcelas";
-      }
-      if (!formData.primeiraParcela) {
-        newErrors.primeiraParcela = "Data da primeira parcela é obrigatória";
-      }
-    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }, [formData, tipoDespesa, valorNumerico]);
 
-  // ✅ NOVA FUNÇÃO: Atualizar transação existente
+  // ===== ATUALIZAR TRANSAÇÃO =====
   const atualizarTransacao = useCallback(async () => {
     try {
       const dadosAtualizacao = {
@@ -557,7 +668,8 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
         descricao: formData.descricao.trim(),
         categoria_id: formData.categoria,
         subcategoria_id: formData.subcategoria || null,
-        conta_id: formData.conta,
+        conta_id: formData.usarCartao ? null : formData.conta,
+        cartao_id: formData.usarCartao ? formData.cartao : null,
         valor: valorNumerico,
         efetivado: formData.efetivado,
         observacoes: formData.observacoes.trim() || null,
@@ -580,7 +692,109 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     }
   }, [formData, valorNumerico, transacaoEditando, user.id, showNotification]);
 
-  // Submissão
+  // ===== CRIAR DESPESAS =====
+  const criarDespesas = useCallback(async () => {
+    try {
+      const dadosBase = {
+        usuario_id: user.id,
+        descricao: formData.descricao.trim(),
+        categoria_id: formData.categoria,
+        subcategoria_id: formData.subcategoria || null,
+        conta_id: formData.usarCartao ? null : formData.conta,
+        cartao_id: formData.usarCartao ? formData.cartao : null,
+        valor: valorNumerico,
+        tipo: 'despesa',
+        tipo_despesa: tipoDespesa,
+        observacoes: formData.observacoes.trim() || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      let despesasCriadas = [];
+
+      switch (tipoDespesa) {
+        case 'extra':
+          despesasCriadas = [{
+            ...dadosBase,
+            data: formData.data,
+            efetivado: formData.efetivado,
+            recorrente: false,
+            grupo_recorrencia: null
+          }];
+          break;
+
+        case 'parcelada':
+        case 'previsivel':
+          const grupoId = crypto.randomUUID();
+          const dataBase = new Date(formData.data);
+          
+          const totalRecorrencias = tipoDespesa === 'previsivel' ? 
+            formData.totalRecorrencias : 
+            formData.numeroParcelas;
+          
+          const frequencia = tipoDespesa === 'previsivel' ? 
+            formData.frequenciaPrevisivel : 
+            formData.frequenciaParcelada;
+
+          for (let i = 0; i < totalRecorrencias; i++) {
+            const dataDespesa = new Date(dataBase);
+            
+            switch (frequencia) {
+              case 'semanal':
+                dataDespesa.setDate(dataDespesa.getDate() + (7 * i));
+                break;
+              case 'quinzenal':
+                dataDespesa.setDate(dataDespesa.getDate() + (14 * i));
+                break;
+              case 'mensal':
+                dataDespesa.setMonth(dataDespesa.getMonth() + i);
+                break;
+              case 'anual':
+                dataDespesa.setFullYear(dataDespesa.getFullYear() + i);
+                break;
+            }
+            
+            const efetivoStatus = i === 0 ? formData.efetivado : false;
+            const sufixo = tipoDespesa === 'parcelada' ? ` (${i + 1}/${totalRecorrencias})` : '';
+            
+            despesasCriadas.push({
+              ...dadosBase,
+              data: dataDespesa.toISOString().split('T')[0],
+              descricao: dadosBase.descricao + sufixo,
+              efetivado: efetivoStatus,
+              recorrente: true,
+              grupo_recorrencia: grupoId
+            });
+          }
+          break;
+      }
+
+      const { error } = await supabase.from('transacoes').insert(despesasCriadas);
+      if (error) throw error;
+      
+      let mensagem = '';
+      switch (tipoDespesa) {
+        case 'extra':
+          mensagem = 'Despesa extra registrada com sucesso!';
+          break;
+        case 'parcelada':
+          mensagem = `${formData.numeroParcelas} parcelas criadas com sucesso!`;
+          break;
+        case 'previsivel':
+          mensagem = `Despesa previsível configurada para o futuro!`;
+          break;
+      }
+      
+      showNotification(mensagem, 'success');
+      return true;
+      
+    } catch (error) {
+      console.error('❌ Erro ao criar despesas:', error);
+      throw error;
+    }
+  }, [user.id, formData, tipoDespesa, valorNumerico, showNotification]);
+
+  // ===== SUBMISSÃO =====
   const handleSubmit = useCallback(async (e, criarNova = false) => {
     e.preventDefault();
     
@@ -592,7 +806,7 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     try {
       setSubmitting(true);
       
-      // ✅ MODO EDIÇÃO: Atualizar transação existente
+      // Modo edição
       if (isEditMode) {
         await atualizarTransacao();
         
@@ -606,100 +820,9 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
         return;
       }
       
-      // MODO CRIAÇÃO: Lógica original mantida
-      if (tipoDespesa === 'recorrente') {
-        const despesas = [];
-        const dataBase = new Date(formData.data);
-        
-        for (let i = 0; i < formData.totalRecorrencias; i++) {
-          const dataDespesa = new Date(dataBase);
-          
-          switch (formData.tipoRecorrencia) {
-            case 'semanal':
-              dataDespesa.setDate(dataDespesa.getDate() + (7 * i));
-              break;
-            case 'quinzenal':
-              dataDespesa.setDate(dataDespesa.getDate() + (14 * i));
-              break;
-            case 'mensal':
-              dataDespesa.setMonth(dataDespesa.getMonth() + i);
-              break;
-            case 'anual':
-              dataDespesa.setFullYear(dataDespesa.getFullYear() + i);
-              break;
-          }
-          
-          despesas.push({
-            usuario_id: user.id,
-            data: dataDespesa.toISOString().split('T')[0],
-            descricao: `${formData.descricao.trim()} (${i + 1}/${formData.totalRecorrencias})`,
-            categoria_id: formData.categoria,
-            subcategoria_id: formData.subcategoria || null,
-            conta_id: formData.conta,
-            valor: valorNumerico,
-            tipo: 'despesa',
-            efetivado: i === 0 ? formData.primeiroEfetivado : false,
-            observacoes: formData.observacoes.trim() || null,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
-        }
-        
-        const { error } = await supabase.from('transacoes').insert(despesas);
-        if (error) throw error;
-        
-        showNotification(`${formData.totalRecorrencias} despesas recorrentes criadas!`, 'success');
-        
-      } else if (tipoDespesa === 'parcelada') {
-        const parcelas = [];
-        const dataBase = new Date(formData.primeiraParcela);
-        
-        for (let i = 0; i < formData.numeroParcelas; i++) {
-          const dataParcela = new Date(dataBase);
-          dataParcela.setMonth(dataParcela.getMonth() + i);
-          
-          parcelas.push({
-            usuario_id: user.id,
-            data: dataParcela.toISOString().split('T')[0],
-            descricao: `${formData.descricao.trim()} (${i + 1}/${formData.numeroParcelas})`,
-            categoria_id: formData.categoria,
-            subcategoria_id: formData.subcategoria || null,
-            conta_id: formData.conta,
-            valor: valorParcela,
-            tipo: 'despesa',
-            efetivado: false,
-            observacoes: formData.observacoes.trim() || null,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
-        }
-        
-        const { error } = await supabase.from('transacoes').insert(parcelas);
-        if (error) throw error;
-        
-        showNotification(`Despesa parcelada em ${formData.numeroParcelas}x criada!`, 'success');
-        
-      } else {
-        const dadosDespesa = {
-          usuario_id: user.id,
-          data: formData.data,
-          descricao: formData.descricao.trim(),
-          categoria_id: formData.categoria,
-          subcategoria_id: formData.subcategoria || null,
-          conta_id: formData.conta,
-          valor: valorNumerico,
-          tipo: 'despesa',
-          efetivado: formData.efetivado,
-          observacoes: formData.observacoes.trim() || null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        
-        const { error } = await supabase.from('transacoes').insert([dadosDespesa]);
-        if (error) throw error;
-        
-        showNotification('Despesa registrada com sucesso!', 'success');
-      }
+      // Modo criação
+      await criarDespesas();
+      await recalcularSaldos();
       
       if (onSave) onSave();
       
@@ -727,40 +850,65 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     } finally {
       setSubmitting(false);
     }
-  }, [validateForm, user.id, formData, tipoDespesa, valorParcela, valorNumerico, onSave, showNotification, resetForm, onClose, isEditMode, atualizarTransacao]);
+  }, [validateForm, criarDespesas, recalcularSaldos, onSave, showNotification, resetForm, onClose, isEditMode, atualizarTransacao]);
+
+  const handleCancelar = useCallback(() => {
+    resetForm();
+    onClose();
+  }, [resetForm, onClose]);
+
+  // ===== EFFECTS =====
+  useEffect(() => {
+    if (isOpen && user) {
+      carregarDados();
+    }
+  }, [isOpen, user, carregarDados]);
+
+  useEffect(() => {
+    if (isOpen && categorias.length > 0 && transacaoEditando) {
+      preencherFormularioEdicao();
+    }
+  }, [isOpen, categorias.length, transacaoEditando, preencherFormularioEdicao]);
+
+  useEffect(() => {
+    if (isOpen && !transacaoEditando) {
+      resetForm();
+      setTimeout(() => valorInputRef.current?.focus(), 150);
+    }
+  }, [isOpen, transacaoEditando, resetForm]);
+
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        handleCancelar();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen, handleCancelar]);
 
   if (!isOpen) return null;
 
+  const corAtual = tiposDespesa.find(t => t.id === tipoDespesa)?.cor || '#EF4444';
+
   return (
     <div className="modal-overlay">
-      <div className="modal-container">
+      <div className="modal-container despesas-layout">
         {/* Header */}
-        <div className="modal-header" style={{ 
-          background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.02) 100%)',
-          borderBottom: '1px solid rgba(239, 68, 68, 0.1)' 
-        }}>
+        <div className="modal-header simple">
           <h2 className="modal-title">
-            <div className="form-icon-wrapper" style={{
-              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-              color: 'white'
-            }}>
-              {isEditMode ? <Edit size={18} /> :
-               tipoDespesa === 'recorrente' ? <Repeat size={18} /> : 
-               tipoDespesa === 'parcelada' ? <CreditCard size={18} /> : 
-               <TrendingDown size={18} />}
+            <div className="form-icon-wrapper" style={{ background: corAtual }}>
+              {isEditMode ? <Edit size={18} /> : <TrendingDown size={18} />}
             </div>
             <div>
               <div className="form-title-main">
-                {isEditMode ? 'Editar Despesa' :
-                 tipoDespesa === 'recorrente' ? 'Despesas Recorrentes' : 
-                 tipoDespesa === 'parcelada' ? 'Despesa Parcelada' : 
-                 'Nova Despesa'}
+                {isEditMode ? 'Editar Despesa' : 'Nova Despesa'}
               </div>
               <div className="form-title-subtitle">
-                {isEditMode ? 'Atualize os dados da despesa' :
-                 tipoDespesa === 'recorrente' ? 'Gastos que se repetem' : 
-                 tipoDespesa === 'parcelada' ? 'Divida um gasto em parcelas' : 
-                 'Registre um novo gasto'}
+                {isEditMode ? 'Atualize os dados da despesa' : 'Registre um novo gasto'}
               </div>
             </div>
           </h2>
@@ -768,58 +916,22 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
             <X size={18} />
           </button>
         </div>
-        
-        {/* Content */}
+
         <div className="modal-content">
           {loading ? (
             <div className="form-loading">
-              <div className="form-loading-spinner" style={{ borderTopColor: '#ef4444' }}></div>
+              <div className="form-loading-spinner"></div>
               <p>Carregando dados...</p>
             </div>
           ) : (
-            <form onSubmit={(e) => handleSubmit(e, false)} className="form">
+            <form onSubmit={(e) => handleSubmit(e, false)} className="form despesas-form">
               
-              {/* ✅ Tipo de Despesa - Oculto no modo edição */}
-              {!isEditMode && (
-                <div className="form-field-group">
-                  <label className="form-label">
-                    <Tag size={14} />
-                    Tipo de Despesa
-                  </label>
-                  <div className="form-radio-group despesa-tipo-grid">
-                    {[
-                      { value: 'simples', label: 'Simples', icon: <TrendingDown size={14} />, desc: 'Único' },
-                      { value: 'recorrente', label: 'Recorrente', icon: <Repeat size={14} />, desc: 'Repetir' },
-                      { value: 'parcelada', label: 'Parcelada', icon: <CreditCard size={14} />, desc: 'Dividir' }
-                    ].map(tipo => (
-                      <label
-                        key={tipo.value}
-                        className={`form-radio-option ${tipoDespesa === tipo.value ? 'selected despesa' : ''}`}
-                      >
-                        <input
-                          type="radio"
-                          name="tipoDespesa"
-                          value={tipo.value}
-                          checked={tipoDespesa === tipo.value}
-                          onChange={(e) => setTipoDespesa(e.target.value)}
-                        />
-                        {tipo.icon}
-                        <div>
-                          <div>{tipo.label}</div>
-                          <small>{tipo.desc}</small>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Valor e Data */}
-              <div className="form-row">
-                <div className="form-field">
+              {/* VALOR E DATA */}
+              <div className="form-row primeira-linha">
+                <div className="form-field valor-field">
                   <label className="form-label">
                     <DollarSign size={14} />
-                    {tipoDespesa === 'parcelada' ? 'Valor Total' : 'Valor'} *
+                    {tipoDespesa === 'parcelada' ? 'Valor por Parcela' : 'Valor'} *
                   </label>
                   <input
                     ref={valorInputRef}
@@ -828,15 +940,15 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                     onChange={handleValorChange}
                     placeholder="0,00"
                     disabled={submitting}
-                    className={`form-input valor despesa ${errors.valor ? 'error' : ''}`}
+                    className={`form-input valor-input despesa-valor ${errors.valor ? 'error' : ''}`}
                   />
                   {errors.valor && <div className="form-error">{errors.valor}</div>}
                 </div>
                 
-                <div className="form-field">
+                <div className="form-field data-field">
                   <label className="form-label">
                     <Calendar size={14} />
-                    {tipoDespesa === 'recorrente' ? 'Data Início' : 
+                    {tipoDespesa === 'previsivel' ? 'Data Início' : 
                      tipoDespesa === 'parcelada' ? 'Data Compra' : 'Data'} *
                   </label>
                   <input
@@ -845,195 +957,188 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                     value={formData.data}
                     onChange={handleInputChange}
                     disabled={submitting}
-                    className={`form-input ${errors.data ? 'error' : ''}`}
+                    className={`form-input data-input ${errors.data ? 'error' : ''}`}
                   />
                   {errors.data && <div className="form-error">{errors.data}</div>}
                 </div>
               </div>
 
-              {/* Campos específicos por tipo - Ocultos no modo edição */}
-              {tipoDespesa === 'recorrente' && !isEditMode && (
-                <>
-                  <div className="form-row">
-                    <div className="form-field">
-                      <label className="form-label">
-                        <Repeat size={14} />
-                        Frequência *
-                      </label>
-                      <select
-                        name="tipoRecorrencia"
-                        value={formData.tipoRecorrencia}
-                        onChange={handleInputChange}
-                        disabled={submitting}
-                        className="form-input"
-                      >
-                        {opcoesRecorrencia.map(opcao => (
-                          <option key={opcao.value} value={opcao.value}>
-                            {opcao.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    
-                    <div className="form-field">
-                      <label className="form-label">
-                        <Hash size={14} />
-                        Quantidade *
-                      </label>
-                      <select
-                        name="totalRecorrencias"
-                        value={formData.totalRecorrencias}
-                        onChange={handleInputChange}
-                        disabled={submitting}
-                        className="form-input"
-                      >
-                        {opcoesQuantidade.map(opcao => (
-                          <option key={opcao.value} value={opcao.value}>
-                            {opcao.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+              {/* ESCOLHA DO TIPO */}
+              {!isEditMode && (
+                <div className="form-section tipo-section">
+                  <div className="section-header">
+                    <span className="section-subtitle">Escolha o tipo e preencha os dados</span>
                   </div>
                   
-                  {/* Preview da Recorrência */}
-                  {valorNumerico > 0 && formData.totalRecorrencias > 0 && (
-                    <div className="form-preview despesa">
-                      🔄 {formData.totalRecorrencias}x de {formatCurrency(valorNumerico)} ({formData.tipoRecorrencia})
-                      <br />
-                      <small>Total: {formatCurrency(valorTotal)}</small>
-                    </div>
-                  )}
-
-                  {/* Status da primeira recorrência */}
-                  <div className="form-field-group">
-                    <label className="form-label">
-                      <CheckCircle size={14} />
-                      Status da Primeira Despesa
-                    </label>
-                    <div className="form-radio-group">
-                      <label className={`form-radio-option ${formData.primeiroEfetivado ? 'selected despesa' : ''}`}>
-                        <input
-                          type="radio"
-                          checked={formData.primeiroEfetivado === true}
-                          onChange={() => setFormData(prev => ({ ...prev, primeiroEfetivado: true }))}
+                  <div className="tipos-buttons despesa-tipos">
+                    {tiposDespesa.map((tipo) => (
+                      <div key={tipo.id} className="tipo-wrapper">
+                        <button
+                          type="button"
+                          className={`tipo-button ${tipoDespesa === tipo.id ? 'active' : ''}`}
+                          onClick={() => handleTipoChange(tipo.id)}
                           disabled={submitting}
-                        />
-                        <CheckCircle size={14} />
-                        <div>
-                          <div>Primeira já paga</div>
-                          <small>Dinheiro saiu</small>
+                          style={{ '--cor-tipo': tipo.cor }}
+                          title={tipo.tooltip}
+                        >
+                          <div className="tipo-icon">{tipo.icone}</div>
+                          <div className="tipo-content">
+                            <div className="tipo-nome">{tipo.nome}</div>
+                            <div className="tipo-desc">{tipo.descricao}</div>
+                          </div>
+                        </button>
+                        <div className="tipo-tooltip">
+                          <HelpCircle size={12} />
+                          <div className="tooltip-content">{tipo.tooltip}</div>
                         </div>
-                      </label>
-                      <label className={`form-radio-option ${!formData.primeiroEfetivado ? 'selected warning' : ''}`}>
-                        <input
-                          type="radio"
-                          checked={formData.primeiroEfetivado === false}
-                          onChange={() => setFormData(prev => ({ ...prev, primeiroEfetivado: false }))}
-                          disabled={submitting}
-                        />
-                        <Clock size={14} />
-                        <div>
-                          <div>Todas planejadas</div>
-                          <small>A pagar</small>
-                        </div>
-                      </label>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {tipoDespesa === 'parcelada' && !isEditMode && (
-                <>
-                  <div className="form-row">
-                    <div className="form-field">
-                      <label className="form-label">
-                        <Hash size={14} />
-                        Número de Parcelas *
-                      </label>
-                      <select
-                        name="numeroParcelas"
-                        value={formData.numeroParcelas}
-                        onChange={handleInputChange}
-                        disabled={submitting}
-                        className="form-input"
-                      >
-                        {opcoesParcelas.map(opcao => (
-                          <option key={opcao.value} value={opcao.value}>
-                            {opcao.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="form-field">
-                      <label className="form-label">
-                        <Calendar size={14} />
-                        Primeira Parcela *
-                      </label>
-                      <input
-                        type="date"
-                        name="primeiraParcela"
-                        value={formData.primeiraParcela}
-                        onChange={handleInputChange}
-                        disabled={submitting}
-                        className={`form-input ${errors.primeiraParcela ? 'error' : ''}`}
-                      />
-                      {errors.primeiraParcela && <div className="form-error">{errors.primeiraParcela}</div>}
-                    </div>
-                  </div>
-
-                  {/* Preview do Parcelamento */}
-                  {valorNumerico > 0 && formData.numeroParcelas > 0 && (
-                    <div className="form-preview cartao">
-                      💳 {formData.numeroParcelas}x de {formatCurrency(valorParcela)}
-                      <br />
-                      <small>Total: {formatCurrency(valorNumerico)}</small>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* Status (apenas para despesas simples) */}
-              {(tipoDespesa === 'simples' || isEditMode) && (
-                <div className="form-field-group">
-                  <label className="form-label">
-                    <CheckCircle size={14} />
-                    Status da Despesa
-                  </label>
-                  <div className="form-radio-group">
-                    <label className={`form-radio-option ${formData.efetivado ? 'selected despesa' : ''}`}>
-                      <input
-                        type="radio"
-                        checked={formData.efetivado === true}
-                        onChange={() => setFormData(prev => ({ ...prev, efetivado: true }))}
-                        disabled={submitting}
-                      />
-                      <CheckCircle size={16} />
-                      <div>
-                        <div>Já paga</div>
-                        <small>Dinheiro saiu</small>
                       </div>
-                    </label>
-                    <label className={`form-radio-option ${!formData.efetivado ? 'selected warning' : ''}`}>
-                      <input
-                        type="radio"
-                        checked={formData.efetivado === false}
-                        onChange={() => setFormData(prev => ({ ...prev, efetivado: false }))}
-                        disabled={submitting}
-                      />
-                      <Clock size={16} />
-                      <div>
-                        <div>Planejada</div>
-                        <small>A pagar</small>
-                      </div>
-                    </label>
+                    ))}
                   </div>
                 </div>
               )}
 
-              {/* Descrição */}
-              <div className="form-field-group">
+              {/* STATUS */}
+              <div className="form-section status-section">
+                <label className="form-label status-label">
+                  <CheckCircle size={14} />
+                  Status da {tipoDespesa === 'extra' ? 'Despesa' : 'Primeira'}
+                </label>
+                <div className="status-options">
+                  <label className={`status-option ${formData.efetivado ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      checked={formData.efetivado === true}
+                      onChange={() => setFormData(prev => ({ ...prev, efetivado: true }))}
+                      disabled={submitting}
+                    />
+                    <CheckCircle size={16} />
+                    <div className="status-content">
+                      <div className="status-title">Primeira já paga</div>
+                      <div className="status-subtitle">Dinheiro saiu da conta</div>
+                    </div>
+                  </label>
+                  <label className={`status-option ${!formData.efetivado ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      checked={formData.efetivado === false}
+                      onChange={() => setFormData(prev => ({ ...prev, efetivado: false }))}
+                      disabled={submitting}
+                    />
+                    <Clock size={16} />
+                    <div className="status-content">
+                      <div className="status-title">Todas planejadas</div>
+                      <div className="status-subtitle">A pagar</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* CAMPOS ESPECÍFICOS POR TIPO */}
+              {tipoDespesa === 'previsivel' && !isEditMode && (
+                <div className="form-row tipo-fields">
+                  <div className="form-field">
+                    <label className="form-label">
+                      <Repeat size={14} />
+                      Frequência *
+                    </label>
+                    <select
+                      name="frequenciaPrevisivel"
+                      value={formData.frequenciaPrevisivel}
+                      onChange={handleInputChange}
+                      disabled={submitting}
+                      className="form-input"
+                    >
+                      {opcoesFrequencia.map(opcao => (
+                        <option key={opcao.value} value={opcao.value}>
+                          {opcao.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div className="form-field">
+                    <label className="form-label">
+                      <Hash size={14} />
+                      Quantidade *
+                    </label>
+                    <select
+                      name="totalRecorrencias"
+                      value={formData.totalRecorrencias}
+                      onChange={handleInputChange}
+                      disabled={submitting}
+                      className="form-input"
+                    >
+                      {opcoesQuantidade.map(opcao => (
+                        <option key={opcao.value} value={opcao.value}>
+                          {opcao.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {tipoDespesa === 'parcelada' && !isEditMode && (
+                <div className="form-row tipo-fields">
+                  <div className="form-field">
+                    <label className="form-label">
+                      <Repeat size={14} />
+                      Frequência *
+                    </label>
+                    <select
+                      name="frequenciaParcelada"
+                      value={formData.frequenciaParcelada}
+                      onChange={handleInputChange}
+                      disabled={submitting}
+                      className="form-input"
+                    >
+                      {opcoesFrequencia.map(opcao => (
+                        <option key={opcao.value} value={opcao.value}>
+                          {opcao.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div className="form-field">
+                    <label className="form-label">
+                      <Hash size={14} />
+                      Número de Parcelas *
+                    </label>
+                    <select
+                      name="numeroParcelas"
+                      value={formData.numeroParcelas}
+                      onChange={handleInputChange}
+                      disabled={submitting}
+                      className={`form-input ${errors.numeroParcelas ? 'error' : ''}`}
+                    >
+                      {opcoesParcelas.map(opcao => (
+                        <option key={opcao.value} value={opcao.value}>
+                          {opcao.label}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.numeroParcelas && <div className="form-error">{errors.numeroParcelas}</div>}
+                  </div>
+                </div>
+              )}
+
+              {/* PREVIEW */}
+              {valorNumerico > 0 && (
+                <div className={`preview-card despesa-${tipoDespesa}`} style={{ borderColor: corAtual + '40', background: corAtual + '10' }}>
+                  <div className="preview-header">
+                    {tiposDespesa.find(t => t.id === tipoDespesa)?.icone}
+                    <strong>Despesa {tiposDespesa.find(t => t.id === tipoDespesa)?.nome}</strong>
+                  </div>
+                  <div className="preview-content">
+                    <div className="preview-valor">{calculos.mensagemPrincipal}</div>
+                    <div className="preview-info">{calculos.mensagemSecundaria}</div>
+                  </div>
+                </div>
+              )}
+
+              {/* DESCRIÇÃO */}
+              <div className="form-field descricao-field">
                 <label className="form-label">
                   <FileText size={14} />
                   Descrição *
@@ -1042,64 +1147,65 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                   type="text"
                   name="descricao"
                   placeholder={
-                    tipoDespesa === 'recorrente' ? 
-                      "Ex: Aluguel, Financiamento, Plano de saúde" :
-                    tipoDespesa === 'parcelada' ?
-                      "Ex: Notebook, Geladeira, Móveis" :
-                      "Ex: Supermercado, Combustível, Restaurante"
+                    tipoDespesa === 'previsivel' ? "Ex: Aluguel, Financiamento, Plano de saúde" :
+                    tipoDespesa === 'parcelada' ? "Ex: Geladeira, Viagem, Curso" :
+                    "Ex: Presente, Reparo, Compra pontual"
                   }
                   value={formData.descricao}
                   onChange={handleInputChange}
                   disabled={submitting}
-                  className={`form-input ${errors.descricao ? 'error' : ''}`}
+                  className={`form-input descricao-input ${errors.descricao ? 'error' : ''}`}
                 />
                 {errors.descricao && <div className="form-error">{errors.descricao}</div>}
               </div>
 
-              {/* Categoria */}
-              <div className="form-field-group">
-                <label className="form-label">
-                  <Tag size={14} />
-                  Categoria *
-                </label>
-                <div className="form-dropdown-wrapper">
-                  <input
-                    type="text"
-                    value={formData.categoriaTexto}
-                    onChange={handleCategoriaChange}
-                    onBlur={handleCategoriaBlur}
-                    onFocus={() => setCategoriaDropdownOpen(true)}
-                    placeholder="Digite ou selecione uma categoria"
-                    disabled={submitting}
-                    autoComplete="off"
-                    className={`form-input ${errors.categoria ? 'error' : ''}`}
-                  />
-                  <Search size={14} className="form-dropdown-icon" />
-                  
-                  {categoriaDropdownOpen && categoriasFiltradas.length > 0 && (
-                    <div className="form-dropdown-options">
-                      {categoriasFiltradas.map(categoria => (
-                        <div
-                          key={categoria.id}
-                          className="form-dropdown-option"
-                          onMouseDown={() => handleSelecionarCategoria(categoria)}
-                        >
-                          <div 
-                            className="category-color"
-                            style={{ backgroundColor: categoria.cor || '#ef4444' }}
-                          />
-                          {categoria.nome}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+              {/* CATEGORIA */}
+              <div className="form-row categorias-row">
+                <div className="form-field categoria-field">
+                  <label className="form-label">
+                    <Tag size={14} />
+                    Categoria *
+                  </label>
+                  <div className="form-dropdown-wrapper">
+                    <input
+                      type="text"
+                      value={formData.categoriaTexto}
+                      onChange={handleCategoriaChange}
+                      onBlur={handleCategoriaBlur}
+                      onFocus={() => setCategoriaDropdownOpen(true)}
+                      onKeyDown={handleCategoriaKeyDown}
+                      placeholder="Digite ou selecione uma categoria"
+                      disabled={submitting}
+                      autoComplete="off"
+                      className={`form-input categoria-input ${errors.categoria ? 'error' : ''}`}
+                    />
+                    <Search size={14} className="form-dropdown-icon" />
+                    
+                    {categoriaDropdownOpen && categoriasFiltradas.length > 0 && (
+                      <div className="form-dropdown-options">
+                        {categoriasFiltradas.map((categoria, index) => (
+                          <div
+                            key={categoria.id}
+                            className={`form-dropdown-option despesa-context ${
+                              index === categoriaSelectedIndex ? 'selected' : ''
+                            }`}
+                            onMouseDown={() => handleSelecionarCategoria(categoria)}
+                            onMouseEnter={() => setCategoriaSelectedIndex(index)}
+                          >
+                            <div 
+                              className="category-color"
+                              style={{ backgroundColor: categoria.cor || '#ef4444' }}
+                            />
+                            {categoria.nome}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {errors.categoria && <div className="form-error">{errors.categoria}</div>}
                 </div>
-                {errors.categoria && <div className="form-error">{errors.categoria}</div>}
-              </div>
 
-              {/* Subcategoria */}
-              {categoriaSelecionada && (
-                <div className="form-field-group">
+                <div className="form-field subcategoria-field">
                   <label className="form-label">
                     <Tag size={14} />
                     Subcategoria <small>({subcategoriasDaCategoria.length} disponíveis)</small>
@@ -1111,20 +1217,24 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                       onChange={handleSubcategoriaChange}
                       onBlur={handleSubcategoriaBlur}
                       onFocus={() => setSubcategoriaDropdownOpen(true)}
+                      onKeyDown={handleSubcategoriaKeyDown}
                       placeholder="Digite ou selecione uma subcategoria"
-                      disabled={submitting}
+                      disabled={submitting || !categoriaSelecionada}
                       autoComplete="off"
-                      className="form-input"
+                      className="form-input subcategoria-input"
                     />
                     <Search size={14} className="form-dropdown-icon" />
                     
                     {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
                       <div className="form-dropdown-options">
-                        {subcategoriasFiltradas.map(subcategoria => (
+                        {subcategoriasFiltradas.map((subcategoria, index) => (
                           <div
                             key={subcategoria.id}
-                            className="form-dropdown-option"
+                            className={`form-dropdown-option ${
+                              index === subcategoriaSelectedIndex ? 'selected' : ''
+                            }`}
                             onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
+                            onMouseEnter={() => setSubcategoriaSelectedIndex(index)}
                           >
                             {subcategoria.nome}
                           </div>
@@ -1133,33 +1243,107 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                     )}
                   </div>
                 </div>
-              )}
-
-              {/* Conta */}
-              <div className="form-field-group">
-                <label className="form-label">
-                  <Building size={14} />
-                  Conta de Débito *
-                </label>
-                <select
-                  name="conta"
-                  value={formData.conta}
-                  onChange={handleInputChange}
-                  disabled={submitting}
-                  className={`form-input ${errors.conta ? 'error' : ''}`}
-                >
-                  <option value="">Selecione uma conta</option>
-                  {contasAtivas.map(conta => (
-                    <option key={conta.id} value={conta.id}>
-                      {conta.nome} - {formatCurrency(conta.saldo_atual || conta.saldo || 0)}
-                    </option>
-                  ))}
-                </select>
-                {errors.conta && <div className="form-error">{errors.conta}</div>}
               </div>
 
-              {/* Observações */}
-              <div className="form-field-group">
+              {/* CARTÃO OU CONTA */}
+              <div className="form-section pagamento-section">
+                <label className="form-label">
+                  <Building size={14} />
+                  Como vai pagar?
+                </label>
+                <div className="form-radio-group pagamento-radio">
+                  <label className={`form-radio-option ${!formData.usarCartao ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="usarCartao"
+                      checked={!formData.usarCartao}
+                      onChange={() => handleInputChange({ target: { name: 'usarCartao', type: 'checkbox', checked: false }})}
+                      disabled={submitting}
+                    />
+                    <Building size={16} />
+                    <div>
+                      <div>Débito/Dinheiro</div>
+                      <small>Sai da conta na hora</small>
+                    </div>
+                  </label>
+                  <label className={`form-radio-option ${formData.usarCartao ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="usarCartao"
+                      checked={formData.usarCartao}
+                      onChange={() => handleInputChange({ target: { name: 'usarCartao', type: 'checkbox', checked: true }})}
+                      disabled={submitting}
+                    />
+                    <CreditCard size={16} />
+                    <div>
+                      <div>Cartão de Crédito</div>
+                      <small>Paga na fatura</small>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* CONTA OU CARTÃO ESPECÍFICO */}
+              {!formData.usarCartao ? (
+                <div className="form-field conta-field">
+                  <label className="form-label">
+                    <Building size={14} />
+                    Conta de Débito *
+                  </label>
+                  <select
+                    name="conta"
+                    value={formData.conta}
+                    onChange={handleInputChange}
+                    disabled={submitting}
+                    className={`form-input conta-select ${errors.conta ? 'error' : ''}`}
+                  >
+                    <option value="">Selecione uma conta</option>
+                    {contasAtivas.map(conta => (
+                      <option key={conta.id} value={conta.id}>
+                        {conta.nome} - {formatCurrency(conta.saldo || 0)}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.conta && <div className="form-error">{errors.conta}</div>}
+                  
+                  {contasAtivas.length === 0 && (
+                    <div className="form-info">
+                      <small>Nenhuma conta ativa encontrada. Crie uma conta primeiro.</small>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="form-field cartao-field">
+                  <label className="form-label">
+                    <CreditCard size={14} />
+                    Cartão de Crédito *
+                  </label>
+                  <select
+                    name="cartao"
+                    value={formData.cartao}
+                    onChange={handleInputChange}
+                    disabled={submitting}
+                    className={`form-input cartao-select ${errors.cartao ? 'error' : ''}`}
+                  >
+                    <option value="">Selecione um cartão</option>
+                    {cartoesAtivos.map(cartao => (
+                      <option key={cartao.id} value={cartao.id}>
+                        {cartao.nome} - Limite: {formatCurrency(cartao.limite || 0)}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.cartao && <div className="form-error">{errors.cartao}</div>}
+                  
+                  {cartoesAtivos.length === 0 && (
+                    <div className="form-info">
+                      <small>Nenhum cartão ativo encontrado. Crie um cartão primeiro.</small>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* OBSERVAÇÕES */}
+              <div className="form-field observacoes-field">
                 <label className="form-label">
                   <FileText size={14} />
                   Observações <small>(máx. 300)</small>
@@ -1172,7 +1356,7 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                   rows="2"
                   disabled={submitting}
                   maxLength="300"
-                  className={`form-input form-textarea ${errors.observacoes ? 'error' : ''}`}
+                  className={`form-input form-textarea observacoes-textarea ${errors.observacoes ? 'error' : ''}`}
                 />
                 <div className="form-char-counter">
                   <span></span>
@@ -1183,26 +1367,25 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                 {errors.observacoes && <div className="form-error">{errors.observacoes}</div>}
               </div>
 
-              {/* Ações */}
-              <div className="form-actions">
+              {/* AÇÕES */}
+              <div className="form-actions despesas-actions">
                 <button
                   type="button"
                   onClick={handleCancelar}
                   disabled={submitting}
-                  className="form-btn form-btn-secondary"
+                  className="form-btn form-btn-secondary cancelar-btn"
                 >
                   Cancelar
                 </button>
                 
-                {/* ✅ Botão "Continuar Adicionando" apenas no modo criação */}
                 {!isEditMode && (
                   <button
                     type="button"
                     onClick={(e) => handleSubmit(e, true)}
                     disabled={submitting}
-                    className="form-btn form-btn-secondary"
+                    className="form-btn form-btn-tertiary continuar-btn"
                     style={{ 
-                      background: '#dc2626',
+                      background: corAtual,
                       color: 'white',
                       border: 'none'
                     }}
@@ -1224,13 +1407,16 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className={`form-btn form-btn-primary ${tipoDespesa === 'parcelada' ? 'cartao' : 'despesa'}`}
+                  className={`form-btn form-btn-primary adicionar-btn despesa-${tipoDespesa}`}
+                  style={{
+                    background: corAtual
+                  }}
                 >
                   {submitting ? (
                     <>
                       <div className="form-spinner"></div>
                       {isEditMode ? 'Atualizando...' :
-                       tipoDespesa === 'recorrente' ? `Criando ${formData.totalRecorrencias} despesas...` : 
+                       tipoDespesa === 'previsivel' ? `Criando ${formData.totalRecorrencias} despesas...` :
                        tipoDespesa === 'parcelada' ? `Criando ${formData.numeroParcelas} parcelas...` :
                        'Salvando...'}
                     </>
@@ -1238,9 +1424,9 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                     <>
                       {isEditMode ? <Edit size={14} /> : <Plus size={14} />}
                       {isEditMode ? 'Atualizar Despesa' :
-                       tipoDespesa === 'recorrente' ? `Criar ${formData.totalRecorrencias} Despesas` : 
+                       tipoDespesa === 'previsivel' ? `Criar ${formData.totalRecorrencias} Despesas` :
                        tipoDespesa === 'parcelada' ? `Parcelar em ${formData.numeroParcelas}x` :
-                       'Adicionar Despesa'}
+                       'Adicionar Despesa Extra'}
                     </>
                   )}
                 </button>
@@ -1271,6 +1457,7 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
               <button 
                 onClick={handleConfirmarCriacao}
                 className="form-btn form-btn-primary despesa"
+                style={{ background: '#EF4444' }}
               >
                 Criar {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
               </button>
@@ -1286,7 +1473,7 @@ DespesasModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   onSave: PropTypes.func,
-  transacaoEditando: PropTypes.object // ✅ Nova prop para edição
+  transacaoEditando: PropTypes.object
 };
 
 export default React.memo(DespesasModal);
