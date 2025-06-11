@@ -1,0 +1,241 @@
+/* src/modules/diagnostico/components/OptionCard.css */
+.option-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  background-color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.option-card:hover:not(.option-card--disabled) {
+  border-color: #d1d5db;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.option-card:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Selected state */
+.option-card--selected {
+  border-color: #ef4444;
+  background-color: #fef2f2;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+}
+
+.option-card--selected:hover {
+  border-color: #dc2626;
+  background-color: #fee2e2;
+}
+
+/* Disabled state */
+.option-card--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #f9fafb;
+}
+
+/* Sizes */
+.option-card--small {
+  padding: 0.75rem;
+  gap: 0.75rem;
+}
+
+.option-card--medium {
+  padding: 1rem;
+  gap: 1rem;
+}
+
+.option-card--large {
+  padding: 1.5rem;
+  gap: 1.25rem;
+}
+
+/* Color variants */
+.option-card--blue.option-card--selected {
+  border-color: #3b82f6;
+  background-color: #eff6ff;
+}
+
+.option-card--green.option-card--selected {
+  border-color: #10b981;
+  background-color: #ecfdf5;
+}
+
+.option-card--red.option-card--selected {
+  border-color: #ef4444;
+  background-color: #fef2f2;
+}
+
+.option-card--orange.option-card--selected {
+  border-color: #f59e0b;
+  background-color: #fffbeb;
+}
+
+.option-card--purple.option-card--selected {
+  border-color: #8b5cf6;
+  background-color: #f5f3ff;
+}
+
+.option-card--pink.option-card--selected {
+  border-color: #ec4899;
+  background-color: #fdf2f8;
+}
+
+.option-card--gray.option-card--selected {
+  border-color: #6b7280;
+  background-color: #f9fafb;
+}
+
+/* Icon */
+.option-card__icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background-color: #f3f4f6;
+}
+
+.option-card--small .option-card__icon {
+  width: 40px;
+  height: 40px;
+}
+
+.option-card--large .option-card__icon {
+  width: 56px;
+  height: 56px;
+}
+
+.option-card__emoji {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.option-card--small .option-card__emoji {
+  font-size: 1.25rem;
+}
+
+.option-card--large .option-card__emoji {
+  font-size: 1.75rem;
+}
+
+/* Content */
+.option-card__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.option-card__title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.25rem 0;
+  line-height: 1.3;
+}
+
+.option-card--large .option-card__title {
+  font-size: 1.125rem;
+}
+
+.option-card__description {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.option-card__subtitle {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin: 0.25rem 0 0 0;
+  line-height: 1.3;
+  font-style: italic;
+}
+
+/* Check mark */
+.option-card__check {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: #ef4444;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+}
+
+.option-card--blue .option-card__check {
+  background-color: #3b82f6;
+}
+
+.option-card--green .option-card__check {
+  background-color: #10b981;
+}
+
+.option-card--orange .option-card__check {
+  background-color: #f59e0b;
+}
+
+.option-card--purple .option-card__check {
+  background-color: #8b5cf6;
+}
+
+.option-card--pink .option-card__check {
+  background-color: #ec4899;
+}
+
+.option-card--gray .option-card__check {
+  background-color: #6b7280;
+}
+
+/* Grid layouts */
+.option-cards-grid {
+  display: grid;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.option-cards-grid.single-column {
+  grid-template-columns: 1fr;
+}
+
+.option-cards-grid.two-columns {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .option-cards-grid.two-columns {
+    grid-template-columns: 1fr;
+  }
+  
+  .option-card {
+    padding: 1rem;
+  }
+  
+  .option-card__icon {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .option-card__title {
+    font-size: 0.95rem;
+  }
+  
+  .option-card__description {
+    font-size: 0.8rem;
+  }
+}

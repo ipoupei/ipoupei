@@ -1,0 +1,353 @@
+/* src/shared/components/widgets/DiagnosticoWidget.css */
+
+/* ===== WIDGET BASE ===== */
+.diagnostico-widget {
+  background: white;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+  transition: all 0.3s ease;
+}
+
+.diagnostico-widget:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+/* ===== HEADER ===== */
+.widget-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.widget-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.diagnostico-widget.completo .widget-icon {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+}
+
+.widget-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+
+/* ===== CONTEÚDO ===== */
+.widget-content {
+  margin-bottom: 1.5rem;
+}
+
+.widget-description {
+  color: #64748b;
+  line-height: 1.5;
+  margin: 0 0 1rem 0;
+  font-size: 0.875rem;
+}
+
+/* ===== BENEFÍCIOS MINI ===== */
+.beneficios-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.beneficio-mini {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: #475569;
+}
+
+.beneficio-icone {
+  font-size: 0.875rem;
+}
+
+/* ===== RESULTADO RESUMO ===== */
+.diagnostico-resultado-resumo {
+  text-align: center;
+}
+
+.situacao-badge {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.situacao-badge.critico {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.situacao-badge.atencao {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  color: #d97706;
+  border: 1px solid #fcd34d;
+}
+
+.situacao-badge.bom {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  color: #059669;
+  border: 1px solid #bbf7d0;
+}
+
+.situacao-badge.equilibrado {
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.situacao-descricao {
+  font-size: 0.8125rem;
+  color: #64748b;
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* ===== AÇÕES ===== */
+.widget-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.btn-iniciar-diagnostico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  color: white;
+  padding: 0.875rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.btn-iniciar-diagnostico:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-ver-resultados {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border: none;
+  color: white;
+  padding: 0.875rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.btn-ver-resultados:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.btn-refazer {
+  background: transparent;
+  border: 1px solid #d1d5db;
+  color: #6b7280;
+  padding: 0.625rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-refazer:hover {
+  background: #f9fafb;
+  color: #374151;
+  border-color: #9ca3af;
+}
+
+/* ===== VARIAÇÕES DO WIDGET ===== */
+.diagnostico-widget.inicial {
+  border-left: 4px solid #667eea;
+}
+
+.diagnostico-widget.completo {
+  border-left: 4px solid #10b981;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .diagnostico-widget {
+    padding: 1.25rem;
+  }
+  
+  .widget-header {
+    margin-bottom: 0.875rem;
+  }
+  
+  .widget-icon {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .widget-title {
+    font-size: 1rem;
+  }
+  
+  .widget-content {
+    margin-bottom: 1.25rem;
+  }
+  
+  .beneficios-mini {
+    gap: 0.375rem;
+  }
+  
+  .beneficio-mini {
+    font-size: 0.75rem;
+  }
+  
+  .widget-actions {
+    gap: 0.625rem;
+  }
+  
+  .btn-iniciar-diagnostico,
+  .btn-ver-resultados {
+    padding: 0.75rem;
+    font-size: 0.8125rem;
+  }
+  
+  .btn-refazer {
+    padding: 0.5rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* ===== DARK MODE ===== */
+@media (prefers-color-scheme: dark) {
+  .diagnostico-widget {
+    background: #1e293b;
+    border-color: #475569;
+    color: #f1f5f9;
+  }
+  
+  .widget-title {
+    color: #f1f5f9;
+  }
+  
+  .widget-description {
+    color: #cbd5e1;
+  }
+  
+  .beneficio-mini {
+    color: #cbd5e1;
+  }
+  
+  .situacao-descricao {
+    color: #cbd5e1;
+  }
+  
+  .btn-refazer {
+    border-color: #64748b;
+    color: #cbd5e1;
+  }
+  
+  .btn-refazer:hover {
+    background: #475569;
+    color: #f1f5f9;
+    border-color: #94a3b8;
+  }
+}
+
+/* ===== ACCESSIBILITY ===== */
+.btn-iniciar-diagnostico:focus,
+.btn-ver-resultados:focus,
+.btn-refazer:focus {
+  outline: 3px solid rgba(102, 126, 234, 0.5);
+  outline-offset: 2px;
+}
+
+/* ===== HIGH CONTRAST ===== */
+@media (prefers-contrast: high) {
+  .diagnostico-widget {
+    border-width: 2px;
+  }
+  
+  .situacao-badge {
+    border-width: 2px;
+  }
+  
+  .btn-iniciar-diagnostico,
+  .btn-ver-resultados {
+    border: 2px solid transparent;
+  }
+  
+  .btn-refazer {
+    border-width: 2px;
+  }
+}
+
+/* ===== REDUCED MOTION ===== */
+@media (prefers-reduced-motion: reduce) {
+  .diagnostico-widget:hover,
+  .btn-iniciar-diagnostico:hover,
+  .btn-ver-resultados:hover {
+    transform: none;
+  }
+}
+
+/* ===== LOADING STATES ===== */
+.btn-iniciar-diagnostico:disabled,
+.btn-ver-resultados:disabled,
+.btn-refazer:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ===== ANIMAÇÕES ===== */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.diagnostico-widget {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+.situacao-badge {
+  animation: fadeInUp 0.6s ease-out 0.1s both;
+}
+
+.situacao-descricao {
+  animation: fadeInUp 0.6s ease-out 0.2s both;
+}

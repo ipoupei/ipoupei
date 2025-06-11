@@ -1,5 +1,3 @@
-/**src\routes\AppRoutes.jsx */
-
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from '@modules/auth/pages/Login';
@@ -13,15 +11,16 @@ import RelatorioEvolucao from '@modules/relatorios/components/RelatorioEvolucao.
 import RelatorioProjecao from '@modules/relatorios/components/RelatorioProjecao.jsx';
 import AuthCallback from '@modules/auth/pages/AuthCallback';
 import ProtectedRoute from '@modules/auth/components/ProtectedRoute';
-import FaturasRoute from '@routes/FaturasRoute';
 import MainLayout from '@shared/components/layouts/MainLayout';
+import DiagnosticoEmocionalMain from '@modules/diagnostico/DiagnosticoEmocionalMain';
+import DiagnosticoEmocionalRouter from '@modules/diagnostico/router/DiagnosticoEmocionalRouter';
 
-// PÁGINA SIMPLES DE CONTAS - SEM COMPLICAÇÃO
-import DiagnosticoPage from '../modules/diagnostico/pages/DiagnosticoPage';
 
 /**
  * Componente para gerenciar as rotas da aplicação
- * LIMPO - Removidas todas as importações bugadas do diagnóstico
+ * ATUALIZADO: Integração com MainLayout para rotas principais
+ * NOVO: Rota /susto-consciente para diagnóstico emocional
+ * Rotas especiais (login, reset, callback) ficam fora do layout
  */
 const AppRoutes = () => {
   return (
@@ -31,6 +30,16 @@ const AppRoutes = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        
+        {/* Diagnóstico Emocional "Susto Consciente" - FORA do MainLayout para experiência full-screen */}
+        <Route 
+          path="/susto-consciente/*" 
+          element={
+            <ProtectedRoute>
+              <DiagnosticoEmocionalMain />
+            </ProtectedRoute>
+          } 
+        />
         
         {/* Rotas principais - COM MainLayout */}
         <Route 
@@ -45,15 +54,11 @@ const AppRoutes = () => {
           <Route index element={<Dashboard />} />
           <Route path="dashboard" element={<Dashboard />} />
 
-          {/* PÁGINA SIMPLES DE CONTAS - NOVA ROTA LIMPA */}
-          <Route path="/diagnostico" element={<DiagnosticoPage />} />
+          {/* Diagnóstico original */}
+          <Route path="/susto-consciente/*" element={<DiagnosticoEmocionalRouter />} />
 
-          
           {/* Transações */}
           <Route path="transacoes" element={<TransacoesPage />} />
-          
-          {/* Faturas */}
-          <Route path="faturas/*" element={<FaturasRoute />} />
           
           {/* Relatórios */}
           <Route path="relatorios" element={<RelatoriosHome />} />
