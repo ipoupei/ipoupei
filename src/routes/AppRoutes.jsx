@@ -14,6 +14,9 @@ import ProtectedRoute from '@modules/auth/components/ProtectedRoute';
 import MainLayout from '@shared/components/layouts/MainLayout';
 import DiagnosticoEmocionalMain from '@modules/diagnostico/DiagnosticoEmocionalMain';
 import DiagnosticoEmocionalRouter from '@modules/diagnostico/router/DiagnosticoEmocionalRouter';
+import DiagnosticoRoute from './DiagnosticoRoute';
+
+
 
 
 /**
@@ -50,6 +53,14 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         >
+          <Route 
+          path="/diagnostico" 
+          element={
+            <ProtectedRoute>
+              <DiagnosticoRoute />
+            </ProtectedRoute>
+          } 
+        />
           {/* Dashboard */}
           <Route index element={<Dashboard />} />
           <Route path="dashboard" element={<Dashboard />} />
