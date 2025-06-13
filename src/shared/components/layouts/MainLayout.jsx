@@ -121,6 +121,7 @@ const QuickActions = React.memo(({
   return (
     <section className="quick-actions">
       <div className="actions-container">
+
         <button 
           className="action-button dashboard"
           onClick={onNavigateDashboard}
@@ -130,13 +131,13 @@ const QuickActions = React.memo(({
           <span>Dashboard</span>
         </button>
         <button 
-          className="action-button transacoes"
-          onClick={onNavigateTransacoes}
-          data-tooltip="Transações"
-        >
-          <List size={isScrolled ? 16 : 20} />
-          <span>Transações</span>
-        </button>
+            className="action-button contas"
+            onClick={onOpenContas}
+          >
+            <Wallet size={16} />
+            Minhas Contas
+          </button>        
+
 
         <button 
           className="action-button receita"
@@ -144,7 +145,7 @@ const QuickActions = React.memo(({
           data-tooltip="Receitas"
         >
           <ArrowUpCircle size={isScrolled ? 16 : 20} />
-          <span>Receitas</span>
+          <span>Novas Receitas</span>
         </button>
 
         <button 
@@ -153,7 +154,7 @@ const QuickActions = React.memo(({
           data-tooltip="Despesas"
         >
           <ArrowDownCircle size={isScrolled ? 16 : 20} />
-          <span>Despesas</span>
+          <span>Novas Despesas</span>
         </button>
 
         <button 
@@ -162,7 +163,7 @@ const QuickActions = React.memo(({
           data-tooltip="Cartão"
         >
           <CreditCard size={isScrolled ? 16 : 20} />
-          <span>Cartão</span>
+          <span>Despesas Cartão</span>
         </button>
 
         <button 
@@ -173,7 +174,14 @@ const QuickActions = React.memo(({
           <ArrowLeftRight size={isScrolled ? 16 : 20} />
           <span>Transferir</span>
         </button>
-
+        <button 
+          className="action-button transacoes"
+          onClick={onNavigateTransacoes}
+          data-tooltip="Transações"
+        >
+          <List size={isScrolled ? 16 : 20} />
+          <span>Minhas Transações</span>
+        </button>
         <button 
           className="action-button mais"
           onClick={onToggleMaisMenu}
@@ -186,13 +194,7 @@ const QuickActions = React.memo(({
 
       {showMaisMenu && (
         <div className="mais-menu">
-          <button 
-            className="mais-menu-item"
-            onClick={onOpenContas}
-          >
-            <Wallet size={16} />
-            Minhas Contas
-          </button>
+
           <button 
             className="mais-menu-item"
             onClick={onOpenCartoes}

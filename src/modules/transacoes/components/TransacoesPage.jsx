@@ -1,4 +1,3 @@
-// src/pages/TransacoesPage.jsx - Versão Otimizada com Consultas no Banco
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -8,7 +7,10 @@ import {
   Activity, CreditCard, Wallet,
   Edit, Trash2, CheckCircle, Clock,
   Plus, X, ChevronLeft, ChevronRight,
-  ArrowUpDown, ArrowUpIcon, ArrowDownIcon
+  ArrowUpDown, ArrowUpIcon, ArrowDownIcon,
+  Layers, Layers3, Filter, MoreHorizontal,
+  TrendingUp, TrendingDown, Calendar, Info,
+  FileText, Users, Target, Zap
 } from 'lucide-react';
 
 // Hooks
@@ -19,6 +21,9 @@ import { useUIStore } from '@store/uiStore';
 import { formatCurrency } from '@utils/formatCurrency';
 import { supabase } from '@lib/supabaseClient';
 
+// Componentes
+import ToolTip from '@shared/components/ui/ToolTip';
+
 // Modais
 import ReceitasModal from '@modules/transacoes/components/ReceitasModal';
 import DespesasModal from '@modules/transacoes/components/DespesasModal';
@@ -26,7 +31,7 @@ import DespesasCartaoModal from '@modules/transacoes/components/DespesasCartaoMo
 import TransferenciasModal from '@modules/transacoes/components/TransferenciasModal';
 
 // Estilos
-import '@modules/transacoes/styles/TransacoesPage.css';
+import '@modules/transacoes/styles/Transacoes.css';
 
 const TransacoesPage = () => {
   const { user } = useAuth();
@@ -34,6 +39,9 @@ const TransacoesPage = () => {
   
   // Estado para mostrar filtros
   const [showFilters, setShowFilters] = useState(false);
+
+  // Estado para agrupamento de cartão
+  const [agruparCartao, setAgruparCartao] = useState(false);
 
   // Estados para dados de referência
   const [categorias, setCategorias] = useState([]);
@@ -57,7 +65,7 @@ const TransacoesPage = () => {
   // Estado para edição
   const [transacaoEditando, setTransacaoEditando] = useState(null);
 
-  // Estados para período (navegação flexível)
+  // Estados para período
   const [periodoAtual, setPeriodoAtual] = useState(new Date());
   const [periodoPersonalizado, setPeriodoPersonalizado] = useState({
     ativo: false,
@@ -65,13 +73,13 @@ const TransacoesPage = () => {
     dataFim: ''
   });
 
-  // Filtros com suporte a status e ordenação expandida
+  // Filtros
   const [filters, setFilters] = useState({
     tipo: 'todas',
     categoriaId: '',
     contaId: '',
     cartaoId: '',
-    status: 'todas', // 'todas', 'efetivadas', 'pendentes'
+    status: 'todas',
     ordenacao: 'data',
     direcaoOrdenacao: 'desc'
   });
@@ -83,7 +91,7 @@ const TransacoesPage = () => {
     totalPaginas: 0
   });
 
-  // Calcular período atual (mês ou personalizado)
+  // Calcular período atual
   const periodoCalculado = useMemo(() => {
     if (periodoPersonalizado.ativo && periodoPersonalizado.dataInicio && periodoPersonalizado.dataFim) {
       return {
@@ -105,9 +113,9 @@ const TransacoesPage = () => {
     };
   }, [periodoAtual, periodoPersonalizado]);
 
-  // Navegação de período (sempre reseta para mês inteiro)
+  // Navegação de período
   const navegarPeriodo = useCallback((direcao) => {
-    setPeriodoPersonalizado({ ativo: false, dataInicio: '', dataFim: '' }); // Desativa período personalizado
+    setPeriodoPersonalizado({ ativo: false, dataInicio: '', dataFim: '' });
     setPeriodoAtual(prev => {
       if (direcao === 'anterior') {
         return subMonths(prev, 1);
@@ -124,29 +132,11 @@ const TransacoesPage = () => {
     setPaginacao(prev => ({ ...prev, pagina: 1 }));
   }, []);
 
-  // ✅ NOVO: Ativar período personalizado
-  const ativarPeriodoPersonalizado = useCallback((dataInicio, dataFim) => {
-    setPeriodoPersonalizado({
-      ativo: true,
-      dataInicio,
-      dataFim
-    });
-    setPaginacao(prev => ({ ...prev, pagina: 1 }));
-  }, []);
-
-  // ✅ NOVO: Resetar para período mensal
-  const resetarParaPeriodoMensal = useCallback(() => {
-    setPeriodoPersonalizado({ ativo: false, dataInicio: '', dataFim: '' });
-    setPaginacao(prev => ({ ...prev, pagina: 1 }));
-  }, []);
-
-  // Buscar dados básicos usando as tabelas otimizadas
+  // Buscar dados básicos
   const fetchBasicData = useCallback(async () => {
     if (!user?.id) return;
 
     try {
-      console.log('📊 Buscando dados básicos...');
-
       const [categoriasRes, contasRes, cartoesRes] = await Promise.all([
         supabase
           .from('categorias')
@@ -164,7 +154,7 @@ const TransacoesPage = () => {
         
         supabase
           .from('cartoes')
-          .select('id, nome, bandeira')
+          .select('id, nome, bandeira, limite')
           .eq('usuario_id', user.id)
           .eq('ativo', true)
           .order('nome')
@@ -174,27 +164,62 @@ const TransacoesPage = () => {
       setContas(contasRes.data || []);
       setCartoes(cartoesRes.data || []);
 
-      console.log('✅ Dados básicos carregados:', {
-        categorias: categoriasRes.data?.length || 0,
-        contas: contasRes.data?.length || 0,
-        cartoes: cartoesRes.data?.length || 0
-      });
-
     } catch (error) {
       console.error('❌ Erro ao buscar dados básicos:', error);
       showNotification('Erro ao carregar dados básicos', 'error');
     }
   }, [user?.id, showNotification]);
 
-  // Função otimizada para buscar transações com filtros no banco
+  // Função para agrupar faturas de cartão
+  const agruparFaturasCartao = useCallback((transacoesList) => {
+    if (!agruparCartao) return transacoesList;
+
+    const faturasMap = new Map();
+    const transacoesNaoCartao = [];
+
+    transacoesList.forEach(transacao => {
+      if (transacao.cartao_id && transacao.fatura_vencimento) {
+        const chave = `${transacao.cartao_id}_${transacao.fatura_vencimento}`;
+        
+        if (!faturasMap.has(chave)) {
+          faturasMap.set(chave, {
+            id: `fatura_${transacao.cartao_id}_${transacao.fatura_vencimento}`,
+            tipo: 'despesa',
+            descricao: `Fatura ${transacao.cartao?.nome || 'Cartão'}`,
+            valor: 0,
+            dataExibicao: transacao.fatura_vencimento,
+            data: transacao.fatura_vencimento,
+            fatura_vencimento: transacao.fatura_vencimento,
+            cartao_id: transacao.cartao_id,
+            cartao: transacao.cartao,
+            categoria: { nome: 'Fatura Cartão', cor: '#8B5CF6' },
+            conta: transacao.conta,
+            efetivado: true,
+            isFaturaAgrupada: true,
+            transacoesAgrupadas: [],
+            created_at: transacao.created_at
+          });
+        }
+
+        const fatura = faturasMap.get(chave);
+        fatura.valor += transacao.valor;
+        fatura.transacoesAgrupadas.push(transacao);
+      } else {
+        transacoesNaoCartao.push(transacao);
+      }
+    });
+
+    const faturasAgrupadas = Array.from(faturasMap.values());
+    return [...faturasAgrupadas, ...transacoesNaoCartao];
+  }, [agruparCartao]);
+
+  // Buscar transações
   const fetchTransacoes = useCallback(async () => {
     if (!user?.id) return;
 
     try {
       setLoading(true);
-      console.log('🔍 Buscando transações do período:', periodoCalculado);
       
-      // Construir query base - EXCLUINDO transferências internas
       let query = supabase
         .from('transacoes')
         .select(`
@@ -204,119 +229,77 @@ const TransacoesPage = () => {
           created_at, updated_at
         `, { count: 'exact' })
         .eq('usuario_id', user.id)
-        .gte('data', periodoCalculado.inicio)
-        .lte('data', periodoCalculado.fim)
-        .neq('transferencia', true); // ✅ EXCLUIR transferências internas
+        .neq('transferencia', true);
 
-      // Aplicar filtros no banco
+      // Filtrar por período
+      query = query.or(
+        `and(cartao_id.not.is.null,fatura_vencimento.gte.${periodoCalculado.inicio},fatura_vencimento.lte.${periodoCalculado.fim}),` +
+        `and(cartao_id.is.null,data.gte.${periodoCalculado.inicio},data.lte.${periodoCalculado.fim})`
+      );
+
+      // Aplicar filtros
       if (filters.tipo !== 'todas') {
         query = query.eq('tipo', filters.tipo);
       }
-
       if (filters.categoriaId) {
         query = query.eq('categoria_id', filters.categoriaId);
       }
-
       if (filters.contaId) {
         query = query.eq('conta_id', filters.contaId);
       }
-
       if (filters.cartaoId) {
         query = query.eq('cartao_id', filters.cartaoId);
       }
-
-      // ✅ NOVO: Filtro de status (efetivadas/pendentes)
       if (filters.status === 'efetivadas') {
         query = query.eq('efetivado', true);
       } else if (filters.status === 'pendentes') {
         query = query.eq('efetivado', false);
       }
-
-      // Busca textual no banco
       if (searchTerm.trim()) {
         query = query.or(`descricao.ilike.%${searchTerm}%,observacoes.ilike.%${searchTerm}%`);
       }
 
-      // ✅ NOVO: Ordenação expandida no banco (incluindo conta e categoria)
-      const isAscending = filters.direcaoOrdenacao === 'asc';
-      
-      switch (filters.ordenacao) {
-        case 'data':
-          query = query.order('data', { ascending: isAscending })
-                      .order('created_at', { ascending: !isAscending });
-          break;
-        case 'descricao':
-          query = query.order('descricao', { ascending: isAscending });
-          break;
-        case 'valor':
-          query = query.order('valor', { ascending: isAscending });
-          break;
-        case 'categoria':
-          // Ordenar por categoria_id e depois enriquecer com dados
-          query = query.order('categoria_id', { ascending: isAscending, nullsFirst: !isAscending });
-          break;
-        case 'conta':
-          // Ordenar por conta_id primeiro, depois cartao_id
-          query = query.order('conta_id', { ascending: isAscending, nullsFirst: !isAscending })
-                      .order('cartao_id', { ascending: isAscending, nullsFirst: !isAscending });
-          break;
-        case 'efetivado':
-          query = query.order('efetivado', { ascending: isAscending })
-                      .order('data', { ascending: !isAscending });
-          break;
-        default:
-          query = query.order('data', { ascending: false })
-                      .order('created_at', { ascending: false });
-      }
-
-      // Paginação
-      const offset = (paginacao.pagina - 1) * paginacao.itensPorPagina;
-      query = query.range(offset, offset + paginacao.itensPorPagina - 1);
+      // Ordenação
+      const campoOrdenacao = getOrderField(filters.ordenacao);
+      query = query.order(campoOrdenacao, { ascending: filters.direcaoOrdenacao === 'asc' });
 
       const { data, error, count } = await query;
-
       if (error) throw error;
       
-      // Enriquecer dados com informações de categoria, conta e cartão
+      // Enriquecer dados
       const enrichedData = (data || []).map(transacao => ({
         ...transacao,
         categoria: categorias.find(c => c.id === transacao.categoria_id),
         conta: contas.find(c => c.id === transacao.conta_id),
-        cartao: cartoes.find(c => c.id === transacao.cartao_id)
+        cartao: cartoes.find(c => c.id === transacao.cartao_id),
+        dataExibicao: transacao.cartao_id ? transacao.fatura_vencimento : transacao.data
       }));
 
-      // ✅ NOVO: Ordenação pós-processamento para categoria e conta (quando necessário)
-      let finalData = enrichedData;
-      
-      if (filters.ordenacao === 'categoria') {
-        finalData = enrichedData.sort((a, b) => {
-          const nomeA = a.categoria?.nome || '';
-          const nomeB = b.categoria?.nome || '';
-          const resultado = nomeA.localeCompare(nomeB);
-          return filters.direcaoOrdenacao === 'asc' ? resultado : -resultado;
-        });
-      } else if (filters.ordenacao === 'conta') {
-        finalData = enrichedData.sort((a, b) => {
-          const nomeA = a.cartao?.nome || a.conta?.nome || '';
-          const nomeB = b.cartao?.nome || b.conta?.nome || '';
-          const resultado = nomeA.localeCompare(nomeB);
-          return filters.direcaoOrdenacao === 'asc' ? resultado : -resultado;
-        });
+      // Aplicar agrupamento se necessário
+      const transacoesFinais = agruparFaturasCartao(enrichedData);
+
+      // Aplicar paginação no frontend se agrupado
+      if (agruparCartao) {
+        const startIndex = (paginacao.pagina - 1) * paginacao.itensPorPagina;
+        const endIndex = startIndex + paginacao.itensPorPagina;
+        const paginatedData = transacoesFinais.slice(startIndex, endIndex);
+        
+        setTransacoes(paginatedData);
+        setTotalTransacoes(transacoesFinais.length);
+        
+        const totalPaginas = Math.ceil(transacoesFinais.length / paginacao.itensPorPagina);
+        setPaginacao(prev => ({ ...prev, totalPaginas }));
+      } else {
+        // Aplicar paginação no backend se não agrupado
+        const offset = (paginacao.pagina - 1) * paginacao.itensPorPagina;
+        const paginatedData = enrichedData.slice(offset, offset + paginacao.itensPorPagina);
+        
+        setTransacoes(paginatedData);
+        setTotalTransacoes(count || 0);
+        
+        const totalPaginas = Math.ceil((count || 0) / paginacao.itensPorPagina);
+        setPaginacao(prev => ({ ...prev, totalPaginas }));
       }
-
-      setTransacoes(finalData);
-      setTotalTransacoes(count || 0);
-      
-      // Atualizar paginação
-      const totalPaginas = Math.ceil((count || 0) / paginacao.itensPorPagina);
-      setPaginacao(prev => ({ ...prev, totalPaginas }));
-
-      console.log('✅ Transações carregadas:', {
-        encontradas: enrichedData.length,
-        total: count,
-        pagina: paginacao.pagina,
-        totalPaginas
-      });
 
     } catch (error) {
       console.error('❌ Erro ao buscar transações:', error);
@@ -336,57 +319,63 @@ const TransacoesPage = () => {
     categorias, 
     contas, 
     cartoes, 
+    agruparFaturasCartao,
+    agruparCartao,
     showNotification
   ]);
 
-  // Carregar dados inicial
+  // Effects
   useEffect(() => {
     if (user?.id) {
       fetchBasicData();
     }
   }, [fetchBasicData]);
 
-  // Carregar transações quando necessário
   useEffect(() => {
-    if (user?.id && categorias.length > 0) {
+    if (user?.id && categorias.length >= 0) {
       fetchTransacoes();
     }
   }, [fetchTransacoes, user?.id, categorias.length]);
 
-  // ✅ NOVO: Handler para ordenação por clique no cabeçalho
-  const handleSort = useCallback((campo) => {
-    setFilters(prev => {
-      const novaOrdenacao = campo;
-      const novaDirecao = prev.ordenacao === campo && prev.direcaoOrdenacao === 'desc' 
-        ? 'asc' 
-        : 'desc';
-      
-      return {
-        ...prev,
-        ordenacao: novaOrdenacao,
-        direcaoOrdenacao: novaDirecao
-      };
-    });
-    
-    // Reset para primeira página ao ordenar
+  // Handlers
+  const handleToggleAgrupamento = useCallback(() => {
+    setAgruparCartao(prev => !prev);
     setPaginacao(prev => ({ ...prev, pagina: 1 }));
   }, []);
 
-  // Função para obter ícone de ordenação
+  const handleSort = useCallback((campo) => {
+    setFilters(prev => ({
+      ...prev,
+      ordenacao: campo,
+      direcaoOrdenacao: prev.ordenacao === campo && prev.direcaoOrdenacao === 'desc' ? 'asc' : 'desc'
+    }));
+    setPaginacao(prev => ({ ...prev, pagina: 1 }));
+  }, []);
+
+  // Função para mapear campos de ordenação
+  const getOrderField = useCallback((campo) => {
+    const fieldMap = {
+      'data': 'created_at',
+      'descricao': 'descricao',
+      'categoria': 'categoria_id',
+      'conta': 'conta_id',
+      'valor': 'valor'
+    };
+    return fieldMap[campo] || campo;
+  }, []);
+
   const getSortIcon = useCallback((campo) => {
     if (filters.ordenacao !== campo) {
       return <ArrowUpDown className="w-3 h-3 opacity-30" />;
     }
-    
     return filters.direcaoOrdenacao === 'asc' 
       ? <ArrowUpIcon className="w-3 h-3 text-blue-600" />
       : <ArrowDownIcon className="w-3 h-3 text-blue-600" />;
   }, [filters.ordenacao, filters.direcaoOrdenacao]);
 
-  // Handlers para filtros
   const handleFilterChange = useCallback((key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
-    setPaginacao(prev => ({ ...prev, pagina: 1 })); // Reset página ao filtrar
+    setPaginacao(prev => ({ ...prev, pagina: 1 }));
   }, []);
 
   const handleClearFilters = useCallback(() => {
@@ -403,7 +392,6 @@ const TransacoesPage = () => {
     setPaginacao(prev => ({ ...prev, pagina: 1 }));
   }, []);
 
-  // Função para verificar se há filtros ativos
   const hasActiveFilters = useCallback(() => {
     return (
       filters.tipo !== 'todas' ||
@@ -415,7 +403,6 @@ const TransacoesPage = () => {
     );
   }, [filters, searchTerm]);
 
-  // Função para contar filtros ativos
   const getActiveFiltersCount = useCallback(() => {
     let count = 0;
     if (filters.tipo !== 'todas') count++;
@@ -427,18 +414,15 @@ const TransacoesPage = () => {
     return count;
   }, [filters, searchTerm]);
 
-  // Handlers para paginação
   const handlePageChange = useCallback((novaPagina) => {
     setPaginacao(prev => ({ ...prev, pagina: novaPagina }));
   }, []);
 
-  // Handler para busca com debounce
   const handleSearchChange = useCallback((termo) => {
     setSearchTerm(termo);
     setPaginacao(prev => ({ ...prev, pagina: 1 }));
   }, []);
 
-  // Handlers para modais
   const handleOpenModal = useCallback((modalName) => {
     setModals(prev => ({ ...prev, [modalName]: true }));
   }, []);
@@ -449,16 +433,17 @@ const TransacoesPage = () => {
   }, []);
 
   const handleSaveModal = useCallback(() => {
-    fetchTransacoes(); // Recarrega transações
+    fetchTransacoes();
   }, [fetchTransacoes]);
 
-  // Editar transação
   const handleEditTransacao = useCallback((transacao) => {
-    console.log('🖊️ Editando transação:', transacao);
-    
+    if (transacao.isFaturaAgrupada) {
+      showNotification('Não é possível editar uma fatura agrupada. Desative o agrupamento para editar transações individuais.', 'warning');
+      return;
+    }
+
     setTransacaoEditando(transacao);
     
-    // Determina qual modal abrir baseado no tipo/características da transação
     if (transacao.tipo === 'receita') {
       handleOpenModal('receitas');
     } else if (transacao.tipo === 'despesa') {
@@ -468,16 +453,21 @@ const TransacoesPage = () => {
         handleOpenModal('despesas');
       }
     }
-  }, [handleOpenModal]);
+  }, [handleOpenModal, showNotification]);
 
-  const handleDeleteTransacao = useCallback(async (transacaoId) => {
+  const handleDeleteTransacao = useCallback(async (transacao) => {
+    if (transacao.isFaturaAgrupada) {
+      showNotification('Não é possível excluir uma fatura agrupada. Desative o agrupamento para excluir transações individuais.', 'warning');
+      return;
+    }
+
     if (!window.confirm('Tem certeza que deseja excluir esta transação?')) return;
 
     try {
       const { error } = await supabase
         .from('transacoes')
         .delete()
-        .eq('id', transacaoId)
+        .eq('id', transacao.id)
         .eq('usuario_id', user.id);
 
       if (error) throw error;
@@ -490,12 +480,17 @@ const TransacoesPage = () => {
     }
   }, [user.id, showNotification, fetchTransacoes]);
 
-  const handleMarkAsCompleted = useCallback(async (transacaoId) => {
+  const handleMarkAsCompleted = useCallback(async (transacao) => {
+    if (transacao.isFaturaAgrupada) {
+      showNotification('Esta é uma fatura agrupada que já está efetivada.', 'info');
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('transacoes')
         .update({ efetivado: true })
-        .eq('id', transacaoId)
+        .eq('id', transacao.id)
         .eq('usuario_id', user.id);
 
       if (error) throw error;
@@ -509,36 +504,108 @@ const TransacoesPage = () => {
     }
   }, [user.id, showNotification, fetchTransacoes]);
 
-  // Ícones helper
   const getTipoIcon = useCallback((tipo) => {
     switch (tipo) {
-      case 'receita': return <ArrowUp className="w-4 h-4 text-green-600" />;
-      case 'despesa': return <ArrowDown className="w-4 h-4 text-red-600" />;
-      case 'transferencia': return <ArrowLeftRight className="w-4 h-4 text-blue-600" />;
-      default: return <Activity className="w-4 h-4 text-gray-600" />;
+      case 'receita': return <TrendingUp className="w-4 h-4" />;
+      case 'despesa': return <TrendingDown className="w-4 h-4" />;
+      case 'transferencia': return <ArrowLeftRight className="w-4 h-4" />;
+      default: return <Activity className="w-4 h-4" />;
     }
   }, []);
 
   const getStatusIcon = useCallback((efetivada) => {
     return efetivada ? 
-      <CheckCircle className="w-4 h-4 text-green-600" /> : 
-      <Clock className="w-4 h-4 text-orange-600" />;
+      <CheckCircle className="w-3 h-3" /> : 
+      <Clock className="w-3 h-3" />;
   }, []);
+
+  // Função para formatar a exibição de recorrência
+  const formatRecorrencia = useCallback((transacao) => {
+    if (transacao.total_parcelas > 1) {
+      return `${transacao.parcela_atual}/${transacao.total_parcelas}`;
+    }
+    return null;
+  }, []);
+
+  // Componente de estado vazio melhorado
+  const EmptyState = () => (
+    <div className="transacoes-empty-improved">
+      <div className="empty-illustration">
+        <div className="empty-icon-container">
+          <FileText className="empty-main-icon" size={64} />
+          <div className="empty-floating-icons">
+            <TrendingUp className="floating-icon up" size={24} />
+            <TrendingDown className="floating-icon down" size={20} />
+            <CreditCard className="floating-icon card" size={18} />
+          </div>
+        </div>
+      </div>
+      
+      <div className="empty-content">
+        <h3>Nenhuma transação por aqui ainda!</h3>
+        <p>
+          {hasActiveFilters() 
+            ? 'Não encontramos transações com os filtros aplicados. Que tal ajustar a busca?'
+            : 'Comece registrando sua primeira transação e mantenha suas finanças organizadas.'
+          }
+        </p>
+      </div>
+
+      <div className="empty-actions">
+        <button
+          onClick={() => handleOpenModal('receitas')}
+          className="empty-action-button primary"
+        >
+          <TrendingUp className="w-4 h-4" />
+          Adicionar Receita
+        </button>
+        <button
+          onClick={() => handleOpenModal('despesas')}
+          className="empty-action-button secondary"
+        >
+          <TrendingDown className="w-4 h-4" />
+          Adicionar Despesa
+        </button>
+      </div>
+
+      {hasActiveFilters() && (
+        <div className="empty-filter-actions">
+          <button
+            onClick={handleClearFilters}
+            className="clear-filters-button"
+          >
+            <X className="w-4 h-4" />
+            Limpar Filtros
+          </button>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="transacoes-page">
       
-      {/* Header Compacto */}
-      <div className="page-header">
-        <div className="header-title">
-          <h1>Transações</h1>
-          <p>Gerencie suas receitas, despesas e transferências</p>
+      {/* HEADER MELHORADO */}
+      <div className="transacoes-header">
+        <div className="header-title-section">
+          <h1 className="transacoes-title">Transações</h1>
+          <div className="transacoes-subtitle">
+            {totalTransacoes > 0 ? (
+              <span className="count-info">
+                {totalTransacoes} {agruparCartao ? 'itens' : 'transações'} em {periodoCalculado.label}
+              </span>
+            ) : (
+              <span className="count-info">
+                {periodoCalculado.label}
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* Linha única de controles */}
-        <div className="controls-bar">
+        <div className="transacoes-actions">
           {/* Busca */}
           <div className="search-container">
+            <Search className="search-icon" />
             <input
               type="text"
               placeholder="Buscar transações..."
@@ -546,333 +613,519 @@ const TransacoesPage = () => {
               onChange={(e) => handleSearchChange(e.target.value)}
               className="search-input"
             />
-            <Search className="search-icon" />
           </div>
 
-          {/* ✅ NOVO: Navegação de período flexível */}
-          <div className="period-container">
-            <button
-              onClick={() => navegarPeriodo('anterior')}
-              className="period-nav-btn"
-              disabled={loading || periodoPersonalizado.ativo}
-              title="Mês anterior"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
+          {/* Controles de período */}
+          <div className="period-controls">
+            <ToolTip content="Mês anterior">
+              <button
+                onClick={() => navegarPeriodo('anterior')}
+                className="period-nav-button"
+                disabled={loading}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            </ToolTip>
             
-            <div className="period-label-container">
-              <div className="period-label">
-                {periodoCalculado.label}
-              </div>
-              {periodoPersonalizado.ativo && (
-                <button
-                  onClick={resetarParaPeriodoMensal}
-                  className="period-reset-btn"
-                  title="Voltar para navegação mensal"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              )}
+            <div className="period-display">
+              <Calendar className="w-4 h-4 text-gray-500" />
+              <span>{periodoCalculado.label}</span>
             </div>
             
-            <button
-              onClick={() => navegarPeriodo('proximo')}
-              className="period-nav-btn"
-              disabled={loading || periodoPersonalizado.ativo}
-              title="Próximo mês"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-            
+            <ToolTip content="Próximo mês">
+              <button
+                onClick={() => navegarPeriodo('proximo')}
+                className="period-nav-button"
+                disabled={loading}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </ToolTip>
+          </div>
+
+          <div className="action-separator"></div>
+          
+          {/* Botão "Hoje" */}
+          <ToolTip content="Voltar para o mês atual">
             <button
               onClick={voltarParaHoje}
-              className="period-today-btn"
+              className="today-button"
               disabled={loading}
-              title="Voltar para o mês atual"
             >
               Hoje
             </button>
-          </div>
+          </ToolTip>
 
-          {/* ✅ NOVO: Seletor de período personalizado */}
-          <div className="custom-period-container">
-            <div className="date-input-group">
-              <label>De:</label>
-              <input
-                type="date"
-                value={periodoPersonalizado.ativo ? periodoPersonalizado.dataInicio : format(startOfMonth(periodoAtual), 'yyyy-MM-dd')}
-                onChange={(e) => {
-                  const novaDataInicio = e.target.value;
-                  const dataFim = periodoPersonalizado.ativo && periodoPersonalizado.dataFim 
-                    ? periodoPersonalizado.dataFim 
-                    : format(endOfMonth(periodoAtual), 'yyyy-MM-dd');
-                  
-                  if (novaDataInicio && dataFim) {
-                    ativarPeriodoPersonalizado(novaDataInicio, dataFim);
-                  }
-                }}
-                className="date-input"
-              />
-            </div>
-            <div className="date-input-group">
-              <label>Até:</label>
-              <input
-                type="date"
-                value={periodoPersonalizado.ativo ? periodoPersonalizado.dataFim : format(endOfMonth(periodoAtual), 'yyyy-MM-dd')}
-                onChange={(e) => {
-                  const novaDataFim = e.target.value;
-                  const dataInicio = periodoPersonalizado.ativo && periodoPersonalizado.dataInicio 
-                    ? periodoPersonalizado.dataInicio 
-                    : format(startOfMonth(periodoAtual), 'yyyy-MM-dd');
-                  
-                  if (dataInicio && novaDataFim) {
-                    ativarPeriodoPersonalizado(dataInicio, novaDataFim);
-                  }
-                }}
-                className="date-input"
-              />
-            </div>
-          </div>
-
-          {/* Filtros dropdown */}
-          <div className="filters-dropdown">
+          {/* Agrupamento */}
+          <ToolTip content={agruparCartao ? 'Desagrupar despesas de cartão' : 'Agrupar despesas de cartão por fatura'}>
             <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`filters-btn ${hasActiveFilters() ? 'active' : ''}`}
+              onClick={handleToggleAgrupamento}
+              className={`action-button agrupamento-button ${agruparCartao ? 'active' : ''}`}
+              disabled={loading}
             >
-              <Activity className="w-4 h-4" />
-              Filtros
-              {hasActiveFilters() && <span className="filters-badge">{getActiveFiltersCount()}</span>}
+              {agruparCartao ? <Layers3 className="button-icon" /> : <Layers className="button-icon" />}
+              <span>Agrupar</span>
             </button>
-          </div>
+          </ToolTip>
 
-          {/* Atualizar */}
+          {/* Filtros */}
           <button
-            onClick={fetchTransacoes}
-            className="refresh-btn"
-            disabled={loading}
+            onClick={() => setShowFilters(!showFilters)}
+            className={`action-button filter-button ${hasActiveFilters() ? 'active' : ''}`}
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <Filter className="button-icon" />
+            <span>Filtros</span>
+            {hasActiveFilters() && (
+              <span className="filter-badge">
+                {getActiveFiltersCount()}
+              </span>
+            )}
           </button>
+
+          {/* Refresh */}
+          <ToolTip content="Atualizar">
+            <button
+              onClick={fetchTransacoes}
+              className="action-button refresh-button"
+              disabled={loading}
+            >
+              <RefreshCw className={`button-icon ${loading ? 'spin' : ''}`} />
+            </button>
+          </ToolTip>
         </div>
       </div>
 
-      <div className="main-content">
-        {/* Lista de Transações - Formato Tabela Compacta */}
-        <div className="transactions-list">
-          <div className="list-header">
-            <span className="results-count">
-              {loading ? 'Carregando...' : `${totalTransacoes} transações em ${periodoCalculado.label}`}
-            </span>
+      {/* PAINEL DE FILTROS */}
+      {showFilters && (
+        <div className="transacoes-filter">
+          <div className="filter-header">
+            <h2>Filtros</h2>
+            <div className="filter-header-actions">
+              <button onClick={handleClearFilters} className="secondary-button">
+                Limpar todos
+              </button>
+              <button onClick={() => setShowFilters(false)} className="close-button">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
-          {loading ? (
-            <div className="loading-state">
-              <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
-              <p>Carregando transações...</p>
-            </div>
-          ) : transacoes.length === 0 ? (
-            <div className="empty-state">
-              <Activity className="w-12 h-12 text-gray-400" />
-              <h3>Nenhuma transação encontrada</h3>
-              <p>Não há transações no período de {periodoCalculado.label}</p>
-              <div className="empty-actions">
-                <button 
-                  onClick={() => handleOpenModal('receitas')}
-                  className="empty-action-btn receitas"
+          <div className="filter-content">
+            {/* Tipo */}
+            <div className="filter-section">
+              <h3 className="section-title">
+                <Activity className="section-icon" />
+                Tipo de Transação
+              </h3>
+              <div className="filter-buttons">
+                <button
+                  onClick={() => handleFilterChange('tipo', 'todas')}
+                  className={`filter-toggle ${filters.tipo === 'todas' ? 'active' : ''}`}
                 >
-                  <Plus className="w-4 h-4" />
-                  Adicionar Receita
+                  Todas
                 </button>
-                <button 
-                  onClick={() => handleOpenModal('despesas')}
-                  className="empty-action-btn despesas"
+                <button
+                  onClick={() => handleFilterChange('tipo', 'receita')}
+                  className={`filter-toggle ${filters.tipo === 'receita' ? 'active receita' : ''}`}
                 >
-                  <Plus className="w-4 h-4" />
-                  Adicionar Despesa
+                  <TrendingUp className="toggle-icon" />
+                  Receitas
+                </button>
+                <button
+                  onClick={() => handleFilterChange('tipo', 'despesa')}
+                  className={`filter-toggle ${filters.tipo === 'despesa' ? 'active despesa' : ''}`}
+                >
+                  <TrendingDown className="toggle-icon" />
+                  Despesas
                 </button>
               </div>
             </div>
-          ) : (
-            <div className="transactions-table">
-              {/* ✅ NOVO: Header da tabela com ordenação expandida */}
-              <div className="table-header">
-                <div 
-                  className="th-date sortable"
-                  onClick={() => handleSort('data')}
-                  title="Ordenar por data"
+
+            {/* Status */}
+            <div className="filter-section">
+              <h3 className="section-title">
+                <CheckCircle className="section-icon" />
+                Status
+              </h3>
+              <div className="filter-buttons">
+                <button
+                  onClick={() => handleFilterChange('status', 'todas')}
+                  className={`filter-toggle ${filters.status === 'todas' ? 'active' : ''}`}
                 >
-                  <span>Data</span>
-                  
-                </div>
-                <div 
-                  className="th-description sortable"
-                  onClick={() => handleSort('descricao')}
-                  title="Ordenar por descrição"
+                  Todas
+                </button>
+                <button
+                  onClick={() => handleFilterChange('status', 'efetivadas')}
+                  className={`filter-toggle ${filters.status === 'efetivadas' ? 'active efetivada' : ''}`}
                 >
-                  <span>Descrição</span>
-                  
-                </div>
-                <div 
-                  className="th-category sortable"
-                  onClick={() => handleSort('categoria')}
-                  title="Ordenar por categoria"
+                  <CheckCircle className="toggle-icon" />
+                  Efetivadas
+                </button>
+                <button
+                  onClick={() => handleFilterChange('status', 'pendentes')}
+                  className={`filter-toggle ${filters.status === 'pendentes' ? 'active pendente' : ''}`}
                 >
-                  <span>Categoria</span>
-                  
+                  <Clock className="toggle-icon" />
+                  Pendentes
+                </button>
+              </div>
+            </div>
+
+            {/* Filtros específicos */}
+            <div className="filter-section">
+              <h3 className="section-title">Filtros Específicos</h3>
+              <div className="filter-row">
+                <div className="filter-field">
+                  <label>Categoria</label>
+                  <select
+                    value={filters.categoriaId}
+                    onChange={(e) => handleFilterChange('categoriaId', e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="">Todas as categorias</option>
+                    {categorias.map(categoria => (
+                      <option key={categoria.id} value={categoria.id}>
+                        {categoria.nome}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <div 
-                  className="th-account sortable"
-                  onClick={() => handleSort('conta')}
-                  title="Ordenar por conta/cartão"
-                >
-                  <span>Conta</span>
-                  
+
+                <div className="filter-field">
+                  <label>Conta</label>
+                  <select
+                    value={filters.contaId}
+                    onChange={(e) => handleFilterChange('contaId', e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="">Todas as contas</option>
+                    {contas.map(conta => (
+                      <option key={conta.id} value={conta.id}>
+                        {conta.nome}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <div 
-                  className="th-value sortable"
-                  onClick={() => handleSort('valor')}
-                  title="Ordenar por valor"
-                >
-                  <span>Valor</span>
-                  
-                </div>
-                <div 
-                  className="th-status sortable"
-                  onClick={() => handleSort('efetivado')}
-                  title="Ordenar por status"
-                >
-                  <span>Status</span>
-                  
-                </div>
-                <div className="th-actions">Ações</div>
               </div>
 
-              {/* Linhas da tabela */}
-              <div className="table-body">
-                {transacoes.map((transacao) => (
-                  <div key={transacao.id} className="table-row">
-                    <div className="td-date">
-                      <div className="date-info">
-                        <span className="date-day">
-                          {transacao.data ? format(new Date(transacao.data), 'dd/MM') : '--/--'}
-                        </span>
-                        <span className="date-year">
-                          {transacao.data ? format(new Date(transacao.data), 'yyyy') : '----'}
-                        </span>
-                      </div>
+              <div className="filter-row">
+                <div className="filter-field">
+                  <label>Cartão</label>
+                  <select
+                    value={filters.cartaoId}
+                    onChange={(e) => handleFilterChange('cartaoId', e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="">Todos os cartões</option>
+                    {cartoes.map(cartao => (
+                      <option key={cartao.id} value={cartao.id}>
+                        {cartao.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="filter-field">
+                  <label>Ordenar por</label>
+                  <select
+                    value={`${filters.ordenacao}_${filters.direcaoOrdenacao}`}
+                    onChange={(e) => {
+                      const [campo, direcao] = e.target.value.split('_');
+                      handleFilterChange('ordenacao', campo);
+                      handleFilterChange('direcaoOrdenacao', direcao);
+                    }}
+                    className="filter-select"
+                  >
+                    <option value="data_desc">Data (mais recente)</option>
+                    <option value="data_asc">Data (mais antiga)</option>
+                    <option value="valor_desc">Valor (maior)</option>
+                    <option value="valor_asc">Valor (menor)</option>
+                    <option value="descricao_asc">Descrição (A-Z)</option>
+                    <option value="descricao_desc">Descrição (Z-A)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="filter-actions">
+            <button 
+              onClick={() => setShowFilters(false)}
+              className="primary-button"
+            >
+              Aplicar Filtros
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* CONTEÚDO PRINCIPAL */}
+      {loading ? (
+        <div className="transacoes-loading">
+          <div className="loading-spinner"></div>
+          <p>Carregando transações...</p>
+        </div>
+      ) : transacoes.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <>
+          {/* HEADER DA TABELA - Todas as colunas ordenáveis */}
+          <div className="transacoes-table-header">
+            <div 
+              className={`header-cell sortable ${filters.ordenacao === 'data' ? 'active-sort' : ''}`}
+              onClick={() => handleSort('data')}
+            >
+              <span>Data</span>
+              {getSortIcon('data')}
+            </div>
+            <div 
+              className={`header-cell sortable ${filters.ordenacao === 'descricao' ? 'active-sort' : ''}`}
+              onClick={() => handleSort('descricao')}
+            >
+              <span>Descrição</span>
+              {getSortIcon('descricao')}
+            </div>
+            <div 
+              className={`header-cell sortable ${filters.ordenacao === 'categoria' ? 'active-sort' : ''}`}
+              onClick={() => handleSort('categoria')}
+            >
+              <span>Categoria</span>
+              {getSortIcon('categoria')}
+            </div>
+            <div 
+              className={`header-cell sortable ${filters.ordenacao === 'conta' ? 'active-sort' : ''}`}
+              onClick={() => handleSort('conta')}
+            >
+              <span>Conta</span>
+              {getSortIcon('conta')}
+            </div>
+            <div 
+              className={`header-cell sortable ${filters.ordenacao === 'valor' ? 'active-sort' : ''}`}
+              onClick={() => handleSort('valor')}
+            >
+              <span>Valor</span>
+              {getSortIcon('valor')}
+            </div>
+            <div className="header-cell cell-acoes">
+              <span>Ações</span>
+            </div>
+          </div>
+
+          {/* LISTA DE TRANSAÇÕES */}
+          <div className="transacoes-list">
+            {transacoes.map((transacao, index) => (
+              <div 
+                key={transacao.id} 
+                className={`transacao-item ${!transacao.efetivado ? 'pendente' : ''} ${transacao.isFaturaAgrupada ? 'fatura-agrupada' : ''} ${index % 2 === 0 ? 'even' : 'odd'}`}
+              >
+                
+                {/* Data */}
+                <div className="cell-data">
+                  <div className="data-display">
+                    <div className="data-principal">
+                      {transacao.dataExibicao ? format(new Date(transacao.dataExibicao), 'dd/MM') : '--/--'}
                     </div>
-
-                    <div className="td-description">
-                      <div className="description-content">
-                        <div className="tipo-icon">
-                          {getTipoIcon(transacao.tipo)}
-                        </div>
-                        <div className="description-text">
-                          <div className="description-main">
-                            {transacao.descricao}
-                          </div>
-                          {transacao.observacoes && (
-                            <div className="description-notes">
-                              {transacao.observacoes}
-                            </div>
-                          )}
-                          {transacao.total_parcelas > 1 && (
-                            <div className="parcela-info">
-                              {transacao.parcela_atual}/{transacao.total_parcelas}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="td-category">
-                      {transacao.categoria && (
-                        <span 
-                          className="category-tag" 
-                          style={{ 
-                            backgroundColor: `${transacao.categoria?.cor || '#6B7280'}20`, 
-                            color: transacao.categoria?.cor || '#6B7280',
-                            borderColor: `${transacao.categoria?.cor || '#6B7280'}40`
-                          }}
-                        >
-                          {transacao.categoria?.nome}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="td-account">
-                      <div className="account-info">
-                        {transacao.cartao?.nome ? (
-                          <>
-                            <CreditCard className="w-3 h-3" />
-                            <span>{transacao.cartao?.nome}</span>
-                          </>
-                        ) : (
-                          <>
-                            <Wallet className="w-3 h-3" />
-                            <span>{transacao.conta?.nome || 'Conta'}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="td-value">
-                      <span className={`value ${transacao.tipo === 'receita' ? 'positive' : 'negative'}`}>
-                        {transacao.tipo === 'receita' ? '+' : '-'}
-                        {formatCurrency(transacao.valor)}
-                      </span>
-                    </div>
-
-                    {/* ✅ NOVA: Coluna de Status */}
-                    <div className="td-status">
-                      <div className="status-info">
-                        {getStatusIcon(transacao.efetivado)}
-                        <span className="status-text">
-                          {transacao.efetivado ? 'Efetivada' : 'Pendente'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="td-actions">
-                      <button
-                        onClick={() => handleEditTransacao(transacao)}
-                        className="action-btn edit"
-                        title="Editar transação"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-
-                      {!transacao.efetivado && (
-                        <button
-                          onClick={() => handleMarkAsCompleted(transacao.id)}
-                          className="action-btn complete"
-                          title="Marcar como efetivada"
-                        >
-                          <CheckCircle className="w-4 h-4" />
-                        </button>
-                      )}
-
-                      <button
-                        onClick={() => handleDeleteTransacao(transacao.id)}
-                        className="action-btn delete"
-                        title="Excluir transação"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <div className="data-ano">
+                      {transacao.dataExibicao ? format(new Date(transacao.dataExibicao), 'yyyy') : '----'}
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                  
+                  {/* Status indicator */}
+                  <div className="status-indicator">
+                    <ToolTip content={transacao.efetivado ? 'Transação efetivada' : 'Transação pendente'}>
+                      <div className={`status-icon ${transacao.efetivado ? 'efetivada' : 'pendente'}`}>
+                        {getStatusIcon(transacao.efetivado)}
+                      </div>
+                    </ToolTip>
+                  </div>
+                </div>
 
-          {/* ✅ NOVA: Paginação */}
+                {/* Descrição */}
+                <div className="cell-descricao">
+                  <div className="tipo-container">
+                    <ToolTip content={transacao.tipo === 'receita' ? 'Receita' : transacao.tipo === 'despesa' ? 'Despesa' : 'Transferência'}>
+                      <div className={`tipo-icon ${transacao.tipo}`}>
+                        {getTipoIcon(transacao.tipo)}
+                      </div>
+                    </ToolTip>
+                  </div>
+                  <div className="descricao-container">
+                    <div className="descricao-principal">
+                      {transacao.descricao}
+                      {/* Badges */}
+                      {formatRecorrencia(transacao) && (
+                        <ToolTip content={`Parcela ${formatRecorrencia(transacao)}`}>
+                          <span className="recorrencia-badge">
+                            {formatRecorrencia(transacao)}
+                          </span>
+                        </ToolTip>
+                      )}
+                      {transacao.isFaturaAgrupada && (
+                        <ToolTip content={`Fatura agrupada com ${transacao.transacoesAgrupadas?.length || 0} transações`}>
+                          <span className="fatura-agrupada-badge">
+                            <Layers3 className="w-3 h-3" />
+                            {transacao.transacoesAgrupadas?.length || 0}
+                          </span>
+                        </ToolTip>
+                      )}
+                    </div>
+                    {transacao.observacoes && (
+                      <div className="descricao-observacao">
+                        {transacao.observacoes}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Categoria */}
+                <div className="cell-categoria">
+                  {transacao.categoria ? (
+                    <ToolTip content={transacao.categoria.nome}>
+                      <span 
+                        className="categoria-tag-subtle" 
+                        style={{ 
+                          color: transacao.categoria?.cor || '#6B7280'
+                        }}
+                      >
+                        <span 
+                          className="categoria-dot"
+                          style={{ backgroundColor: transacao.categoria?.cor || '#6B7280' }}
+                        ></span>
+                        {transacao.categoria?.nome}
+                      </span>
+                    </ToolTip>
+                  ) : (
+                    <span className="categoria-tag-subtle sem-categoria">
+                      <span className="categoria-dot sem-categoria"></span>
+                      Sem categoria
+                    </span>
+                  )}
+                </div>
+
+                {/* Conta */}
+                <div className="cell-conta">
+                  <div className="conta-container">
+                    {transacao.cartao?.nome ? (
+                      <ToolTip content={`Cartão: ${transacao.cartao.nome}${transacao.cartao.bandeira ? ` (${transacao.cartao.bandeira})` : ''}`}>
+                        <div className="conta-display">
+                          <CreditCard className="conta-icon cartao" />
+                          <span className="conta-texto">{transacao.cartao?.nome}</span>
+                        </div>
+                      </ToolTip>
+                    ) : (
+                      <ToolTip content={`Conta: ${transacao.conta?.nome || 'Conta'}`}>
+                        <div className="conta-display">
+                          <Wallet className="conta-icon conta" />
+                          <span className="conta-texto">{transacao.conta?.nome || 'Conta'}</span>
+                        </div>
+                      </ToolTip>
+                    )}
+                  </div>
+                </div>
+
+                {/* Valor */}
+                <div className="cell-valor">
+                  <div className="valor-container">
+                    <span className={`valor-display ${transacao.tipo}`}>
+                      {transacao.tipo === 'receita' ? '+' : '-'}
+                      {formatCurrency(transacao.valor)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Ações - Ícones diretos sem dropdown */}
+                <div className="cell-acoes">
+                  <div className="acoes-container">
+                    {/* Ação para efetivar (apenas para pendentes) */}
+                    {!transacao.efetivado && !transacao.isFaturaAgrupada && (
+                      <ToolTip content="Efetivar transação">
+                        <button
+                          onClick={() => handleMarkAsCompleted(transacao)}
+                          className="acao-btn efetivar"
+                        >
+                          <CheckCircle className="acao-icon" />
+                        </button>
+                      </ToolTip>
+                    )}
+                    
+                    {/* Ação para editar */}
+                    <ToolTip content={transacao.isFaturaAgrupada ? 'Não é possível editar fatura agrupada' : 'Editar transação'}>
+                      <button
+                        onClick={() => handleEditTransacao(transacao)}
+                        className={`acao-btn editar ${transacao.isFaturaAgrupada ? 'disabled' : ''}`}
+                        disabled={transacao.isFaturaAgrupada}
+                      >
+                        <Edit className="acao-icon" />
+                      </button>
+                    </ToolTip>
+
+                    {/* Ação para ver detalhes (apenas para faturas agrupadas) */}
+                    {transacao.isFaturaAgrupada && (
+                      <ToolTip content={`Ver ${transacao.transacoesAgrupadas?.length || 0} transações da fatura`}>
+                        <button
+                          onClick={() => {
+                            showNotification(`Fatura contém ${transacao.transacoesAgrupadas?.length || 0} transações`, 'info');
+                            console.log('Transações da fatura:', transacao.transacoesAgrupadas);
+                          }}
+                          className="acao-btn detalhes"
+                        >
+                          <Info className="acao-icon" />
+                        </button>
+                      </ToolTip>
+                    )}
+
+                    {/* Ação para duplicar */}
+                    {!transacao.isFaturaAgrupada && (
+                      <ToolTip content="Duplicar transação">
+                        <button
+                          onClick={() => {
+                            const transacaoCopia = { ...transacao };
+                            delete transacaoCopia.id;
+                            delete transacaoCopia.created_at;
+                            delete transacaoCopia.updated_at;
+                            transacaoCopia.descricao = `${transacaoCopia.descricao} (Cópia)`;
+                            setTransacaoEditando(transacaoCopia);
+                            
+                            if (transacao.tipo === 'receita') {
+                              handleOpenModal('receitas');
+                            } else if (transacao.tipo === 'despesa') {
+                              if (transacao.cartao_id) {
+                                handleOpenModal('despesasCartao');
+                              } else {
+                                handleOpenModal('despesas');
+                              }
+                            }
+                          }}
+                          className="acao-btn duplicar"
+                        >
+                          <Plus className="acao-icon" />
+                        </button>
+                      </ToolTip>
+                    )}
+                    
+                    {/* Ação para excluir */}
+                    <ToolTip content={transacao.isFaturaAgrupada ? 'Não é possível excluir fatura agrupada' : 'Excluir transação'}>
+                      <button
+                        onClick={() => handleDeleteTransacao(transacao)}
+                        className={`acao-btn excluir ${transacao.isFaturaAgrupada ? 'disabled' : ''}`}
+                        disabled={transacao.isFaturaAgrupada}
+                      >
+                        <Trash2 className="acao-icon" />
+                      </button>
+                    </ToolTip>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Paginação */}
           {totalTransacoes > paginacao.itensPorPagina && (
             <div className="pagination">
               <div className="pagination-info">
-                Página {paginacao.pagina} de {paginacao.totalPaginas} 
-                ({totalTransacoes} transações)
+                <span className="pagination-text">
+                  Mostrando {((paginacao.pagina - 1) * paginacao.itensPorPagina) + 1} a {Math.min(paginacao.pagina * paginacao.itensPorPagina, totalTransacoes)} de {totalTransacoes} {agruparCartao ? 'itens' : 'transações'}
+                </span>
               </div>
               
               <div className="pagination-controls">
@@ -882,164 +1135,30 @@ const TransacoesPage = () => {
                   className="pagination-button"
                 >
                   <ChevronLeft className="w-4 h-4" />
-                  Anterior
+                  <span>Anterior</span>
                 </button>
                 
-                <span className="page-info">
-                  {paginacao.pagina} / {paginacao.totalPaginas}
-                </span>
+                <div className="page-numbers">
+                  <span className="page-current">{paginacao.pagina}</span>
+                  <span className="page-separator">de</span>
+                  <span className="page-total">{paginacao.totalPaginas}</span>
+                </div>
                 
                 <button
                   onClick={() => handlePageChange(paginacao.pagina + 1)}
                   disabled={paginacao.pagina >= paginacao.totalPaginas || loading}
                   className="pagination-button"
                 >
-                  Próxima
+                  <span>Próxima</span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
           )}
-        </div>
-      </div>
-
-      {/* Modal de Filtros com novo filtro de Status */}
-      {showFilters && (
-        <div className="filters-overlay" onClick={() => setShowFilters(false)}>
-          <div className="filters-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="filters-header">
-              <h3 className="filters-title">Filtros</h3>
-              <div className="filters-header-actions">
-                <button onClick={handleClearFilters} className="btn-clear-filters">
-                  Limpar
-                </button>
-                <button onClick={() => setShowFilters(false)} className="btn-close-filters">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            <div className="filters-content">
-              {/* Tipo */}
-              <div className="filter-group">
-                <label className="filter-label">Tipo</label>
-                <select
-                  value={filters.tipo}
-                  onChange={(e) => handleFilterChange('tipo', e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="todas">Todas</option>
-                  <option value="receita">Receitas</option>
-                  <option value="despesa">Despesas</option>
-                </select>
-              </div>
-
-              {/* ✅ NOVO: Status */}
-              <div className="filter-group">
-                <label className="filter-label">Status</label>
-                <select
-                  value={filters.status}
-                  onChange={(e) => handleFilterChange('status', e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="todas">Todas</option>
-                  <option value="efetivadas">Efetivadas</option>
-                  <option value="pendentes">Pendentes</option>
-                </select>
-              </div>
-
-              {/* Categoria */}
-              <div className="filter-group">
-                <label className="filter-label">Categoria</label>
-                <select
-                  value={filters.categoriaId}
-                  onChange={(e) => handleFilterChange('categoriaId', e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="">Todas as categorias</option>
-                  {categorias.map(categoria => (
-                    <option key={categoria.id} value={categoria.id}>
-                      {categoria.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Conta */}
-              <div className="filter-group">
-                <label className="filter-label">Conta</label>
-                <select
-                  value={filters.contaId}
-                  onChange={(e) => handleFilterChange('contaId', e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="">Todas as contas</option>
-                  {contas.map(conta => (
-                    <option key={conta.id} value={conta.id}>
-                      {conta.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Cartão */}
-              <div className="filter-group">
-                <label className="filter-label">Cartão</label>
-                <select
-                  value={filters.cartaoId}
-                  onChange={(e) => handleFilterChange('cartaoId', e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="">Todos os cartões</option>
-                  {cartoes.map(cartao => (
-                    <option key={cartao.id} value={cartao.id}>
-                      {cartao.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Ordenação */}
-              <div className="filter-group">
-                <label className="filter-label">Ordenar por</label>
-                <select
-                  value={`${filters.ordenacao}_${filters.direcaoOrdenacao}`}
-                  onChange={(e) => {
-                    const [campo, direcao] = e.target.value.split('_');
-                    handleFilterChange('ordenacao', campo);
-                    handleFilterChange('direcaoOrdenacao', direcao);
-                  }}
-                  className="filter-select"
-                >
-                  <option value="data_desc">Data (mais recente)</option>
-                  <option value="data_asc">Data (mais antiga)</option>
-                  <option value="valor_desc">Valor (maior)</option>
-                  <option value="valor_asc">Valor (menor)</option>
-                  <option value="descricao_asc">Descrição (A-Z)</option>
-                  <option value="descricao_desc">Descrição (Z-A)</option>
-                  <option value="categoria_asc">Categoria (A-Z)</option>
-                  <option value="categoria_desc">Categoria (Z-A)</option>
-                  <option value="conta_asc">Conta/Cartão (A-Z)</option>
-                  <option value="conta_desc">Conta/Cartão (Z-A)</option>
-                  <option value="efetivado_desc">Status (efetivadas primeiro)</option>
-                  <option value="efetivado_asc">Status (pendentes primeiro)</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="filters-footer">
-              <button 
-                onClick={() => setShowFilters(false)}
-                className="btn-apply-filters"
-              >
-                Aplicar Filtros
-              </button>
-            </div>
-          </div>
-        </div>
+        </>
       )}
 
-      {/* Modais com suporte à edição */}
+      {/* Modais */}
       <ReceitasModal 
         isOpen={modals.receitas} 
         onClose={() => handleCloseModal('receitas')} 
