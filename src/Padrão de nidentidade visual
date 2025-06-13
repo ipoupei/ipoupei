@@ -1,0 +1,88 @@
+CORES
+Cores Principais
+Teal Principal - #008080
+Usar em: Botões primários, sidebar, links principais, valores positivos, ícones de destaque
+Teal Escuro - #006666
+Usar em: Estados hover do teal principal, elementos ativos
+Teal Claro - rgba(0, 128, 128, 0.1)
+Usar em: Backgrounds de cards especiais, hover em itens da sidebar, backgrounds de ícones
+Cores Secundárias
+Azul - #0043C0
+Usar em: Links secundários, informações, tooltips, textos informativos
+Verde Sucesso - #006400
+Usar em: Valores de receita, mensagens de sucesso, indicadores positivos, tags de entrada
+Cores de Estado
+Vermelho Erro - #DC3545
+Usar em: Valores de despesa, mensagens de erro, alertas críticos, tags de saída
+Amarelo Alerta - #FFC107
+Usar em: Avisos, notificações importantes, badges de atenção
+Cores Neutras
+Branco - #FFFFFF
+Usar em: Background principal da aplicação, cards, texto sobre fundos escuros
+Cinza Claro - #F8F9FA ou #F5F7FA
+Usar em: Background secundário (área do conteúdo), separadores sutis
+Cinza Médio - #6C757D
+Usar em: Textos secundários, ícones inativos, bordas
+Cinza Escuro - #333333
+Usar em: Textos principais, títulos
+Cinza Texto - #666666
+Usar em: Corpo de texto, descrições
+Cinza Legenda - #999999
+Usar em: Legendas, textos de apoio, placeholders
+TIPOGRAFIA
+Fonte: Roboto
+Títulos Principais (H1)
+Tamanho: 32px
+Peso: 700 (Bold)
+Cor: #333333
+Usar em: Títulos de página, headers principais
+Subtítulos (H2)
+Tamanho: 24px
+Peso: 500 (Medium)
+Cor: #333333
+Usar em: Títulos de seções, nomes de cards
+Texto Corpo
+Tamanho: 16px
+Peso: 400 (Regular)
+Cor: #666666
+Usar em: Parágrafos, descrições gerais
+Legendas
+Tamanho: 14px
+Peso: 400 (Regular)
+Cor: #999999
+Usar em: Labels, textos auxiliares, timestamps
+Valores Monetários
+Tamanho: 36px (destaque) / 28px (cards) / 20px (secundário)
+Peso: 700 (Bold)
+Cor: #008080 (neutro), #006400 (positivo), #DC3545 (negativo)
+Propriedade especial: font-variant-numeric: tabular-nums
+COMPONENTES
+Botões
+Primário: Fundo #008080, texto branco, hover #006666Secundário: Fundo branco, borda #008080, texto #008080Sucesso: Fundo #006400, texto brancoPerigo: Fundo #DC3545, texto branco
+Cards
+Fundo: #FFFFFF
+Sombra: 0 2px 8px rgba(0,0,0,0.08)
+Hover: Sombra 0 4px 16px rgba(0,0,0,0.12)
+Border-radius: 12px
+Padding: 24px
+Inputs
+Borda: 2px solid #E0E0E0
+Focus: Borda #008080 + sombra rgba(0,128,128,0.1)
+Border-radius: 8px
+Padding: 12px 16px
+Sidebar
+Fundo: #008080
+Item normal: rgba(255,255,255,0.8)
+Item hover: rgba(255,255,255,0.1) de fundo
+Item ativo: rgba(255,255,255,0.2) de fundo + fonte weight 500
+Tags/Badges
+Receita: Fundo rgba(0,100,0,0.1), texto #006400
+Despesa: Fundo rgba(220,53,69,0.1), texto #DC3545
+Border-radius: 20px
+Padding: 6px 12px
+ESPAÇAMENTOS
+Padding base: 8px, 12px, 16px, 20px, 24px, 30px
+Margin entre seções: 40px
+Gap em grids: 16px ou 20px
+Border-radius padrão: 8px (pequeno), 12px (médio)
+Essa é a identidade visual completa! Quer que eu detalhe algum aspecto específico?
