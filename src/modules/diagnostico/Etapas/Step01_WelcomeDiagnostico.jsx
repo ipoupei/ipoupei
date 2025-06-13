@@ -9,6 +9,9 @@ const Step01_WelcomeDiagnostico = () => {
   const navigate = useNavigate();
   const { nextEtapa, resetarDiagnostico } = useDiagnosticoEmocionalStore();
 
+
+
+  
   const handleComecar = () => {
     // Reset para garantir estado limpo
     resetarDiagnostico();
