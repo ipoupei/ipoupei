@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { X, Plus, Edit3, Trash2, Palette } from 'lucide-react';
+import { X, Plus, Edit3, Trash2, Palette, Lightbulb } from 'lucide-react';
 import useCategorias from '@modules/categorias/hooks/useCategorias';
 import CategoriasSugeridasModal from './CategoriasSugeridasModal';
 import '@shared/styles/FormsModal.css';
@@ -168,12 +168,18 @@ const CategoriasModal = ({ isOpen, onClose }) => {
   };
   
   // ✅ NOVO: Handler para abrir modal de categorias sugeridas
-  const handleAbrirSugeridas = () => {
+  const handleAbrirSugeridas = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('🔥 Botão Categorias Sugeridas CLICADO!');
+    console.log('Estado atual showSugeridas:', showSugeridas);
     setShowSugeridas(true);
+    console.log('Estado depois setShowSugeridas(true):', !showSugeridas);
   };
   
   // ✅ NOVO: Handler para fechar modal de categorias sugeridas
   const handleFecharSugeridas = () => {
+    console.log('Fechando modal de categorias sugeridas...');
     setShowSugeridas(false);
   };
   
@@ -381,7 +387,7 @@ const CategoriasModal = ({ isOpen, onClose }) => {
             </button>
           </div>
           
-          <div className="cores-container">
+          <div className="color-picker">
             {coresPredefinidas.map(cor => {
               const corEmUso = categoriasFiltradas.some(cat => 
                 cat.cor?.toUpperCase() === cor.toUpperCase() && cat.id !== editandoCategoria?.id
@@ -391,7 +397,7 @@ const CategoriasModal = ({ isOpen, onClose }) => {
                 <button
                   key={cor}
                   type="button"
-                  className={`cor-item ${cor === novaCategoriaColor ? 'selected' : ''} ${corEmUso ? 'in-use' : ''}`}
+                  className={`color-option ${cor === novaCategoriaColor ? 'active' : ''} ${corEmUso ? 'in-use' : ''}`}
                   style={{ backgroundColor: cor }}
                   onClick={() => setNovaCategoriaColor(cor)}
                   title={corEmUso ? `Cor já usada` : `Usar cor ${cor}`}
@@ -643,7 +649,7 @@ const CategoriasModal = ({ isOpen, onClose }) => {
             ) : showFormSubcategoria ? (
               renderFormSubcategoria()
             ) : (
-              <div>
+              <>
                 <div className="categorias-header">
                   <h3>Categorias de {tipoAtual === 'despesa' ? 'Despesas' : 'Receitas'}</h3>
                   <p className="categorias-subtitle">
@@ -691,15 +697,18 @@ const CategoriasModal = ({ isOpen, onClose }) => {
                       </button>
                       
                       <button 
+                        type="button"
                         className="btn-secondary"
                         onClick={handleAbrirSugeridas}
+                        style={{ zIndex: 15, position: 'relative' }}
                       >
-                        💡 Ver sugestões
+                        <Lightbulb size={14} />
+                        Ver sugestões
                       </button>
                     </div>
                   </div>
                 )}
-              </div>
+              </>
             )}
           </div>
 
@@ -708,10 +717,13 @@ const CategoriasModal = ({ isOpen, onClose }) => {
               <>
                 <div className="footer-left">
                   <button 
+                    type="button"
                     className="button tertiary"
                     onClick={handleAbrirSugeridas}
+                    style={{ zIndex: 15, position: 'relative', pointerEvents: 'auto' }}
                   >
-                    💡 Categorias sugeridas
+                    <Lightbulb size={14} />
+                    Categorias sugeridas
                   </button>
                 </div>
                 
@@ -737,11 +749,14 @@ const CategoriasModal = ({ isOpen, onClose }) => {
       </div>
 
       {/* ✅ NOVO: Modal de categorias sugeridas */}
-      <CategoriasSugeridasModal 
-        isOpen={showSugeridas}
-        onClose={handleFecharSugeridas}
-      />
+      {showSugeridas && (
+        <CategoriasSugeridasModal 
+          isOpen={showSugeridas}
+          onClose={handleFecharSugeridas}
+        />
+      )}
     </>
+    
   );
 };
 

@@ -1,17 +1,183 @@
-// src/modules/categorias/components/CategoriasSugeridasModal.jsx
-
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
+import { X, Plus, Check, Lightbulb } from 'lucide-react';
 import useCategorias from '@modules/categorias/hooks/useCategorias';
-import { categoriasSugeridasData } from '@modules/categorias/data/categoriasSugeridas';
-import CategoriasSugeridasItem from './CategoriasSugeridasItem';
+import '@shared/styles/FormsModal.css';
 import '@modules/categorias/styles/CategoriasSugeridasModal.css';
+
+// Dados das categorias sugeridas completas
+const categoriasSugeridasData = {
+  despesas: [
+    {
+      id: 'desp_1',
+      nome: 'Alimentação',
+      cor: '#FF6B6B',
+      icone: '🍽️',
+      subcategorias: [
+        { nome: 'Supermercado' },
+        { nome: 'Restaurante' },
+        { nome: 'Lanche/Fast Food' },
+        { nome: 'Delivery' },
+        { nome: 'Açougue/Feira' }
+      ]
+    },
+    {
+      id: 'desp_2',
+      nome: 'Transporte',
+      cor: '#4ECDC4',
+      icone: '🚗',
+      subcategorias: [
+        { nome: 'Combustível' },
+        { nome: 'Uber/Taxi' },
+        { nome: 'Transporte Público' },
+        { nome: 'Manutenção Veículo' },
+        { nome: 'Estacionamento' }
+      ]
+    },
+    {
+      id: 'desp_3',
+      nome: 'Moradia',
+      cor: '#45B7D1',
+      icone: '🏠',
+      subcategorias: [
+        { nome: 'Aluguel' },
+        { nome: 'Condomínio' },
+        { nome: 'Energia Elétrica' },
+        { nome: 'Água' },
+        { nome: 'Internet' },
+        { nome: 'Gás' }
+      ]
+    },
+    {
+      id: 'desp_4',
+      nome: 'Saúde',
+      cor: '#96CEB4',
+      icone: '🏥',
+      subcategorias: [
+        { nome: 'Consultas Médicas' },
+        { nome: 'Medicamentos' },
+        { nome: 'Exames' },
+        { nome: 'Plano de Saúde' },
+        { nome: 'Dentista' }
+      ]
+    },
+    {
+      id: 'desp_5',
+      nome: 'Educação',
+      cor: '#FFEAA7',
+      icone: '📚',
+      subcategorias: [
+        { nome: 'Cursos' },
+        { nome: 'Livros' },
+        { nome: 'Material Escolar' },
+        { nome: 'Mensalidade' }
+      ]
+    },
+    {
+      id: 'desp_6',
+      nome: 'Lazer',
+      cor: '#DDA0DD',
+      icone: '🎉',
+      subcategorias: [
+        { nome: 'Cinema/Teatro' },
+        { nome: 'Viagens' },
+        { nome: 'Restaurantes' },
+        { nome: 'Hobbies' },
+        { nome: 'Streaming' }
+      ]
+    },
+    {
+      id: 'desp_7',
+      nome: 'Vestuário',
+      cor: '#98D8C8',
+      icone: '👕',
+      subcategorias: [
+        { nome: 'Roupas' },
+        { nome: 'Calçados' },
+        { nome: 'Acessórios' }
+      ]
+    },
+    {
+      id: 'desp_8',
+      nome: 'Pets',
+      cor: '#F7DC6F',
+      icone: '🐕',
+      subcategorias: [
+        { nome: 'Ração' },
+        { nome: 'Veterinário' },
+        { nome: 'Medicamentos Pet' },
+        { nome: 'Acessórios' }
+      ]
+    }
+  ],
+  receitas: [
+    {
+      id: 'rec_1',
+      nome: 'Salário',
+      cor: '#27AE60',
+      icone: '💰',
+      subcategorias: [
+        { nome: 'Salário Principal' },
+        { nome: 'Horas Extras' },
+        { nome: 'Bonificação' },
+        { nome: '13º Salário' }
+      ]
+    },
+    {
+      id: 'rec_2',
+      nome: 'Freelance',
+      cor: '#3498DB',
+      icone: '💼',
+      subcategorias: [
+        { nome: 'Projetos' },
+        { nome: 'Consultoria' },
+        { nome: 'Serviços' }
+      ]
+    },
+    {
+      id: 'rec_3',
+      nome: 'Investimentos',
+      cor: '#9B59B6',
+      icone: '📈',
+      subcategorias: [
+        { nome: 'Dividendos' },
+        { nome: 'Juros' },
+        { nome: 'Rendimentos CDB' },
+        { nome: 'Fundos' }
+      ]
+    },
+    {
+      id: 'rec_4',
+      nome: 'Vendas',
+      cor: '#E67E22',
+      icone: '🛍️',
+      subcategorias: [
+        { nome: 'Produtos' },
+        { nome: 'Usados' },
+        { nome: 'Artesanato' }
+      ]
+    },
+    {
+      id: 'rec_5',
+      nome: 'Outros',
+      cor: '#95A5A6',
+      icone: '💸',
+      subcategorias: [
+        { nome: 'Presente' },
+        { nome: 'Reembolso' },
+        { nome: 'Prêmio' }
+      ]
+    }
+  ]
+};
 
 /**
  * Modal para exibir categorias sugeridas e permitir importação
- * O usuário pode selecionar quais categorias e subcategorias deseja importar
+ * Versão refatorada usando estilos base do FormsModal
  */
 const CategoriasSugeridasModal = ({ isOpen, onClose }) => {
+  console.log('🎯 CategoriasSugeridasModal renderizado:', { isOpen });
+  
   const { addCategoria, addSubcategoria, categorias, loading } = useCategorias();
   
   // Estado para controlar o tipo atual (receitas/despesas)
@@ -73,6 +239,18 @@ const CategoriasSugeridasModal = ({ isOpen, onClose }) => {
         
         return novasSubcategorias;
       });
+    } else {
+      // Se selecionar categoria, selecionar todas as subcategorias
+      const categoria = categoriasFiltradas.find(cat => cat.id === categoriaId);
+      if (categoria && categoria.subcategorias) {
+        setSubcategoriasSelecionadas(prev => {
+          const novasSubcategorias = { ...prev };
+          categoria.subcategorias.forEach((_, index) => {
+            novasSubcategorias[`${categoriaId}_${index}`] = true;
+          });
+          return novasSubcategorias;
+        });
+      }
     }
   };
   
@@ -199,24 +377,110 @@ const CategoriasSugeridasModal = ({ isOpen, onClose }) => {
     }
   };
   
-  if (!isOpen) return null;
+  // Renderizar item de categoria individual
+  const renderCategoriaItem = (categoria) => {
+    const categoriaSelecionada = categoriasSelecionadas[categoria.id] || false;
+    const jaExiste = categoriaJaExiste(categoria.nome);
+    const subcategoriasCount = categoria.subcategorias?.length || 0;
+    const subcategoriasSelecionadasCount = categoria.subcategorias?.filter((_, index) => 
+      subcategoriasSelecionadas[`${categoria.id}_${index}`]
+    ).length || 0;
+    
+    return (
+      <div key={categoria.id} className={`categoria-sugerida-item ${categoriaSelecionada ? 'selecionada' : ''} ${jaExiste ? 'ja-existe' : ''}`}>
+        <div className="categoria-sugerida-header">
+          <div className="categoria-info">
+            <div className="categoria-checkbox-container">
+              <input
+                type="checkbox"
+                className="categoria-checkbox"
+                checked={categoriaSelecionada}
+                onChange={(e) => handleToggleCategoria(categoria.id, e.target.checked)}
+                disabled={jaExiste}
+              />
+              <div className="categoria-color" style={{ backgroundColor: categoria.cor }}></div>
+              <div className="categoria-details">
+                <div className="categoria-nome">
+                  {categoria.icone} {categoria.nome}
+                  {jaExiste && <span className="ja-existe-badge">JÁ EXISTE</span>}
+                </div>
+                <div className="subcategorias-info">
+                  {subcategoriasCount > 0 && (
+                    <span>
+                      {subcategoriasCount} subcategoria{subcategoriasCount > 1 ? 's' : ''}
+                      {categoriaSelecionada && subcategoriasSelecionadasCount > 0 && (
+                        <span className="subcategorias-selecionadas">
+                          • {subcategoriasSelecionadasCount} selecionadas
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Subcategorias */}
+        {categoriaSelecionada && categoria.subcategorias && categoria.subcategorias.length > 0 && (
+          <div className="subcategorias-sugeridas">
+            <div className="subcategorias-grid">
+              {categoria.subcategorias.map((subcategoria, index) => {
+                const key = `${categoria.id}_${index}`;
+                const subcategoriaSelecionada = subcategoriasSelecionadas[key] || false;
+                
+                return (
+                  <div key={index} className={`subcategoria-sugerida-item ${subcategoriaSelecionada ? 'selecionada' : ''}`}>
+                    <label className="subcategoria-label">
+                      <input
+                        type="checkbox"
+                        className="subcategoria-checkbox"
+                        checked={subcategoriaSelecionada}
+                        onChange={(e) => handleToggleSubcategoria(categoria.id, index, e.target.checked)}
+                      />
+                      <span className="subcategoria-nome">{subcategoria.nome}</span>
+                    </label>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+  
+  if (!isOpen) {
+    console.log('❌ Modal fechado');
+    return null;
+  }
+
+  console.log('✅ Renderizando modal completo');
   
   const selecoes = contarSelecoes();
 
   return (
     <div className="modal-overlay">
-      <div className="categorias-sugeridas-modal">
+      <div className="forms-modal-container modal-large categorias-sugeridas-modal">
+        {/* Header usando estilos base */}
         <div className="modal-header">
-          <h2>Categorias Sugeridas</h2>
-          <p className="modal-subtitle">
-            Selecione as categorias que deseja importar para seu sistema
-          </p>
-          <button className="close-button" onClick={onClose}>
-            ✕
+          <div className="modal-header-content">
+            <div className="modal-icon-container modal-icon-warning">
+              <Lightbulb size={16} />
+            </div>
+            <div>
+              <h2 className="modal-title">Categorias Sugeridas</h2>
+              <p className="modal-subtitle">
+                Importe categorias prontas para organizar suas finanças de forma rápida e eficiente
+              </p>
+            </div>
+          </div>
+          <button className="modal-close" onClick={onClose}>
+            <X size={18} />
           </button>
         </div>
 
-        {/* Feedback */}
+        {/* Feedback usando estilo base */}
         {feedback.show && (
           <div className={`feedback-message ${feedback.type}`}>
             {feedback.message}
@@ -229,13 +493,13 @@ const CategoriasSugeridasModal = ({ isOpen, onClose }) => {
             className={`tipo-button ${tipoAtual === 'despesas' ? 'active' : ''}`} 
             onClick={() => setTipoAtual('despesas')}
           >
-            🚨 Despesas ({categoriasSugeridasData.despesas?.length || 0})
+            💸 Despesas ({categoriasSugeridasData.despesas?.length || 0})
           </button>
           <button 
             className={`tipo-button ${tipoAtual === 'receitas' ? 'active' : ''}`}
             onClick={() => setTipoAtual('receitas')}
           >
-            ✅ Receitas ({categoriasSugeridasData.receitas?.length || 0})
+            💰 Receitas ({categoriasSugeridasData.receitas?.length || 0})
           </button>
         </div>
 
@@ -249,13 +513,14 @@ const CategoriasSugeridasModal = ({ isOpen, onClose }) => {
           
           <div className="selecao-actions">
             <button 
-              className="button-small secondary"
+              className="btn-secondary"
               onClick={() => handleToggleTodasCategorias(true)}
+              disabled={categoriasFiltradas.every(cat => categoriaJaExiste(cat.nome))}
             >
               Selecionar todas
             </button>
             <button 
-              className="button-small secondary"
+              className="btn-cancel"
               onClick={() => handleToggleTodasCategorias(false)}
             >
               Limpar seleção
@@ -263,27 +528,16 @@ const CategoriasSugeridasModal = ({ isOpen, onClose }) => {
           </div>
         </div>
 
-        {/* Lista de categorias */}
-        <div className="categorias-sugeridas-content">
+        {/* Lista de categorias usando body base */}
+        <div className="modal-body categorias-sugeridas-content">
           {loading ? (
-            <div className="loading">
+            <div className="loading-container">
               <div className="loading-spinner"></div>
-              <p>Carregando suas categorias...</p>
+              <p className="loading-text">Carregando suas categorias...</p>
             </div>
           ) : categoriasFiltradas.length > 0 ? (
             <div className="categorias-sugeridas-list">
-              {categoriasFiltradas.map(categoria => (
-                <CategoriasSugeridasItem
-                  key={categoria.id}
-                  categoria={categoria}
-                  tipoAtual={tipoAtual}
-                  categoriaSelecionada={categoriasSelecionadas[categoria.id] || false}
-                  subcategoriasSelecionadas={subcategoriasSelecionadas}
-                  onToggleCategoria={handleToggleCategoria}
-                  onToggleSubcategoria={handleToggleSubcategoria}
-                  categoriaJaExiste={categoriaJaExiste(categoria.nome)}
-                />
-              ))}
+              {categoriasFiltradas.map(renderCategoriaItem)}
             </div>
           ) : (
             <div className="empty-state">
@@ -292,30 +546,44 @@ const CategoriasSugeridasModal = ({ isOpen, onClose }) => {
           )}
         </div>
 
-        {/* Footer com ações */}
+        {/* Footer usando estilos base */}
         <div className="modal-footer">
-          <div className="footer-info">
-            {selecoes.categorias > 0 && (
-              <span className="selecoes-resumo">
+          <div className="footer-left">
+            {selecoes.categorias > 0 ? (
+              <span className="form-label">
                 {selecoes.categorias} categoria{selecoes.categorias > 1 ? 's' : ''} e {selecoes.subcategorias} subcategoria{selecoes.subcategorias !== 1 ? 's' : ''} serão importadas
+              </span>
+            ) : (
+              <span className="form-label">
+                Selecione as categorias que deseja adicionar ao seu sistema
               </span>
             )}
           </div>
           
-          <div className="footer-actions">
+          <div className="footer-right">
             <button 
-              className="button secondary"
+              className="btn-cancel"
               onClick={onClose}
               disabled={importando}
             >
               Cancelar
             </button>
             <button 
-              className="button primary"
+              className="btn-primary"
               onClick={handleImportarCategorias}
               disabled={selecoes.categorias === 0 || importando}
             >
-              {importando ? 'Importando...' : `Importar ${selecoes.categorias} categoria${selecoes.categorias > 1 ? 's' : ''}`}
+              {importando ? (
+                <>
+                  <div className="btn-spinner"></div>
+                  Importando...
+                </>
+              ) : (
+                <>
+                  <Plus size={14} />
+                  Importar {selecoes.categorias} categoria{selecoes.categorias > 1 ? 's' : ''}
+                </>
+              )}
             </button>
           </div>
         </div>

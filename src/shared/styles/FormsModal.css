@@ -1,11 +1,6 @@
 /* ========================================
-   FORMSMODAL.CSS - SISTEMA UNIFICADO DE MODAIS iPOUPEI (VERSÃO REFINADA)
+   FORMSMODAL.CSS - SISTEMA UNIFICADO DE MODAIS iPOUPEI (VERSÃO CONSOLIDADA)
    ========================================
-   
-   Este arquivo contém todos os estilos necessários para os modais
-   da aplicação iPoupei, com design compacto e elegante.
-   
-
 /* ========================================
    1. ESTRUTURA BASE DO MODAL
    ======================================== */
@@ -36,23 +31,30 @@
   border-radius: 12px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
   max-width: 480px;
-  width: 100%;             /* Garante responsividade dentro do max-width */
+  width: 100%;
   max-height: 90vh;
   overflow: hidden;
   transform: scale(0.95) translateY(-10px);
   transition: transform 0.25s ease;
-  margin: 0 auto;          /* Centraliza horizontalmente, se necessário */
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
 }
 
-
-
-.modal-overlay.active .modal-container {
-  transform: scale(1) translateY(0);
-}
-
-/* Modal Pequeno */
-.modal-small {
+/* Variações de tamanho */
+.forms-modal-container.modal-small {
   max-width: 400px;
+}
+
+.forms-modal-container.modal-large {
+  max-width: 800px;
+  width: 90%;
+  max-height: 85vh;
+}
+
+.modal-overlay.active .forms-modal-container {
+  transform: scale(1) translateY(0);
 }
 
 /* ========================================
@@ -63,6 +65,7 @@
   padding: 20px 20px 16px 20px;
   border-bottom: 1px solid #E5E7EB;
   position: relative;
+  flex-shrink: 0;
 }
 
 .modal-header-content {
@@ -96,6 +99,10 @@
 
 .modal-icon-danger {
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.modal-icon-warning {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
 }
 
 .modal-title {
@@ -146,8 +153,9 @@
 
 .modal-body {
   padding: 20px;
-  max-height: calc(90vh - 120px);
+  flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .modal-body::-webkit-scrollbar {
@@ -184,25 +192,29 @@
   border-bottom: 1px solid #E5E7EB;
 }
 
+.section-title:first-child {
+  margin-top: 0;
+}
+
+.section-title.archived {
+  color: #6b7280; 
+}
+
 .section-block {
   background-color: #FAFAFA;
   padding: 12px;
   border-radius: 6px;
-}
-.section-title:first-child {
-  margin-top: 0;
 }
 
 /* ========================================
    5. CAMPOS DE ENTRADA (INPUTS)
    ======================================== */
 
-/* Labels e Formulários */
 .form-label {
   display: flex;
   align-items: center;
   gap: 4px;
-  margin-bottom: 2px;
+  margin-bottom: 8px;
   font-size: 12px;
   font-weight: 500;
   color: #374151;
@@ -222,32 +234,7 @@
 }
 
 /* Input Base */
-.input-base {
-  width: 100%;
-  padding: 6px 10px;
-  border: 1px solid #D1D5DB;
-  border-radius: 4px;
-  font-family: 'Roboto', sans-serif;
-  font-size: 13px;
-  color: #333333;
-  background-color: white;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-  box-sizing: border-box;
-}
-
-.input-base:focus {
-  outline: none;
-  border-color: #008080;
-  box-shadow: 0 0 0 2px rgba(0, 128, 128, 0.15);
-
-      
-}
-
-.input-base::placeholder {
-  color: #9CA3AF;
-}
-
-/* Input de Texto */
+.input-base,
 .input-text {
   width: 100%;
   padding: 6px 10px;
@@ -261,17 +248,18 @@
   box-sizing: border-box;
 }
 
+.input-base:focus,
 .input-text:focus {
   outline: none;
   border-color: #008080;
   box-shadow: 0 0 0 2px rgba(0, 128, 128, 0.15);
 }
 
+.input-base::placeholder,
 .input-text::placeholder {
   color: #9CA3AF;
 }
 
-/* Input de Dinheiro */
 .input-money {
   width: 100%;
   padding: 6px 10px 6px 28px;
@@ -458,6 +446,7 @@
 .dropdown-option:last-child {
   border-bottom: none;
 }
+
 .dropdown-option .category-color-tag {
   width: 12px;
   height: 12px;
@@ -612,29 +601,39 @@
    9. CARDS DE CONTA E CARTÃO
    ======================================== */
 
+/* ✅ CONSOLIDADO: Unificação de 3 estruturas diferentes */
 .account-card,
 .credit-card-item {
   background: white;
   border: 1px solid #E5E7EB;
-  border-radius: 8px;
-  padding: 14px;
-  margin-bottom: 10px;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
   transition: all 0.2s ease;
   position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  border-left-width: 4px;
+  border-left-style: solid;
 }
 
 .account-card:hover,
 .credit-card-item:hover {
-  border-color: #008080;
-  box-shadow: 0 2px 8px rgba(0, 128, 128, 0.1);
+  border-color: #d1d5db;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.account-card.archived {
+  opacity: 0.7;
 }
 
 .account-card .card-header,
 .credit-card-item .card-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 10px;
+  align-items: center;
+  flex: 1;
+  gap: 16px;
 }
 
 .account-card .card-title,
@@ -660,65 +659,152 @@
   color: #008080;
 }
 
-.card-actions {
+.account-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
   display: flex;
-  gap: 6px;
-  position: absolute;
-  top: 14px;
-  right: 14px;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.account-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.account-name {
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+}
+
+.account-type {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+
+.account-balance {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.balance-current {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.balance-current.positive {
+  color: #10b981;
+}
+
+.balance-current.negative {
+  color: #ef4444;
+}
+
+.balance-initial {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.account-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 /* ========================================
    10. BOTÕES DE AÇÃO EM CARDS
    ======================================== */
 
+/* ✅ CONSOLIDADO: Unificação de 3 versões diferentes */
+.card-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 .card-action-btn {
-  width: 28px;
-  height: 28px;
+  background: #f3f4f6;
   border: none;
-  border-radius: 4px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  color: #6b7280;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  font-size: 12px;
   transition: all 0.2s ease;
-  background-color: #F3F4F6;
-  color: #666666;
+  width: 32px;
+  height: 32px;
+  position: relative;
+  z-index: 11;
+  pointer-events: auto;
 }
 
 .card-action-btn:hover {
+  background: #e5e7eb;
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+.card-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
 .card-action-btn.edit {
-  background-color: #EDE9FE;
-  color: #7C3AED;
+  background-color: #ede9fe;
+  color: #7c3aed;
 }
 
 .card-action-btn.edit:hover {
-  background-color: #7C3AED;
+  background-color: #7c3aed;
   color: white;
 }
 
 .card-action-btn.delete {
-  background-color: #FEE2E2;
-  color: #DC3545;
+  background-color: #fee2e2;
+  color: #dc3545;
 }
 
 .card-action-btn.delete:hover {
-  background-color: #DC3545;
+  background-color: #dc3545;
   color: white;
 }
 
 .card-action-btn.archive {
-  background-color: #FEF3C7;
-  color: #F59E0B;
+  background-color: #fef3c7;
+  color: #f59e0b;
 }
 
 .card-action-btn.archive:hover {
-  background-color: #F59E0B;
+  background-color: #f59e0b;
+  color: white;
+}
+
+.card-action-btn.success {
+  background-color: #dcfce7;
+  color: #16a34a;
+}
+
+.card-action-btn.success:hover {
+  background-color: #16a34a;
   color: white;
 }
 
@@ -898,75 +984,154 @@
 }
 
 /* ========================================
-   12. GERENCIAMENTO DE CATEGORIAS
+   12. SISTEMA DE CORES UNIFICADO
    ======================================== */
 
-.category-management-container {
-  padding: 16px;
-  background-color: #FAFAFA;
-  border-radius: 8px;
-  margin: 12px 0;
+/* ✅ CONSOLIDADO: Unificação de dois sistemas diferentes */
+.color-picker {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-top: 8px !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
 }
 
-.category-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 240px;
-  overflow-y: auto;
+.color-option {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  border: 2px solid #e5e7eb !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  position: relative !important;
+  flex-shrink: 0 !important;
+  display: inline-block !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
-/* Scrollbars para listas de categorias */
-.category-list::-webkit-scrollbar,
-.expandable-content::-webkit-scrollbar {
-  width: 6px;
+.color-option:hover {
+  transform: scale(1.05) !important;
+  border-color: #9ca3af !important;
 }
 
-.category-list::-webkit-scrollbar-track,
-.expandable-content::-webkit-scrollbar-track {
-  background: #F8F9FA;
-  border-radius: 3px;
+.color-option.active {
+  border-color: #000 !important;
+  border-width: 3px !important;
+  transform: scale(1.1) !important;
 }
 
-.category-list::-webkit-scrollbar-thumb,
-.expandable-content::-webkit-scrollbar-thumb {
-  background: #D1D5DB;
-  border-radius: 3px;
+.color-option.active::before {
+  content: '✓' !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  color: white !important;
+  font-weight: bold !important;
+  font-size: 18px !important;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8) !important;
 }
 
-.category-list::-webkit-scrollbar-thumb:hover,
-.expandable-content::-webkit-scrollbar-thumb:hover {
-  background: #9CA3AF;
+/* Estados especiais para cores */
+.color-option.selected {
+  border-color: #1f2937;
+  box-shadow: 0 0 0 2px #3b82f6;
 }
 
-.category-item {
+.color-option.in-use {
+  opacity: 0.4;
+  cursor: not-allowed;
+  position: relative;
+}
+
+.color-option.in-use::after {
+  content: '⚫';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 8px;
+  color: rgba(0, 0, 0, 0.7);
+}
+
+/* Elementos auxiliares do sistema de cores */
+.color-input-container {
   display: flex;
   align-items: center;
-  padding: 10px 12px;
-  background: white;
-  border-radius: 6px;
-  border: 1px solid #E5E7EB;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.color-picker-input {
+  width: 50px;
+  height: 40px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.category-item:hover {
-  border-color: #008080;
-  box-shadow: 0 1px 4px rgba(0, 128, 128, 0.1);
+.color-picker-input:hover {
+  border-color: #3b82f6;
+  transform: scale(1.05);
 }
 
-.category-color-tag {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  margin-right: 10px;
-  flex-shrink: 0;
+.color-preview {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #e2e8f0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.category-name {
-  flex: 1;
-  font-size: 13px;
+.button-suggest-color {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.button-suggest-color:hover {
+  background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+}
+
+/* Informações sobre uso de cores */
+.color-usage-info {
+  margin-top: 0.75rem;
+  padding: 0.5rem;
+  background: rgba(59, 130, 246, 0.05);
+  border-radius: 6px;
+  border-left: 3px solid #3b82f6;
+}
+
+.color-usage-info small {
+  color: #6b7280;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.color-stats {
+  margin-top: 0.5rem;
+  text-align: center;
+}
+
+.color-stats small {
+  color: #9ca3af;
+  font-size: 0.75rem;
   font-weight: 500;
-  color: #333333;
 }
 
 /* ========================================
@@ -1047,6 +1212,14 @@
   color: #FFC107;
 }
 
+.summary-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
 /* Painéis Especiais */
 .parcelamento-preview {
   text-align: center;
@@ -1072,8 +1245,73 @@
   font-weight: 600;
 }
 
+/* Summary stats */
+.summary-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.stat-value.positive {
+  color: #10b981;
+}
+
+.stat-value.negative {
+  color: #ef4444;
+}
+
 /* ========================================
-   14. SEÇÕES EXPANDÍVEIS
+   14. CONTROLES E BADGES
+   ======================================== */
+
+.controls-container {
+  background: #f9fafb;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.count-badge {
+  background: #3b82f6;
+  color: white;
+  border-radius: 12px;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 6px;
+}
+
+.archived-badge {
+  font-size: 0.65rem;
+  background: #f59e0b;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* ========================================
+   15. SEÇÕES EXPANDÍVEIS
    ======================================== */
 
 .expandable-section {
@@ -1133,9 +1371,10 @@
 }
 
 /* ========================================
-   15. LOADING E ESTADOS
+   16. LOADING E ESTADOS
    ======================================== */
 
+/* ✅ CONSOLIDADO: Unificação de 2 definições idênticas */
 .loading-container {
   display: flex;
   flex-direction: column;
@@ -1172,20 +1411,52 @@
   margin-right: 4px;
 }
 
+/* ✅ CONSOLIDADO: Unificação de 2 definições idênticas */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.empty-state-icon {
+  color: #d1d5db;
+  margin-bottom: 16px;
+}
+
+.empty-state-title {
+  margin: 0 0 8px 0;
+  font-size: 1rem;
+  color: #374151;
+}
+
+.empty-state-description {
+  margin: 0 0 20px 0;
+  font-size: 0.9rem;
+}
+
 /* ========================================
-   16. RODAPÉ DO MODAL
+   17. RODAPÉ DO MODAL
    ======================================== */
 
+/* ✅ CONSOLIDADO: Unificação de 3 definições diferentes */
 .modal-footer {
-  padding: 16px 20px 20px 20px;
+  padding: 16px 20px;
   border-top: 1px solid #E5E7EB;
   display: flex;
   gap: 8px;
   justify-content: flex-end;
-  background-color: #FAFAFA;
-  flex-wrap: nowrap; 
+  background-color: #FAFABA;
+  flex-wrap: nowrap;
   align-items: center;
   overflow: auto;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
 }
 
 .modal-footer .btn-primary,
@@ -1193,922 +1464,127 @@
 .modal-footer .btn-cancel,
 .modal-footer .btn-new {
   min-width: 80px;
-  flex-shrink: 0; 
+  flex-shrink: 0;
   white-space: nowrap;
   font-size: 12px;
   padding: 6px 10px;
 }
 
-/* ========================================
-   17. ANIMAÇÕES E EFEITOS
-   ======================================== */
-
-.fade-in {
-  animation: fadeIn 0.3s ease-in-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.slide-up {
-  animation: slideUp 0.3s ease-out;
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes spin {
-  from { 
-    transform: rotate(0deg); 
-  }
-  to { 
-    transform: rotate(360deg); 
-  }
-}
-
-/* ========================================
-   18. UTILITÁRIOS
-   ======================================== */
-
-.text-center {
-  text-align: center;
-}
-
-.text-right {
-  text-align: right;
-}
-
-.text-left {
-  text-align: left;
-}
-
-.mb-0 { margin-bottom: 0; }
-.mb-1 { margin-bottom: 4px; }
-.mb-2 { margin-bottom: 8px; }
-.mb-3 { margin-bottom: 16px; }
-
-.mt-0 { margin-top: 0; }
-.mt-1 { margin-top: 4px; }
-.mt-2 { margin-top: 8px; }
-.mt-3 { margin-top: 12px; }
-
-.hidden {
-  display: none;
-}
-
-.flex {
+.footer-left,
+.footer-right {
   display: flex;
-}
-
-.flex-col {
-  flex-direction: column;
-}
-
-.gap-1 {
-  gap: 4px;
-}
-
-.gap-2 {
-  gap: 6px;
-}
-
-.gap-3 {
-  gap: 8px;
-}
-
-.gap-4 {
-  gap: 12px;
-}
-
-/* Flexbox para campos lado a lado */
-.flex.gap-3 {
-  flex-direction: column;
-}
-
-.flex.gap-3.row {
-  flex-direction: row;
-}
-
-.flex.gap-3.row > div {
-  flex: 1;
-  min-width: 0;
-}
-
-
-/* ========================================
-   19. RESPONSIVIDADE
-   ======================================== */
-
-@media (max-width: 768px) {
-  .modal-container {
-    width: 95%;
-    margin: 16px auto;
-    max-height: calc(100vh - 32px);
-  }
-  
-  
-  .modal-header,
-  .modal-body,
-  .modal-footer {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-  
-  .modal-title {
-    font-size: 18px;
-    margin-right: 28px;
-  }
-  
-  .modal-header-content {
-    gap: 8px;
-  }
-  
-  .modal-icon-container {
-    width: 28px;
-    height: 28px;
-    font-size: 14px;
-  }
-  
-  .modal-footer {
-    flex-direction: column-reverse;
-    gap: 8px;
-  }
-  
-  .modal-footer .btn-primary,
-  .modal-footer .btn-secondary,
-  .modal-footer .btn-cancel,
-  .modal-footer .btn-new {
-    width: 100%;
-    min-width: auto;
-  }
-  
-  .status-selector {
-    justify-content: center;
-  }
-  
-  .type-selector {
-    flex-direction: column;
-    gap: 2px;
-  }
-  
-  .card-actions {
-    position: static;
-    margin-top: 8px;
-    justify-content: flex-end;
-  }
-
-    .flex.gap-3.row {
-      flex-direction: row;
-    }
-
-    .flex.gap-3.row > div {
-      flex: 1;
-      min-width: 0;
-    }
-
-.flex.gap-3 > div {
-  flex: 1 1 0%;          /* ← Para os dois campos ocuparem 50% cada */
-  min-width: 0;          /* ← Evitar quebra de layout */
-}
-  
-  .form-label {
-    font-size: 11px;
-  }
-  
-  .input-money-highlight {
-    font-size: 12px;
-  }
-}
-
-@media (max-width: 480px) {
-    .modal-footer {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-  .modal-container {
-    width: 100%;
-    height: 100vh;
-    max-height: 100vh;
-    border-radius: 0;
-  }
-  
-  .expandable-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-  }
-  
-  .summary-panel,
-  .summary-panel-purple {
-    padding: 10px;
-  }
-  
-  .summary-value {
-    font-size: 16px;
-  }
-}
-
-/* ========================================
-   20. ACESSIBILIDADE
-   ======================================== */
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.modal-container:focus-visible,
-.btn-primary:focus-visible,
-.btn-secondary:focus-visible,
-.btn-cancel:focus-visible,
-.btn-new:focus-visible,
-.input-text:focus-visible,
-.input-money:focus-visible,
-.input-date:focus-visible,
-.select-search select:focus-visible,
-.textarea-observations:focus-visible {
-  outline: 2px solid #008080;
-  outline-offset: 2px;
-}
-
-@media (prefers-contrast: high) {
-  .modal-container {
-    border: 2px solid #000;
-  }
-  
-  .btn-primary,
-  .btn-secondary,
-  .btn-cancel,
-  .btn-new {
-    border: 2px solid currentColor;
-  }
-  
-  .input-text,
-  .input-money,
-  .input-date,
-  .select-search select,
-  .textarea-observations {
-    border-width: 2px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .modal-overlay,
-  .modal-container,
-  .btn-primary,
-  .btn-secondary,
-  .btn-cancel,
-  .btn-new,
-  .input-text,
-  .input-money,
-  .input-date,
-  .select-search select,
-  .textarea-observations,
-  .expandable-icon,
-  .expandable-content {
-    transition: none;
-  }
-  
-  .fade-in,
-  .slide-up {
-    animation: none;
-  }
-}
-/* ========================================
-   CSS ADICIONAL PARA FormsModal.css - CONTAS MODAL
-*/
-
-/* Controles superiores */
-.controls-container {
-  background: #f9fafb;
-  padding: 12px 16px;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
-  display: flex;
-  justify-content: space-between;
+  gap: 0.5rem;
   align-items: center;
-}
-/* Summary stats */
-.summary-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-
-.stat-item {
-  text-align: center;
-}
-
-.stat-label {
-  font-size: 0.8rem;
-  color: #6b7280;
-  margin-bottom: 4px;
-  font-weight: 500;
-}
-
-.stat-value {
-  font-size: 1.1rem;
-  font-weight: 700;
-}
-
-.stat-value.positive {
-  color: #10b981;
-}
-
-.stat-value.negative {
-  color: #ef4444;
-}
-
-/* Count badge */
-.count-badge {
-  background: #3b82f6;
-  color: white;
-  border-radius: 12px;
-  padding: 2px 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  margin-left: 6px;
-}
-
-/* Archived badge */
-.archived-badge {
-  font-size: 0.65rem;
-  background: #f59e0b;
-  color: white;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-/* Account card estrutura interna - CORRIGIDO */
-.account-card {
-  border-left-width: 4px;
-  border-left-style: solid;
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  padding: 16px;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  background: white;
-  transition: all 0.2s ease;
-  margin-bottom: 12px;
-}
-
-.account-card:hover {
-  border-color: #d1d5db;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.account-card.archived {
-  opacity: 0.7;
-}
-
-/* Card header agora ocupa todo o espaço disponível */
-.card-header {
-  display: flex;
-  align-items: center;
-  flex: 1;
-  gap: 16px;
-}
-
-.account-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  flex-shrink: 0;
-}
-
-.account-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.account-name {
-  font-weight: 600;
-  color: #1f2937;
-  margin-bottom: 4px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.95rem;
-}
-
-.account-type {
-  font-size: 0.8rem;
-  color: #6b7280;
-  margin-bottom: 6px;
-}
-
-.account-balance {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.balance-current {
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.balance-current.positive {
-  color: #10b981;
-}
-
-.balance-current.negative {
-  color: #ef4444;
-}
-
-.balance-initial {
-  font-size: 0.75rem;
-  color: #6b7280;
-}
-
-/* Account list */
-.account-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-/* Card actions - POSICIONAMENTO CORRIGIDO */
-.card-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  position: relative;
   z-index: 10;
   pointer-events: auto;
-  margin-left: auto;
-  flex-shrink: 0;
 }
 
-.card-action-btn {
-  background: #f3f4f6;
-  border: none;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 6px;
+.footer-right {
+  gap: 1rem;
+}
+
+.button.tertiary {
+  background: transparent;
   color: #6b7280;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border: 1px solid #d1d5db;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  border-radius: 6px;
   transition: all 0.2s ease;
-  width: 32px;
-  height: 32px;
+  cursor: pointer;
   position: relative;
   z-index: 11;
   pointer-events: auto;
 }
 
-.card-action-btn:hover {
-  background: #e5e7eb;
+.button.tertiary:hover {
+  background: #f9fafb;
+  color: #374151;
+  border-color: #9ca3af;
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.card-action-btn:disabled {
+.button.tertiary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  transform: none !important;
+  transform: none;
 }
 
-.card-action-btn.edit {
-  background-color: #ede9fe;
-  color: #7c3aed;
-}
+/* ========================================
+   18. CATEGORIAS E GERENCIAMENTO
+   ======================================== */
 
-.card-action-btn.edit:hover {
-  background-color: #7c3aed;
-  color: white;
-}
-
-.card-action-btn.archive {
-  background-color: #fef3c7;
-  color: #f59e0b;
-}
-
-.card-action-btn.archive:hover {
-  background-color: #f59e0b;
-  color: white;
-}
-
-/* Account summary para modais */
-.account-summary {
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+.category-management-container {
   padding: 16px;
-  margin-bottom: 16px;
+  background-color: #FAFAFA;
+  border-radius: 8px;
+  margin: 12px 0;
 }
 
-.account-summary h4 {
-  font-weight: 600;
-  margin-bottom: 8px;
-  color: #374151;
-  margin-top: 0;
-}
-
-.account-balances {
-  font-size: 0.9rem;
-  color: #6b7280;
+.category-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
 }
 
-/* Method selector */
-.method-selector {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.category-list::-webkit-scrollbar,
+.expandable-content::-webkit-scrollbar {
+  width: 6px;
 }
 
-.method-option {
+.category-list::-webkit-scrollbar-track,
+.expandable-content::-webkit-scrollbar-track {
+  background: #F8F9FA;
+  border-radius: 3px;
+}
+
+.category-list::-webkit-scrollbar-thumb,
+.expandable-content::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
+  border-radius: 3px;
+}
+
+.category-list::-webkit-scrollbar-thumb:hover,
+.expandable-content::-webkit-scrollbar-thumb:hover {
+  background: #9CA3AF;
+}
+
+.category-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  cursor: pointer;
+  padding: 10px 12px;
   background: white;
+  border-radius: 6px;
+  border: 1px solid #E5E7EB;
   transition: all 0.2s ease;
 }
 
-.method-option.active {
-  background: #eff6ff;
-  border-color: #3b82f6;
+.category-item:hover {
+  border-color: #008080;
+  box-shadow: 0 1px 4px rgba(0, 128, 128, 0.1);
 }
 
-.method-title {
-  font-weight: 500;
-  font-size: 0.9rem;
-  margin-bottom: 2px;
-}
-
-.method-desc {
-  font-size: 0.8rem;
-  color: #6b7280;
-}
-
-/* Color picker - LAYOUT FORÇADO */
-.color-picker {
-  display: flex !important;
-  flex-direction: row !important;
-  flex-wrap: wrap !important;
-  gap: 0px !important;
-  width: 100% !important;
-  max-width: 100% !important;
-  margin-top: 2px !important;
-  align-items: center !important;
-  justify-content: flex-start !important;
-  grid-template-columns: repeat(4, 1fr);  
-}
-
-.color-option {
-  width: 32px !important;
-  height: 32px !important;
-  border-radius: 8px !important;
-  border: 2px solid #e5e7eb !important;
-  cursor: pointer !important;
-  transition: all 0.2s ease !important;
-  position: relative !important;
-  flex-shrink: 0 !important;
-  display: inline-block !important;
-  margin: 0 !important;
-  padding: 0 !important;
-
-}
-
-.color-option:hover {
-  transform: scale(1.05) !important;
-  border-color: #9ca3af !important;
-}
-
-.color-option.active {
-  border-color: #000 !important;
-  border-width: 3px !important;
-  transform: scale(1.1) !important;
-}
-
-.color-option.active::before {
-  content: '✓' !important;
-  position: absolute !important;
-  top: 50% !important;
-  left: 50% !important;
-  transform: translate(-50%, -50%) !important;
-  color: white !important;
-  font-weight: bold !important;
-  font-size: 18px !important;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8) !important;
-}
-
-/* Flex row corrigido para formulários */
-.flex.gap-3.row {
-  display: flex;
-  flex-direction: row;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.flex.gap-3.row > div {
-  flex: 1;
-  min-width: 0;
-}
-
-/* Flex column para campos individuais */
-.flex.flex-col {
-  display: flex;
-  flex-direction: column;
-}
-
-
-
-/* Empty state */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 20px;
-  text-align: center;
-  color: #6b7280;
-}
-
-.empty-state-icon {
-  color: #d1d5db;
-  margin-bottom: 16px;
-}
-
-.empty-state-title {
-  margin: 0 0 8px 0;
-  font-size: 1rem;
-  color: #374151;
-}
-
-.empty-state-description {
-  margin: 0 0 20px 0;
-  font-size: 0.9rem;
-}
-
-/* Input money highlight variation */
-.input-money-highlight {
-  font-size: 13px;
-  font-weight: 600;
-  color: #8b5cf6;
-  text-align: center;
-  background-color: #fafbff;
-  border-color: rgba(139, 92, 246, 0.2);
-}
-
-/* Positive/negative classes for inputs */
-.positive {
-  color: #10b981;
-}
-
-.negative {
-  color: #ef4444;
-}
-
-/* Modal small variation */
-.forms-modal-container.modal-small {
-  max-width: 400px;
-}
-
-/* Summary header */
-.summary-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-  font-weight: 600;
-}
-
-/* Card action button com cores específicas */
-.card-action-btn.success {
-  background-color: #dcfce7;
-  color: #16a34a;
-}
-
-.card-action-btn.success:hover {
-  background-color: #16a34a;
-  color: white;
-}
-
-/* Garante que o modal overlay não interfere com os botões */
-.modal-overlay {
-  pointer-events: auto;
-}
-
-.modal-overlay .forms-modal-container {
-  pointer-events: auto;
-}
-
-.modal-overlay .forms-modal-container * {
-  pointer-events: auto;
-}
-
-/* Responsive adjustments */
-@media (max-width: 640px) {
-  .controls-container {
-    flex-direction: column;
-    gap: 12px;
-    align-items: stretch;
-  }
-  
-  .summary-stats {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-  
-  .account-card {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-  
-  .card-header {
-    flex-direction: row;
-  }
-  
-  .card-actions {
-    margin-left: 0;
-    justify-content: center;
-    border-top: 1px solid #e5e7eb;
-    padding-top: 12px;
-  }
-  
-  .flex.gap-3.row {
-    flex-direction: column;
-    gap: 16px;
-  }
-  
-
-  
-
-}/* ========================================
-   CSS ADICIONAL PARA FormsModal.css - CONTAS MODAL
-   ======================================== 
-   Adicionar estas classes ao final do arquivo FormsModal.css
-*/
-
-
-/* Summary stats */
-.summary-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-
-.stat-item {
-  text-align: center;
-}
-
-.stat-label {
-  font-size: 0.8rem;
-  color: #6b7280;
-  margin-bottom: 4px;
-  font-weight: 500;
-}
-
-.stat-value {
-  font-size: 1.1rem;
-  font-weight: 700;
-}
-
-.stat-value.positive {
-  color: #10b981;
-}
-
-.stat-value.negative {
-  color: #ef4444;
-}
-
-/* Count badge */
-.count-badge {
-  background: #3b82f6;
-  color: white;
-  border-radius: 12px;
-  padding: 2px 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  margin-left: 6px;
-}
-
-/* Archived badge */
-.archived-badge {
-  font-size: 0.65rem;
-  background: #f59e0b;
-  color: white;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-/* Account card estrutura interna */
-.account-card {
-  border-left-width: 4px;
-  border-left-style: solid;
-}
-
-.account-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  margin-right: 16px;
+.category-color-tag {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 10px;
   flex-shrink: 0;
 }
 
-.account-info {
+.category-name {
   flex: 1;
-  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #333333;
 }
 
-.account-name {
-  font-weight: 600;
-  color: #1f2937;
-  margin-bottom: 4px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.95rem;
-}
+/* ========================================
+   19. SISTEMA DE FORMULÁRIOS E MÉTODOS
+   ======================================== */
 
-.account-type {
-  font-size: 0.8rem;
-  color: #6b7280;
-  margin-bottom: 6px;
-}
-
-.account-balance {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.balance-current {
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.balance-current.positive {
-  color: #10b981;
-}
-
-.balance-current.negative {
-  color: #ef4444;
-}
-
-.balance-initial {
-  font-size: 0.75rem;
-  color: #6b7280;
-}
-
-/* Account list */
-.account-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-/* Account summary para modais */
 .account-summary {
   background: #f3f4f6;
   border: 1px solid #d1d5db;
@@ -2132,7 +1608,6 @@
   gap: 4px;
 }
 
-/* Method selector */
 .method-selector {
   display: flex;
   flex-direction: column;
@@ -2167,114 +1642,10 @@
   color: #6b7280;
 }
 
-
-
-
-
-
-/* Section title archived */
-.section-title.archived {
-  color: #6b7280; 
-}
-
-/* Empty state */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 20px;
-  text-align: center;
-  color: #6b7280;
-}
-
-.empty-state-icon {
-  color: #d1d5db;
-  margin-bottom: 16px;
-}
-
-.empty-state-title {
-  margin: 0 0 8px 0;
-  font-size: 1rem;
-  color: #374151;
-}
-
-.empty-state-description {
-  margin: 0 0 20px 0;
-  font-size: 0.9rem;
-}
-
-/* Input money highlight variation */
-.input-money-highlight {
-  font-size: 13px;
-  font-weight: 600;
-  color: #8b5cf6;
-  text-align: center;
-  background-color: #fafbff;
-  border-color: rgba(139, 92, 246, 0.2);
-}
-
-/* Positive/negative classes for inputs */
-.positive {
-  color: #10b981;
-}
-
-.negative {
-  color: #ef4444;
-}
-
-
-
-/* Summary header */
-.summary-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-  font-weight: 600;
-}
-
-/* Responsive adjustments */
-@media (max-width: 640px) {
-  .controls-container {
-    flex-direction: column;
-    gap: 12px;
-    align-items: stretch;
-  }
-  
-  .summary-stats {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-  
-  .account-card .card-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-  
-  .card-actions {
-    align-self: flex-end;
-  }
-}
 /* ========================================
-   ADIÇÕES PARA FORMSMODAL.CSS - SISTEMA DE CATEGORIAS
-   ========================================
-   Adicionar estas classes ao final do arquivo FormsModal.css existente
+   20. CATEGORIAS AVANÇADAS E SUGERIDAS
    ======================================== */
 
-/* Modal Large para Categorias */
-.forms-modal-container.modal-large {
-  max-width: 800px;
-  width: 90%;
-}
-
-/* Ícone de Warning */
-.modal-icon-warning {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-}
-
-/* Feedback Messages para Categorias */
 .feedback-message {
   padding: 0.75rem 1.5rem;
   font-size: 0.875rem;
@@ -2307,7 +1678,6 @@
   border-left: 4px solid #f59e0b;
 }
 
-/* Tipo Selector para Categorias */
 .tipo-selector {
   display: flex;
   background: #f8fafc;
@@ -2342,7 +1712,6 @@
   box-shadow: 0 -2px 0 #3b82f6 inset;
 }
 
-/* Header das Categorias */
 .categorias-header {
   text-align: center;
   margin-bottom: 2rem;
@@ -2361,7 +1730,6 @@
   font-size: 0.875rem;
 }
 
-/* Lista de Categorias */
 .categorias-list {
   display: flex;
   flex-direction: column;
@@ -2424,7 +1792,6 @@
   gap: 0.5rem;
 }
 
-/* Botões Pequenos para Categorias */
 .button-small {
   background: none;
   border: 1px solid #e2e8f0;
@@ -2466,7 +1833,6 @@
   border-color: #2563eb;
 }
 
-/* Subcategorias */
 .subcategorias-container {
   background: white;
   border-top: 1px solid #e2e8f0;
@@ -2528,126 +1894,10 @@
   font-style: italic;
 }
 
-/* Sistema de Cores para Categorias */
-.color-input-container {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-}
+/* ========================================
+   21. FORMULÁRIOS ESPECÍFICOS
+   ======================================== */
 
-.color-picker-input {
-  width: 50px;
-  height: 40px;
-  border: 2px solid #e2e8f0;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.color-picker-input:hover {
-  border-color: #3b82f6;
-  transform: scale(1.05);
-}
-
-.color-preview {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 2px solid #e2e8f0;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.button-suggest-color {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.button-suggest-color:hover {
-  background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
-}
-
-.cores-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(32px, 1fr));
-  gap: 0.5rem;
-  max-width: 320px;
-  margin-top: 0.75rem;
-}
-
-.cor-item {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
-}
-
-.cor-item:hover:not(.in-use) {
-  transform: scale(1.1);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-.cor-item.selected {
-  border-color: #1f2937;
-  box-shadow: 0 0 0 2px #3b82f6;
-}
-
-.cor-item.in-use {
-  opacity: 0.4;
-  cursor: not-allowed;
-  position: relative;
-}
-
-.cor-item.in-use::after {
-  content: '⚫';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 8px;
-  color: rgba(0, 0, 0, 0.7);
-}
-
-/* Informações sobre uso de cores */
-.color-usage-info {
-  margin-top: 0.75rem;
-  padding: 0.5rem;
-  background: rgba(59, 130, 246, 0.05);
-  border-radius: 6px;
-  border-left: 3px solid #3b82f6;
-}
-
-.color-usage-info small {
-  color: #6b7280;
-  font-size: 0.75rem;
-  line-height: 1.4;
-}
-
-.color-stats {
-  margin-top: 0.5rem;
-  text-align: center;
-}
-
-.color-stats small {
-  color: #9ca3af;
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-/* Formulários de Categoria */
 .form-categoria,
 .form-subcategoria {
   max-width: 400px;
@@ -2688,70 +1938,247 @@
   font-size: 0.875rem;
 }
 
-/* Estados de Loading para Categorias */
-.loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 3rem;
+/* ========================================
+   22. UTILITÁRIOS E CLASSES AUXILIARES
+   ======================================== */
+
+.positive {
+  color: #10b981;
+}
+
+.negative {
+  color: #ef4444;
+}
+
+.text-center {
   text-align: center;
 }
 
-.loading-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid #f3f4f6;
-  border-top: 3px solid #3b82f6;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
+.text-right {
+  text-align: right;
 }
 
-/* Empty State para Categorias */
-.empty-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-  color: #d1d5db;
+.text-left {
+  text-align: left;
 }
 
-/* Footer com layout melhorado para categorias */
-.footer-left {
+.mb-0 { margin-bottom: 0; }
+.mb-1 { margin-bottom: 4px; }
+.mb-2 { margin-bottom: 8px; }
+.mb-3 { margin-bottom: 16px; }
+
+.mt-0 { margin-top: 0; }
+.mt-1 { margin-top: 4px; }
+.mt-2 { margin-top: 8px; }
+.mt-3 { margin-top: 12px; }
+
+.hidden {
+  display: none;
+}
+
+.flex {
   display: flex;
-  gap: 0.5rem;
 }
 
-.footer-right {
-  display: flex;
-  gap: 1rem;
+.flex-col {
+  flex-direction: column;
 }
 
-.button.tertiary {
-  background: transparent;
-  color: #6b7280;
-  border: 1px solid #d1d5db;
-  padding: 0.5rem 1rem;
-  font-size: 0.75rem;
-  border-radius: 6px;
-  transition: all 0.2s ease;
+.gap-1 {
+  gap: 4px;
 }
 
-.button.tertiary:hover {
-  background: #f9fafb;
-  color: #374151;
-  border-color: #9ca3af;
+.gap-2 {
+  gap: 6px;
+}
+
+.gap-3 {
+  gap: 8px;
+}
+
+.gap-4 {
+  gap: 12px;
+}
+
+.flex.gap-3 {
+  flex-direction: column;
+}
+
+.flex.gap-3.row {
+  flex-direction: row;
+}
+
+.flex.gap-3.row > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.flex.gap-3 > div {
+  flex: 1 1 0%;
+  min-width: 0;
 }
 
 /* ========================================
-   RESPONSIVIDADE PARA CATEGORIAS
+   23. ANIMAÇÕES E EFEITOS
+   ======================================== */
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  from { 
+    transform: rotate(0deg); 
+  }
+  to { 
+    transform: rotate(360deg); 
+  }
+}
+
+/* ========================================
+   24. RESPONSIVIDADE
    ======================================== */
 
 @media (max-width: 768px) {
-  .forms-modal-container.modal-large {
+  .forms-modal-container {
     width: 95%;
-    max-height: 95vh;
+    margin: 16px auto;
+    max-height: calc(100vh - 32px);
   }
   
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  
+  .modal-title {
+    font-size: 18px;
+    margin-right: 28px;
+  }
+  
+  .modal-header-content {
+    gap: 8px;
+  }
+  
+  .modal-icon-container {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+  
+  .modal-footer {
+    flex-direction: column-reverse;
+    gap: 12px;
+    align-items: stretch;
+  }
+  
+  .footer-left,
+  .footer-right {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .footer-right {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .modal-footer .btn-primary,
+  .modal-footer .btn-secondary,
+  .modal-footer .btn-cancel,
+  .modal-footer .btn-new {
+    width: 100%;
+    min-width: auto;
+  }
+  
+  .status-selector {
+    justify-content: center;
+  }
+  
+  .type-selector {
+    flex-direction: column;
+    gap: 2px;
+  }
+  
+  .card-actions {
+    position: static;
+    margin-top: 8px;
+    justify-content: flex-end;
+  }
+
+  .flex.gap-3.row {
+    flex-direction: row;
+  }
+
+  .flex.gap-3.row > div {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .form-label {
+    font-size: 11px;
+  }
+  
+  .input-money-highlight {
+    font-size: 12px;
+  }
+  
+  .controls-container {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+  
+  .summary-stats {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .account-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  
+  .card-header {
+    flex-direction: row;
+  }
+  
+  .card-actions {
+    margin-left: 0;
+    justify-content: center;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 12px;
+  }
+
   .categorias-header {
     margin-bottom: 1.5rem;
   }
@@ -2764,14 +2191,14 @@
     padding: 0.75rem 1rem;
   }
   
-  .cores-container {
+  .color-picker {
     grid-template-columns: repeat(auto-fill, minmax(28px, 1fr));
     gap: 0.375rem;
   }
   
-  .cor-item {
-    width: 28px;
-    height: 28px;
+  .color-option {
+    width: 28px !important;
+    height: 28px !important;
   }
   
   .color-input-container {
@@ -2783,8 +2210,393 @@
     order: -1;
     align-self: flex-start;
   }
+}
 
-  .footer-right {
-    flex-direction: column;
+@media (max-width: 480px) {
+  .modal-footer {
+    padding-left: 16px;
+    padding-right: 16px;
   }
+  
+  .forms-modal-container {
+    width: 100%;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+  
+  .expandable-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  
+  .summary-panel,
+  .summary-panel-purple {
+    padding: 10px;
+  }
+  
+  .summary-value {
+    font-size: 16px;
+  }
+}
+
+/* ========================================
+   25. ACESSIBILIDADE
+   ======================================== */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.forms-modal-container:focus-visible,
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-cancel:focus-visible,
+.btn-new:focus-visible,
+.input-text:focus-visible,
+.input-money:focus-visible,
+.input-date:focus-visible,
+.select-search select:focus-visible,
+.textarea-observations:focus-visible {
+  outline: 2px solid #008080;
+  outline-offset: 2px;
+}
+
+@media (prefers-contrast: high) {
+  .forms-modal-container {
+    border: 2px solid #000;
+  }
+  
+  .btn-primary,
+  .btn-secondary,
+  .btn-cancel,
+  .btn-new {
+    border: 2px solid currentColor;
+  }
+  
+  .input-text,
+  .input-money,
+  .input-date,
+  .select-search select,
+  .textarea-observations {
+    border-width: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay,
+  .forms-modal-container,
+  .btn-primary,
+  .btn-secondary,
+  .btn-cancel,
+  .btn-new,
+  .input-text,
+  .input-money,
+  .input-date,
+  .select-search select,
+  .textarea-observations,
+  .expandable-icon,
+  .expandable-content {
+    transition: none;
+  }
+  
+  .fade-in,
+  .slide-up {
+    animation: none;
+  }
+}
+
+/* ========================================
+   26. CLASSES ESPECÍFICAS PARA TRANSFERÊNCIAS
+   ======================================== */
+
+.transfer-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.transfer-from,
+.transfer-to {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  text-align: center;
+}
+
+.transfer-account {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 4px;
+}
+
+.transfer-amount {
+  font-size: 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.transfer-from .transfer-amount {
+  color: #ef4444;
+}
+
+.transfer-to .transfer-amount {
+  color: #10b981;
+}
+
+.transfer-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+/* ========================================
+   27. CATEGORIAS SUGERIDAS ESPECÍFICAS
+   ======================================== */
+
+
+.selecao-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.selecao-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.contador {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.selecao-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.categorias-sugeridas-content {
+  max-height: 60vh;
+}
+
+.categorias-sugeridas-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 0;
+}
+
+.categoria-sugerida-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: white;
+  transition: all 0.2s ease;
+}
+
+.categoria-sugerida-item:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+.categoria-sugerida-item.selecionada {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.categoria-sugerida-item.ja-existe {
+  opacity: 0.6;
+  background: #f9fafb;
+}
+
+.categoria-sugerida-header {
+  padding: 16px;
+}
+
+.categoria-info {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.categoria-checkbox-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.categoria-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: #3b82f6;
+  cursor: pointer;
+}
+
+.categoria-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.categoria-nome {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ja-existe-badge {
+  font-size: 0.65rem;
+  background: #6b7280;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.subcategorias-info {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.subcategorias-selecionadas {
+  color: #3b82f6;
+  font-weight: 500;
+}
+
+.subcategorias-sugeridas {
+  border-top: 1px solid #e5e7eb;
+  padding: 16px;
+  background: #f8fafc;
+}
+
+.subcategorias-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.subcategoria-sugerida-item {
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: white;
+  transition: all 0.2s ease;
+}
+
+.subcategoria-sugerida-item:hover {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.subcategoria-sugerida-item.selecionada {
+  border-color: #3b82f6;
+  background: #dbeafe;
+}
+
+.subcategoria-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.subcategoria-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: #3b82f6;
+  cursor: pointer;
+}
+
+.subcategoria-nome {
+  font-weight: 500;
+  color: #374151;
+}
+
+/* ========================================
+   28. CORREÇÕES FINAIS E AJUSTES
+   ======================================== */
+
+/* Correção do background do modal-footer */
+.modal-footer {
+  background-color: #FAFAFA; /* Corrigido de FAFABA para FAFAFA */
+}
+
+/* Garantir z-index adequado em todos os elementos interativos */
+.modal-overlay {
+  z-index: 1000;
+  pointer-events: auto;
+}
+
+.modal-overlay .forms-modal-container {
+  pointer-events: auto;
+  z-index: 1001;
+}
+
+.modal-overlay .forms-modal-container * {
+  pointer-events: auto;
+}
+
+/* Scrollbars customizadas para modal-large */
+.forms-modal-container.modal-large .modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.forms-modal-container.modal-large .modal-body::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.forms-modal-container.modal-large .modal-body::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.forms-modal-container.modal-large .modal-body::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Garantir que o modal large tenha scroll adequado */
+.forms-modal-container.modal-large {
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.forms-modal-container.modal-large .modal-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: calc(85vh - 160px);
+}
+
+.forms-modal-container.modal-large .modal-footer {
+  flex-shrink: 0;
 }
