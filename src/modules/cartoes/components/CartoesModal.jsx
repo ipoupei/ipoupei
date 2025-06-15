@@ -1,19 +1,16 @@
-// src/modules/cartoes/components/CartoesModal.jsx - VERSÃO CORRIGIDA BUG 002 e 003
 import React, { useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import { CreditCard, Plus, Archive, Trash2, X } from 'lucide-react';
+import { CreditCard, Plus, Archive, Trash2, X, AlertTriangle } from 'lucide-react';
 import { useAuthStore } from '@modules/auth/store/authStore';
 import { useUIStore } from '@store/uiStore';
 import { supabase } from '@lib/supabaseClient';
 import CartaoForm from '@modules/cartoes/components/CartaoForm';
 import CartaoItem from '@modules/cartoes/components/CartaoItem';
-import '@modules/cartoes/styles/CartoesModal.css';
+import '@shared/styles/FormsModal.css';
 
 /**
  * Modal para gerenciamento de cartões de crédito
- * ✅ CORREÇÃO BUG 002: Carregamento de contas antes de renderizar
- * ✅ CORREÇÃO BUG 003: Tratamento de erros melhorado + logs detalhados
- * ✅ CORREÇÃO BUG 004: Verificação de usuario_id na inserção
+ * Versão migrada para FormsModal.css
  */
 const CartoesModal = ({ isOpen, onClose, onSave }) => {
   const { user } = useAuthStore();
@@ -21,16 +18,40 @@ const CartoesModal = ({ isOpen, onClose, onSave }) => {
   
   // Estados locais
   const [cartoes, setCartoes] = useState([]);
-  const [contas, setContas] = useState([]); // ✅ CORREÇÃO BUG 002: Estado para contas
+  const [contas, setContas] = useState([]);
   const [cartoesAtivos, setCartoesAtivos] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [loadingContas, setLoadingContas] = useState(false); // ✅ Estado específico para contas
+  const [loadingContas, setLoadingContas] = useState(false);
   const [modoFormulario, setModoFormulario] = useState(false);
   const [cartaoEditando, setCartaoEditando] = useState(null);
-  const [feedback, setFeedback] = useState({ show: false, message: '', type: '' });
-  const [confirmacao, setConfirmacao] = useState({ show: false, action: null, cartaoId: null, message: '' });
+  const [confirmacao, setConfirmacao] = useState({ 
+    show: false, 
+    action: null, 
+    cartaoId: null, 
+    message: '',
+    cartaoNome: ''
+  });
+
+  // Effect para controle da tecla ESC
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isOpen && !confirmacao.show) {
+        if (modoFormulario) {
+          setModoFormulario(false);
+          setCartaoEditando(null);
+        } else {
+          onClose();
+        }
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen, modoFormulario, confirmacao.show, onClose]);
   
-  // ✅ CORREÇÃO BUG 002: Carregar contas ANTES de exibir o modal
+  // Carregar contas
   const carregarContas = useCallback(async () => {
     if (!user) {
       console.log('🚫 carregarContas: Usuário não encontrado');
@@ -102,7 +123,7 @@ const CartoesModal = ({ isOpen, onClose, onSave }) => {
     }
   }, [user, showNotification]);
 
-  // ✅ CORREÇÃO BUG 002: Carregar CONTAS e CARTÕES ao abrir modal
+  // Carregar dados ao abrir modal
   useEffect(() => {
     if (isOpen && user) {
       console.log('🔓 Modal aberto, carregando dados...');
@@ -127,14 +148,6 @@ const CartoesModal = ({ isOpen, onClose, onSave }) => {
   // Se o modal não estiver aberto, não renderiza
   if (!isOpen) return null;
   
-  // Função para exibir mensagem de feedback
-  const showFeedback = (message, type = 'success') => {
-    setFeedback({ show: true, message, type });
-    setTimeout(() => {
-      setFeedback({ show: false, message: '', type: '' });
-    }, 3000);
-  };
-  
   // Abre o formulário de novo cartão
   const handleNovoCartao = () => {
     console.log('➕ Iniciando novo cartão...');
@@ -149,7 +162,7 @@ const CartoesModal = ({ isOpen, onClose, onSave }) => {
     setModoFormulario(true);
   };
   
-  // ✅ CORREÇÃO BUG 003: Salvar cartão com tratamento de erro MELHORADO
+  // Salvar cartão
   const handleSalvarCartao = async (dadosCartao, criarNovo = false) => {
     console.log('💾 Iniciando salvamento de cartão...');
     console.log('📊 Dados recebidos:', dadosCartao);
@@ -157,16 +170,16 @@ const CartoesModal = ({ isOpen, onClose, onSave }) => {
     console.log('🔄 Modo edição:', Boolean(cartaoEditando));
     
     try {
-      // ✅ VERIFICAÇÃO CRÍTICA: Garantir que usuario_id está presente
+      // Verificação crítica: Garantir que usuario_id está presente
       if (!user?.id) {
         console.error('❌ ERRO CRÍTICO: usuario_id não encontrado');
         throw new Error('Usuário não autenticado. Faça login novamente.');
       }
       
-      // ✅ PREPARAR DADOS com usuario_id GARANTIDO
+      // Preparar dados com usuario_id garantido
       const dadosCompletos = {
         ...dadosCartao,
-        usuario_id: user.id, // ✅ CORREÇÃO BUG 003: Garantir usuario_id
+        usuario_id: user.id,
         ativo: true,
         updated_at: new Date().toISOString()
       };
@@ -179,7 +192,7 @@ const CartoesModal = ({ isOpen, onClose, onSave }) => {
           .from('cartoes')
           .update(dadosCompletos)
           .eq('id', cartaoEditando.id)
-          .eq('usuario_id', user.id) // ✅ Dupla verificação de segurança
+          .eq('usuario_id', user.id)
           .select();
         
         if (error) {
@@ -188,12 +201,12 @@ const CartoesModal = ({ isOpen, onClose, onSave }) => {
         }
         
         console.log('✅ Cartão atualizado com sucesso:', data);
-        showFeedback('Cartão atualizado com sucesso!');
+        showNotification('Cartão atualizado com sucesso!', 'success');
         
       } else {
         console.log('➕ Criando novo cartão...');
         
-        // ✅ ADICIONAR campos obrigatórios para INSERT
+        // Adicionar campos obrigatórios para INSERT
         const dadosInsert = {
           ...dadosCompletos,
           created_at: new Date().toISOString()
@@ -219,13 +232,13 @@ const CartoesModal = ({ isOpen, onClose, onSave }) => {
         }
         
         console.log('✅ Cartão criado com sucesso:', data);
-        showFeedback('Cartão adicionado com sucesso!');
+        showNotification('Cartão adicionado com sucesso!', 'success');
       }
       
-      // ✅ Recarregar lista de cartões
+      // Recarregar lista de cartões
       await carregarCartoes();
       
-      // ✅ Notificar componente pai
+      // Notificar componente pai
       if (onSave) {
         console.log('📢 Notificando componente pai...');
         onSave();
@@ -245,7 +258,7 @@ const CartoesModal = ({ isOpen, onClose, onSave }) => {
     } catch (error) {
       console.error('❌ Erro ao salvar cartão:', error);
       
-      // ✅ CORREÇÃO BUG 003: Mensagem de erro mais específica
+      // Mensagem de erro mais específica
       let mensagemErro = 'Erro inesperado ao salvar cartão.';
       
       if (error.message.includes('usuario_id')) {
@@ -258,28 +271,32 @@ const CartoesModal = ({ isOpen, onClose, onSave }) => {
         mensagemErro = `Erro: ${error.message}`;
       }
       
-      showFeedback(mensagemErro, 'error');
+      showNotification(mensagemErro, 'error');
     }
   };
   
   // Pede confirmação para arquivar um cartão
   const handleArquivarCartao = (cartaoId) => {
+    const cartao = cartoes.find(c => c.id === cartaoId);
     console.log('📦 Solicitando arquivamento do cartão:', cartaoId);
     setConfirmacao({
       show: true,
       action: 'arquivar',
       cartaoId,
+      cartaoNome: cartao?.nome || 'Cartão',
       message: 'Tem certeza que deseja arquivar este cartão? Ele não aparecerá mais na lista, mas seus dados serão mantidos.'
     });
   };
   
   // Pede confirmação para excluir um cartão
   const handleExcluirCartao = (cartaoId) => {
+    const cartao = cartoes.find(c => c.id === cartaoId);
     console.log('🗑️ Solicitando exclusão do cartão:', cartaoId);
     setConfirmacao({
       show: true,
       action: 'excluir',
       cartaoId,
+      cartaoNome: cartao?.nome || 'Cartão',
       message: 'Tem certeza que deseja excluir este cartão? Esta ação não pode ser desfeita.'
     });
   };
@@ -302,14 +319,14 @@ const CartoesModal = ({ isOpen, onClose, onSave }) => {
             updated_at: new Date().toISOString()
           })
           .eq('id', cartaoId)
-          .eq('usuario_id', user.id); // ✅ Verificação de segurança
+          .eq('usuario_id', user.id);
         
         if (error) {
           console.error('❌ Erro ao arquivar:', error);
           throw error;
         }
         
-        showFeedback('Cartão arquivado com sucesso!');
+        showNotification('Cartão arquivado com sucesso!', 'success');
         
       } else if (action === 'excluir') {
         console.log('🗑️ Excluindo cartão...');
@@ -319,60 +336,105 @@ const CartoesModal = ({ isOpen, onClose, onSave }) => {
           .from('cartoes')
           .delete()
           .eq('id', cartaoId)
-          .eq('usuario_id', user.id); // ✅ Verificação de segurança
+          .eq('usuario_id', user.id);
         
         if (error) {
           console.error('❌ Erro ao excluir:', error);
           throw error;
         }
         
-        showFeedback('Cartão excluído com sucesso!');
+        showNotification('Cartão excluído com sucesso!', 'success');
       }
       
-      // ✅ Recarregar lista de cartões
+      // Recarregar lista de cartões
       await carregarCartoes();
       
-      // ✅ Notificar componente pai
+      // Notificar componente pai
       if (onSave) {
         onSave();
       }
       
       // Limpar estado de confirmação
-      setConfirmacao({ show: false, action: null, cartaoId: null, message: '' });
+      setConfirmacao({ show: false, action: null, cartaoId: null, message: '', cartaoNome: '' });
       
     } catch (error) {
       console.error('❌ Erro ao executar ação:', error);
-      showFeedback(`Erro ao ${confirmacao.action === 'arquivar' ? 'arquivar' : 'excluir'} cartão: ${error.message}`, 'error');
+      showNotification(`Erro ao ${confirmacao.action === 'arquivar' ? 'arquivar' : 'excluir'} cartão: ${error.message}`, 'error');
     }
   };
   
   // Cancela a ação de confirmação
   const handleCancelarConfirmacao = () => {
     console.log('❌ Cancelando confirmação');
-    setConfirmacao({ show: false, action: null, cartaoId: null, message: '' });
+    setConfirmacao({ show: false, action: null, cartaoId: null, message: '', cartaoNome: '' });
+  };
+
+  // Renderização do modal de confirmação
+  const renderModalConfirmacao = () => {
+    if (!confirmacao.show) return null;
+
+    return (
+      <div className="modal-overlay active">
+        <div className="forms-modal-container modal-small">
+          <div className="modal-header">
+            <div className="modal-header-content">
+              <div className={`modal-icon-container ${confirmacao.action === 'excluir' ? 'modal-icon-danger' : 'modal-icon-warning'}`}>
+                {confirmacao.action === 'excluir' ? <Trash2 size={18} /> : <Archive size={18} />}
+              </div>
+              <div>
+                <h2 className="modal-title">
+                  {confirmacao.action === 'arquivar' ? 'Arquivar Cartão' : 'Excluir Cartão'}
+                </h2>
+                <p className="modal-subtitle">
+                  {confirmacao.cartaoNome}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="modal-body">
+            <div className="confirmation-message">
+              {confirmacao.message}
+            </div>
+          </div>
+
+          <div className="modal-footer">
+            <button 
+              className="btn-cancel"
+              onClick={handleCancelarConfirmacao}
+            >
+              Cancelar
+            </button>
+            <button 
+              className={`btn-secondary--${confirmacao.action === 'excluir' ? 'danger' : 'warning'}`}
+              onClick={handleConfirmarAcao}
+            >
+              {confirmacao.action === 'arquivar' ? (
+                <>
+                  <Archive size={14} />
+                  Arquivar
+                </>
+              ) : (
+                <>
+                  <Trash2 size={14} />
+                  Excluir
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
   
   // Conteúdo do modal (lista de cartões ou formulário)
   const renderConteudo = () => {
-    // ✅ EXIBIR LOADING enquanto carrega dados essenciais
+    // Exibir loading enquanto carrega dados essenciais
     if (loadingContas || (loading && cartoes.length === 0)) {
       return (
-        <div className="cartoes-loading" style={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center', 
-          padding: '40px',
-          gap: '16px'
-        }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            border: '3px solid #f3f4f6',
-            borderTop: '3px solid #3b82f6',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite'
-          }}></div>
-          <p style={{ color: '#6b7280', margin: 0 }}>
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p className="loading-text">
             {loadingContas ? 'Carregando contas...' : 'Carregando cartões...'}
           </p>
         </div>
@@ -380,13 +442,14 @@ const CartoesModal = ({ isOpen, onClose, onSave }) => {
     }
     
     if (modoFormulario) {
-      // ✅ CORREÇÃO BUG 002: Passar contas carregadas para o formulário
+      // Renderizar formulário com contas carregadas
       console.log('📋 Renderizando formulário com', contas.length, 'contas disponíveis');
       
       return (
         <CartaoForm 
+          isOpen={true}
           cartao={cartaoEditando}
-          contas={contas} // ✅ CORREÇÃO BUG 002: Contas já carregadas
+          contas={contas}
           onSave={handleSalvarCartao}
           onCancel={() => {
             console.log('❌ Cancelando formulário');
@@ -400,72 +463,86 @@ const CartoesModal = ({ isOpen, onClose, onSave }) => {
     // Lista de cartões
     return (
       <>
-        <div className="cartoes-header">
-          <h3>Meus Cartões de Crédito</h3>
-          <button 
-            className="btn-novo-cartao"
-            onClick={handleNovoCartao}
-            disabled={contas.length === 0} // ✅ Desabilitar se não há contas
-          >
-            <Plus size={18} />
-            <span>Novo Cartão</span>
-          </button>
-        </div>
-        
-        {/* ✅ AVISO se não há contas cadastradas */}
+        {/* Aviso se não há contas cadastradas */}
         {contas.length === 0 && (
-          <div style={{
-            background: '#fef3c7',
-            border: '1px solid #f59e0b',
-            borderRadius: '8px',
-            padding: '16px',
-            marginBottom: '20px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px'
-          }}>
-            <span style={{ fontSize: '24px' }}>⚠️</span>
-            <div>
-              <div style={{ fontWeight: '600', color: '#92400e', marginBottom: '4px' }}>
-                Nenhuma conta cadastrada
-              </div>
-              <div style={{ fontSize: '0.875rem', color: '#92400e' }}>
-                Para criar cartões, você precisa ter pelo menos uma conta cadastrada para pagamento das faturas.
-              </div>
+          <div className="summary-panel warning mb-3">
+            <div className="summary-header">
+              <AlertTriangle size={16} />
+              <strong>Nenhuma conta cadastrada</strong>
             </div>
+            <p className="summary-value" style={{ fontSize: '14px', margin: '8px 0 0 0' }}>
+              Para criar cartões, você precisa ter pelo menos uma conta cadastrada para pagamento das faturas.
+            </p>
           </div>
         )}
         
         {loading ? (
-          <div className="cartoes-loading">Carregando cartões...</div>
-        ) : cartoesAtivos.length > 0 ? (
-          <div className="cartoes-lista">
-            {cartoesAtivos.map(cartao => (
-              <CartaoItem 
-                key={cartao.id}
-                cartao={cartao}
-                onEdit={() => handleEditarCartao(cartao)}
-                onArchive={() => handleArquivarCartao(cartao.id)}
-                onDelete={() => handleExcluirCartao(cartao.id)}
-              />
-            ))}
+          <div className="loading-container">
+            <div className="loading-spinner"></div>
+            <p className="loading-text">Carregando cartões...</p>
           </div>
+        ) : cartoesAtivos.length > 0 ? (
+          <>
+            <div className="controls-container mb-3">
+              <div className="summary-stats">
+                <div className="stat-item">
+                  <div className="stat-label">Total de Cartões</div>
+                  <div className="stat-value">{cartoesAtivos.length}</div>
+                </div>
+                <div className="stat-item">
+                  <div className="stat-label">Limite Total</div>
+                  <div className="stat-value positive">
+                    {new Intl.NumberFormat('pt-BR', {
+                      style: 'currency',
+                      currency: 'BRL'
+                    }).format(cartoesAtivos.reduce((total, cartao) => total + (cartao.limite || 0), 0))}
+                  </div>
+                </div>
+                <div className="stat-item">
+                  <div className="stat-label">Contas Vinculadas</div>
+                  <div className="stat-value">{contas.length}</div>
+                </div>
+              </div>
+              <button 
+                className="btn-primary"
+                onClick={handleNovoCartao}
+                disabled={contas.length === 0}
+              >
+                <Plus size={16} />
+                Novo Cartão
+              </button>
+            </div>
+            
+            <div className="account-list">
+              {cartoesAtivos.map(cartao => (
+                <CartaoItem 
+                  key={cartao.id}
+                  cartao={cartao}
+                  onEdit={() => handleEditarCartao(cartao)}
+                  onArchive={() => handleArquivarCartao(cartao.id)}
+                  onDelete={() => handleExcluirCartao(cartao.id)}
+                />
+              ))}
+            </div>
+          </>
         ) : (
-          <div className="cartoes-empty">
-            <CreditCard size={48} strokeWidth={1} />
-            <p>Você ainda não tem cartões cadastrados</p>
-            {contas.length > 0 ? (
+          <div className="empty-state">
+            <CreditCard size={48} className="empty-state-icon" />
+            <h3 className="empty-state-title">Nenhum cartão cadastrado</h3>
+            <p className="empty-state-description">
+              {contas.length > 0 
+                ? 'Adicione seu primeiro cartão de crédito para começar a gerenciar suas faturas.'
+                : 'Cadastre uma conta primeiro para poder criar cartões.'
+              }
+            </p>
+            {contas.length > 0 && (
               <button 
                 className="btn-primary"
                 onClick={handleNovoCartao}
               >
-                <Plus size={18} />
-                <span>Adicionar meu primeiro cartão</span>
+                <Plus size={16} />
+                Adicionar meu primeiro cartão
               </button>
-            ) : (
-              <p style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '8px' }}>
-                Cadastre uma conta primeiro para poder criar cartões.
-              </p>
             )}
           </div>
         )}
@@ -474,81 +551,52 @@ const CartoesModal = ({ isOpen, onClose, onSave }) => {
   };
 
   return (
-    <div className="cartoes-modal-overlay">
-      <div className="cartoes-modal-container">
-        {/* Cabeçalho do modal */}
-        <div className="cartoes-modal-header">
-          <h2>
-            <CreditCard size={20} className="icon-header" />
-            <span>Gerenciar Cartões de Crédito</span>
-          </h2>
-          <button 
-            className="btn-fechar" 
-            onClick={onClose}
-            aria-label="Fechar"
-          >
-            <X size={20} />
-          </button>
-        </div>
-        
-        {/* Conteúdo do modal */}
-        <div className="cartoes-modal-content">
-          {/* Feedback ao usuário */}
-          {feedback.show && (
-            <div className={`feedback-message ${feedback.type}`}>
-              {feedback.message}
-            </div>
-          )}
-          
-          {/* Lista de cartões ou formulário */}
-          {renderConteudo()}
-        </div>
-        
-        {/* Rodapé do modal (apenas no modo lista) */}
-        {!modoFormulario && (
-          <div className="cartoes-modal-footer">
-            <button 
-              className="btn-fechar-modal" 
-              onClick={onClose}
-            >
-              Fechar
-            </button>
-          </div>
-        )}
-        
-        {/* Modal de confirmação (arquivar/excluir) */}
-        {confirmacao.show && (
-          <div className="confirmacao-overlay">
-            <div className="confirmacao-container">
-              <h3>Confirmar ação</h3>
-              <p>{confirmacao.message}</p>
-              <div className="confirmacao-actions">
-                <button 
-                  className="btn-secondary"
-                  onClick={handleCancelarConfirmacao}
-                >
-                  Cancelar
-                </button>
-                <button 
-                  className={`btn-primary ${confirmacao.action === 'excluir' ? 'btn-danger' : ''}`}
-                  onClick={handleConfirmarAcao}
-                >
-                  {confirmacao.action === 'arquivar' ? 'Arquivar' : 'Excluir'}
-                </button>
+    <>
+      <div className="modal-overlay active">
+        <div className="forms-modal-container">
+          {/* CABEÇALHO */}
+          <div className="modal-header">
+            <div className="modal-header-content">
+              <div className="modal-icon-container modal-icon-purple">
+                <CreditCard size={18} />
+              </div>
+              <div>
+                <h2 className="modal-title">Gerenciar Cartões</h2>
+                <p className="modal-subtitle">
+                  {modoFormulario 
+                    ? (cartaoEditando ? 'Editando cartão existente' : 'Cadastrando novo cartão')
+                    : `${cartoesAtivos.length} cartão${cartoesAtivos.length !== 1 ? 'ões' : ''} cadastrado${cartoesAtivos.length !== 1 ? 's' : ''}`
+                  }
+                </p>
               </div>
             </div>
+            <button className="modal-close" onClick={onClose}>
+              <X size={18} />
+            </button>
           </div>
-        )}
+
+          {/* CORPO */}
+          <div className="modal-body">
+            {renderConteudo()}
+          </div>
+
+          {/* RODAPÉ - apenas no modo lista */}
+          {!modoFormulario && (
+            <div className="modal-footer">
+              <button 
+                className="btn-cancel"
+                onClick={onClose}
+              >
+                Fechar
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-      
-      {/* ✅ Adicionar CSS para animação de loading */}
-      <style jsx>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
-    </div>
+
+      {/* Modal de confirmação */}
+      {renderModalConfirmacao()}
+    </>
   );
 };
 

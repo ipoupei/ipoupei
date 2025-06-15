@@ -44,6 +44,8 @@
   margin: 0 auto;          /* Centraliza horizontalmente, se necessário */
 }
 
+
+
 .modal-overlay.active .modal-container {
   transform: scale(1) translateY(0);
 }
@@ -1493,5 +1495,1296 @@
   .fade-in,
   .slide-up {
     animation: none;
+  }
+}
+/* ========================================
+   CSS ADICIONAL PARA FormsModal.css - CONTAS MODAL
+*/
+
+/* Controles superiores */
+.controls-container {
+  background: #f9fafb;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+/* Summary stats */
+.summary-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.stat-value.positive {
+  color: #10b981;
+}
+
+.stat-value.negative {
+  color: #ef4444;
+}
+
+/* Count badge */
+.count-badge {
+  background: #3b82f6;
+  color: white;
+  border-radius: 12px;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 6px;
+}
+
+/* Archived badge */
+.archived-badge {
+  font-size: 0.65rem;
+  background: #f59e0b;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* Account card estrutura interna - CORRIGIDO */
+.account-card {
+  border-left-width: 4px;
+  border-left-style: solid;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: white;
+  transition: all 0.2s ease;
+  margin-bottom: 12px;
+}
+
+.account-card:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.account-card.archived {
+  opacity: 0.7;
+}
+
+/* Card header agora ocupa todo o espaço disponível */
+.card-header {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 16px;
+}
+
+.account-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.account-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.account-name {
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+}
+
+.account-type {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+
+.account-balance {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.balance-current {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.balance-current.positive {
+  color: #10b981;
+}
+
+.balance-current.negative {
+  color: #ef4444;
+}
+
+.balance-initial {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+/* Account list */
+.account-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Card actions - POSICIONAMENTO CORRIGIDO */
+.card-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.card-action-btn {
+  background: #f3f4f6;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  width: 32px;
+  height: 32px;
+  position: relative;
+  z-index: 11;
+  pointer-events: auto;
+}
+
+.card-action-btn:hover {
+  background: #e5e7eb;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.card-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.card-action-btn.edit {
+  background-color: #ede9fe;
+  color: #7c3aed;
+}
+
+.card-action-btn.edit:hover {
+  background-color: #7c3aed;
+  color: white;
+}
+
+.card-action-btn.archive {
+  background-color: #fef3c7;
+  color: #f59e0b;
+}
+
+.card-action-btn.archive:hover {
+  background-color: #f59e0b;
+  color: white;
+}
+
+/* Account summary para modais */
+.account-summary {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.account-summary h4 {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #374151;
+  margin-top: 0;
+}
+
+.account-balances {
+  font-size: 0.9rem;
+  color: #6b7280;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Method selector */
+.method-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.method-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  background: white;
+  transition: all 0.2s ease;
+}
+
+.method-option.active {
+  background: #eff6ff;
+  border-color: #3b82f6;
+}
+
+.method-title {
+  font-weight: 500;
+  font-size: 0.9rem;
+  margin-bottom: 2px;
+}
+
+.method-desc {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+/* Color picker - LAYOUT FORÇADO */
+.color-picker {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  gap: 0px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-top: 2px !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  grid-template-columns: repeat(4, 1fr);  
+}
+
+.color-option {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  border: 2px solid #e5e7eb !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  position: relative !important;
+  flex-shrink: 0 !important;
+  display: inline-block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+
+}
+
+.color-option:hover {
+  transform: scale(1.05) !important;
+  border-color: #9ca3af !important;
+}
+
+.color-option.active {
+  border-color: #000 !important;
+  border-width: 3px !important;
+  transform: scale(1.1) !important;
+}
+
+.color-option.active::before {
+  content: '✓' !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  color: white !important;
+  font-weight: bold !important;
+  font-size: 18px !important;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8) !important;
+}
+
+/* Flex row corrigido para formulários */
+.flex.gap-3.row {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.flex.gap-3.row > div {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Flex column para campos individuais */
+.flex.flex-col {
+  display: flex;
+  flex-direction: column;
+}
+
+
+
+/* Empty state */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.empty-state-icon {
+  color: #d1d5db;
+  margin-bottom: 16px;
+}
+
+.empty-state-title {
+  margin: 0 0 8px 0;
+  font-size: 1rem;
+  color: #374151;
+}
+
+.empty-state-description {
+  margin: 0 0 20px 0;
+  font-size: 0.9rem;
+}
+
+/* Input money highlight variation */
+.input-money-highlight {
+  font-size: 13px;
+  font-weight: 600;
+  color: #8b5cf6;
+  text-align: center;
+  background-color: #fafbff;
+  border-color: rgba(139, 92, 246, 0.2);
+}
+
+/* Positive/negative classes for inputs */
+.positive {
+  color: #10b981;
+}
+
+.negative {
+  color: #ef4444;
+}
+
+/* Modal small variation */
+.forms-modal-container.modal-small {
+  max-width: 400px;
+}
+
+/* Summary header */
+.summary-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+/* Card action button com cores específicas */
+.card-action-btn.success {
+  background-color: #dcfce7;
+  color: #16a34a;
+}
+
+.card-action-btn.success:hover {
+  background-color: #16a34a;
+  color: white;
+}
+
+/* Garante que o modal overlay não interfere com os botões */
+.modal-overlay {
+  pointer-events: auto;
+}
+
+.modal-overlay .forms-modal-container {
+  pointer-events: auto;
+}
+
+.modal-overlay .forms-modal-container * {
+  pointer-events: auto;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .controls-container {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+  
+  .summary-stats {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .account-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  
+  .card-header {
+    flex-direction: row;
+  }
+  
+  .card-actions {
+    margin-left: 0;
+    justify-content: center;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 12px;
+  }
+  
+  .flex.gap-3.row {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+
+  
+
+}/* ========================================
+   CSS ADICIONAL PARA FormsModal.css - CONTAS MODAL
+   ======================================== 
+   Adicionar estas classes ao final do arquivo FormsModal.css
+*/
+
+
+/* Summary stats */
+.summary-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.stat-value.positive {
+  color: #10b981;
+}
+
+.stat-value.negative {
+  color: #ef4444;
+}
+
+/* Count badge */
+.count-badge {
+  background: #3b82f6;
+  color: white;
+  border-radius: 12px;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 6px;
+}
+
+/* Archived badge */
+.archived-badge {
+  font-size: 0.65rem;
+  background: #f59e0b;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* Account card estrutura interna */
+.account-card {
+  border-left-width: 4px;
+  border-left-style: solid;
+}
+
+.account-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  margin-right: 16px;
+  flex-shrink: 0;
+}
+
+.account-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.account-name {
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+}
+
+.account-type {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+
+.account-balance {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.balance-current {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.balance-current.positive {
+  color: #10b981;
+}
+
+.balance-current.negative {
+  color: #ef4444;
+}
+
+.balance-initial {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+/* Account list */
+.account-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Account summary para modais */
+.account-summary {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.account-summary h4 {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #374151;
+  margin-top: 0;
+}
+
+.account-balances {
+  font-size: 0.9rem;
+  color: #6b7280;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Method selector */
+.method-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.method-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  background: white;
+  transition: all 0.2s ease;
+}
+
+.method-option.active {
+  background: #eff6ff;
+  border-color: #3b82f6;
+}
+
+.method-title {
+  font-weight: 500;
+  font-size: 0.9rem;
+  margin-bottom: 2px;
+}
+
+.method-desc {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+
+
+
+
+
+/* Section title archived */
+.section-title.archived {
+  color: #6b7280; 
+}
+
+/* Empty state */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.empty-state-icon {
+  color: #d1d5db;
+  margin-bottom: 16px;
+}
+
+.empty-state-title {
+  margin: 0 0 8px 0;
+  font-size: 1rem;
+  color: #374151;
+}
+
+.empty-state-description {
+  margin: 0 0 20px 0;
+  font-size: 0.9rem;
+}
+
+/* Input money highlight variation */
+.input-money-highlight {
+  font-size: 13px;
+  font-weight: 600;
+  color: #8b5cf6;
+  text-align: center;
+  background-color: #fafbff;
+  border-color: rgba(139, 92, 246, 0.2);
+}
+
+/* Positive/negative classes for inputs */
+.positive {
+  color: #10b981;
+}
+
+.negative {
+  color: #ef4444;
+}
+
+
+
+/* Summary header */
+.summary-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .controls-container {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+  
+  .summary-stats {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .account-card .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .card-actions {
+    align-self: flex-end;
+  }
+}
+/* ========================================
+   ADIÇÕES PARA FORMSMODAL.CSS - SISTEMA DE CATEGORIAS
+   ========================================
+   Adicionar estas classes ao final do arquivo FormsModal.css existente
+   ======================================== */
+
+/* Modal Large para Categorias */
+.forms-modal-container.modal-large {
+  max-width: 800px;
+  width: 90%;
+}
+
+/* Ícone de Warning */
+.modal-icon-warning {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+/* Feedback Messages para Categorias */
+.feedback-message {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 1rem;
+}
+
+.feedback-message.success {
+  background: #dcfce7;
+  color: #166534;
+  border-left: 4px solid #22c55e;
+}
+
+.feedback-message.error {
+  background: #fee2e2;
+  color: #dc2626;
+  border-left: 4px solid #ef4444;
+}
+
+.feedback-message.info {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-left: 4px solid #3b82f6;
+}
+
+.feedback-message.warning {
+  background: #fef3c7;
+  color: #92400e;
+  border-left: 4px solid #f59e0b;
+}
+
+/* Tipo Selector para Categorias */
+.tipo-selector {
+  display: flex;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 1rem;
+}
+
+.tipo-button {
+  flex: 1;
+  padding: 1rem;
+  background: none;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #6b7280;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.tipo-button:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.tipo-button.active {
+  background: white;
+  color: #3b82f6;
+  box-shadow: 0 -2px 0 #3b82f6 inset;
+}
+
+/* Header das Categorias */
+.categorias-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.categorias-header h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.categorias-subtitle {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+/* Lista de Categorias */
+.categorias-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.categoria-item {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.categoria-item:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: #cbd5e1;
+}
+
+.categoria-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: #fafbfc;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.categoria-header:hover {
+  background: #f1f5f9;
+}
+
+.categoria-color {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.categoria-nome {
+  flex: 1;
+  font-weight: 600;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.subcategoria-count {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+.categoria-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Botões Pequenos para Categorias */
+.button-small {
+  background: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: all 0.2s ease;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.button-small:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.button-small.edit-button:hover {
+  background: #fef3c7;
+  border-color: #fbbf24;
+  color: #92400e;
+}
+
+.button-small.delete-button:hover {
+  background: #fee2e2;
+  border-color: #f87171;
+  color: #dc2626;
+}
+
+.button-small.add-button {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+  font-weight: 500;
+}
+
+.button-small.add-button:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+/* Subcategorias */
+.subcategorias-container {
+  background: white;
+  border-top: 1px solid #e2e8f0;
+  padding: 1rem;
+}
+
+.subcategorias-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.subcategorias-header h4 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.subcategorias-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.subcategoria-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+}
+
+.subcategoria-item:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.subcategoria-nome {
+  font-weight: 500;
+  color: #374151;
+}
+
+.subcategoria-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.subcategorias-empty {
+  text-align: center;
+  padding: 2rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
+/* Sistema de Cores para Categorias */
+.color-input-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.color-picker-input {
+  width: 50px;
+  height: 40px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.color-picker-input:hover {
+  border-color: #3b82f6;
+  transform: scale(1.05);
+}
+
+.color-preview {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #e2e8f0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.button-suggest-color {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.button-suggest-color:hover {
+  background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+}
+
+.cores-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(32px, 1fr));
+  gap: 0.5rem;
+  max-width: 320px;
+  margin-top: 0.75rem;
+}
+
+.cor-item {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.cor-item:hover:not(.in-use) {
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.cor-item.selected {
+  border-color: #1f2937;
+  box-shadow: 0 0 0 2px #3b82f6;
+}
+
+.cor-item.in-use {
+  opacity: 0.4;
+  cursor: not-allowed;
+  position: relative;
+}
+
+.cor-item.in-use::after {
+  content: '⚫';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 8px;
+  color: rgba(0, 0, 0, 0.7);
+}
+
+/* Informações sobre uso de cores */
+.color-usage-info {
+  margin-top: 0.75rem;
+  padding: 0.5rem;
+  background: rgba(59, 130, 246, 0.05);
+  border-radius: 6px;
+  border-left: 3px solid #3b82f6;
+}
+
+.color-usage-info small {
+  color: #6b7280;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.color-stats {
+  margin-top: 0.5rem;
+  text-align: center;
+}
+
+.color-stats small {
+  color: #9ca3af;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Formulários de Categoria */
+.form-categoria,
+.form-subcategoria {
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.parent-categoria {
+  color: #9ca3af;
+  font-weight: 400;
+  font-size: 0.875rem;
+}
+
+/* Estados de Loading para Categorias */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #f3f4f6;
+  border-top: 3px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+/* Empty State para Categorias */
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  color: #d1d5db;
+}
+
+/* Footer com layout melhorado para categorias */
+.footer-left {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.footer-right {
+  display: flex;
+  gap: 1rem;
+}
+
+.button.tertiary {
+  background: transparent;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.button.tertiary:hover {
+  background: #f9fafb;
+  color: #374151;
+  border-color: #9ca3af;
+}
+
+/* ========================================
+   RESPONSIVIDADE PARA CATEGORIAS
+   ======================================== */
+
+@media (max-width: 768px) {
+  .forms-modal-container.modal-large {
+    width: 95%;
+    max-height: 95vh;
+  }
+  
+  .categorias-header {
+    margin-bottom: 1.5rem;
+  }
+  
+  .categorias-header h3 {
+    font-size: 1rem;
+  }
+  
+  .categoria-header {
+    padding: 0.75rem 1rem;
+  }
+  
+  .cores-container {
+    grid-template-columns: repeat(auto-fill, minmax(28px, 1fr));
+    gap: 0.375rem;
+  }
+  
+  .cor-item {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .color-input-container {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .button-suggest-color {
+    order: -1;
+    align-self: flex-start;
+  }
+
+  .footer-right {
+    flex-direction: column;
   }
 }

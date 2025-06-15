@@ -1,4 +1,4 @@
-// src/modules/contas/components/ContasModal.jsx - REFEITO DO ZERO
+// src/modules/contas/components/ContasModal.jsx - MIGRADO PARA FormsModal.css
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -7,7 +7,6 @@ import {
   Edit, 
   Archive,
   ArchiveRestore,
-  // Trash2, // ✅ REMOVIDO - ícone de exclusão não usado mais
   X, 
   Calculator,
   DollarSign,
@@ -25,11 +24,10 @@ import useContas from '@modules/contas/hooks/useContas';
 import '@shared/styles/FormsModal.css';
 
 /**
- * Modal de Gerenciamento de Contas - VERSÃO LIMPA
+ * Modal de Gerenciamento de Contas - VERSÃO MIGRADA PARA FormsModal.css
  * Funcionalidades:
  * - Criar/editar contas
  * - Arquivar/desarquivar 
- * - Excluir (com validação)
  * - Corrigir saldo (2 métodos)
  * - Visualizar saldo inicial vs atual
  */
@@ -43,7 +41,6 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
     loading,
     arquivarConta,
     desarquivarConta,
-    // excluirConta, // ✅ REMOVIDO - função de exclusão desabilitada
     corrigirSaldoConta,
     fetchContasArquivadas,
     recalcularSaldos
@@ -90,13 +87,6 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
     conta: null
   });
 
-  // ✅ REMOVIDO - Modal de exclusão desabilitado por segurança
-  // const [modalExcluir, setModalExcluir] = useState({
-  //   ativo: false,
-  //   conta: null,
-  //   confirmacao: ''
-  // });
-
   // =============================================================================
   // CONFIGURAÇÕES E CONSTANTES
   // =============================================================================
@@ -109,9 +99,20 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
   ];
 
   const coresPredefinidas = [
-    '#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', 
-    '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1'
+    '#3B82F6', // Azul
+    '#EF4444', // Vermelho 
+    '#10B981', // Verde
+    '#F59E0B', // Amarelo
+    '#8B5CF6', // Roxo
+    '#EC4899', // Rosa
+    '#06B6D4', // Ciano
+    '#84CC16', // Lima
+    '#F97316', // Laranja
+    '#6366F1'  // Índigo
   ];
+
+  console.log('Cores predefinidas:', coresPredefinidas);
+  console.log('Cor selecionada:', formData.cor);
 
   // =============================================================================
   // UTILITÁRIOS
@@ -249,12 +250,14 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
   // =============================================================================
   
   const iniciarCriacaoConta = useCallback(() => {
+    console.log('Iniciando criação de conta');
     resetFormulario();
     setModoFormulario('criar');
     setTimeout(() => nomeInputRef.current?.focus(), 100);
   }, [resetFormulario]);
 
   const iniciarEdicaoConta = useCallback((conta) => {
+    console.log('Iniciando edição da conta:', conta);
     const saldoFormatado = (conta.saldo_inicial || 0).toLocaleString('pt-BR', { 
       minimumFractionDigits: 2, 
       maximumFractionDigits: 2 
@@ -355,6 +358,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
   // =============================================================================
   
   const iniciarCorrecaoSaldo = useCallback((conta) => {
+    console.log('Iniciando correção de saldo para:', conta);
     setModalCorrigirSaldo({
       ativo: true,
       conta,
@@ -368,6 +372,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
   }, []);
 
   const processarCorrecaoSaldo = useCallback(async () => {
+    console.log('Processando correção de saldo:', modalCorreirSaldo);
     if (!modalCorreirSaldo.conta) return;
 
     const novoSaldoNumerico = parseFloat(
@@ -397,17 +402,19 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
     } finally {
       setSubmitting(false);
     }
-  }, [modalCorreirSaldo, corrigirSaldoConta, parseFloat, onSave, showNotification]);
+  }, [modalCorreirSaldo, corrigirSaldoConta, onSave, showNotification]);
 
   // =============================================================================
   // AÇÕES DE ARQUIVAMENTO
   // =============================================================================
   
   const iniciarArquivamento = useCallback((conta) => {
+    console.log('Iniciando arquivamento de:', conta);
     setModalArquivar({ ativo: true, conta, motivo: '' });
   }, []);
 
   const processarArquivamento = useCallback(async () => {
+    console.log('Processando arquivamento:', modalArquivar);
     if (!modalArquivar.conta) return;
     
     setSubmitting(true);
@@ -426,10 +433,12 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
   }, [modalArquivar, arquivarConta, onSave]);
 
   const iniciarDesarquivamento = useCallback((conta) => {
+    console.log('Iniciando desarquivamento de:', conta);
     setModalDesarquivar({ ativo: true, conta });
   }, []);
 
   const processarDesarquivamento = useCallback(async () => {
+    console.log('Processando desarquivamento:', modalDesarquivar);
     if (!modalDesarquivar.conta) return;
     
     setSubmitting(true);
@@ -447,44 +456,6 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
     }
   }, [modalDesarquivar, desarquivarConta, onSave]);
 
-  // ✅ REMOVIDO - Funções de exclusão desabilitadas por segurança
-  // const iniciarExclusao = useCallback(async (conta) => {
-  //   const resultado = await excluirConta(conta.id, false);
-  //   
-  //   if (resultado.error === 'POSSUI_TRANSACOES') {
-  //     showNotification(resultado.message, 'warning');
-  //     return;
-  //   }
-  //   
-  //   setModalExcluir({ ativo: true, conta, confirmacao: '' });
-  // }, [excluirConta, showNotification]);
-
-  // const processarExclusao = useCallback(async () => {
-  //   if (!modalExcluir.conta) return;
-  //   
-  //   if (modalExcluir.confirmacao !== 'EXCLUIR PERMANENTEMENTE') {
-  //     showNotification('Digite exatamente "EXCLUIR PERMANENTEMENTE" para confirmar', 'error');
-  //     return;
-  //   }
-  //   
-  //   setSubmitting(true);
-  //   try {
-  //     const resultado = await excluirConta(modalExcluir.conta.id, true);
-  //     
-  //     if (resultado.success) {
-  //       setModalExcluir({ ativo: false, conta: null, confirmacao: '' });
-  //       if (onSave) onSave();
-  //     } else if (resultado.error === 'POSSUI_TRANSACOES') {
-  //       showNotification(resultado.message, 'warning');
-  //       setModalExcluir({ ativo: false, conta: null, confirmacao: '' });
-  //     }
-  //   } catch (error) {
-  //     console.error('Erro ao excluir:', error);
-  //   } finally {
-  //     setSubmitting(false);
-  //   }
-  // }, [modalExcluir, excluirConta, onSave, showNotification]);
-
   // =============================================================================
   // RENDER COMPONENTS
   // =============================================================================
@@ -493,108 +464,47 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
     const temDiferenca = Math.abs((conta.saldo_atual || 0) - (conta.saldo_inicial || 0)) > 0.01;
     
     return (
-      <div
-        key={conta.id}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          padding: '16px',
-          border: '1px solid #e5e7eb',
-          borderRadius: '12px',
-          borderLeft: `4px solid ${conta.cor}`,
-          background: isArquivada ? '#f9fafb' : 'white',
-          opacity: isArquivada ? 0.8 : 1,
-          transition: 'all 0.2s ease'
-        }}
+      <div 
+        key={conta.id} 
+        className={`account-card ${isArquivada ? 'archived' : ''}`}
+        style={{ borderLeftColor: conta.cor }}
       >
-        {/* Ícone da conta */}
-        <div
-          style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '10px',
-            backgroundColor: conta.cor,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginRight: '16px',
-            fontSize: '18px',
-            opacity: isArquivada ? 0.7 : 1
-          }}
-        >
-          {tiposConta.find(t => t.value === conta.tipo)?.icon || '💳'}
-        </div>
-        
-        {/* Informações da conta */}
-        <div style={{ flex: 1 }}>
-          <div style={{ 
-            fontWeight: '600', 
-            color: isArquivada ? '#6b7280' : '#1f2937', 
-            marginBottom: '4px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}>
-            {conta.nome}
-            {isArquivada && (
-              <span style={{
-                fontSize: '0.7rem',
-                background: '#f59e0b',
-                color: 'white',
-                padding: '2px 6px',
-                borderRadius: '4px',
-                fontWeight: '500'
-              }}>
-                ARQUIVADA
-              </span>
-            )}
+        <div className="card-header">
+          <div className="account-icon" style={{ backgroundColor: conta.cor }}>
+            {tiposConta.find(t => t.value === conta.tipo)?.icon || '💳'}
           </div>
-          
-          <div style={{ 
-            fontSize: '0.8rem', 
-            color: isArquivada ? '#9ca3af' : '#6b7280', 
-            marginBottom: '4px' 
-          }}>
-            {tiposConta.find(t => t.value === conta.tipo)?.label}
-            {conta.banco && ` • ${conta.banco}`}
-          </div>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ 
-              fontSize: '0.9rem', 
-              fontWeight: '600',
-              color: isArquivada 
-                ? ((conta.saldo_atual || 0) >= 0 ? '#6b7280' : '#9ca3af')
-                : ((conta.saldo_atual || 0) >= 0 ? '#10b981' : '#ef4444')
-            }}>
-              {formatCurrency(conta.saldo_atual || 0)}
+          <div className="account-info">
+            <div className="account-name">
+              {conta.nome}
+              {isArquivada && <span className="archived-badge">ARQUIVADA</span>}
             </div>
-            {temDiferenca && (
-              <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                (inicial: {formatCurrency(conta.saldo_inicial || 0)})
+            <div className="account-type">
+              {tiposConta.find(t => t.value === conta.tipo)?.label}
+              {conta.banco && ` • ${conta.banco}`}
+            </div>
+            <div className="account-balance">
+              <div className={`balance-current ${(conta.saldo_atual || 0) >= 0 ? 'positive' : 'negative'}`}>
+                {formatCurrency(conta.saldo_atual || 0)}
               </div>
-            )}
+              {temDiferenca && (
+                <div className="balance-initial">
+                  (inicial: {formatCurrency(conta.saldo_inicial || 0)})
+                </div>
+              )}
+            </div>
           </div>
         </div>
         
-        {/* Ações */}
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div className="card-actions">
           {!isArquivada && (
             <button
-              onClick={() => iniciarCorrecaoSaldo(conta)}
-              disabled={submitting}
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '6px',
-                borderRadius: '6px',
-                color: '#8b5cf6',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s ease'
+              type="button"
+              className="card-action-btn"
+              onClick={() => {
+                console.log('Clicou em corrigir saldo para conta:', conta.nome);
+                iniciarCorrecaoSaldo(conta);
               }}
+              disabled={submitting}
               title="Corrigir saldo"
             >
               <Calculator size={16} />
@@ -603,20 +513,13 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
           
           {!isArquivada && (
             <button
-              onClick={() => iniciarEdicaoConta(conta)}
-              disabled={submitting}
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '6px',
-                borderRadius: '6px',
-                color: '#3b82f6',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s ease'
+              type="button"
+              className="card-action-btn edit"
+              onClick={() => {
+                console.log('Clicou em editar conta:', conta.nome);
+                iniciarEdicaoConta(conta);
               }}
+              disabled={submitting}
               title="Editar conta"
             >
               <Edit size={16} />
@@ -624,45 +527,21 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
           )}
           
           <button
-            onClick={() => isArquivada ? iniciarDesarquivamento(conta) : iniciarArquivamento(conta)}
-            disabled={submitting}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '6px',
-              borderRadius: '6px',
-              color: isArquivada ? '#10b981' : '#f59e0b',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.2s ease'
+            type="button"
+            className={`card-action-btn ${isArquivada ? 'success' : 'archive'}`}
+            onClick={() => {
+              console.log(isArquivada ? 'Desarquivando' : 'Arquivando', 'conta:', conta.nome);
+              if (isArquivada) {
+                iniciarDesarquivamento(conta);
+              } else {
+                iniciarArquivamento(conta);
+              }
             }}
+            disabled={submitting}
             title={isArquivada ? "Desarquivar conta" : "Arquivar conta"}
           >
             {isArquivada ? <ArchiveRestore size={16} /> : <Archive size={16} />}
           </button>
-          
-          {/* ✅ REMOVIDO - Botão de exclusão desabilitado por segurança */}
-          {/* <button
-            onClick={() => iniciarExclusao(conta)}
-            disabled={submitting}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '6px',
-              borderRadius: '6px',
-              color: '#ef4444',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.2s ease'
-            }}
-            title="Excluir conta"
-          >
-            <Trash2 size={16} />
-          </button> */}
         </div>
       </div>
     );
@@ -675,142 +554,88 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-container" style={{ maxWidth: '700px' }}>
+    <div className="modal-overlay active">
+      <div className="forms-modal-container">
         {/* Header */}
-        <div className="modal-header" style={{ 
-          background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0.02) 100%)',
-          borderBottom: '1px solid rgba(59, 130, 246, 0.1)' 
-        }}>
-          <h2 className="modal-title">
-            <div className="form-icon-wrapper" style={{
-              background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-              color: 'white'
-            }}>
+        <div className="modal-header">
+          <div className="modal-header-content">
+            <div className="modal-icon-container modal-icon-primary">
               <Building size={18} />
             </div>
             <div>
-              <div className="form-title-main">Gerenciar Contas</div>
-              <div className="form-title-subtitle">
+              <h2 className="modal-title">Gerenciar Contas</h2>
+              <p className="modal-subtitle">
                 {resumo.totalAtivas} ativa{resumo.totalAtivas !== 1 ? 's' : ''} • 
                 {resumo.totalArquivadas > 0 && ` ${resumo.totalArquivadas} arquivada${resumo.totalArquivadas !== 1 ? 's' : ''} • `}
                 Total: {formatCurrency(resumo.saldoTotal)}
-              </div>
+              </p>
             </div>
-          </h2>
+          </div>
           <button className="modal-close" onClick={onClose}>
             <X size={18} />
           </button>
         </div>
         
-        {/* Content */}
-        <div className="modal-content">
+        {/* Body */}
+        <div className="modal-body">
           {loading ? (
-            <div className="form-loading">
-              <div className="form-loading-spinner" style={{ borderTopColor: '#3b82f6' }}></div>
-              <p>Carregando contas...</p>
+            <div className="loading-container">
+              <div className="loading-spinner"></div>
+              <p className="loading-text">Carregando contas...</p>
             </div>
           ) : (
             <>
-              {/* Controles superiores */}
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center',
-                marginBottom: '20px',
-                padding: '12px 16px',
-                background: '#f9fafb',
-                borderRadius: '8px',
-                border: '1px solid #e5e7eb'
-              }}>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                  <button
-                    onClick={() => setMostrarArquivadas(!mostrarArquivadas)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '6px 12px',
-                      background: mostrarArquivadas ? '#eff6ff' : 'white',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '0.875rem',
-                      color: mostrarArquivadas ? '#2563eb' : '#374151'
-                    }}
-                  >
-                    {mostrarArquivadas ? <EyeOff size={14} /> : <Eye size={14} />}
-                    {mostrarArquivadas ? 'Ocultar Arquivadas' : 'Ver Arquivadas'}
-                    {resumo.totalArquivadas > 0 && (
-                      <span style={{
-                        background: '#3b82f6',
-                        color: 'white',
-                        borderRadius: '12px',
-                        padding: '2px 6px',
-                        fontSize: '0.75rem',
-                        fontWeight: '500'
-                      }}>
-                        {resumo.totalArquivadas}
-                      </span>
-                    )}
-                  </button>
-                </div>
+              {/* Controles superiores - sempre visíveis */}
+              <div className="controls-container mb-3">
+                <button
+                  onClick={() => setMostrarArquivadas(!mostrarArquivadas)}
+                  className={`btn-secondary ${mostrarArquivadas ? 'active' : ''}`}
+                >
+                  {mostrarArquivadas ? <EyeOff size={14} /> : <Eye size={14} />}
+                  {mostrarArquivadas ? 'Ocultar Arquivadas' : 'Ver Arquivadas'}
+                  {resumo.totalArquivadas > 0 && (
+                    <span className="count-badge">{resumo.totalArquivadas}</span>
+                  )}
+                </button>
                 
-                {!modoFormulario && (
+                {!modoFormulario ? (
                   <button
                     onClick={iniciarCriacaoConta}
                     disabled={submitting}
-                    className="form-btn form-btn-primary"
-                    style={{ 
-                      padding: '8px 16px',
-                      fontSize: '0.875rem',
-                      background: '#3b82f6'
-                    }}
+                    className="btn-primary"
                   >
                     <Plus size={14} />
                     Nova Conta
+                  </button>
+                ) : (
+                  <button
+                    onClick={resetFormulario}
+                    disabled={submitting}
+                    className="btn-cancel"
+                  >
+                    <X size={14} />
+                    Cancelar
                   </button>
                 )}
               </div>
 
               {/* Resumo financeiro */}
               {(contas.length > 0 || contasArquivadas.length > 0) && (
-                <div style={{ 
-                  background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(59, 130, 246, 0.02) 100%)',
-                  border: '1px solid rgba(59, 130, 246, 0.15)',
-                  borderRadius: '12px',
-                  padding: '16px',
-                  marginBottom: '24px',
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 1fr)',
-                  gap: '16px'
-                }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '4px' }}>
-                      Saldo Total
+                <div className="summary-panel mb-3">
+                  <div className="summary-stats">
+                    <div className="stat-item">
+                      <div className="stat-label">Saldo Total</div>
+                      <div className={`stat-value ${resumo.saldoTotal >= 0 ? 'positive' : 'negative'}`}>
+                        {formatCurrency(resumo.saldoTotal)}
+                      </div>
                     </div>
-                    <div style={{ 
-                      fontSize: '1.1rem', 
-                      fontWeight: '700',
-                      color: resumo.saldoTotal >= 0 ? '#10b981' : '#ef4444'
-                    }}>
-                      {formatCurrency(resumo.saldoTotal)}
+                    <div className="stat-item">
+                      <div className="stat-label">Positivas</div>
+                      <div className="stat-value positive">{resumo.contasPositivas}</div>
                     </div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '4px' }}>
-                      Positivas
-                    </div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#10b981' }}>
-                      {resumo.contasPositivas}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '4px' }}>
-                      Negativas
-                    </div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#ef4444' }}>
-                      {resumo.contasNegativas}
+                    <div className="stat-item">
+                      <div className="stat-label">Negativas</div>
+                      <div className="stat-value negative">{resumo.contasNegativas}</div>
                     </div>
                   </div>
                 </div>
@@ -818,29 +643,15 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
 
               {/* Formulário de conta */}
               {modoFormulario && (
-                <form onSubmit={submeterFormulario} className="form" style={{ marginBottom: '24px' }}>
-                  <div style={{ 
-                    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.03) 0%, rgba(59, 130, 246, 0.01) 100%)',
-                    border: '1px solid rgba(59, 130, 246, 0.1)',
-                    borderRadius: '16px',
-                    padding: '20px'
-                  }}>
-                    <h3 style={{ 
-                      margin: '0 0 20px 0', 
-                      fontSize: '1rem', 
-                      fontWeight: '600', 
-                      color: '#374151',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}>
-                      {modoFormulario === 'editar' ? <Edit size={16} /> : <Plus size={16} />}
-                      {modoFormulario === 'editar' ? 'Editar Conta' : 'Nova Conta'}
-                    </h3>
+                <div className="section-block mb-3">
+                  <h3 className="section-title">
+                    {modoFormulario === 'editar' ? 'Editar Conta' : 'Nova Conta'}
+                  </h3>
 
+                  <form onSubmit={submeterFormulario}>
                     {/* Nome e Tipo */}
-                    <div className="form-row">
-                      <div className="form-field">
+                    <div className="flex gap-3 row mb-3">
+                      <div className="flex flex-col">
                         <label className="form-label">
                           <Building size={14} />
                           Nome da Conta *
@@ -853,39 +664,42 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
                           onChange={handleInputChange}
                           placeholder="Ex: Banco do Brasil, Nubank"
                           disabled={submitting}
-                          className={`form-input ${formErrors.nome ? 'error' : ''}`}
+                          className={`input-text ${formErrors.nome ? 'error' : ''}`}
                         />
                         {formErrors.nome && <div className="form-error">{formErrors.nome}</div>}
                       </div>
                       
-                      <div className="form-field">
+                      <div className="flex flex-col">
                         <label className="form-label">
                           <FileText size={14} />
                           Tipo *
                         </label>
-                        <select
-                          name="tipo"
-                          value={formData.tipo}
-                          onChange={handleInputChange}
-                          disabled={submitting}
-                          className={`form-input ${formErrors.tipo ? 'error' : ''}`}
-                        >
-                          {tiposConta.map(tipo => (
-                            <option key={tipo.value} value={tipo.value}>
-                              {tipo.icon} {tipo.label}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="select-search">
+                          <select
+                            name="tipo"
+                            value={formData.tipo}
+                            onChange={handleInputChange}
+                            disabled={submitting}
+                            className={formErrors.tipo ? 'error' : ''}
+                          >
+                            {tiposConta.map(tipo => (
+                              <option key={tipo.value} value={tipo.value}>
+                                {tipo.icon} {tipo.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                         {formErrors.tipo && <div className="form-error">{formErrors.tipo}</div>}
                       </div>
                     </div>
 
                     {/* Banco e Saldo */}
-                    <div className="form-row">
-                      <div className="form-field">
+                    <div className="flex gap-3 row mb-3">
+                      <div className="flex flex-col">
                         <label className="form-label">
                           <Building size={14} />
-                          Banco (opcional)
+                          Banco 
+                          <span className="form-label-small">(opcional)</span>
                         </label>
                         <input
                           type="text"
@@ -894,17 +708,15 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
                           onChange={handleInputChange}
                           placeholder="Ex: Itaú, Santander"
                           disabled={submitting}
-                          className="form-input"
+                          className="input-text"
                         />
                       </div>
                       
-                      <div className="form-field">
+                      <div className="flex flex-col">
                         <label className="form-label">
                           <DollarSign size={14} />
-                          Saldo Inicial
-                          <small style={{ color: '#6b7280', fontWeight: 'normal', marginLeft: '8px' }}>
-                            (Ex: 1000 ou -500,00)
-                          </small>
+                          Saldo
+                          <span className="form-label-small">(Ex: 1000 ou -500,00)</span>
                         </label>
                         <input
                           type="text"
@@ -912,62 +724,50 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
                           onChange={handleSaldoChange}
                           placeholder="0,00"
                           disabled={submitting}
-                          className="form-input valor receita"
-                          style={{ 
-                            fontSize: '1rem',
-                            fontWeight: '600',
-                            color: parseValorInput(formData.saldoInicial) >= 0 ? '#10b981' : '#ef4444',
-                            textAlign: 'center'
-                          }}
+                          className={`input-money ${parseValorInput(formData.saldoInicial) >= 0 ? 'positive' : 'negative'}`}
                         />
                       </div>
                     </div>
 
                     {/* Seletor de Cor */}
-                    <div className="form-field-group">
+                    <div className="flex flex-col mb-3">
                       <label className="form-label">
                         <Palette size={14} />
                         Cor da Conta
                       </label>
-                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <div className="color-picker">
                         {coresPredefinidas.map(cor => (
                           <button
                             key={cor}
                             type="button"
                             onClick={() => handleCorChange(cor)}
                             disabled={submitting}
-                            style={{
-                              width: '32px',
-                              height: '32px',
-                              borderRadius: '8px',
-                              backgroundColor: cor,
-                              border: formData.cor === cor ? '3px solid #374151' : '2px solid transparent',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease'
-                            }}
+                            className={`color-option ${formData.cor === cor ? 'active' : ''}`}
+                            style={{ backgroundColor: cor }}
+                            title={`Cor: ${cor}`}
                           />
                         ))}
                       </div>
                     </div>
 
                     {/* Ações do formulário */}
-                    <div className="form-actions">
+                    <div className="flex gap-3 row">
                       <button
                         type="button"
                         onClick={resetFormulario}
                         disabled={submitting}
-                        className="form-btn form-btn-secondary"
+                        className="btn-cancel"
                       >
                         Cancelar
                       </button>
                       <button
                         type="submit"
                         disabled={submitting}
-                        className="form-btn form-btn-primary receita"
+                        className="btn-primary"
                       >
                         {submitting ? (
                           <>
-                            <div className="form-spinner"></div>
+                            <span className="btn-spinner"></span>
                             Salvando...
                           </>
                         ) : (
@@ -978,75 +778,49 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
                         )}
                       </button>
                     </div>
-                  </div>
-                </form>
+                  </form>
+                </div>
               )}
 
               {/* Lista de Contas Ativas */}
-              {contas.length > 0 && (
-                <div style={{ marginBottom: '24px' }}>
-                  <h4 style={{ 
-                    margin: '0 0 16px 0', 
-                    fontSize: '1rem', 
-                    fontWeight: '600', 
-                    color: '#374151',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}>
-                    <Building size={16} />
-                    Contas Ativas ({contas.length})
-                  </h4>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {!modoFormulario && contas.length > 0 && (
+                <div className="mb-3">
+                  <h3 className="section-title">Contas Ativas ({contas.length})</h3>
+                  <div className="account-list">
                     {contas.map(conta => renderConta(conta, false))}
                   </div>
                 </div>
               )}
 
               {/* Lista de Contas Arquivadas */}
-              {mostrarArquivadas && contasArquivadas.length > 0 && (
-                <div style={{ marginBottom: '24px' }}>
-                  <h4 style={{ 
-                    margin: '0 0 16px 0', 
-                    fontSize: '1rem', 
-                    fontWeight: '600', 
-                    color: '#6b7280',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}>
-                    <Archive size={16} />
-                    Contas Arquivadas ({contasArquivadas.length})
-                  </h4>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {!modoFormulario && mostrarArquivadas && contasArquivadas.length > 0 && (
+                <div className="mb-3">
+                  <h3 className="section-title archived">Contas Arquivadas ({contasArquivadas.length})</h3>
+                  <div className="account-list">
                     {contasArquivadas.map(conta => renderConta(conta, true))}
                   </div>
                 </div>
               )}
 
               {/* Estado vazio */}
-              {contas.length === 0 && !loading && !modoFormulario && (
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '40px 20px',
-                  textAlign: 'center',
-                  color: '#6b7280'
-                }}>
-                  <Building size={48} strokeWidth={1} style={{ color: '#d1d5db', marginBottom: '16px' }} />
-                  <p style={{ margin: '0 0 20px 0', fontSize: '1rem' }}>
+              {!modoFormulario && contas.length === 0 && !loading && (
+                <div className="empty-state">
+                  <Building size={48} className="empty-state-icon" />
+                  <h3 className="empty-state-title">
                     {contasArquivadas.length > 0 ? 
                       'Todas as contas estão arquivadas' : 
                       'Nenhuma conta cadastrada'
                     }
+                  </h3>
+                  <p className="empty-state-description">
+                    {contasArquivadas.length > 0 ? 
+                      'Use o botão "Ver Arquivadas" para visualizar suas contas arquivadas' :
+                      'Crie sua primeira conta para começar a controlar suas finanças'
+                    }
                   </p>
                   <button
                     onClick={iniciarCriacaoConta}
-                    className="form-btn form-btn-primary receita"
+                    className="btn-primary"
                   >
                     <Plus size={16} />
                     Criar Primeira Conta
@@ -1056,309 +830,282 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
             </>
           )}
         </div>
+      </div>
 
-        {/* MODAIS */}
+      {/* MODAIS */}
 
-        {/* Modal de Correção de Saldo */}
-        {modalCorreirSaldo.ativo && (
-          <div className="confirmation-overlay">
-            <div className="confirmation-container" style={{ maxWidth: '500px' }}>
-              <h3 className="confirmation-title" style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '8px',
-                marginBottom: '16px' 
-              }}>
-                <Calculator size={20} style={{ color: '#8b5cf6' }} />
-                Corrigir Saldo da Conta
-              </h3>
-              
-              <div style={{ marginBottom: '20px' }}>
-                <div style={{
-                  background: '#f3f4f6',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '8px',
-                  padding: '16px',
-                  marginBottom: '16px'
-                }}>
-                  <div style={{ fontWeight: '600', marginBottom: '8px' }}>
-                    {modalCorreirSaldo.conta?.nome}
-                  </div>
-                  <div style={{ fontSize: '0.9rem', color: '#6b7280' }}>
-                    <div>Saldo inicial: <strong>{formatCurrency(modalCorreirSaldo.conta?.saldo_inicial || 0)}</strong></div>
-                    <div>Saldo atual: <strong>{formatCurrency(modalCorreirSaldo.conta?.saldo_atual || 0)}</strong></div>
-                  </div>
+      {/* Modal de Correção de Saldo */}
+      {modalCorreirSaldo.ativo && (
+        <div className="modal-overlay active">
+          <div className="forms-modal-container modal-small">
+            <div className="modal-header">
+              <div className="modal-header-content">
+                <div className="modal-icon-container modal-icon-purple">
+                  <Calculator size={18} />
                 </div>
-                
-                <div className="form-field">
-                  <label className="form-label">Novo saldo desejado:</label>
-                  <input
-                    type="text"
-                    value={modalCorreirSaldo.novoSaldo}
-                    onChange={(e) => {
-                      const valor = e.target.value.replace(/[^\d,-]/g, '');
-                      setModalCorrigirSaldo(prev => ({ ...prev, novoSaldo: valor }));
-                    }}
-                    placeholder="0,00"
-                    className="form-input"
-                    style={{ fontSize: '1rem', fontWeight: '600', textAlign: 'center' }}
-                  />
+                <div>
+                  <h2 className="modal-title">Corrigir Saldo da Conta</h2>
+                  <p className="modal-subtitle">Ajuste o saldo conforme necessário</p>
                 </div>
-
-                <div className="form-field">
-                  <label className="form-label">Como corrigir o saldo:</label>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <label style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '8px',
-                      padding: '8px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      background: modalCorreirSaldo.metodo === 'ajuste' ? '#eff6ff' : 'white'
-                    }}>
-                      <input
-                        type="radio"
-                        name="metodo"
-                        value="ajuste"
-                        checked={modalCorreirSaldo.metodo === 'ajuste'}
-                        onChange={(e) => setModalCorrigirSaldo(prev => ({ ...prev, metodo: e.target.value }))}
-                      />
-                      <div>
-                        <div style={{ fontWeight: '500', fontSize: '0.9rem' }}>
-                          💰 Criar transação de ajuste (recomendado)
-                        </div>
-                        <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
-                          Mantém o histórico completo e registra o motivo do ajuste
-                        </div>
-                      </div>
-                    </label>
-                    
-                    <label style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '8px',
-                      padding: '8px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      background: modalCorreirSaldo.metodo === 'saldo_inicial' ? '#eff6ff' : 'white'
-                    }}>
-                      <input
-                        type="radio"
-                        name="metodo"
-                        value="saldo_inicial"
-                        checked={modalCorreirSaldo.metodo === 'saldo_inicial'}
-                        onChange={(e) => setModalCorrigirSaldo(prev => ({ ...prev, metodo: e.target.value }))}
-                      />
-                      <div>
-                        <div style={{ fontWeight: '500', fontSize: '0.9rem' }}>
-                          ⚙️ Alterar saldo inicial
-                        </div>
-                        <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
-                          Modifica o valor base da conta (use para correções iniciais)
-                        </div>
-                      </div>
-                    </label>
-                  </div>
-                </div>
-
-                {modalCorreirSaldo.metodo === 'ajuste' && (
-                  <div className="form-field">
-                    <label className="form-label">Motivo da correção (opcional):</label>
-                    <input
-                      type="text"
-                      value={modalCorreirSaldo.motivo}
-                      onChange={(e) => setModalCorrigirSaldo(prev => ({ ...prev, motivo: e.target.value }))}
-                      placeholder="Ex: Correção de divergência, transação não registrada"
-                      className="form-input"
-                      maxLength={200}
-                    />
-                  </div>
-                )}
               </div>
-              
-              <div className="confirmation-actions" style={{ gap: '8px' }}>
-                <button 
-                  onClick={() => setModalCorrigirSaldo({ ativo: false, conta: null, novoSaldo: '', metodo: 'ajuste', motivo: '' })}
-                  className="form-btn form-btn-secondary"
-                  disabled={submitting}
-                >
-                  Cancelar
-                </button>
-                <button 
-                  onClick={processarCorrecaoSaldo}
-                  disabled={submitting || !modalCorreirSaldo.novoSaldo}
-                  className="form-btn form-btn-primary"
-                  style={{ background: '#8b5cf6', borderColor: '#8b5cf6' }}
-                >
-                  {submitting ? (
-                    <>
-                      <div className="form-spinner"></div>
-                      Corrigindo...
-                    </>
-                  ) : (
-                    <>
-                      <Calculator size={14} />
-                      Corrigir Saldo
-                    </>
-                  )}
-                </button>
-              </div>
+              <button 
+                className="modal-close" 
+                onClick={() => setModalCorrigirSaldo({ ativo: false, conta: null, novoSaldo: '', metodo: 'ajuste', motivo: '' })}
+              >
+                <X size={18} />
+              </button>
             </div>
-          </div>
-        )}
-
-        {/* Modal de Arquivamento */}
-        {modalArquivar.ativo && (
-          <div className="confirmation-overlay">
-            <div className="confirmation-container" style={{ maxWidth: '500px' }}>
-              <h3 className="confirmation-title" style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '8px',
-                marginBottom: '16px' 
-              }}>
-                <Archive size={20} style={{ color: '#f59e0b' }} />
-                Arquivar Conta
-              </h3>
-              
-              <div style={{ marginBottom: '20px' }}>
-                <div style={{
-                  background: '#fef3c7',
-                  border: '1px solid #f59e0b',
-                  borderRadius: '8px',
-                  padding: '16px',
-                  marginBottom: '16px'
-                }}>
-                  <div style={{ fontWeight: '600', marginBottom: '8px' }}>
-                    {modalArquivar.conta?.nome}
-                  </div>
-                  <div style={{ fontSize: '0.9rem', color: '#92400e' }}>
-                    Você está arquivando esta conta. O saldo de{' '}
-                    <strong>{formatCurrency(modalArquivar.conta?.saldo_atual || 0)}</strong>{' '}
-                    será removido do dashboard. As transações continuarão visíveis nos relatórios.
-                  </div>
+            
+            <div className="modal-body">
+              <div className="account-summary mb-3">
+                <h4>{modalCorreirSaldo.conta?.nome}</h4>
+                <div className="account-balances">
+                  <div>Saldo inicial: <strong>{formatCurrency(modalCorreirSaldo.conta?.saldo_inicial || 0)}</strong></div>
+                  <div>Saldo atual: <strong>{formatCurrency(modalCorreirSaldo.conta?.saldo_atual || 0)}</strong></div>
                 </div>
-                
-                <div className="form-field">
-                  <label className="form-label">Motivo do arquivamento (opcional)</label>
+              </div>
+              
+              <div className="flex flex-col mb-3">
+                <label className="form-label">Novo saldo desejado:</label>
+                <input
+                  type="text"
+                  value={modalCorreirSaldo.novoSaldo}
+                  onChange={(e) => {
+                    const valor = e.target.value.replace(/[^\d,-]/g, '');
+                    setModalCorrigirSaldo(prev => ({ ...prev, novoSaldo: valor }));
+                  }}
+                  placeholder="0,00"
+                  className="input-money input-money-highlight"
+                />
+              </div>
+
+              <div className="flex flex-col mb-3">
+                <label className="form-label">Como corrigir o saldo:</label>
+                <div className="method-selector">
+                  <label className={`method-option ${modalCorreirSaldo.metodo === 'ajuste' ? 'active' : ''}`}>
+                    <input
+                      type="radio"
+                      name="metodo"
+                      value="ajuste"
+                      checked={modalCorreirSaldo.metodo === 'ajuste'}
+                      onChange={(e) => setModalCorrigirSaldo(prev => ({ ...prev, metodo: e.target.value }))}
+                    />
+                    <div>
+                      <div className="method-title">💰 Criar transação de ajuste</div>
+                      <div className="method-desc">Mantém o histórico completo e registra o motivo do ajuste</div>
+                    </div>
+                  </label>
+                  
+                  <label className={`method-option ${modalCorreirSaldo.metodo === 'saldo_inicial' ? 'active' : ''}`}>
+                    <input
+                      type="radio"
+                      name="metodo"
+                      value="saldo_inicial"
+                      checked={modalCorreirSaldo.metodo === 'saldo_inicial'}
+                      onChange={(e) => setModalCorrigirSaldo(prev => ({ ...prev, metodo: e.target.value }))}
+                    />
+                    <div>
+                      <div className="method-title">⚙️ Alterar saldo inicial</div>
+                      <div className="method-desc">Modifica o valor base da conta (use para correções iniciais)</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {modalCorreirSaldo.metodo === 'ajuste' && (
+                <div className="flex flex-col mb-3">
+                  <label className="form-label">
+                    Motivo da correção 
+                    <span className="form-label-small">(opcional)</span>
+                  </label>
                   <input
                     type="text"
-                    value={modalArquivar.motivo}
-                    onChange={(e) => setModalArquivar(prev => ({ ...prev, motivo: e.target.value }))}
-                    placeholder="Ex: Conta encerrada, não utilizo mais"
-                    className="form-input"
+                    value={modalCorreirSaldo.motivo}
+                    onChange={(e) => setModalCorrigirSaldo(prev => ({ ...prev, motivo: e.target.value }))}
+                    placeholder="Ex: Correção de divergência, transação não registrada"
+                    className="input-text"
                     maxLength={200}
                   />
                 </div>
-              </div>
-              
-              <div className="confirmation-actions" style={{ gap: '8px' }}>
-                <button 
-                  onClick={() => setModalArquivar({ ativo: false, conta: null, motivo: '' })}
-                  className="form-btn form-btn-secondary"
-                  disabled={submitting}
-                >
-                  Cancelar
-                </button>
-                <button 
-                  onClick={processarArquivamento}
-                  disabled={submitting}
-                  className="form-btn form-btn-primary"
-                  style={{ background: '#f59e0b', borderColor: '#f59e0b' }}
-                >
-                  {submitting ? (
-                    <>
-                      <div className="form-spinner"></div>
-                      Arquivando...
-                    </>
-                  ) : (
-                    <>
-                      <Archive size={14} />
-                      Arquivar Conta
-                    </>
-                  )}
-                </button>
-              </div>
+              )}
+            </div>
+            
+            <div className="modal-footer">
+              <button 
+                onClick={() => setModalCorrigirSaldo({ ativo: false, conta: null, novoSaldo: '', metodo: 'ajuste', motivo: '' })}
+                className="btn-cancel"
+                disabled={submitting}
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={processarCorrecaoSaldo}
+                disabled={submitting || !modalCorreirSaldo.novoSaldo}
+                className="btn-secondary btn-secondary--success"
+              >
+                {submitting ? (
+                  <>
+                    <span className="btn-spinner"></span>
+                    Corrigindo...
+                  </>
+                ) : (
+                  <>
+                    <Calculator size={14} />
+                    Corrigir Saldo
+                  </>
+                )}
+              </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Modal de Desarquivamento */}
-        {modalDesarquivar.ativo && (
-          <div className="confirmation-overlay">
-            <div className="confirmation-container" style={{ maxWidth: '450px' }}>
-              <h3 className="confirmation-title" style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '8px',
-                marginBottom: '16px' 
-              }}>
-                <ArchiveRestore size={20} style={{ color: '#10b981' }} />
-                Desarquivar Conta
-              </h3>
-              
-              <div style={{ marginBottom: '20px' }}>
-                <div style={{
-                  background: '#ecfdf5',
-                  border: '1px solid #10b981',
-                  borderRadius: '8px',
-                  padding: '16px',
-                  marginBottom: '16px'
-                }}>
-                  <div style={{ fontWeight: '600', marginBottom: '8px' }}>
-                    {modalDesarquivar.conta?.nome}
-                  </div>
-                  <div style={{ fontSize: '0.9rem', color: '#065f46' }}>
-                    Esta conta será reativada e voltará a aparecer no dashboard. O saldo de{' '}
-                    <strong>{formatCurrency(modalDesarquivar.conta?.saldo_atual || 0)}</strong>{' '}
-                    será incluído nos cálculos totais novamente.
-                  </div>
+      {/* Modal de Arquivamento */}
+      {modalArquivar.ativo && (
+        <div className="modal-overlay active">
+          <div className="forms-modal-container modal-small">
+            <div className="modal-header">
+              <div className="modal-header-content">
+                <div className="modal-icon-container modal-icon-warning">
+                  <Archive size={18} />
+                </div>
+                <div>
+                  <h2 className="modal-title">Arquivar Conta</h2>
+                  <p className="modal-subtitle">Esta ação pode ser desfeita</p>
                 </div>
               </div>
+              <button 
+                className="modal-close" 
+                onClick={() => setModalArquivar({ ativo: false, conta: null, motivo: '' })}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              <div className="summary-panel warning mb-3">
+                <div className="summary-header">
+                  <Archive size={16} />
+                  <strong>{modalArquivar.conta?.nome}</strong>
+                </div>
+                <p className="summary-value">
+                  Você está arquivando esta conta. O saldo de{' '}
+                  <strong>{formatCurrency(modalArquivar.conta?.saldo_atual || 0)}</strong>{' '}
+                  será removido do dashboard. As transações continuarão visíveis nos relatórios.
+                </p>
+              </div>
               
-              <div className="confirmation-actions" style={{ gap: '8px' }}>
-                <button 
-                  onClick={() => setModalDesarquivar({ ativo: false, conta: null })}
-                  className="form-btn form-btn-secondary"
-                  disabled={submitting}
-                >
-                  Cancelar
-                </button>
-                <button 
-                  onClick={processarDesarquivamento}
-                  disabled={submitting}
-                  className="form-btn form-btn-primary receita"
-                >
-                  {submitting ? (
-                    <>
-                      <div className="form-spinner"></div>
-                      Desarquivando...
-                    </>
-                  ) : (
-                    <>
-                      <ArchiveRestore size={14} />
-                      Desarquivar Conta
-                    </>
-                  )}
-                </button>
+              <div className="flex flex-col mb-3">
+                <label className="form-label">
+                  Motivo do arquivamento 
+                  <span className="form-label-small">(opcional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={modalArquivar.motivo}
+                  onChange={(e) => setModalArquivar(prev => ({ ...prev, motivo: e.target.value }))}
+                  placeholder="Ex: Conta encerrada, não utilizo mais"
+                  className="input-text"
+                  maxLength={200}
+                />
               </div>
             </div>
-          </div>
-        )}
-
-        {/* ✅ REMOVIDO - Modal de exclusão desabilitado por segurança */}
-        {/* Modal de Exclusão */}
-        {/* {modalExcluir.ativo && (
-          <div className="confirmation-overlay">
-            <div className="confirmation-container" style={{ maxWidth: '500px' }}>
-              ...
+            
+            <div className="modal-footer">
+              <button 
+                onClick={() => setModalArquivar({ ativo: false, conta: null, motivo: '' })}
+                className="btn-cancel"
+                disabled={submitting}
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={processarArquivamento}
+                disabled={submitting}
+                className="btn-secondary btn-secondary--warning"
+              >
+                {submitting ? (
+                  <>
+                    <span className="btn-spinner"></span>
+                    Arquivando...
+                  </>
+                ) : (
+                  <>
+                    <Archive size={14} />
+                    Arquivar Conta
+                  </>
+                )}
+              </button>
             </div>
           </div>
-        )} */}
-      </div>
+        </div>
+      )}
+
+      {/* Modal de Desarquivamento */}
+      {modalDesarquivar.ativo && (
+        <div className="modal-overlay active">
+          <div className="forms-modal-container modal-small">
+            <div className="modal-header">
+              <div className="modal-header-content">
+                <div className="modal-icon-container modal-icon-success">
+                  <ArchiveRestore size={18} />
+                </div>
+                <div>
+                  <h2 className="modal-title">Desarquivar Conta</h2>
+                  <p className="modal-subtitle">Reativar conta arquivada</p>
+                </div>
+              </div>
+              <button 
+                className="modal-close" 
+                onClick={() => setModalDesarquivar({ ativo: false, conta: null })}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              <div className="summary-panel success mb-3">
+                <div className="summary-header">
+                  <ArchiveRestore size={16} />
+                  <strong>{modalDesarquivar.conta?.nome}</strong>
+                </div>
+                <p className="summary-value">
+                  Esta conta será reativada e voltará a aparecer no dashboard. O saldo de{' '}
+                  <strong>{formatCurrency(modalDesarquivar.conta?.saldo_atual || 0)}</strong>{' '}
+                  será incluído nos cálculos totais novamente.
+                </p>
+              </div>
+            </div>
+            
+            <div className="modal-footer">
+              <button 
+                onClick={() => setModalDesarquivar({ ativo: false, conta: null })}
+                className="btn-cancel"
+                disabled={submitting}
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={processarDesarquivamento}
+                disabled={submitting}
+                className="btn-secondary btn-secondary--success"
+              >
+                {submitting ? (
+                  <>
+                    <span className="btn-spinner"></span>
+                    Desarquivando...
+                  </>
+                ) : (
+                  <>
+                    <ArchiveRestore size={14} />
+                    Desarquivar Conta
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

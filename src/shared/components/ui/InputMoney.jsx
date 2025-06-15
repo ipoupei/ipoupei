@@ -1,13 +1,13 @@
-// src/shared/components/ui/InputMoney.jsx - VERSÃO CORRIGIDA BUG 005
+// src/shared/components/ui/InputMoney.jsx - VERSÃO SEM TECLAS DIRECIONAIS
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 
 /**
  * Componente para campos de entrada monetários
- * ✅ CORREÇÃO BUG 005: Navegação por teclado implementada (↑ ↓ Tab Enter)
  * ✅ CORREÇÃO: Formatação de valor mais inteligente
  * ✅ CORREÇÃO: Suporte completo a valores negativos
  * ✅ MELHORIA: Feedback visual e acessibilidade
+ * ✅ REMOVIDO: Navegação por teclas direcionais (↑ ↓)
  */
 const InputMoney = ({
   name,
@@ -31,7 +31,7 @@ const InputMoney = ({
   const [isValid, setIsValid] = useState(true);
   const inputRef = useRef(null);
   
-  // ✅ CORREÇÃO BUG 005: Formata número para moeda brasileira
+  // ✅ Formata número para moeda brasileira
   const formatCurrency = useCallback((num) => {
     if (num === 0 || num === null || num === undefined) return 'R$ 0,00';
     
@@ -41,7 +41,7 @@ const InputMoney = ({
     }).format(num);
   }, []);
   
-  // ✅ CORREÇÃO BUG 005: Converte string para número com validação aprimorada
+  // ✅ Converte string para número com validação aprimorada
   const stringToNumber = useCallback((str) => {
     if (!str || str === '' || str === '-') return 0;
     
@@ -105,7 +105,7 @@ const InputMoney = ({
     }
   }, [autoFocus, disabled]);
   
-  // ✅ CORREÇÃO BUG 005: Handle quando o input muda com validação
+  // ✅ Handle quando o input muda com validação
   const handleChange = useCallback((e) => {
     const newValue = e.target.value;
     
@@ -126,7 +126,7 @@ const InputMoney = ({
     }
   }, [allowNegative, stringToNumber, onChange, isValid]);
   
-  // ✅ CORREÇÃO BUG 005: Handle quando ganha foco
+  // ✅ Handle quando ganha foco
   const handleFocus = useCallback((e) => {
     console.log('🎯 InputMoney focus');
     setIsFocused(true);
@@ -144,7 +144,7 @@ const InputMoney = ({
     }
   }, [value, onFocus]);
   
-  // ✅ CORREÇÃO BUG 005: Handle quando perde foco
+  // ✅ Handle quando perde foco
   const handleBlur = useCallback((e) => {
     console.log('🎯 InputMoney blur');
     setIsFocused(false);
@@ -163,35 +163,11 @@ const InputMoney = ({
     }
   }, [inputValue, stringToNumber, formatCurrency, onChange, onBlur]);
 
-  // ✅ CORREÇÃO BUG 005: Navegação por teclado implementada
+  // ✅ Navegação por teclado SIMPLIFICADA (sem teclas direcionais)
   const handleKeyDown = useCallback((e) => {
     console.log('⌨️ InputMoney keyDown:', e.key);
     
-    const currentValue = stringToNumber(inputValue);
-    
     switch (e.key) {
-      case 'ArrowUp':
-        e.preventDefault();
-        const incrementValue = e.shiftKey ? 10 : (e.ctrlKey ? 100 : 1);
-        const newUpValue = currentValue + incrementValue;
-        if (allowNegative || newUpValue >= 0) {
-          const formattedUp = newUpValue.toString().replace('.', ',');
-          setInputValue(formattedUp);
-          if (onChange) onChange(newUpValue);
-        }
-        break;
-        
-      case 'ArrowDown':
-        e.preventDefault();
-        const decrementValue = e.shiftKey ? 10 : (e.ctrlKey ? 100 : 1);
-        const newDownValue = currentValue - decrementValue;
-        if (allowNegative || newDownValue >= 0) {
-          const formattedDown = newDownValue.toString().replace('.', ',');
-          setInputValue(formattedDown);
-          if (onChange) onChange(newDownValue);
-        }
-        break;
-        
       case 'Enter':
         // Força formatação e validação
         handleBlur(e);
@@ -209,7 +185,7 @@ const InputMoney = ({
       default:
         const allowedKeys = [
           'Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight',
-          'Home', 'End', 'Control', 'Alt', 'Shift'
+          'ArrowUp', 'ArrowDown', 'Home', 'End', 'Control', 'Alt', 'Shift'
         ];
         
         if (!allowedKeys.includes(e.key)) {
@@ -239,7 +215,7 @@ const InputMoney = ({
     if (onKeyDown) {
       onKeyDown(e);
     }
-  }, [inputValue, stringToNumber, allowNegative, onChange, value, formatCurrency, onKeyDown]);
+  }, [inputValue, allowNegative, value, formatCurrency, onKeyDown, handleBlur]);
 
   // ✅ Classes CSS dinâmicas para feedback visual
   const inputClasses = [
@@ -278,24 +254,6 @@ const InputMoney = ({
         }}
         {...props}
       />
-      
-      {/* ✅ Indicadores visuais de ajuda */}
-      {isFocused && (
-        <div className="input-money-help" style={{
-          position: 'absolute',
-          top: '100%',
-          left: 0,
-          right: 0,
-          background: 'rgba(0, 0, 0, 0.8)',
-          color: 'white',
-          fontSize: '0.75rem',
-          padding: '4px 8px',
-          borderRadius: '0 0 4px 4px',
-          zIndex: 1000
-        }}>
-          ↑↓ para ajustar • Shift+↑↓ ±10 • Ctrl+↑↓ ±100 • Esc para cancelar
-        </div>
-      )}
       
       {/* ✅ Indicador de valor inválido */}
       {!isValid && (
@@ -343,21 +301,6 @@ const InputMoney = ({
         
         .input-money.allow-negative {
           border-left: 3px solid #f59e0b;
-        }
-        
-        .input-money-help {
-          animation: slideDown 0.2s ease;
-        }
-        
-        @keyframes slideDown {
-          from {
-            opacity: 0;
-            transform: translateY(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
         }
       `}</style>
     </div>

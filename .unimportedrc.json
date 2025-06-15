@@ -1,0 +1,40 @@
+{
+  "ignoreUnresolved": [
+    [
+      "@lib/supabaseClient",
+      [
+        "src\\App.jsx"
+      ]
+    ],
+    [
+      "@modules/auth/store/authStore",
+      [
+        "src\\App.jsx"
+      ]
+    ],
+    [
+      "@routes/AppRoutes",
+      [
+        "src\\App.jsx"
+      ]
+    ],
+    [
+      "@styles/globals.css",
+      [
+        "src\\main.jsx"
+      ]
+    ]
+  ],
+  "ignoreUnused": [
+    "@supabase/supabase-js",
+    "date-fns",
+    "lucide-react",
+    "react-router-dom",
+    "recharts",
+    "zod",
+    "zustand"
+  ],
+  "ignoreUnimported": [
+    
+  ]
+}

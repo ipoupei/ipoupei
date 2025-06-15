@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
+import { X, Plus, Edit3, Trash2, Palette } from 'lucide-react';
 import useCategorias from '@modules/categorias/hooks/useCategorias';
 import CategoriasSugeridasModal from './CategoriasSugeridasModal';
-import '@modules/categorias/styles/CategoriasModal.css';
+import '@shared/styles/FormsModal.css';
 
 /**
  * Modal para gerenciamento de categorias e subcategorias
@@ -10,6 +11,7 @@ import '@modules/categorias/styles/CategoriasModal.css';
  * ✅ CORREÇÃO: Funcionalidades completas de subcategorias
  * ✅ MELHORIA: Interface mais intuitiva e responsiva
  * ✅ NOVO: Integração com categorias sugeridas
+ * ✅ CONSOLIDADO: Usando classes do FormsModal.css
  */
 const CategoriasModal = ({ isOpen, onClose }) => {
   // Obter dados das categorias do hook existente
@@ -48,53 +50,46 @@ const CategoriasModal = ({ isOpen, onClose }) => {
   
   // ✅ IMPROVEMENT 001: Cores predefinidas mais variadas e modernas
   const coresPredefinidas = [
-    '#FF6B6B', // Vermelho coral
-    '#4ECDC4', // Verde-água
-    '#45B7D1', // Azul claro
-    '#96CEB4', // Verde menta
-    '#FFEAA7', // Amarelo suave
-    '#DDA0DD', // Roxo claro
-    '#98D8C8', // Verde seafoam
-    '#F7DC6F', // Dourado
-    '#BB8FCE', // Lavanda
-    '#85C1E9', // Azul céu
-    '#F8C471', // Laranja suave
-    '#82E0AA', // Verde lima
-    '#F1948A', // Rosa salmão
-    '#AED6F1', // Azul bebê
-    '#D7BDE2', // Roxo pastel
-    '#A9DFBF', // Verde menta claro
-    '#FAD7A0', // Pêssego
-    '#D5A6BD', // Rosa antigo
-    '#A3E4D7', // Turquesa
-    '#F9E79F'  // Amarelo pastel
+    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', 
+    '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9', '#F8C471', '#82E0AA', 
+    '#F1948A', '#AED6F1', '#D7BDE2', '#A9DFBF', '#FAD7A0', '#D5A6BD', 
+    '#A3E4D7', '#F9E79F'
   ];
+  
+  // Handler para ESC
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen, onClose]);
   
   // ✅ IMPROVEMENT 001: Função para gerar cor única automática
   const getUniqueRandomColor = () => {
-    // Obter cores já em uso
     const coresEmUso = categoriasFiltradas.map(cat => cat.cor?.toUpperCase()).filter(Boolean);
-    
-    // Filtrar cores predefinidas que não estão em uso
     const coresDisponiveis = coresPredefinidas.filter(cor => 
       !coresEmUso.includes(cor.toUpperCase())
     );
     
-    // Se ainda há cores predefinidas disponíveis, escolher uma aleatória
     if (coresDisponiveis.length > 0) {
       const indiceAleatorio = Math.floor(Math.random() * coresDisponiveis.length);
       return coresDisponiveis[indiceAleatorio];
     }
     
-    // Se todas as cores predefinidas estão em uso, gerar uma cor aleatória
     return gerarCorAleatoria();
   };
   
   // ✅ IMPROVEMENT 001: Função para gerar cor aleatória com boa saturação
   const gerarCorAleatoria = () => {
     const hue = Math.floor(Math.random() * 360);
-    const saturation = 65 + Math.floor(Math.random() * 25); // 65-90%
-    const lightness = 55 + Math.floor(Math.random() * 20);  // 55-75%
+    const saturation = 65 + Math.floor(Math.random() * 25);
+    const lightness = 55 + Math.floor(Math.random() * 20);
     
     return hslToHex(hue, saturation, lightness);
   };
@@ -139,7 +134,6 @@ const CategoriasModal = ({ isOpen, onClose }) => {
       setCategoriasFiltradas([]);
     }
     
-    // Resetar seleção ao trocar tipo
     setCategoriaSelecionada(null);
     resetarFormularios();
   }, [categorias, tipoAtual]);
@@ -169,11 +163,8 @@ const CategoriasModal = ({ isOpen, onClose }) => {
     setShowFormCategoria(true);
     setNovaCategoriaNome('');
     
-    // ✅ Definir cor automática inteligente
     const corAutomatica = getUniqueRandomColor();
     setNovaCategoriaColor(corAutomatica);
-    
-    console.log(`🎨 Cor automática gerada: ${corAutomatica}`);
   };
   
   // ✅ NOVO: Handler para abrir modal de categorias sugeridas
@@ -232,13 +223,11 @@ const CategoriasModal = ({ isOpen, onClose }) => {
       let result;
       
       if (editandoCategoria) {
-        // Atualizar categoria existente
         result = await updateCategoria(editandoCategoria.id, {
           nome: novaCategoriaNome.trim(),
           cor: novaCategoriaColor
         });
       } else {
-        // Adicionar nova categoria
         result = await addCategoria({
           nome: novaCategoriaNome.trim(),
           tipo: tipoAtual,
@@ -277,14 +266,12 @@ const CategoriasModal = ({ isOpen, onClose }) => {
       let result;
       
       if (editandoSubcategoria) {
-        // Atualizar subcategoria existente
         result = await updateSubcategoria(
           categoriaSelecionada, 
           editandoSubcategoria.id, 
           { nome: novaSubcategoriaNome.trim() }
         );
       } else {
-        // Adicionar nova subcategoria
         result = await addSubcategoria(
           categoriaSelecionada, 
           { nome: novaSubcategoriaNome.trim() }
@@ -354,13 +341,16 @@ const CategoriasModal = ({ isOpen, onClose }) => {
   const renderFormCategoria = () => {
     return (
       <div className="form-categoria">
-        <h3>{editandoCategoria ? 'Editar Categoria' : 'Nova Categoria'}</h3>
+        <h3 className="section-title">{editandoCategoria ? 'Editar Categoria' : 'Nova Categoria'}</h3>
         
-        <div className="form-group">
-          <label htmlFor="categoria-nome">Nome</label>
+        <div className="flex flex-col mb-3">
+          <label className="form-label">
+            <Edit3 size={14} />
+            Nome da categoria *
+          </label>
           <input
             type="text"
-            id="categoria-nome"
+            className="input-text"
             value={novaCategoriaNome}
             onChange={(e) => setNovaCategoriaNome(e.target.value)}
             placeholder="Digite o nome da categoria"
@@ -368,17 +358,19 @@ const CategoriasModal = ({ isOpen, onClose }) => {
           />
         </div>
         
-        <div className="form-group">
-          <label>Cor</label>
+        <div className="flex flex-col mb-3">
+          <label className="form-label">
+            <Palette size={14} />
+            Cor da categoria
+          </label>
           <div className="color-input-container">
             <input
               type="color"
               value={novaCategoriaColor}
               onChange={(e) => setNovaCategoriaColor(e.target.value)}
-              className="color-picker"
+              className="color-picker-input"
             />
             <div className="color-preview" style={{ backgroundColor: novaCategoriaColor }}></div>
-            {/* ✅ IMPROVEMENT 001: Botão para sugerir nova cor */}
             <button
               type="button"
               className="button-suggest-color"
@@ -391,7 +383,6 @@ const CategoriasModal = ({ isOpen, onClose }) => {
           
           <div className="cores-container">
             {coresPredefinidas.map(cor => {
-              // ✅ Verificar se a cor já está em uso
               const corEmUso = categoriasFiltradas.some(cat => 
                 cat.cor?.toUpperCase() === cor.toUpperCase() && cat.id !== editandoCategoria?.id
               );
@@ -410,7 +401,6 @@ const CategoriasModal = ({ isOpen, onClose }) => {
             })}
           </div>
           
-          {/* ✅ IMPROVEMENT 001: Indicador de cores em uso */}
           <div className="color-usage-info">
             <small>
               💡 Cores com ⚫ já estão em uso. Use o botão "🎲 Sortear" para gerar uma cor única.
@@ -418,21 +408,31 @@ const CategoriasModal = ({ isOpen, onClose }) => {
           </div>
         </div>
         
-        <div className="form-actions">
+        <div className="flex gap-3 row">
           <button 
             type="button" 
-            className="button secondary"
+            className="btn-cancel"
             onClick={resetarFormularios}
           >
             Cancelar
           </button>
           <button 
             type="button" 
-            className="button primary"
+            className="btn-primary"
             onClick={handleSalvarCategoria}
             disabled={loading}
           >
-            {loading ? 'Salvando...' : (editandoCategoria ? 'Atualizar' : 'Salvar')}
+            {loading ? (
+              <>
+                <span className="btn-spinner"></span>
+                Salvando...
+              </>
+            ) : (
+              <>
+                <Plus size={14} />
+                {editandoCategoria ? 'Atualizar' : 'Salvar'}
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -445,18 +445,21 @@ const CategoriasModal = ({ isOpen, onClose }) => {
     
     return (
       <div className="form-subcategoria">
-        <h3>
+        <h3 className="section-title">
           {editandoSubcategoria ? 'Editar Subcategoria' : 'Nova Subcategoria'}
           {categoriaParent && (
             <span className="parent-categoria"> - {categoriaParent.nome}</span>
           )}
         </h3>
         
-        <div className="form-group">
-          <label htmlFor="subcategoria-nome">Nome</label>
+        <div className="flex flex-col mb-3">
+          <label className="form-label">
+            <Edit3 size={14} />
+            Nome da subcategoria *
+          </label>
           <input
             type="text"
-            id="subcategoria-nome"
+            className="input-text"
             value={novaSubcategoriaNome}
             onChange={(e) => setNovaSubcategoriaNome(e.target.value)}
             placeholder="Digite o nome da subcategoria"
@@ -464,21 +467,31 @@ const CategoriasModal = ({ isOpen, onClose }) => {
           />
         </div>
         
-        <div className="form-actions">
+        <div className="flex gap-3 row">
           <button 
             type="button" 
-            className="button secondary"
+            className="btn-cancel"
             onClick={resetarFormularios}
           >
             Cancelar
           </button>
           <button 
             type="button" 
-            className="button primary"
+            className="btn-primary"
             onClick={handleSalvarSubcategoria}
             disabled={loading}
           >
-            {loading ? 'Salvando...' : (editandoSubcategoria ? 'Atualizar' : 'Salvar')}
+            {loading ? (
+              <>
+                <span className="btn-spinner"></span>
+                Salvando...
+              </>
+            ) : (
+              <>
+                <Plus size={14} />
+                {editandoSubcategoria ? 'Atualizar' : 'Salvar'}
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -514,14 +527,14 @@ const CategoriasModal = ({ isOpen, onClose }) => {
               onClick={() => handleEditarCategoria(categoria)}
               title="Editar categoria"
             >
-              ✏️
+              <Edit3 size={12} />
             </button>
             <button 
               className="button-small delete-button"
               onClick={() => handleExcluirCategoria(categoria.id)}
               title="Excluir categoria"
             >
-              🗑️
+              <Trash2 size={12} />
             </button>
           </div>
         </div>
@@ -536,7 +549,8 @@ const CategoriasModal = ({ isOpen, onClose }) => {
                 onClick={() => handleNovaSubcategoria(categoria.id)}
                 title="Adicionar subcategoria"
               >
-                ➕ Nova Subcategoria
+                <Plus size={12} />
+                Nova Subcategoria
               </button>
             </div>
             
@@ -551,14 +565,14 @@ const CategoriasModal = ({ isOpen, onClose }) => {
                         onClick={() => handleEditarSubcategoria(categoria.id, subcategoria)}
                         title="Editar subcategoria"
                       >
-                        ✏️
+                        <Edit3 size={10} />
                       </button>
                       <button 
                         className="button-small delete-button"
                         onClick={() => handleExcluirSubcategoria(categoria.id, subcategoria.id)}
                         title="Excluir subcategoria"
                       >
-                        🗑️
+                        <Trash2 size={10} />
                       </button>
                     </div>
                   </div>
@@ -568,10 +582,11 @@ const CategoriasModal = ({ isOpen, onClose }) => {
               <div className="subcategorias-empty">
                 <p>Nenhuma subcategoria encontrada.</p>
                 <button 
-                  className="button-small primary"
+                  className="btn-secondary"
                   onClick={() => handleNovaSubcategoria(categoria.id)}
                 >
-                  ➕ Criar primeira subcategoria
+                  <Plus size={14} />
+                  Criar primeira subcategoria
                 </button>
               </div>
             )}
@@ -583,12 +598,20 @@ const CategoriasModal = ({ isOpen, onClose }) => {
 
   return (
     <>
-      <div className="modal-overlay">
-        <div className="modal-container">
+      <div className="modal-overlay active">
+        <div className="forms-modal-container modal-large">
           <div className="modal-header">
-            <h2>Gestão de categorias e subcategorias</h2>
-            <button className="close-button" onClick={onClose}>
-              ✕
+            <div className="modal-header-content">
+              <div className="modal-icon-container modal-icon-primary">
+                <Palette size={18} />
+              </div>
+              <div>
+                <h2 className="modal-title">Gestão de Categorias</h2>
+                <p className="modal-subtitle">Organize suas receitas e despesas em categorias</p>
+              </div>
+            </div>
+            <button className="modal-close" onClick={onClose}>
+              <X size={18} />
             </button>
           </div>
 
@@ -604,23 +627,23 @@ const CategoriasModal = ({ isOpen, onClose }) => {
               className={`tipo-button ${tipoAtual === 'despesa' ? 'active' : ''}`} 
               onClick={() => handleChangeTipo('despesa')}
             >
-              Despesas
+              💸 Despesas
             </button>
             <button 
               className={`tipo-button ${tipoAtual === 'receita' ? 'active' : ''}`}
               onClick={() => handleChangeTipo('receita')}
             >
-              Receitas
+              💰 Receitas
             </button>
           </div>
 
-          <div className="modal-content">
+          <div className="modal-body">
             {showFormCategoria ? (
               renderFormCategoria()
             ) : showFormSubcategoria ? (
               renderFormSubcategoria()
             ) : (
-              <div className="categorias-container">
+              <div>
                 <div className="categorias-header">
                   <h3>Categorias de {tipoAtual === 'despesa' ? 'Despesas' : 'Receitas'}</h3>
                   <p className="categorias-subtitle">
@@ -641,9 +664,9 @@ const CategoriasModal = ({ isOpen, onClose }) => {
                 </div>
                 
                 {loading ? (
-                  <div className="loading">
+                  <div className="loading-container">
                     <div className="loading-spinner"></div>
-                    <p>Carregando categorias...</p>
+                    <p className="loading-text">Carregando categorias...</p>
                   </div>
                 ) : categoriasFiltradas.length > 0 ? (
                   <div className="categorias-list">
@@ -651,21 +674,24 @@ const CategoriasModal = ({ isOpen, onClose }) => {
                   </div>
                 ) : (
                   <div className="empty-state">
-                    <div className="empty-icon">📊</div>
-                    <p>Você ainda não criou nenhuma categoria de {tipoAtual === 'despesa' ? 'despesas' : 'receitas'}.</p>
-                    <p>Comece criando uma categoria ou importe nossas sugestões!</p>
+                    <Palette size={48} className="empty-state-icon" />
+                    <h3 className="empty-state-title">Nenhuma categoria encontrada</h3>
+                    <p className="empty-state-description">
+                      Você ainda não criou nenhuma categoria de {tipoAtual === 'despesa' ? 'despesas' : 'receitas'}.
+                      <br />Comece criando uma categoria ou importe nossas sugestões!
+                    </p>
                     
-                    {/* ✅ NOVO: Botões para empty state */}
-                    <div className="empty-actions">
+                    <div className="flex gap-3 row">
                       <button 
-                        className="button primary"
+                        className="btn-primary"
                         onClick={handleNovaCategoria}
                       >
-                        ➕ Criar categoria
+                        <Plus size={14} />
+                        Criar categoria
                       </button>
                       
                       <button 
-                        className="button secondary"
+                        className="btn-secondary"
                         onClick={handleAbrirSugeridas}
                       >
                         💡 Ver sugestões
@@ -680,7 +706,6 @@ const CategoriasModal = ({ isOpen, onClose }) => {
           <div className="modal-footer">
             {!showFormCategoria && !showFormSubcategoria && (
               <>
-                {/* ✅ NOVO: Footer com layout melhorado */}
                 <div className="footer-left">
                   <button 
                     className="button tertiary"
@@ -692,13 +717,14 @@ const CategoriasModal = ({ isOpen, onClose }) => {
                 
                 <div className="footer-right">
                   <button 
-                    className="button primary"
+                    className="btn-primary"
                     onClick={handleNovaCategoria}
                   >
-                    ➕ Nova Categoria
+                    <Plus size={14} />
+                    Nova Categoria
                   </button>
                   <button 
-                    className="button secondary"
+                    className="btn-cancel"
                     onClick={onClose}
                   >
                     Fechar
