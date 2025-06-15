@@ -1,4 +1,4 @@
-// src/components/DespesasCartaoModal.jsx - VERSÃO REFATORADA E OTIMIZADA COM VALOR CORRIGIDO
+// src/modules/transacoes/components/DespesasCartaoModal.jsx - CSS PURO SEM ESTILOS INLINE
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -14,24 +14,16 @@ import {
   Search
 } from 'lucide-react';
 
-import { useAuthStore } from '@modules/auth/store/authStore';;
+import { useAuthStore } from '@modules/auth/store/authStore';
 import { useUIStore } from '@store/uiStore';
-
-
-
-
-
-
 import { formatCurrency } from '@utils/formatCurrency';
-
-
 import { supabase } from '@lib/supabaseClient';
 import '@shared/styles/FormsModal.css';
+
 /**
- * Modal de Despesas Cartão - Versão Otimizada com Valor Corrigido
- * Reduzido de ~1600 para ~650 linhas (60% menos código)
- * Design compacto, funcionalidades completas, performance otimizada
- * VALOR CORRIGIDO: Mesmo sistema do ReceitasModal
+ * Modal de Despesas Cartão - CSS Puro Sem Estilos Inline
+ * Aplicação correta das classes FormsModal.css
+ * Zero estilos inline para máxima consistência
  */
 const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
   const { user } = useAuthStore();
@@ -133,7 +125,7 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     []
   );
 
-  // FORMATAÇÃO DE VALOR CORRIGIDA - IGUAL AO RECEITAS MODAL
+  // Formatação de valor
   const formatarValor = useCallback((valor) => {
     const apenasNumeros = valor.toString().replace(/\D/g, '');
     if (!apenasNumeros || apenasNumeros === '0') return '';
@@ -145,7 +137,7 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     });
   }, []);
 
-  // VALOR NUMÉRICO CORRIGIDO - IGUAL AO RECEITAS MODAL
+  // Valor numérico
   const valorNumerico = useMemo(() => {
     if (!formData.valorTotal) return 0;
     const valorString = formData.valorTotal.toString();
@@ -327,7 +319,7 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     }
   }, [errors]);
 
-  // HANDLER DE VALOR CORRIGIDO - IGUAL AO RECEITAS MODAL
+  // Handler de valor
   const handleValorChange = useCallback((e) => {
     const valorFormatado = formatarValor(e.target.value);
     setFormData(prev => ({ ...prev, valorTotal: valorFormatado }));
@@ -615,97 +607,74 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="receitas-modal-overlay">
-      <div className="receitas-modal-container">
+    <div className={`modal-overlay ${isOpen ? 'active' : ''}`}>
+      <div className="forms-modal-container">
         {/* Header */}
-        <div className="receitas-modal-header" style={{ 
-          background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(139, 92, 246, 0.02) 100%)',
-          borderBottom: '1px solid rgba(139, 92, 246, 0.1)' 
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              width: '36px',
-              height: '36px',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
-              color: 'white'
-            }}>
+        <div className="modal-header">
+          <div className="modal-header-content">
+            <div className="modal-icon-container modal-icon-purple">
               <CreditCard size={18} />
             </div>
             <div>
-              <h2 className="receitas-modal-title" style={{ margin: 0, fontSize: '1.1rem' }}>
-                Despesa com Cartão
-              </h2>
-              <p style={{ margin: 0, fontSize: '0.8rem', color: '#6b7280' }}>
-                Registre compras no cartão de crédito
-              </p>
+              <h2 className="modal-title">Despesa com Cartão</h2>
+              <p className="modal-subtitle">Registre compras no cartão de crédito</p>
             </div>
           </div>
-          <button className="receitas-modal-close" onClick={onClose}>
+          <button className="modal-close" onClick={onClose}>
             <X size={18} />
           </button>
         </div>
         
-        {/* Content */}
-        <div className="receitas-modal-content">
+        {/* Body */}
+        <div className="modal-body">
           {loading ? (
-            <div className="receitas-loading">
-              <div className="receitas-loading-spinner" style={{ borderTopColor: '#8b5cf6' }}></div>
-              <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>
-                Carregando dados...
-              </p>
+            <div className="loading-container">
+              <div className="loading-spinner"></div>
+              <p className="loading-text">Carregando dados...</p>
             </div>
           ) : (
-            <form onSubmit={(e) => handleSubmit(e, false)} className="receitas-form">
+            <form onSubmit={(e) => handleSubmit(e, false)}>
               
-              {/* Valor e Data */}
-              <div className="receitas-form-row">
-                <div className="receitas-form-group">
-                  <label className="receitas-form-label">
-                    <DollarSign size={14} />
-                    Valor Total *
-                  </label>
-                  <input
-                    ref={valorInputRef}
-                    type="text"
-                    value={formData.valorTotal}
-                    onChange={handleValorChange}
-                    placeholder="0,00"
-                    disabled={submitting}
-                    className={`receitas-form-input receitas-valor-input ${errors.valorTotal ? 'error' : ''}`}
-                    style={{ 
-                      fontSize: '1.1rem',
-                      fontWeight: '700',
-                      color: '#8b5cf6',
-                      textAlign: 'center'
-                    }}
-                  />
-                  {errors.valorTotal && <div className="receitas-form-error">{errors.valorTotal}</div>}
-                </div>
-                
-                <div className="receitas-form-group">
-                  <label className="receitas-form-label">
-                    <Calendar size={14} />
-                    Data da Compra *
-                  </label>
-                  <input
-                    type="date"
-                    name="dataCompra"
-                    value={formData.dataCompra}
-                    onChange={handleInputChange}
-                    disabled={submitting}
-                    className={`receitas-form-input ${errors.dataCompra ? 'error' : ''}`}
-                  />
-                  {errors.dataCompra && <div className="receitas-form-error">{errors.dataCompra}</div>}
-                </div>
-              </div>
-
+              <h3 className="section-title">Informações da Compra</h3>
+              
+          {/* Valor e Data */}
+          <div className="flex gap-3 row mb-3">
+            <div>
+              <label className="form-label">
+                <DollarSign size={14} />
+                Valor Total *
+              </label>
+              <input
+                ref={valorInputRef}
+                type="text"
+                value={formData.valorTotal}
+                onChange={handleValorChange}
+                placeholder="0,00"
+                disabled={submitting}
+                className={`input-money input-money-highlight ${errors.valorTotal ? 'error' : ''}`}
+              />
+              {errors.valorTotal && <div className="form-error">{errors.valorTotal}</div>}
+            </div>
+            
+            <div>
+              <label className="form-label">
+                <Calendar size={14} />
+                Data da Compra *
+              </label>
+              <input
+                type="date"
+                name="dataCompra"
+                value={formData.dataCompra}
+                onChange={handleInputChange}
+                disabled={submitting}
+                className={`input-date ${errors.dataCompra ? 'error' : ''}`}
+              />
+              {errors.dataCompra && <div className="form-error">{errors.dataCompra}</div>}
+            </div>
+          </div>
               {/* Descrição */}
-              <div className="receitas-form-group receitas-form-full">
-                <label className="receitas-form-label">
+              <div className="flex flex-col mb-3">
+                <label className="form-label">
                   <FileText size={14} />
                   Descrição *
                 </label>
@@ -716,197 +685,228 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
                   value={formData.descricao}
                   onChange={handleInputChange}
                   disabled={submitting}
-                  className={`receitas-form-input ${errors.descricao ? 'error' : ''}`}
+                  className={`input-text ${errors.descricao ? 'error' : ''}`}
                 />
-                {errors.descricao && <div className="receitas-form-error">{errors.descricao}</div>}
+                {errors.descricao && <div className="form-error">{errors.descricao}</div>}
               </div>
 
-              {/* Categoria */}
-              <div className="receitas-form-group receitas-form-full">
-                <label className="receitas-form-label">
-                  <Tag size={14} />
-                  Categoria *
-                </label>
-                <div className="receitas-dropdown-container">
-                  <input
-                    type="text"
-                    value={formData.categoriaTexto}
-                    onChange={handleCategoriaChange}
-                    onBlur={handleCategoriaBlur}
-                    onFocus={() => setCategoriaDropdownOpen(true)}
-                    placeholder="Digite ou selecione uma categoria"
-                    disabled={submitting}
-                    autoComplete="off"
-                    className={`receitas-form-input receitas-dropdown-input ${errors.categoria ? 'error' : ''}`}
-                    style={{
-                      backgroundColor: !formData.categoria ? '#f9fafb' : 'white'
-                    }}
-                  />
-                  <Search size={14} className="receitas-search-icon" />
-                  
-                  {categoriaDropdownOpen && categoriasFiltradas.length > 0 && (
-                    <div className="receitas-dropdown-options">
-                      {categoriasFiltradas.map(categoria => (
-                        <div
-                          key={categoria.id}
-                          className="receitas-dropdown-option"
-                          onMouseDown={() => handleSelecionarCategoria(categoria)}
-                        >
-                          <div 
-                            className="receitas-categoria-cor"
-                            style={{ backgroundColor: categoria.cor || '#ef4444' }}
-                          />
-                          {categoria.nome}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {errors.categoria && <div className="receitas-form-error">{errors.categoria}</div>}
-              </div>
-
-              {/* Subcategoria */}
-              {categoriaSelecionada && (
-                <div className="receitas-form-group receitas-form-full">
-                  <label className="receitas-form-label">
+                {/* Categoria */}
+                <div className="flex flex-col mb-3">
+                  <label className="form-label">
                     <Tag size={14} />
-                    Subcategoria ({subcategoriasDaCategoria.length} disponíveis)
+                    Categoria *
                   </label>
-                  <div className="receitas-dropdown-container">
-                    <input
-                      type="text"
-                      value={formData.subcategoriaTexto}
-                      onChange={handleSubcategoriaChange}
-                      onBlur={handleSubcategoriaBlur}
-                      onFocus={() => setSubcategoriaDropdownOpen(true)}
-                      placeholder="Digite ou selecione uma subcategoria"
-                      disabled={submitting}
-                      autoComplete="off"
-                      className="receitas-form-input receitas-dropdown-input"
-                    />
-                    <Search size={14} className="receitas-search-icon" />
+                  <div className="dropdown-container">
+                    <div style={{position: 'relative'}}>
+                      <input
+                        type="text"
+                        value={formData.categoriaTexto}
+                        onChange={handleCategoriaChange}
+                        onBlur={handleCategoriaBlur}
+                        onFocus={() => setCategoriaDropdownOpen(true)}
+                        placeholder="Digite ou selecione uma categoria"
+                        disabled={submitting}
+                        autoComplete="off"
+                        className={`input-text input-with-icon ${!formData.categoria ? 'input-muted' : ''} ${errors.categoria ? 'error' : ''}`}
+                        style={{
+                          paddingLeft: categoriaSelecionada ? '28px' : '10px'
+                        }}
+                      />
+                      {categoriaSelecionada && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            left: '8px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            width: '12px',
+                            height: '12px',
+                            borderRadius: '50%',
+                            backgroundColor: categoriaSelecionada.cor || '#ef4444',
+                            pointerEvents: 'none'
+                          }}
+                        />
+                      )}
+                      <Search size={14} className="input-search-icon" />
+                    </div>
                     
-                    {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
-                      <div className="receitas-dropdown-options">
-                        {subcategoriasFiltradas.map(subcategoria => (
+                    {categoriaDropdownOpen && categoriasFiltradas.length > 0 && (
+                      <div className="dropdown-options">
+                        {categoriasFiltradas.map(categoria => (
                           <div
-                            key={subcategoria.id}
-                            className="receitas-dropdown-option"
-                            onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
+                            key={categoria.id}
+                            onMouseDown={() => handleSelecionarCategoria(categoria)}
+                            className="dropdown-option"
                           >
-                            {subcategoria.nome}
+                            <div 
+                              className="category-color-tag"
+                              style={{backgroundColor: categoria.cor || '#ef4444'}}
+                            ></div>
+                            {categoria.nome}
                           </div>
                         ))}
+                      </div>
+                    )}
+                  </div>
+                  {errors.categoria && <div className="form-error">{errors.categoria}</div>}
+                </div>
+
+                {/* Subcategoria */}
+                {categoriaSelecionada && (
+                  <div className="flex flex-col mb-3">
+                    <label className="form-label">
+                      <Tag size={14} />
+                      Subcategoria ({subcategoriasDaCategoria.length} disponíveis)
+                    </label>
+                    <div className="dropdown-container">
+                      <div style={{position: 'relative'}}>
+                        <input
+                          type="text"
+                          value={formData.subcategoriaTexto}
+                          onChange={handleSubcategoriaChange}
+                          onBlur={handleSubcategoriaBlur}
+                          onFocus={() => setSubcategoriaDropdownOpen(true)}
+                          placeholder="Digite ou selecione uma subcategoria"
+                          disabled={submitting}
+                          autoComplete="off"
+                          className="input-text input-with-icon"
+                          style={{
+                            paddingLeft: '28px'
+                          }}
+                        />
+                        <div
+                          style={{
+                            position: 'absolute',
+                            left: '8px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            width: '12px',
+                            height: '12px',
+                            borderRadius: '50%',
+                            backgroundColor: categoriaSelecionada.cor || '#ef4444',
+                            pointerEvents: 'none'
+                          }}
+                        />
+                        <Search size={14} className="input-search-icon" />
+                      </div>
+                      
+                      {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
+                        <div className="dropdown-options">
+                          {subcategoriasFiltradas.map(subcategoria => (
+                            <div
+                              key={subcategoria.id}
+                              onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
+                              className="dropdown-option"
+                            >
+                              <div 
+                                className="category-color-tag"
+                                style={{backgroundColor: categoriaSelecionada.cor || '#ef4444'}}
+                              ></div>
+                              {subcategoria.nome}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              {/* Cartão e Parcelas */}
+                <div className="flex gap-3 row mb-3">
+                  <div>
+                    <label className="form-label">
+                      <CreditCard size={14} />
+                      Cartão *
+                    </label>
+                    <div className="select-search">
+                      <select
+                        name="cartaoId"
+                        value={formData.cartaoId}
+                        onChange={handleInputChange}
+                        disabled={submitting}
+                        className={errors.cartaoId ? 'error' : ''}
+                      >
+                        <option value="">Selecione um cartão</option>
+                        {cartoesAtivos.map(cartao => (
+                          <option key={cartao.id} value={cartao.id}>
+                            {cartao.nome} ({cartao.bandeira})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {errors.cartaoId && <div className="form-error">{errors.cartaoId}</div>}
+                  </div>
+                  
+                  <div>
+                    <label className="form-label">
+                      <Hash size={14} />
+                      Parcelas *
+                    </label>
+                    <div className="select-search">
+                      <select
+                        name="numeroParcelas"
+                        value={formData.numeroParcelas}
+                        onChange={handleInputChange}
+                        disabled={submitting}
+                        className={errors.numeroParcelas ? 'error' : ''}
+                      >
+                        {opcoesParcelamento.map(opcao => (
+                          <option key={opcao.value} value={opcao.value}>
+                            {opcao.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {errors.numeroParcelas && <div className="form-error">{errors.numeroParcelas}</div>}
+                  </div>
+                </div>
+              {/* Fatura de Vencimento */}
+              <div className="flex flex-col mb-3">
+                <label className="form-label">
+                  <Calendar size={14} />
+                  Fatura de Vencimento *
+                  <small className="form-label-small">(primeira parcela)</small>
+                </label>
+                <div className="select-search">
+                  <select
+                    name="faturaVencimento"
+                    value={formData.faturaVencimento}
+                    onChange={handleInputChange}
+                    disabled={submitting || !formData.cartaoId}
+                    className={`${!formData.cartaoId ? 'input-disabled' : ''} ${errors.faturaVencimento ? 'error' : ''}`}
+                  >
+                    <option value="">
+                      {!formData.cartaoId ? "Selecione um cartão primeiro" : "Selecione a fatura"}
+                    </option>
+                    {opcoesFatura.map(opcao => (
+                      <option key={opcao.value} value={opcao.value}>
+                        {opcao.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {errors.faturaVencimento && <div className="form-error">{errors.faturaVencimento}</div>}
+              </div>
+
+              {/* Preview do Parcelamento */}
+              {valorNumerico > 0 && formData.numeroParcelas > 0 && (
+                <div className="summary-panel summary-panel-purple mb-3">
+                  <div className="parcelamento-preview">
+                    💳 {formData.numeroParcelas}x de {formatCurrency(valorParcela)}
+                    {formData.numeroParcelas > 1 && (
+                      <div className="parcelamento-total">
+                        Total: {formatCurrency(valorNumerico)}
                       </div>
                     )}
                   </div>
                 </div>
               )}
 
-              {/* Cartão e Parcelas */}
-              <div className="receitas-form-row">
-                <div className="receitas-form-group">
-                  <label className="receitas-form-label">
-                    <CreditCard size={14} />
-                    Cartão *
-                  </label>
-                  <select
-                    name="cartaoId"
-                    value={formData.cartaoId}
-                    onChange={handleInputChange}
-                    disabled={submitting}
-                    className={`receitas-form-input ${errors.cartaoId ? 'error' : ''}`}
-                  >
-                    <option value="">Selecione um cartão</option>
-                    {cartoesAtivos.map(cartao => (
-                      <option key={cartao.id} value={cartao.id}>
-                        {cartao.nome} ({cartao.bandeira})
-                      </option>
-                    ))}
-                  </select>
-                  {errors.cartaoId && <div className="receitas-form-error">{errors.cartaoId}</div>}
-                </div>
-                
-                <div className="receitas-form-group">
-                  <label className="receitas-form-label">
-                    <Hash size={14} />
-                    Parcelas *
-                  </label>
-                  <select
-                    name="numeroParcelas"
-                    value={formData.numeroParcelas}
-                    onChange={handleInputChange}
-                    disabled={submitting}
-                    className={`receitas-form-input ${errors.numeroParcelas ? 'error' : ''}`}
-                  >
-                    {opcoesParcelamento.map(opcao => (
-                      <option key={opcao.value} value={opcao.value}>
-                        {opcao.label}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.numeroParcelas && <div className="receitas-form-error">{errors.numeroParcelas}</div>}
-                </div>
-              </div>
-
-              {/* Fatura de Vencimento */}
-              <div className="receitas-form-group receitas-form-full">
-                <label className="receitas-form-label">
-                  <Calendar size={14} />
-                  Fatura de Vencimento *
-                  <small>(primeira parcela)</small>
-                </label>
-                <select
-                  name="faturaVencimento"
-                  value={formData.faturaVencimento}
-                  onChange={handleInputChange}
-                  disabled={submitting || !formData.cartaoId}
-                  className={`receitas-form-input ${errors.faturaVencimento ? 'error' : ''}`}
-                  style={{
-                    backgroundColor: !formData.cartaoId ? '#f9fafb' : 'white'
-                  }}
-                >
-                  <option value="">
-                    {!formData.cartaoId ? "Selecione um cartão primeiro" : "Selecione a fatura"}
-                  </option>
-                  {opcoesFatura.map(opcao => (
-                    <option key={opcao.value} value={opcao.value}>
-                      {opcao.label}
-                    </option>
-                  ))}
-                </select>
-                {errors.faturaVencimento && <div className="receitas-form-error">{errors.faturaVencimento}</div>}
-              </div>
-
-              {/* Preview do Parcelamento */}
-              {valorNumerico > 0 && formData.numeroParcelas > 0 && (
-                <div style={{ 
-                  background: 'rgba(139, 92, 246, 0.08)',
-                  border: '1px solid rgba(139, 92, 246, 0.15)',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  textAlign: 'center',
-                  color: '#8b5cf6',
-                  fontSize: '0.875rem',
-                  fontWeight: '500'
-                }}>
-                  💳 {formData.numeroParcelas}x de {formatCurrency(valorParcela)}
-                  {formData.numeroParcelas > 1 && (
-                    <>
-                      <br />
-                      <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>
-                        Total: {formatCurrency(valorNumerico)}
-                      </span>
-                    </>
-                  )}
-                </div>
-              )}
-
               {/* Observações */}
-              <div className="receitas-form-group receitas-form-full">
-                <label className="receitas-form-label">
+              <div className="flex flex-col mb-3">
+                <label className="form-label">
                   <FileText size={14} />
-                  Observações <small>(máx. 300)</small>
+                  Observações <small className="form-label-small">(máx. 300)</small>
                 </label>
                 <textarea
                   name="observacoes"
@@ -916,109 +916,95 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
                   rows="2"
                   disabled={submitting}
                   maxLength="300"
-                  className={`receitas-form-input receitas-form-textarea ${errors.observacoes ? 'error' : ''}`}
+                  className={`textarea-observations ${errors.observacoes ? 'error' : ''}`}
                 />
-                <div className="receitas-char-counter">
+                <div className="char-counter">
                   <span></span>
-                  <span style={{ color: formData.observacoes.length > 250 ? '#ef4444' : '#9ca3af' }}>
+                  <span className={formData.observacoes.length > 250 ? 'char-counter-warning' : ''}>
                     {formData.observacoes.length}/300
                   </span>
                 </div>
-                {errors.observacoes && <div className="receitas-form-error">{errors.observacoes}</div>}
+                {errors.observacoes && <div className="form-error">{errors.observacoes}</div>}
               </div>
 
-              {/* Ações */}
-              <div className="receitas-form-actions" style={{ 
-                display: 'flex',
-                gap: '10px',
-                alignItems: 'center'
-              }}>
-                <button
-                  type="button"
-                  onClick={handleCancelar}
-                  disabled={submitting}
-                  className="receitas-btn receitas-btn-secondary"
-                  style={{ padding: '10px 16px', fontSize: '0.875rem' }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => handleSubmit(e, true)}
-                  disabled={submitting}
-                  className="receitas-btn receitas-btn-secondary"
-                  style={{ 
-                    flex: 1, 
-                    padding: '10px 16px', 
-                    fontSize: '0.875rem',
-                    background: '#a855f7',
-                    color: 'white',
-                    border: 'none'
-                  }}
-                >
-                  {submitting ? (
-                    <>
-                      <div className="receitas-btn-spinner"></div>
-                      Salvando...
-                    </>
-                  ) : (
-                    <>
-                      <PlusCircle size={14} />
-                      Continuar Adicionando
-                    </>
-                  )}
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="receitas-btn receitas-btn-primary"
-                  style={{ 
-                    flex: 1, 
-                    padding: '10px 16px', 
-                    fontSize: '0.875rem',
-                    background: '#8b5cf6'
-                  }}
-                >
-                  {submitting ? (
-                    <>
-                      <div className="receitas-btn-spinner"></div>
-                      {formData.numeroParcelas > 1 ? `Criando ${formData.numeroParcelas} parcelas...` : 'Salvando...'}
-                    </>
-                  ) : (
-                    <>
-                      <Plus size={14} />
-                      {formData.numeroParcelas > 1 ? `Parcelar em ${formData.numeroParcelas}x` : 'Adicionar no Cartão'}
-                    </>
-                  )}
-                </button>
-              </div>
             </form>
           )}
+        </div>
+
+        {/* Footer */}
+        <div className="modal-footer">
+          <button
+            type="button"
+            onClick={handleCancelar}
+            disabled={submitting}
+            className="btn-cancel"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={(e) => handleSubmit(e, true)}
+            disabled={submitting}
+            className="btn-secondary btn-secondary--success"
+          >
+            {submitting ? (
+              <>
+                <div className="btn-spinner"></div>
+                Salvando...
+              </>
+            ) : (
+              <>
+                <PlusCircle size={14} />
+                Continuar Adicionando
+              </>
+            )}
+          </button>
+          <button
+            type="submit"
+            onClick={(e) => handleSubmit(e, false)}
+            disabled={submitting}
+            className="btn-primary"
+          >
+            {submitting ? (
+              <>
+                <div className="btn-spinner"></div>
+                {formData.numeroParcelas > 1 ? `Criando ${formData.numeroParcelas} parcelas...` : 'Salvando...'}
+              </>
+            ) : (
+              <>
+                <Plus size={14} />
+                {formData.numeroParcelas > 1 ? `Parcelar em ${formData.numeroParcelas}x` : 'Adicionar no Cartão'}
+              </>
+            )}
+          </button>
         </div>
       </div>
       
       {/* Modal de Confirmação */}
       {confirmacao.show && (
-        <div className="receitas-confirmation-overlay">
-          <div className="receitas-confirmation-container">
-            <h3 className="receitas-confirmation-title">
-              Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
-            </h3>
-            <p className="receitas-confirmation-message">
-              {confirmacao.type === 'categoria' ? 'A categoria' : 'A subcategoria'}{' '}
-              <strong>"{confirmacao.nome}"</strong> não existe. Deseja criá-la?
-            </p>
-            <div className="receitas-confirmation-actions">
+        <div className="modal-overlay active">
+          <div className="forms-modal-container modal-small">
+            <div className="modal-header">
+              <h3 className="modal-title">
+                Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
+              </h3>
+            </div>
+            <div className="modal-body">
+              <p className="confirmation-message">
+                {confirmacao.type === 'categoria' ? 'A categoria' : 'A subcategoria'}{' '}
+                <strong className="confirmation-name">"{confirmacao.nome}"</strong> não existe. Deseja criá-la?
+              </p>
+            </div>
+            <div className="modal-footer">
               <button 
                 onClick={() => setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' })}
-                className="receitas-confirmation-btn receitas-confirmation-btn-secondary"
+                className="btn-cancel"
               >
                 Cancelar
               </button>
               <button 
                 onClick={handleConfirmarCriacao}
-                className="receitas-confirmation-btn receitas-confirmation-btn-primary"
-                style={{ background: '#8b5cf6' }}
+                className="btn-primary"
               >
                 Criar {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
               </button>

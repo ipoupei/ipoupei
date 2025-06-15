@@ -4,7 +4,7 @@ import useAmigos from '@modules/Amigos/hooks/useAmigos';
 import Card from '@shared/components/ui/Card';
 import Input from '@shared/components/ui/Input';
 import Button from '@shared/components/ui/Button';
-import BasicModal from '@shared/components/ui/ModalBase';
+
 
 
 /**

@@ -1,1192 +1,1359 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
+import React, { useState, useEffect, useMemo } from 'react';
+import { format, startOfMonth, endOfMonth, addMonths, subMonths, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { 
-  Search, RefreshCw, 
-  ArrowUp, ArrowDown, ArrowLeftRight, 
-  Activity, CreditCard, Wallet,
-  Edit, Trash2, CheckCircle, Clock,
-  Plus, X, ChevronLeft, ChevronRight,
-  ArrowUpDown, ArrowUpIcon, ArrowDownIcon,
-  Layers, Layers3, Filter, MoreHorizontal,
-  TrendingUp, TrendingDown, Calendar, Info,
-  FileText, Users, Target, Zap
-} from 'lucide-react';
+
+// Styles
+import '@modules/transacoes/styles/TransacoesPage.css';
+
+// Layouts
+import PageContainer from '@shared/components/layouts/PageContainer';
+
+// UI Components
+import Card from '@shared/components/ui/Card';
+import Button from '@shared/components/ui/Button';
+import ToolTip from '@shared/components/ui/ToolTip';
+
+// Modals
+import DespesasModal from '@modules/transacoes/components/DespesasModal';
+import ReceitasModal from '@modules/transacoes/components/ReceitasModal';
+
+// Utils
+import formatCurrency from '@shared/utils/formatCurrency';
+import supabase from '@lib/supabaseClient';
 
 // Hooks
 import useAuth from '@modules/auth/hooks/useAuth';
-import { useUIStore } from '@store/uiStore';
-
-// Utilitários
-import { formatCurrency } from '@utils/formatCurrency';
-import { supabase } from '@lib/supabaseClient';
-
-// Componentes
-import ToolTip from '@shared/components/ui/ToolTip';
-
-// Modais
-import ReceitasModal from '@modules/transacoes/components/ReceitasModal';
-import DespesasModal from '@modules/transacoes/components/DespesasModal';
-import DespesasCartaoModal from '@modules/transacoes/components/DespesasCartaoModal';
-import TransferenciasModal from '@modules/transacoes/components/TransferenciasModal';
-
-// Estilos
-import '@modules/transacoes/styles/Transacoes.css';
 
 const TransacoesPage = () => {
-  const { user } = useAuth();
-  const { showNotification } = useUIStore();
-  
-  // Estado para mostrar filtros
+  // =============================================
+  // ESTADOS
+  // =============================================
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [sortField, setSortField] = useState('data');
+  const [sortDirection, setSortDirection] = useState('desc');
   const [showFilters, setShowFilters] = useState(false);
+  const [groupByCard, setGroupByCard] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [showPagamentoFaturaModal, setShowPagamentoFaturaModal] = useState(false);
+  const [selectedFatura, setSelectedFatura] = useState(null);
+  
+  // Estados para dados
+  const [transacoes, setTransacoes] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [isNavigating, setIsNavigating] = useState(false);
 
-  // Estado para agrupamento de cartão
-  const [agruparCartao, setAgruparCartao] = useState(false);
+  // Estados dos modais de edição
+  const [showDespesasModal, setShowDespesasModal] = useState(false);
+  const [showReceitasModal, setShowReceitasModal] = useState(false);
+  const [transacaoEditando, setTransacaoEditando] = useState(null);
 
-  // Estados para dados de referência
+  // Estados dos filtros avançados
+  const [filtros, setFiltros] = useState({
+    tipo: [],
+    categoria: [],
+    subcategoria: [],
+    conta: [],
+    cartao: [],
+    status: [],
+    dataInicio: '',
+    dataFim: '',
+    valorMinimo: '',
+    valorMaximo: '',
+    tipoReceita: [],
+    tipoDespesa: []
+  });
+
+  // Estados para dados dos filtros
   const [categorias, setCategorias] = useState([]);
+  const [subcategorias, setSubcategorias] = useState([]);
   const [contas, setContas] = useState([]);
   const [cartoes, setCartoes] = useState([]);
 
-  // Estados principais
-  const [transacoes, setTransacoes] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [totalTransacoes, setTotalTransacoes] = useState(0);
+  // =============================================
+  // HOOKS
+  // =============================================
+  const { user } = useAuth();
 
-  // Estados dos modais
-  const [modals, setModals] = useState({
-    receitas: false,
-    despesas: false,
-    despesasCartao: false,
-    transferencias: false
-  });
-
-  // Estado para edição
-  const [transacaoEditando, setTransacaoEditando] = useState(null);
-
-  // Estados para período
-  const [periodoAtual, setPeriodoAtual] = useState(new Date());
-  const [periodoPersonalizado, setPeriodoPersonalizado] = useState({
-    ativo: false,
-    dataInicio: '',
-    dataFim: ''
-  });
-
-  // Filtros
-  const [filters, setFilters] = useState({
-    tipo: 'todas',
-    categoriaId: '',
-    contaId: '',
-    cartaoId: '',
-    status: 'todas',
-    ordenacao: 'data',
-    direcaoOrdenacao: 'desc'
-  });
-
-  // Paginação
-  const [paginacao, setPaginacao] = useState({
-    pagina: 1,
-    itensPorPagina: 50,
-    totalPaginas: 0
-  });
-
-  // Calcular período atual
-  const periodoCalculado = useMemo(() => {
-    if (periodoPersonalizado.ativo && periodoPersonalizado.dataInicio && periodoPersonalizado.dataFim) {
-      return {
-        inicio: periodoPersonalizado.dataInicio,
-        fim: periodoPersonalizado.dataFim,
-        label: `${format(new Date(periodoPersonalizado.dataInicio), 'dd/MM/yyyy')} - ${format(new Date(periodoPersonalizado.dataFim), 'dd/MM/yyyy')}`,
-        isPersonalizado: true
-      };
-    }
-    
-    const inicio = startOfMonth(periodoAtual);
-    const fim = endOfMonth(periodoAtual);
-    
-    return {
-      inicio: format(inicio, 'yyyy-MM-dd'),
-      fim: format(fim, 'yyyy-MM-dd'),
-      label: format(periodoAtual, 'MMMM yyyy', { locale: ptBR }),
-      isPersonalizado: false
-    };
-  }, [periodoAtual, periodoPersonalizado]);
-
-  // Navegação de período
-  const navegarPeriodo = useCallback((direcao) => {
-    setPeriodoPersonalizado({ ativo: false, dataInicio: '', dataFim: '' });
-    setPeriodoAtual(prev => {
-      if (direcao === 'anterior') {
-        return subMonths(prev, 1);
-      } else {
-        return addMonths(prev, 1);
-      }
-    });
-    setPaginacao(prev => ({ ...prev, pagina: 1 }));
+  // Detectar mudanças de tela
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const voltarParaHoje = useCallback(() => {
-    setPeriodoPersonalizado({ ativo: false, dataInicio: '', dataFim: '' });
-    setPeriodoAtual(new Date());
-    setPaginacao(prev => ({ ...prev, pagina: 1 }));
-  }, []);
+  // =============================================
+  // PERÍODO ATUAL
+  // =============================================
+  const dataInicio = startOfMonth(currentDate);
+  const dataFim = endOfMonth(currentDate);
 
-  // Buscar dados básicos
-  const fetchBasicData = useCallback(async () => {
+  // =============================================
+  // CARREGAR DADOS PARA FILTROS
+  // =============================================
+  const carregarDadosFiltros = async () => {
     if (!user?.id) return;
 
     try {
-      const [categoriasRes, contasRes, cartoesRes] = await Promise.all([
-        supabase
-          .from('categorias')
-          .select('id, nome, cor, tipo')
-          .eq('usuario_id', user.id)
-          .eq('ativo', true)
-          .order('nome'),
-        
-        supabase
-          .from('contas')
-          .select('id, nome, tipo, saldo')
-          .eq('usuario_id', user.id)
-          .eq('ativo', true)
-          .order('nome'),
-        
-        supabase
-          .from('cartoes')
-          .select('id, nome, bandeira, limite')
-          .eq('usuario_id', user.id)
-          .eq('ativo', true)
-          .order('nome')
+      const [categoriasRes, subcategoriasRes, contasRes, cartoesRes] = await Promise.all([
+        supabase.from('categorias').select('*').eq('usuario_id', user.id).eq('ativo', true).order('nome'),
+        supabase.from('subcategorias').select('*').eq('usuario_id', user.id).eq('ativo', true).order('nome'),
+        supabase.from('contas').select('*').eq('usuario_id', user.id).eq('ativo', true).order('nome'),
+        supabase.from('cartoes').select('*').eq('usuario_id', user.id).eq('ativo', true).order('nome')
       ]);
 
       setCategorias(categoriasRes.data || []);
+      setSubcategorias(subcategoriasRes.data || []);
       setContas(contasRes.data || []);
       setCartoes(cartoesRes.data || []);
-
     } catch (error) {
-      console.error('❌ Erro ao buscar dados básicos:', error);
-      showNotification('Erro ao carregar dados básicos', 'error');
+      console.error('Erro ao carregar dados dos filtros:', error);
     }
-  }, [user?.id, showNotification]);
+  };
 
-  // Função para agrupar faturas de cartão
-  const agruparFaturasCartao = useCallback((transacoesList) => {
-    if (!agruparCartao) return transacoesList;
+  // =============================================
+  // BUSCAR TRANSAÇÕES
+  // =============================================
+  const buscarTransacoes = async () => {
+    if (!user?.id || loading) return;
 
-    const faturasMap = new Map();
-    const transacoesNaoCartao = [];
-
-    transacoesList.forEach(transacao => {
-      if (transacao.cartao_id && transacao.fatura_vencimento) {
-        const chave = `${transacao.cartao_id}_${transacao.fatura_vencimento}`;
-        
-        if (!faturasMap.has(chave)) {
-          faturasMap.set(chave, {
-            id: `fatura_${transacao.cartao_id}_${transacao.fatura_vencimento}`,
-            tipo: 'despesa',
-            descricao: `Fatura ${transacao.cartao?.nome || 'Cartão'}`,
-            valor: 0,
-            dataExibicao: transacao.fatura_vencimento,
-            data: transacao.fatura_vencimento,
-            fatura_vencimento: transacao.fatura_vencimento,
-            cartao_id: transacao.cartao_id,
-            cartao: transacao.cartao,
-            categoria: { nome: 'Fatura Cartão', cor: '#8B5CF6' },
-            conta: transacao.conta,
-            efetivado: true,
-            isFaturaAgrupada: true,
-            transacoesAgrupadas: [],
-            created_at: transacao.created_at
-          });
-        }
-
-        const fatura = faturasMap.get(chave);
-        fatura.valor += transacao.valor;
-        fatura.transacoesAgrupadas.push(transacao);
-      } else {
-        transacoesNaoCartao.push(transacao);
-      }
-    });
-
-    const faturasAgrupadas = Array.from(faturasMap.values());
-    return [...faturasAgrupadas, ...transacoesNaoCartao];
-  }, [agruparCartao]);
-
-  // Buscar transações
-  const fetchTransacoes = useCallback(async () => {
-    if (!user?.id) return;
+    setLoading(true);
+    setError(null);
 
     try {
-      setLoading(true);
-      
-      let query = supabase
-        .from('transacoes')
-        .select(`
-          id, descricao, valor, data, tipo, observacoes,
-          categoria_id, conta_id, cartao_id, efetivado,
-          parcela_atual, total_parcelas, fatura_vencimento,
-          created_at, updated_at
-        `, { count: 'exact' })
-        .eq('usuario_id', user.id)
-        .neq('transferencia', true);
+      console.log('🔍 Buscando transações:', {
+        usuario: user.id,
+        periodo: `${format(dataInicio, 'yyyy-MM-dd')} até ${format(dataFim, 'yyyy-MM-dd')}`
+      });
 
-      // Filtrar por período
-      query = query.or(
-        `and(cartao_id.not.is.null,fatura_vencimento.gte.${periodoCalculado.inicio},fatura_vencimento.lte.${periodoCalculado.fim}),` +
-        `and(cartao_id.is.null,data.gte.${periodoCalculado.inicio},data.lte.${periodoCalculado.fim})`
-      );
+      const { data, error } = await supabase
+        .rpc('gpt_transacoes_do_mes', {
+          p_usuario_id: user.id,
+          p_data_inicio: format(dataInicio, 'yyyy-MM-dd'),
+          p_data_fim: format(dataFim, 'yyyy-MM-dd')
+        });
 
-      // Aplicar filtros
-      if (filters.tipo !== 'todas') {
-        query = query.eq('tipo', filters.tipo);
-      }
-      if (filters.categoriaId) {
-        query = query.eq('categoria_id', filters.categoriaId);
-      }
-      if (filters.contaId) {
-        query = query.eq('conta_id', filters.contaId);
-      }
-      if (filters.cartaoId) {
-        query = query.eq('cartao_id', filters.cartaoId);
-      }
-      if (filters.status === 'efetivadas') {
-        query = query.eq('efetivado', true);
-      } else if (filters.status === 'pendentes') {
-        query = query.eq('efetivado', false);
-      }
-      if (searchTerm.trim()) {
-        query = query.or(`descricao.ilike.%${searchTerm}%,observacoes.ilike.%${searchTerm}%`);
+      if (error) {
+        throw error;
       }
 
-      // Ordenação
-      const campoOrdenacao = getOrderField(filters.ordenacao);
-      query = query.order(campoOrdenacao, { ascending: filters.direcaoOrdenacao === 'asc' });
+      console.log('✅ Transações encontradas:', data?.length || 0);
 
-      const { data, error, count } = await query;
-      if (error) throw error;
-      
-      // Enriquecer dados
-      const enrichedData = (data || []).map(transacao => ({
-        ...transacao,
-        categoria: categorias.find(c => c.id === transacao.categoria_id),
-        conta: contas.find(c => c.id === transacao.conta_id),
-        cartao: cartoes.find(c => c.id === transacao.cartao_id),
-        dataExibicao: transacao.cartao_id ? transacao.fatura_vencimento : transacao.data
+      // Mapear dados para formato do componente
+      const transacoesMapeadas = (data || []).map(t => ({
+        id: t.id,
+        data: t.data,
+        tipo: t.tipo,
+        valor: parseFloat(t.valor) || 0,
+        descricao: t.descricao || 'Sem descrição',
+        categoria_id: t.categoria_id,
+        categoria_nome: t.categoria_nome || 'Sem categoria',
+        categoria_cor: t.categoria_cor || '#6B7280',
+        conta_id: t.conta_id,
+        conta_nome: t.conta_nome || 'Conta não informada',
+        cartao_id: t.cartao_id || null, // Garantir que cartao_id seja mapeado
+        cartao_nome: t.cartao_nome || null,
+        efetivado: t.efetivado !== false,
+        observacoes: t.observacoes || '',
+        subcategoria_id: t.subcategoria_id,
+        tipo_receita: t.tipo_receita,
+        tipo_despesa: t.tipo_despesa
       }));
 
-      // Aplicar agrupamento se necessário
-      const transacoesFinais = agruparFaturasCartao(enrichedData);
+      console.log('🗂️ Mapeamento de transações:', {
+        total: transacoesMapeadas.length,
+        comCartao: transacoesMapeadas.filter(t => t.cartao_id).length,
+        despesasComCartao: transacoesMapeadas.filter(t => t.tipo === 'despesa' && t.cartao_id).length,
+        exemplos: transacoesMapeadas.slice(0, 3).map(t => ({
+          id: t.id,
+          tipo: t.tipo,
+          cartao_id: t.cartao_id,
+          cartao_nome: t.cartao_nome
+        }))
+      });
 
-      // Aplicar paginação no frontend se agrupado
-      if (agruparCartao) {
-        const startIndex = (paginacao.pagina - 1) * paginacao.itensPorPagina;
-        const endIndex = startIndex + paginacao.itensPorPagina;
-        const paginatedData = transacoesFinais.slice(startIndex, endIndex);
-        
-        setTransacoes(paginatedData);
-        setTotalTransacoes(transacoesFinais.length);
-        
-        const totalPaginas = Math.ceil(transacoesFinais.length / paginacao.itensPorPagina);
-        setPaginacao(prev => ({ ...prev, totalPaginas }));
-      } else {
-        // Aplicar paginação no backend se não agrupado
-        const offset = (paginacao.pagina - 1) * paginacao.itensPorPagina;
-        const paginatedData = enrichedData.slice(offset, offset + paginacao.itensPorPagina);
-        
-        setTransacoes(paginatedData);
-        setTotalTransacoes(count || 0);
-        
-        const totalPaginas = Math.ceil((count || 0) / paginacao.itensPorPagina);
-        setPaginacao(prev => ({ ...prev, totalPaginas }));
-      }
+      setTransacoes(transacoesMapeadas);
 
-    } catch (error) {
-      console.error('❌ Erro ao buscar transações:', error);
-      showNotification('Erro ao carregar transações: ' + error.message, 'error');
-      setTransacoes([]);
-      setTotalTransacoes(0);
+    } catch (err) {
+      console.error('❌ Erro ao buscar transações:', err);
+      setError(err.message);
     } finally {
       setLoading(false);
+      setIsNavigating(false);
     }
-  }, [
-    user?.id, 
-    periodoCalculado, 
-    filters, 
-    searchTerm, 
-    paginacao.pagina, 
-    paginacao.itensPorPagina,
-    categorias, 
-    contas, 
-    cartoes, 
-    agruparFaturasCartao,
-    agruparCartao,
-    showNotification
-  ]);
+  };
 
-  // Effects
+  // Executar busca quando usuário carregar
   useEffect(() => {
     if (user?.id) {
-      fetchBasicData();
+      buscarTransacoes();
+      carregarDadosFiltros();
     }
-  }, [fetchBasicData]);
+  }, [user?.id]);
 
-  useEffect(() => {
-    if (user?.id && categorias.length >= 0) {
-      fetchTransacoes();
-    }
-  }, [fetchTransacoes, user?.id, categorias.length]);
+  // =============================================
+  // APLICAR FILTROS
+  // =============================================
+  const aplicarFiltros = (transacoesOriginais) => {
+    let filtered = [...transacoesOriginais];
 
-  // Handlers
-  const handleToggleAgrupamento = useCallback(() => {
-    setAgruparCartao(prev => !prev);
-    setPaginacao(prev => ({ ...prev, pagina: 1 }));
-  }, []);
-
-  const handleSort = useCallback((campo) => {
-    setFilters(prev => ({
-      ...prev,
-      ordenacao: campo,
-      direcaoOrdenacao: prev.ordenacao === campo && prev.direcaoOrdenacao === 'desc' ? 'asc' : 'desc'
-    }));
-    setPaginacao(prev => ({ ...prev, pagina: 1 }));
-  }, []);
-
-  // Função para mapear campos de ordenação
-  const getOrderField = useCallback((campo) => {
-    const fieldMap = {
-      'data': 'created_at',
-      'descricao': 'descricao',
-      'categoria': 'categoria_id',
-      'conta': 'conta_id',
-      'valor': 'valor'
-    };
-    return fieldMap[campo] || campo;
-  }, []);
-
-  const getSortIcon = useCallback((campo) => {
-    if (filters.ordenacao !== campo) {
-      return <ArrowUpDown className="w-3 h-3 opacity-30" />;
-    }
-    return filters.direcaoOrdenacao === 'asc' 
-      ? <ArrowUpIcon className="w-3 h-3 text-blue-600" />
-      : <ArrowDownIcon className="w-3 h-3 text-blue-600" />;
-  }, [filters.ordenacao, filters.direcaoOrdenacao]);
-
-  const handleFilterChange = useCallback((key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-    setPaginacao(prev => ({ ...prev, pagina: 1 }));
-  }, []);
-
-  const handleClearFilters = useCallback(() => {
-    setFilters({
-      tipo: 'todas',
-      categoriaId: '',
-      contaId: '',
-      cartaoId: '',
-      status: 'todas',
-      ordenacao: 'data',
-      direcaoOrdenacao: 'desc'
-    });
-    setSearchTerm('');
-    setPaginacao(prev => ({ ...prev, pagina: 1 }));
-  }, []);
-
-  const hasActiveFilters = useCallback(() => {
-    return (
-      filters.tipo !== 'todas' ||
-      filters.categoriaId !== '' ||
-      filters.contaId !== '' ||
-      filters.cartaoId !== '' ||
-      filters.status !== 'todas' ||
-      searchTerm.trim() !== ''
-    );
-  }, [filters, searchTerm]);
-
-  const getActiveFiltersCount = useCallback(() => {
-    let count = 0;
-    if (filters.tipo !== 'todas') count++;
-    if (filters.categoriaId !== '') count++;
-    if (filters.contaId !== '') count++;
-    if (filters.cartaoId !== '') count++;
-    if (filters.status !== 'todas') count++;
-    if (searchTerm.trim() !== '') count++;
-    return count;
-  }, [filters, searchTerm]);
-
-  const handlePageChange = useCallback((novaPagina) => {
-    setPaginacao(prev => ({ ...prev, pagina: novaPagina }));
-  }, []);
-
-  const handleSearchChange = useCallback((termo) => {
-    setSearchTerm(termo);
-    setPaginacao(prev => ({ ...prev, pagina: 1 }));
-  }, []);
-
-  const handleOpenModal = useCallback((modalName) => {
-    setModals(prev => ({ ...prev, [modalName]: true }));
-  }, []);
-
-  const handleCloseModal = useCallback((modalName) => {
-    setModals(prev => ({ ...prev, [modalName]: false }));
-    setTransacaoEditando(null);
-  }, []);
-
-  const handleSaveModal = useCallback(() => {
-    fetchTransacoes();
-  }, [fetchTransacoes]);
-
-  const handleEditTransacao = useCallback((transacao) => {
-    if (transacao.isFaturaAgrupada) {
-      showNotification('Não é possível editar uma fatura agrupada. Desative o agrupamento para editar transações individuais.', 'warning');
-      return;
+    // Filtro por tipo
+    if (filtros.tipo.length > 0) {
+      filtered = filtered.filter(t => filtros.tipo.includes(t.tipo));
     }
 
-    setTransacaoEditando(transacao);
-    
-    if (transacao.tipo === 'receita') {
-      handleOpenModal('receitas');
-    } else if (transacao.tipo === 'despesa') {
-      if (transacao.cartao_id) {
-        handleOpenModal('despesasCartao');
+    // Filtro por categoria
+    if (filtros.categoria.length > 0) {
+      filtered = filtered.filter(t => filtros.categoria.includes(t.categoria_id));
+    }
+
+    // Filtro por subcategoria
+    if (filtros.subcategoria.length > 0) {
+      filtered = filtered.filter(t => filtros.subcategoria.includes(t.subcategoria_id));
+    }
+
+    // Filtro por conta
+    if (filtros.conta.length > 0) {
+      filtered = filtered.filter(t => filtros.conta.includes(t.conta_id));
+    }
+
+    // Filtro por cartão
+    if (filtros.cartao.length > 0) {
+      filtered = filtered.filter(t => filtros.cartao.includes(t.cartao_id));
+    }
+
+    // Filtro por status
+    if (filtros.status.length > 0) {
+      filtered = filtered.filter(t => {
+        const status = t.efetivado ? 'efetivado' : 'pendente';
+        return filtros.status.includes(status);
+      });
+    }
+
+    // Filtro por valor mínimo
+    if (filtros.valorMinimo) {
+      const valorMin = parseFloat(filtros.valorMinimo) || 0;
+      filtered = filtered.filter(t => t.valor >= valorMin);
+    }
+
+    // Filtro por valor máximo
+    if (filtros.valorMaximo) {
+      const valorMax = parseFloat(filtros.valorMaximo) || 0;
+      filtered = filtered.filter(t => t.valor <= valorMax);
+    }
+
+    // Filtro por tipo de receita
+    if (filtros.tipoReceita.length > 0) {
+      filtered = filtered.filter(t => t.tipo === 'receita' && filtros.tipoReceita.includes(t.tipo_receita));
+    }
+
+    // Filtro por tipo de despesa
+    if (filtros.tipoDespesa.length > 0) {
+      filtered = filtered.filter(t => t.tipo === 'despesa' && filtros.tipoDespesa.includes(t.tipo_despesa));
+    }
+
+    return filtered;
+  };
+
+  // =============================================
+  // PROCESSAR E FILTRAR TRANSAÇÕES
+  // =============================================
+  const transacoesFiltradas = useMemo(() => {
+    let filtered = aplicarFiltros(transacoes);
+
+    // Agrupar por cartão se necessário
+    if (groupByCard) {
+      const cartaoGroups = {};
+      const nonCardTransactions = [];
+
+      console.log('🔄 Agrupando faturas...', { 
+        totalTransacoes: filtered.length,
+        groupByCard: groupByCard
+      });
+
+      filtered.forEach(transacao => {
+        // Verificar se é uma transação de cartão (despesa)
+        if (transacao.cartao_id && transacao.tipo === 'despesa') {
+          const mesReferencia = format(new Date(transacao.data), 'yyyy-MM');
+          const key = `${transacao.cartao_id}-${mesReferencia}`;
+          
+          if (!cartaoGroups[key]) {
+            cartaoGroups[key] = {
+              id: `fatura-${key}`,
+              tipo: 'fatura',
+              descricao: `Fatura ${transacao.cartao_nome || 'Cartão'} - ${format(new Date(transacao.data), 'MMM/yyyy', { locale: ptBR })}`,
+              cartao_nome: transacao.cartao_nome || 'Cartão',
+              cartao_id: transacao.cartao_id,
+              data: transacao.data,
+              valor: 0,
+              efetivado: true,
+              categoria_nome: 'Fatura Cartão',
+              categoria_cor: '#DC3545',
+              conta_nome: '-',
+              transacoes: []
+            };
+          }
+          
+          cartaoGroups[key].valor += transacao.valor;
+          cartaoGroups[key].transacoes.push(transacao);
+          
+          console.log('💳 Transação agrupada:', {
+            cartao: transacao.cartao_nome,
+            valor: transacao.valor,
+            totalFatura: cartaoGroups[key].valor
+          });
+        } else {
+          // Transações que não são de cartão
+          nonCardTransactions.push(transacao);
+        }
+      });
+      
+      const faturas = Object.values(cartaoGroups);
+      console.log('📊 Resultado do agrupamento:', {
+        totalFaturas: faturas.length,
+        totalTransacoesNaoCartao: nonCardTransactions.length,
+        faturas: faturas.map(f => ({ nome: f.descricao, valor: f.valor, transacoes: f.transacoes.length }))
+      });
+      
+      // Se temos faturas, mostrar elas primeiro
+      if (faturas.length > 0) {
+        filtered = [...faturas, ...nonCardTransactions];
+        console.log('✅ Faturas criadas:', faturas.length);
       } else {
-        handleOpenModal('despesas');
+        console.log('⚠️ Nenhuma fatura encontrada para agrupar');
       }
     }
-  }, [handleOpenModal, showNotification]);
 
-  const handleDeleteTransacao = useCallback(async (transacao) => {
-    if (transacao.isFaturaAgrupada) {
-      showNotification('Não é possível excluir uma fatura agrupada. Desative o agrupamento para excluir transações individuais.', 'warning');
+    // Ordenar
+    filtered.sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+
+      if (sortField === 'data') {
+        aValue = new Date(aValue);
+        bValue = new Date(bValue);
+      } else if (sortField === 'valor') {
+        aValue = parseFloat(aValue) || 0;
+        bValue = parseFloat(bValue) || 0;
+      } else if (typeof aValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = (bValue || '').toLowerCase();
+      }
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return filtered;
+  }, [transacoes, filtros, groupByCard, sortField, sortDirection]);
+
+  // =============================================
+  // HANDLERS
+  // =============================================
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const handleNavigateMonth = (direction) => {
+    if (loading || isNavigating) return;
+    
+    setIsNavigating(true);
+    
+    let newDate;
+    if (direction === 'prev') {
+      newDate = subMonths(currentDate, 1);
+    } else if (direction === 'next') {
+      newDate = addMonths(currentDate, 1);
+    } else {
+      newDate = new Date();
+    }
+    
+    setCurrentDate(newDate);
+    
+    setTimeout(() => {
+      if (user?.id) {
+        buscarTransacoes();
+      }
+    }, 50);
+  };
+
+  const handleToggleEfetivado = async (transacao) => {
+    try {
+      const { error } = await supabase
+        .from('transacoes')
+        .update({ efetivado: !transacao.efetivado })
+        .eq('id', transacao.id);
+
+      if (error) throw error;
+
+      setTransacoes(prev => 
+        prev.map(t => 
+          t.id === transacao.id 
+            ? { ...t, efetivado: !t.efetivado }
+            : t
+        )
+      );
+
+    } catch (error) {
+      console.error('Erro ao atualizar status:', error);
+    }
+  };
+
+  const handleExcluir = async (transacaoId) => {
+    if (!window.confirm('Tem certeza que deseja excluir esta transação?')) {
       return;
     }
-
-    if (!window.confirm('Tem certeza que deseja excluir esta transação?')) return;
 
     try {
       const { error } = await supabase
         .from('transacoes')
         .delete()
-        .eq('id', transacao.id)
-        .eq('usuario_id', user.id);
+        .eq('id', transacaoId);
 
       if (error) throw error;
 
-      showNotification('Transação excluída com sucesso!', 'success');
-      fetchTransacoes();
+      setTransacoes(prev => prev.filter(t => t.id !== transacaoId));
+
     } catch (error) {
-      console.error('❌ Erro ao excluir transação:', error);
-      showNotification('Erro ao excluir transação', 'error');
+      console.error('Erro ao excluir transação:', error);
     }
-  }, [user.id, showNotification, fetchTransacoes]);
+  };
 
-  const handleMarkAsCompleted = useCallback(async (transacao) => {
-    if (transacao.isFaturaAgrupada) {
-      showNotification('Esta é uma fatura agrupada que já está efetivada.', 'info');
-      return;
+  const handleEditar = (transacao) => {
+    setTransacaoEditando(transacao);
+    
+    if (transacao.tipo === 'receita') {
+      setShowReceitasModal(true);
+    } else if (transacao.tipo === 'despesa') {
+      setShowDespesasModal(true);
     }
+  };
 
-    try {
-      const { error } = await supabase
-        .from('transacoes')
-        .update({ efetivado: true })
-        .eq('id', transacao.id)
-        .eq('usuario_id', user.id);
+  const handlePagarFatura = (fatura) => {
+    setSelectedFatura(fatura);
+    setShowPagamentoFaturaModal(true);
+  };
 
-      if (error) throw error;
+  const handleFiltroChange = (campo, valor) => {
+    setFiltros(prev => ({
+      ...prev,
+      [campo]: valor
+    }));
+  };
 
-      showNotification('Transação marcada como efetivada!', 'success');
-      fetchTransacoes();
-      
-    } catch (error) {
-      console.error('❌ Erro ao efetivar transação:', error);
-      showNotification('Erro ao efetivar transação', 'error');
-    }
-  }, [user.id, showNotification, fetchTransacoes]);
+  const limparFiltros = () => {
+    setFiltros({
+      tipo: [],
+      categoria: [],
+      subcategoria: [],
+      conta: [],
+      cartao: [],
+      status: [],
+      dataInicio: '',
+      dataFim: '',
+      valorMinimo: '',
+      valorMaximo: '',
+      tipoReceita: [],
+      tipoDespesa: []
+    });
+  };
 
-  const getTipoIcon = useCallback((tipo) => {
-    switch (tipo) {
-      case 'receita': return <TrendingUp className="w-4 h-4" />;
-      case 'despesa': return <TrendingDown className="w-4 h-4" />;
-      case 'transferencia': return <ArrowLeftRight className="w-4 h-4" />;
-      default: return <Activity className="w-4 h-4" />;
-    }
-  }, []);
+  const temFiltrosAtivos = () => {
+    return Object.values(filtros).some(valor => 
+      Array.isArray(valor) ? valor.length > 0 : valor !== ''
+    );
+  };
 
-  const getStatusIcon = useCallback((efetivada) => {
-    return efetivada ? 
-      <CheckCircle className="w-3 h-3" /> : 
-      <Clock className="w-3 h-3" />;
-  }, []);
+  // =============================================
+  // MODAL DE PAGAMENTO DE FATURA
+  // =============================================
+  const PagamentoFaturaModal = () => {
+    const [pagamentoForm, setPagamentoForm] = useState({
+      contaId: '',
+      tipoPagamento: 'total',
+      valorParcial: 0
+    });
+    const [pagamentoLoading, setPagamentoLoading] = useState(false);
+    const [pagamentoError, setPagamentoError] = useState('');
 
-  // Função para formatar a exibição de recorrência
-  const formatRecorrencia = useCallback((transacao) => {
-    if (transacao.total_parcelas > 1) {
-      return `${transacao.parcela_atual}/${transacao.total_parcelas}`;
-    }
-    return null;
-  }, []);
+    const handlePagamentoSubmit = async () => {
+      if (!pagamentoForm.contaId) {
+        setPagamentoError('Selecione uma conta para débito');
+        return;
+      }
 
-  // Componente de estado vazio melhorado
-  const EmptyState = () => (
-    <div className="transacoes-empty-improved">
-      <div className="empty-illustration">
-        <div className="empty-icon-container">
-          <FileText className="empty-main-icon" size={64} />
-          <div className="empty-floating-icons">
-            <TrendingUp className="floating-icon up" size={24} />
-            <TrendingDown className="floating-icon down" size={20} />
-            <CreditCard className="floating-icon card" size={18} />
+      const valorPagamento = pagamentoForm.tipoPagamento === 'total' 
+        ? selectedFatura.valor 
+        : parseFloat(pagamentoForm.valorParcial) || 0;
+
+      if (valorPagamento <= 0) {
+        setPagamentoError('Valor do pagamento deve ser maior que zero');
+        return;
+      }
+
+      setPagamentoLoading(true);
+      setPagamentoError('');
+
+      try {
+        // Buscar dados da conta
+        const { data: contaData, error: contaError } = await supabase
+          .from('contas')
+          .select('*')
+          .eq('id', pagamentoForm.contaId)
+          .single();
+
+        if (contaError) throw contaError;
+
+        if (contaData.saldo < valorPagamento) {
+          throw new Error('Saldo insuficiente na conta selecionada');
+        }
+
+        // Criar transação de pagamento
+        const { error: transacaoError } = await supabase
+          .from('transacoes')
+          .insert([{
+            usuario_id: user.id,
+            conta_id: pagamentoForm.contaId,
+            valor: valorPagamento,
+            tipo: 'despesa',
+            descricao: `Pagamento Fatura ${selectedFatura.cartao_nome}`,
+            data: format(new Date(), 'yyyy-MM-dd'),
+            efetivado: true,
+            observacoes: `Pagamento de fatura - Valor: ${formatCurrency(valorPagamento)}`,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }]);
+
+        if (transacaoError) throw transacaoError;
+
+        // Atualizar saldo da conta
+        const { error: updateError } = await supabase
+          .from('contas')
+          .update({ 
+            saldo: contaData.saldo - valorPagamento,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', pagamentoForm.contaId);
+
+        if (updateError) throw updateError;
+
+        // Fechar modal e recarregar dados
+        setShowPagamentoFaturaModal(false);
+        setSelectedFatura(null);
+        buscarTransacoes();
+        
+        // Feedback para o usuário (se houver sistema de notificações)
+        if (window.showNotification) {
+          window.showNotification(
+            `Pagamento de ${formatCurrency(valorPagamento)} realizado com sucesso!`,
+            'success'
+          );
+        }
+
+      } catch (error) {
+        console.error('Erro ao processar pagamento:', error);
+        setPagamentoError(error.message);
+      } finally {
+        setPagamentoLoading(false);
+      }
+    };
+
+    if (!showPagamentoFaturaModal || !selectedFatura) return null;
+
+    return (
+      <div className="modal-overlay">
+        <div className="modal-container pagamento-modal">
+          <div className="modal-header">
+            <h2 className="modal-title">
+              Pagar Fatura - {selectedFatura.cartao_nome}
+            </h2>
+            <button 
+              className="modal-close" 
+              onClick={() => {
+                setShowPagamentoFaturaModal(false);
+                setSelectedFatura(null);
+                setPagamentoError('');
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="modal-content">
+            <div className="fatura-info">
+              <div className="info-row">
+                <span>Valor total da fatura:</span>
+                <strong className="valor-destaque">
+                  {formatCurrency(selectedFatura.valor)}
+                </strong>
+              </div>
+              <div className="info-row">
+                <span>Transações:</span>
+                <strong>{selectedFatura.transacoes?.length || 0} compras</strong>
+              </div>
+            </div>
+
+            {pagamentoError && (
+              <div className="error-message">
+                {pagamentoError}
+              </div>
+            )}
+
+            <div className="pagamento-form">
+              <div className="form-field">
+                <label>Conta para débito:</label>
+                <select
+                  value={pagamentoForm.contaId}
+                  onChange={(e) => setPagamentoForm(prev => ({ ...prev, contaId: e.target.value }))}
+                  disabled={pagamentoLoading}
+                  className="form-input"
+                >
+                  <option value="">Selecione uma conta</option>
+                  {contas.map(conta => (
+                    <option key={conta.id} value={conta.id}>
+                      {conta.nome} - {formatCurrency(conta.saldo || 0)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-field">
+                <label>Tipo de pagamento:</label>
+                <div className="radio-group">
+                  <label className={`radio-option ${pagamentoForm.tipoPagamento === 'total' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      value="total"
+                      checked={pagamentoForm.tipoPagamento === 'total'}
+                      onChange={(e) => setPagamentoForm(prev => ({ ...prev, tipoPagamento: e.target.value }))}
+                      disabled={pagamentoLoading}
+                    />
+                    <div className="radio-content">
+                      <strong>Pagamento total</strong>
+                      <small>Quitar toda a fatura</small>
+                    </div>
+                  </label>
+                  
+                  <label className={`radio-option ${pagamentoForm.tipoPagamento === 'parcial' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      value="parcial"
+                      checked={pagamentoForm.tipoPagamento === 'parcial'}
+                      onChange={(e) => setPagamentoForm(prev => ({ ...prev, tipoPagamento: e.target.value }))}
+                      disabled={pagamentoLoading}
+                    />
+                    <div className="radio-content">
+                      <strong>Pagamento parcial</strong>
+                      <small>Pagar apenas parte da fatura</small>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {pagamentoForm.tipoPagamento === 'parcial' && (
+                <div className="form-field">
+                  <label>Valor a pagar:</label>
+                  <input
+                    type="number"
+                    value={pagamentoForm.valorParcial}
+                    onChange={(e) => setPagamentoForm(prev => ({ ...prev, valorParcial: e.target.value }))}
+                    disabled={pagamentoLoading}
+                    min="0.01"
+                    max={selectedFatura.valor}
+                    step="0.01"
+                    className="form-input"
+                    placeholder="0,00"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="modal-actions">
+              <Button 
+                onClick={() => {
+                  setShowPagamentoFaturaModal(false);
+                  setSelectedFatura(null);
+                  setPagamentoError('');
+                }}
+                disabled={pagamentoLoading}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                className="primary-button"
+                onClick={handlePagamentoSubmit}
+                disabled={pagamentoLoading || !pagamentoForm.contaId}
+              >
+                {pagamentoLoading ? 'Processando...' : 'Confirmar Pagamento'}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
-      
-      <div className="empty-content">
-        <h3>Nenhuma transação por aqui ainda!</h3>
-        <p>
-          {hasActiveFilters() 
-            ? 'Não encontramos transações com os filtros aplicados. Que tal ajustar a busca?'
-            : 'Comece registrando sua primeira transação e mantenha suas finanças organizadas.'
-          }
-        </p>
-      </div>
+    );
+  };
 
-      <div className="empty-actions">
-        <button
-          onClick={() => handleOpenModal('receitas')}
-          className="empty-action-button primary"
-        >
-          <TrendingUp className="w-4 h-4" />
-          Adicionar Receita
-        </button>
-        <button
-          onClick={() => handleOpenModal('despesas')}
-          className="empty-action-button secondary"
-        >
-          <TrendingDown className="w-4 h-4" />
-          Adicionar Despesa
-        </button>
+  // =============================================
+  // COMPONENTES
+  // =============================================
+  const SortableHeader = ({ field, children }) => (
+    <th 
+      className={`transacoes-th sortable`}
+      onClick={() => handleSort(field)}
+    >
+      <div className="sort-header">
+        {children}
+        <span className="sort-icons">
+          <span className={`sort-icon ${sortField === field && sortDirection === 'asc' ? 'active' : ''}`}>▲</span>
+          <span className={`sort-icon ${sortField === field && sortDirection === 'desc' ? 'active' : ''}`}>▼</span>
+        </span>
       </div>
+    </th>
+  );
 
-      {hasActiveFilters() && (
-        <div className="empty-filter-actions">
-          <button
-            onClick={handleClearFilters}
-            className="clear-filters-button"
-          >
-            <X className="w-4 h-4" />
-            Limpar Filtros
+  const FiltroAvancado = () => (
+    <div className="filtro-avancado-popup">
+      <div className="filtro-header">
+        <h3>Filtros Avançados</h3>
+        <div className="filtro-actions">
+          <button onClick={limparFiltros} className="filtro-limpar">
+            Limpar Todos
+          </button>
+          <button onClick={() => setShowFilters(false)} className="filtro-fechar">
+            ✕
           </button>
         </div>
-      )}
+      </div>
+
+      <div className="filtro-content">
+        {/* Tipo e Status - Lado a lado */}
+        <div className="filtro-row">
+          <div className="filtro-group">
+            <label className="filtro-label">Tipo:</label>
+            <div className="filtro-options-horizontal">
+              {['receita', 'despesa'].map(tipo => (
+                <label key={tipo} className="filtro-checkbox-horizontal">
+                  <input
+                    type="checkbox"
+                    checked={filtros.tipo.includes(tipo)}
+                    onChange={(e) => {
+                      const newTipos = e.target.checked 
+                        ? [...filtros.tipo, tipo]
+                        : filtros.tipo.filter(t => t !== tipo);
+                      handleFiltroChange('tipo', newTipos);
+                    }}
+                  />
+                  <span className="checkbox-label">
+                    {tipo === 'receita' ? '📈 Receitas' : '📉 Despesas'}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="filtro-group">
+            <label className="filtro-label">Status:</label>
+            <div className="filtro-options-horizontal">
+              {['efetivado', 'pendente'].map(status => (
+                <label key={status} className="filtro-checkbox-horizontal">
+                  <input
+                    type="checkbox"
+                    checked={filtros.status.includes(status)}
+                    onChange={(e) => {
+                      const newStatus = e.target.checked 
+                        ? [...filtros.status, status]
+                        : filtros.status.filter(s => s !== status);
+                      handleFiltroChange('status', newStatus);
+                    }}
+                  />
+                  <span className="checkbox-label">
+                    {status === 'efetivado' ? '✅ Efetivadas' : '⏳ Pendentes'}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Valores - Lado a lado */}
+        <div className="filtro-row">
+          <div className="filtro-group">
+            <label className="filtro-label">Valor mínimo:</label>
+            <input
+              type="number"
+              step="0.01"
+              value={filtros.valorMinimo}
+              onChange={(e) => handleFiltroChange('valorMinimo', e.target.value)}
+              placeholder="R$ 0,00"
+              className="filtro-input"
+            />
+          </div>
+          <div className="filtro-group">
+            <label className="filtro-label">Valor máximo:</label>
+            <input
+              type="number"
+              step="0.01"
+              value={filtros.valorMaximo}
+              onChange={(e) => handleFiltroChange('valorMaximo', e.target.value)}
+              placeholder="R$ 0,00"
+              className="filtro-input"
+            />
+          </div>
+        </div>
+
+        {/* Categorias */}
+        {categorias.length > 0 && (
+          <div className="filtro-group">
+            <label className="filtro-label">
+              📁 Categorias ({filtros.categoria.length}/{categorias.length}):
+            </label>
+            <div className="filtro-grid">
+              {categorias.slice(0, 8).map(categoria => (
+                <label key={categoria.id} className="filtro-checkbox-grid">
+                  <input
+                    type="checkbox"
+                    checked={filtros.categoria.includes(categoria.id)}
+                    onChange={(e) => {
+                      const newCategorias = e.target.checked 
+                        ? [...filtros.categoria, categoria.id]
+                        : filtros.categoria.filter(c => c !== categoria.id);
+                      handleFiltroChange('categoria', newCategorias);
+                    }}
+                  />
+                  <span className="categoria-color" style={{ backgroundColor: categoria.cor }}></span>
+                  <span className="categoria-nome">{categoria.nome}</span>
+                </label>
+              ))}
+              {categorias.length > 8 && (
+                <div className="filtro-mais">
+                  +{categorias.length - 8} mais...
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Contas */}
+        {contas.length > 0 && (
+          <div className="filtro-group">
+            <label className="filtro-label">
+              🏦 Contas ({filtros.conta.length}/{contas.length}):
+            </label>
+            <div className="filtro-grid">
+              {contas.map(conta => (
+                <label key={conta.id} className="filtro-checkbox-grid">
+                  <input
+                    type="checkbox"
+                    checked={filtros.conta.includes(conta.id)}
+                    onChange={(e) => {
+                      const newContas = e.target.checked 
+                        ? [...filtros.conta, conta.id]
+                        : filtros.conta.filter(c => c !== conta.id);
+                      handleFiltroChange('conta', newContas);
+                    }}
+                  />
+                  <span className="conta-nome">{conta.nome}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Cartões */}
+        {cartoes.length > 0 && (
+          <div className="filtro-group">
+            <label className="filtro-label">
+              💳 Cartões ({filtros.cartao.length}/{cartoes.length}):
+            </label>
+            <div className="filtro-grid">
+              {cartoes.map(cartao => (
+                <label key={cartao.id} className="filtro-checkbox-grid">
+                  <input
+                    type="checkbox"
+                    checked={filtros.cartao.includes(cartao.id)}
+                    onChange={(e) => {
+                      const newCartoes = e.target.checked 
+                        ? [...filtros.cartao, cartao.id]
+                        : filtros.cartao.filter(c => c !== cartao.id);
+                      handleFiltroChange('cartao', newCartoes);
+                    }}
+                  />
+                  <span className="cartao-nome">{cartao.nome}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tipos específicos - Colapsáveis */}
+        <div className="filtro-collapsible">
+          <div className="filtro-collapsible-header">
+            <label className="filtro-label">🎯 Filtros Específicos</label>
+          </div>
+          
+          <div className="filtro-row">
+            <div className="filtro-group">
+              <label className="filtro-label-small">Tipo de Receita:</label>
+              <div className="filtro-options-compact">
+                {['extra', 'previsivel', 'parcelada'].map(tipo => (
+                  <label key={tipo} className="filtro-checkbox-compact">
+                    <input
+                      type="checkbox"
+                      checked={filtros.tipoReceita.includes(tipo)}
+                      onChange={(e) => {
+                        const newTipos = e.target.checked 
+                          ? [...filtros.tipoReceita, tipo]
+                          : filtros.tipoReceita.filter(t => t !== tipo);
+                        handleFiltroChange('tipoReceita', newTipos);
+                      }}
+                    />
+                    <span className="checkbox-label-small">
+                      {tipo === 'extra' ? 'Extra' : tipo === 'previsivel' ? 'Previsível' : 'Parcelada'}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="filtro-group">
+              <label className="filtro-label-small">Tipo de Despesa:</label>
+              <div className="filtro-options-compact">
+                {['extra', 'previsivel', 'parcelada'].map(tipo => (
+                  <label key={tipo} className="filtro-checkbox-compact">
+                    <input
+                      type="checkbox"
+                      checked={filtros.tipoDespesa.includes(tipo)}
+                      onChange={(e) => {
+                        const newTipos = e.target.checked 
+                          ? [...filtros.tipoDespesa, tipo]
+                          : filtros.tipoDespesa.filter(t => t !== tipo);
+                        handleFiltroChange('tipoDespesa', newTipos);
+                      }}
+                    />
+                    <span className="checkbox-label-small">
+                      {tipo === 'extra' ? 'Extra' : tipo === 'previsivel' ? 'Previsível' : 'Parcelada'}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 
-  return (
-    <div className="transacoes-page">
-      
-      {/* HEADER MELHORADO */}
-      <div className="transacoes-header">
-        <div className="header-title-section">
-          <h1 className="transacoes-title">Transações</h1>
-          <div className="transacoes-subtitle">
-            {totalTransacoes > 0 ? (
-              <span className="count-info">
-                {totalTransacoes} {agruparCartao ? 'itens' : 'transações'} em {periodoCalculado.label}
+  const TransactionRow = ({ transacao }) => {
+    const isReceita = transacao.tipo === 'receita';
+    const isFatura = transacao.tipo === 'fatura';
+    
+    return (
+      <tr className={`transaction-row ${!transacao.efetivado ? 'pending' : ''}`}>
+        <td className="data-cell">
+          {format(new Date(transacao.data), 'dd/MM', { locale: ptBR })}
+        </td>
+        <td className="descricao-cell">
+          <div className="transaction-info">
+            <ToolTip text={isReceita ? 'Receita' : isFatura ? 'Fatura' : 'Despesa'}>
+              <span className={`transaction-icon ${isReceita ? 'receita' : 'despesa'}`}>
+                {isReceita ? '↗️' : isFatura ? '💳' : '↙️'}
               </span>
+            </ToolTip>
+            <span className="descricao-text">
+              {transacao.descricao}
+            </span>
+          </div>
+        </td>
+        <td className="categoria-cell">
+          <ToolTip text={transacao.categoria_nome}>
+            <span 
+              className="categoria-badge"
+              style={{ backgroundColor: `${transacao.categoria_cor}20` }}
+            >
+              {transacao.categoria_nome}
+            </span>
+          </ToolTip>
+        </td>
+        <td className="conta-cell">
+          {isFatura ? '-' : transacao.conta_nome}
+        </td>
+        <td className="valor-cell">
+          <span className={`valor ${isReceita ? 'receita' : 'despesa'}`}>
+            {isReceita ? '+' : '-'} {formatCurrency(Math.abs(transacao.valor))}
+          </span>
+        </td>
+        <td className="status-cell">
+          <button
+            className={`status-badge ${transacao.efetivado ? 'efetivado' : 'pendente'}`}
+            onClick={() => !isFatura && handleToggleEfetivado(transacao)}
+            disabled={isFatura}
+          >
+            {transacao.efetivado ? 'Efetivado' : 'Pendente'}
+          </button>
+        </td>
+        <td className="acoes-cell">
+          <div className="action-buttons">
+            {isFatura ? (
+              <ToolTip text="Pagar fatura">
+                <button
+                  className="action-btn pay-btn"
+                  onClick={() => handlePagarFatura(transacao)}
+                >
+                  💰
+                </button>
+              </ToolTip>
             ) : (
-              <span className="count-info">
-                {periodoCalculado.label}
-              </span>
+              <>
+                <ToolTip text="Editar transação">
+                  <button 
+                    className="action-btn edit-btn"
+                    onClick={() => handleEditar(transacao)}
+                  >
+                    ✏️
+                  </button>
+                </ToolTip>
+                <ToolTip text="Excluir transação">
+                  <button 
+                    className="action-btn delete-btn"
+                    onClick={() => handleExcluir(transacao.id)}
+                  >
+                    🗑️
+                  </button>
+                </ToolTip>
+              </>
             )}
           </div>
-        </div>
+        </td>
+      </tr>
+    );
+  };
 
-        <div className="transacoes-actions">
-          {/* Busca */}
-          <div className="search-container">
-            <Search className="search-icon" />
-            <input
-              type="text"
-              placeholder="Buscar transações..."
-              value={searchTerm}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              className="search-input"
-            />
+  const TransactionCard = ({ transacao, isFirst }) => {
+    const isReceita = transacao.tipo === 'receita';
+    const isFatura = transacao.tipo === 'fatura';
+    const dataFormatada = format(new Date(transacao.data), 'dd \'de\' MMMM', { locale: ptBR });
+    
+    return (
+      <div className="transaction-card-container">
+        {isFirst && (
+          <div className="date-header">
+            {dataFormatada}
           </div>
-
-          {/* Controles de período */}
-          <div className="period-controls">
-            <ToolTip content="Mês anterior">
-              <button
-                onClick={() => navegarPeriodo('anterior')}
-                className="period-nav-button"
-                disabled={loading}
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-            </ToolTip>
-            
-            <div className="period-display">
-              <Calendar className="w-4 h-4 text-gray-500" />
-              <span>{periodoCalculado.label}</span>
+        )}
+        <Card className="transaction-card">
+          <div className="card-header">
+            <div className="transaction-main">
+              <ToolTip text={isReceita ? 'Receita' : isFatura ? 'Fatura' : 'Despesa'}>
+                <span className={`transaction-icon ${isReceita ? 'receita' : 'despesa'}`}>
+                  {isReceita ? '↗️' : isFatura ? '💳' : '↙️'}
+                </span>
+              </ToolTip>
+              <div className="transaction-details">
+                <h4 className="transaction-title">
+                  {transacao.descricao}
+                </h4>
+                <span className={`valor-mobile ${isReceita ? 'receita' : 'despesa'}`}>
+                  {isReceita ? '+' : '-'} {formatCurrency(Math.abs(transacao.valor))}
+                </span>
+              </div>
             </div>
-            
-            <ToolTip content="Próximo mês">
-              <button
-                onClick={() => navegarPeriodo('proximo')}
-                className="period-nav-button"
-                disabled={loading}
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </ToolTip>
+            <div className="card-actions">
+              {isFatura ? (
+                <button
+                  className="action-btn pay-btn"
+                  onClick={() => handlePagarFatura(transacao)}
+                >
+                  💰
+                </button>
+              ) : (
+                <>
+                  <button 
+                    className="action-btn edit-btn"
+                    onClick={() => handleEditar(transacao)}
+                  >
+                    ✏️
+                  </button>
+                  <button 
+                    className="action-btn delete-btn"
+                    onClick={() => handleExcluir(transacao.id)}
+                  >
+                    🗑️
+                  </button>
+                </>
+              )}
+            </div>
           </div>
+          <div className="card-metadata">
+            <div className="metadata-item">
+              <span className="metadata-label">Categoria:</span>
+              <span 
+                className="categoria-badge"
+                style={{ backgroundColor: `${transacao.categoria_cor}20` }}
+              >
+                {transacao.categoria_nome}
+              </span>
+            </div>
+            {!isFatura && (
+              <div className="metadata-item">
+                <span className="metadata-label">Conta:</span>
+                <span>{transacao.conta_nome}</span>
+              </div>
+            )}
+            <div className="metadata-item">
+              <span className="metadata-label">Status:</span>
+              <button
+                className={`status-badge ${transacao.efetivado ? 'efetivado' : 'pendente'}`}
+                onClick={() => !isFatura && handleToggleEfetivado(transacao)}
+                disabled={isFatura}
+              >
+                {transacao.efetivado ? 'Efetivado' : 'Pendente'}
+              </button>
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  };
 
-          <div className="action-separator"></div>
-          
-          {/* Botão "Hoje" */}
-          <ToolTip content="Voltar para o mês atual">
-            <button
-              onClick={voltarParaHoje}
-              className="today-button"
-              disabled={loading}
+  // Agrupar por data para mobile
+  const transacoesAgrupadasPorData = useMemo(() => {
+    const grupos = {};
+    transacoesFiltradas.forEach(transacao => {
+      const dataKey = format(new Date(transacao.data), 'yyyy-MM-dd');
+      if (!grupos[dataKey]) {
+        grupos[dataKey] = [];
+      }
+      grupos[dataKey].push(transacao);
+    });
+    return grupos;
+  }, [transacoesFiltradas]);
+
+  // =============================================
+  // RENDERIZAÇÃO
+  // =============================================
+
+  // Estado de erro
+  if (error) {
+    return (
+      <PageContainer title="Transações">
+        <div className="empty-state">
+          <div className="empty-illustration">
+            <div className="empty-icon">⚠️</div>
+            <h3>Erro ao carregar transações</h3>
+            <p>{error}</p>
+            <Button 
+              className="primary-button"
+              onClick={buscarTransacoes}
+            >
+              Tentar Novamente
+            </Button>
+          </div>
+        </div>
+      </PageContainer>
+    );
+  }
+
+  // Estado vazio
+  if (!loading && transacoesFiltradas.length === 0) {
+    return (
+      <PageContainer title="Transações">
+        <div className="transacoes-header">
+          <div className="period-navigation">
+            <button 
+              className="nav-btn"
+              onClick={() => handleNavigateMonth('prev')}
+            >
+              ◀️
+            </button>
+            <h2 className="current-period">
+              {format(currentDate, 'MMMM \'de\' yyyy', { locale: ptBR })}
+            </h2>
+            <button 
+              className="nav-btn"
+              onClick={() => handleNavigateMonth('next')}
+            >
+              ▶️
+            </button>
+            <button 
+              className={`today-btn ${isToday(currentDate) ? 'active' : ''}`}
+              onClick={() => handleNavigateMonth('today')}
             >
               Hoje
             </button>
-          </ToolTip>
-
-          {/* Agrupamento */}
-          <ToolTip content={agruparCartao ? 'Desagrupar despesas de cartão' : 'Agrupar despesas de cartão por fatura'}>
-            <button
-              onClick={handleToggleAgrupamento}
-              className={`action-button agrupamento-button ${agruparCartao ? 'active' : ''}`}
-              disabled={loading}
-            >
-              {agruparCartao ? <Layers3 className="button-icon" /> : <Layers className="button-icon" />}
-              <span>Agrupar</span>
-            </button>
-          </ToolTip>
-
-          {/* Filtros */}
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`action-button filter-button ${hasActiveFilters() ? 'active' : ''}`}
-          >
-            <Filter className="button-icon" />
-            <span>Filtros</span>
-            {hasActiveFilters() && (
-              <span className="filter-badge">
-                {getActiveFiltersCount()}
-              </span>
+          </div>
+        </div>
+        
+        <div className="empty-state">
+          <div className="empty-illustration">
+            <div className="empty-icon">📊</div>
+            <h3>Nenhuma transação encontrada!</h3>
+            <p>
+              {temFiltrosAtivos() 
+                ? 'Nenhuma transação corresponde aos filtros aplicados.'
+                : 'Comece adicionando sua primeira transação financeira.'
+              }
+            </p>
+            {temFiltrosAtivos() && (
+              <Button 
+                className="primary-button"
+                onClick={limparFiltros}
+              >
+                Limpar Filtros
+              </Button>
             )}
-          </button>
+          </div>
+        </div>
+      </PageContainer>
+    );
+  }
 
-          {/* Refresh */}
-          <ToolTip content="Atualizar">
+  // Interface principal
+  return (
+    <PageContainer title="Transações" className="transacoes-page">
+      {/* Header */}
+      <div className="transacoes-header">
+        <div className="period-navigation">
+          <button 
+            className="nav-btn"
+            onClick={() => handleNavigateMonth('prev')}
+            disabled={loading || isNavigating}
+          >
+            ◀️
+          </button>
+          <h2 className="current-period">
+            {format(currentDate, 'MMMM \'de\' yyyy', { locale: ptBR })}
+          </h2>
+          <button 
+            className="nav-btn"
+            onClick={() => handleNavigateMonth('next')}
+            disabled={loading || isNavigating}
+          >
+            ▶️
+          </button>
+          <button 
+            className={`today-btn ${isToday(currentDate) ? 'active' : ''}`}
+            onClick={() => handleNavigateMonth('today')}
+            disabled={loading || isNavigating}
+          >
+            Hoje
+          </button>
+        </div>
+
+        <div className="header-controls">
+          <div className="filter-toggle">
             <button
-              onClick={fetchTransacoes}
-              className="action-button refresh-button"
-              disabled={loading}
+              className={`filter-btn ${showFilters ? 'active' : ''} ${temFiltrosAtivos() ? 'has-filters' : ''}`}
+              onClick={() => setShowFilters(!showFilters)}
             >
-              <RefreshCw className={`button-icon ${loading ? 'spin' : ''}`} />
+              🔍 Filtros {temFiltrosAtivos() && <span className="filter-count">•</span>}
             </button>
-          </ToolTip>
+            {showFilters && <FiltroAvancado />}
+          </div>
+
+          <button
+            className={`group-toggle ${groupByCard ? 'active' : ''}`}
+            onClick={() => {
+              console.log('🔄 Clicou no botão agrupar:', !groupByCard);
+              console.log('📊 Transações atuais:', transacoes.length);
+              console.log('💳 Transações com cartão:', transacoes.filter(t => t.cartao_id).length);
+              setGroupByCard(!groupByCard);
+            }}
+          >
+            🔁 {groupByCard ? 'Desagrupar' : 'Agrupar fatura'}
+          </button>
         </div>
       </div>
 
-      {/* PAINEL DE FILTROS */}
-      {showFilters && (
-        <div className="transacoes-filter">
-          <div className="filter-header">
-            <h2>Filtros</h2>
-            <div className="filter-header-actions">
-              <button onClick={handleClearFilters} className="secondary-button">
-                Limpar todos
-              </button>
-              <button onClick={() => setShowFilters(false)} className="close-button">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          <div className="filter-content">
-            {/* Tipo */}
-            <div className="filter-section">
-              <h3 className="section-title">
-                <Activity className="section-icon" />
-                Tipo de Transação
-              </h3>
-              <div className="filter-buttons">
-                <button
-                  onClick={() => handleFilterChange('tipo', 'todas')}
-                  className={`filter-toggle ${filters.tipo === 'todas' ? 'active' : ''}`}
-                >
-                  Todas
-                </button>
-                <button
-                  onClick={() => handleFilterChange('tipo', 'receita')}
-                  className={`filter-toggle ${filters.tipo === 'receita' ? 'active receita' : ''}`}
-                >
-                  <TrendingUp className="toggle-icon" />
-                  Receitas
-                </button>
-                <button
-                  onClick={() => handleFilterChange('tipo', 'despesa')}
-                  className={`filter-toggle ${filters.tipo === 'despesa' ? 'active despesa' : ''}`}
-                >
-                  <TrendingDown className="toggle-icon" />
-                  Despesas
-                </button>
-              </div>
-            </div>
-
-            {/* Status */}
-            <div className="filter-section">
-              <h3 className="section-title">
-                <CheckCircle className="section-icon" />
-                Status
-              </h3>
-              <div className="filter-buttons">
-                <button
-                  onClick={() => handleFilterChange('status', 'todas')}
-                  className={`filter-toggle ${filters.status === 'todas' ? 'active' : ''}`}
-                >
-                  Todas
-                </button>
-                <button
-                  onClick={() => handleFilterChange('status', 'efetivadas')}
-                  className={`filter-toggle ${filters.status === 'efetivadas' ? 'active efetivada' : ''}`}
-                >
-                  <CheckCircle className="toggle-icon" />
-                  Efetivadas
-                </button>
-                <button
-                  onClick={() => handleFilterChange('status', 'pendentes')}
-                  className={`filter-toggle ${filters.status === 'pendentes' ? 'active pendente' : ''}`}
-                >
-                  <Clock className="toggle-icon" />
-                  Pendentes
-                </button>
-              </div>
-            </div>
-
-            {/* Filtros específicos */}
-            <div className="filter-section">
-              <h3 className="section-title">Filtros Específicos</h3>
-              <div className="filter-row">
-                <div className="filter-field">
-                  <label>Categoria</label>
-                  <select
-                    value={filters.categoriaId}
-                    onChange={(e) => handleFilterChange('categoriaId', e.target.value)}
-                    className="filter-select"
-                  >
-                    <option value="">Todas as categorias</option>
-                    {categorias.map(categoria => (
-                      <option key={categoria.id} value={categoria.id}>
-                        {categoria.nome}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="filter-field">
-                  <label>Conta</label>
-                  <select
-                    value={filters.contaId}
-                    onChange={(e) => handleFilterChange('contaId', e.target.value)}
-                    className="filter-select"
-                  >
-                    <option value="">Todas as contas</option>
-                    {contas.map(conta => (
-                      <option key={conta.id} value={conta.id}>
-                        {conta.nome}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="filter-row">
-                <div className="filter-field">
-                  <label>Cartão</label>
-                  <select
-                    value={filters.cartaoId}
-                    onChange={(e) => handleFilterChange('cartaoId', e.target.value)}
-                    className="filter-select"
-                  >
-                    <option value="">Todos os cartões</option>
-                    {cartoes.map(cartao => (
-                      <option key={cartao.id} value={cartao.id}>
-                        {cartao.nome}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="filter-field">
-                  <label>Ordenar por</label>
-                  <select
-                    value={`${filters.ordenacao}_${filters.direcaoOrdenacao}`}
-                    onChange={(e) => {
-                      const [campo, direcao] = e.target.value.split('_');
-                      handleFilterChange('ordenacao', campo);
-                      handleFilterChange('direcaoOrdenacao', direcao);
-                    }}
-                    className="filter-select"
-                  >
-                    <option value="data_desc">Data (mais recente)</option>
-                    <option value="data_asc">Data (mais antiga)</option>
-                    <option value="valor_desc">Valor (maior)</option>
-                    <option value="valor_asc">Valor (menor)</option>
-                    <option value="descricao_asc">Descrição (A-Z)</option>
-                    <option value="descricao_desc">Descrição (Z-A)</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="filter-actions">
-            <button 
-              onClick={() => setShowFilters(false)}
-              className="primary-button"
-            >
-              Aplicar Filtros
-            </button>
-          </div>
+      {/* Loading */}
+      {(loading || isNavigating) && (
+        <div className="loading-state">
+          <div className="loading-spinner"></div>
+          <p>{isNavigating ? 'Navegando...' : 'Carregando transações...'}</p>
         </div>
       )}
 
-      {/* CONTEÚDO PRINCIPAL */}
-      {loading ? (
-        <div className="transacoes-loading">
-          <div className="loading-spinner"></div>
-          <p>Carregando transações...</p>
+      {/* Tabela Desktop */}
+      {!isMobile && !loading && !isNavigating && (
+        <Card className="transactions-table-card">
+          <table className="transactions-table">
+            <thead>
+              <tr>
+                <SortableHeader field="data">Data</SortableHeader>
+                <SortableHeader field="descricao">Descrição</SortableHeader>
+                <SortableHeader field="categoria_nome">Categoria</SortableHeader>
+                <SortableHeader field="conta_nome">Conta</SortableHeader>
+                <SortableHeader field="valor">Valor</SortableHeader>
+                <SortableHeader field="efetivado">Status</SortableHeader>
+                <th className="transacoes-th">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {transacoesFiltradas.map((transacao, index) => (
+                <TransactionRow 
+                  key={transacao.id || index} 
+                  transacao={transacao}
+                />
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {/* Cards Mobile */}
+      {isMobile && !loading && !isNavigating && (
+        <div className="mobile-transactions">
+          {Object.entries(transacoesAgrupadasPorData).map(([data, transacoesGrupo]) => (
+            <div key={data} className="date-grupo">
+              {transacoesGrupo.map((transacao, index) => (
+                <TransactionCard
+                  key={transacao.id || index}
+                  transacao={transacao}
+                  isFirst={index === 0}
+                />
+              ))}
+            </div>
+          ))}
         </div>
-      ) : transacoes.length === 0 ? (
-        <EmptyState />
-      ) : (
-        <>
-          {/* HEADER DA TABELA - Todas as colunas ordenáveis */}
-          <div className="transacoes-table-header">
-            <div 
-              className={`header-cell sortable ${filters.ordenacao === 'data' ? 'active-sort' : ''}`}
-              onClick={() => handleSort('data')}
-            >
-              <span>Data</span>
-              {getSortIcon('data')}
-            </div>
-            <div 
-              className={`header-cell sortable ${filters.ordenacao === 'descricao' ? 'active-sort' : ''}`}
-              onClick={() => handleSort('descricao')}
-            >
-              <span>Descrição</span>
-              {getSortIcon('descricao')}
-            </div>
-            <div 
-              className={`header-cell sortable ${filters.ordenacao === 'categoria' ? 'active-sort' : ''}`}
-              onClick={() => handleSort('categoria')}
-            >
-              <span>Categoria</span>
-              {getSortIcon('categoria')}
-            </div>
-            <div 
-              className={`header-cell sortable ${filters.ordenacao === 'conta' ? 'active-sort' : ''}`}
-              onClick={() => handleSort('conta')}
-            >
-              <span>Conta</span>
-              {getSortIcon('conta')}
-            </div>
-            <div 
-              className={`header-cell sortable ${filters.ordenacao === 'valor' ? 'active-sort' : ''}`}
-              onClick={() => handleSort('valor')}
-            >
-              <span>Valor</span>
-              {getSortIcon('valor')}
-            </div>
-            <div className="header-cell cell-acoes">
-              <span>Ações</span>
-            </div>
-          </div>
-
-          {/* LISTA DE TRANSAÇÕES */}
-          <div className="transacoes-list">
-            {transacoes.map((transacao, index) => (
-              <div 
-                key={transacao.id} 
-                className={`transacao-item ${!transacao.efetivado ? 'pendente' : ''} ${transacao.isFaturaAgrupada ? 'fatura-agrupada' : ''} ${index % 2 === 0 ? 'even' : 'odd'}`}
-              >
-                
-                {/* Data */}
-                <div className="cell-data">
-                  <div className="data-display">
-                    <div className="data-principal">
-                      {transacao.dataExibicao ? format(new Date(transacao.dataExibicao), 'dd/MM') : '--/--'}
-                    </div>
-                    <div className="data-ano">
-                      {transacao.dataExibicao ? format(new Date(transacao.dataExibicao), 'yyyy') : '----'}
-                    </div>
-                  </div>
-                  
-                  {/* Status indicator */}
-                  <div className="status-indicator">
-                    <ToolTip content={transacao.efetivado ? 'Transação efetivada' : 'Transação pendente'}>
-                      <div className={`status-icon ${transacao.efetivado ? 'efetivada' : 'pendente'}`}>
-                        {getStatusIcon(transacao.efetivado)}
-                      </div>
-                    </ToolTip>
-                  </div>
-                </div>
-
-                {/* Descrição */}
-                <div className="cell-descricao">
-                  <div className="tipo-container">
-                    <ToolTip content={transacao.tipo === 'receita' ? 'Receita' : transacao.tipo === 'despesa' ? 'Despesa' : 'Transferência'}>
-                      <div className={`tipo-icon ${transacao.tipo}`}>
-                        {getTipoIcon(transacao.tipo)}
-                      </div>
-                    </ToolTip>
-                  </div>
-                  <div className="descricao-container">
-                    <div className="descricao-principal">
-                      {transacao.descricao}
-                      {/* Badges */}
-                      {formatRecorrencia(transacao) && (
-                        <ToolTip content={`Parcela ${formatRecorrencia(transacao)}`}>
-                          <span className="recorrencia-badge">
-                            {formatRecorrencia(transacao)}
-                          </span>
-                        </ToolTip>
-                      )}
-                      {transacao.isFaturaAgrupada && (
-                        <ToolTip content={`Fatura agrupada com ${transacao.transacoesAgrupadas?.length || 0} transações`}>
-                          <span className="fatura-agrupada-badge">
-                            <Layers3 className="w-3 h-3" />
-                            {transacao.transacoesAgrupadas?.length || 0}
-                          </span>
-                        </ToolTip>
-                      )}
-                    </div>
-                    {transacao.observacoes && (
-                      <div className="descricao-observacao">
-                        {transacao.observacoes}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Categoria */}
-                <div className="cell-categoria">
-                  {transacao.categoria ? (
-                    <ToolTip content={transacao.categoria.nome}>
-                      <span 
-                        className="categoria-tag-subtle" 
-                        style={{ 
-                          color: transacao.categoria?.cor || '#6B7280'
-                        }}
-                      >
-                        <span 
-                          className="categoria-dot"
-                          style={{ backgroundColor: transacao.categoria?.cor || '#6B7280' }}
-                        ></span>
-                        {transacao.categoria?.nome}
-                      </span>
-                    </ToolTip>
-                  ) : (
-                    <span className="categoria-tag-subtle sem-categoria">
-                      <span className="categoria-dot sem-categoria"></span>
-                      Sem categoria
-                    </span>
-                  )}
-                </div>
-
-                {/* Conta */}
-                <div className="cell-conta">
-                  <div className="conta-container">
-                    {transacao.cartao?.nome ? (
-                      <ToolTip content={`Cartão: ${transacao.cartao.nome}${transacao.cartao.bandeira ? ` (${transacao.cartao.bandeira})` : ''}`}>
-                        <div className="conta-display">
-                          <CreditCard className="conta-icon cartao" />
-                          <span className="conta-texto">{transacao.cartao?.nome}</span>
-                        </div>
-                      </ToolTip>
-                    ) : (
-                      <ToolTip content={`Conta: ${transacao.conta?.nome || 'Conta'}`}>
-                        <div className="conta-display">
-                          <Wallet className="conta-icon conta" />
-                          <span className="conta-texto">{transacao.conta?.nome || 'Conta'}</span>
-                        </div>
-                      </ToolTip>
-                    )}
-                  </div>
-                </div>
-
-                {/* Valor */}
-                <div className="cell-valor">
-                  <div className="valor-container">
-                    <span className={`valor-display ${transacao.tipo}`}>
-                      {transacao.tipo === 'receita' ? '+' : '-'}
-                      {formatCurrency(transacao.valor)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Ações - Ícones diretos sem dropdown */}
-                <div className="cell-acoes">
-                  <div className="acoes-container">
-                    {/* Ação para efetivar (apenas para pendentes) */}
-                    {!transacao.efetivado && !transacao.isFaturaAgrupada && (
-                      <ToolTip content="Efetivar transação">
-                        <button
-                          onClick={() => handleMarkAsCompleted(transacao)}
-                          className="acao-btn efetivar"
-                        >
-                          <CheckCircle className="acao-icon" />
-                        </button>
-                      </ToolTip>
-                    )}
-                    
-                    {/* Ação para editar */}
-                    <ToolTip content={transacao.isFaturaAgrupada ? 'Não é possível editar fatura agrupada' : 'Editar transação'}>
-                      <button
-                        onClick={() => handleEditTransacao(transacao)}
-                        className={`acao-btn editar ${transacao.isFaturaAgrupada ? 'disabled' : ''}`}
-                        disabled={transacao.isFaturaAgrupada}
-                      >
-                        <Edit className="acao-icon" />
-                      </button>
-                    </ToolTip>
-
-                    {/* Ação para ver detalhes (apenas para faturas agrupadas) */}
-                    {transacao.isFaturaAgrupada && (
-                      <ToolTip content={`Ver ${transacao.transacoesAgrupadas?.length || 0} transações da fatura`}>
-                        <button
-                          onClick={() => {
-                            showNotification(`Fatura contém ${transacao.transacoesAgrupadas?.length || 0} transações`, 'info');
-                            console.log('Transações da fatura:', transacao.transacoesAgrupadas);
-                          }}
-                          className="acao-btn detalhes"
-                        >
-                          <Info className="acao-icon" />
-                        </button>
-                      </ToolTip>
-                    )}
-
-                    {/* Ação para duplicar */}
-                    {!transacao.isFaturaAgrupada && (
-                      <ToolTip content="Duplicar transação">
-                        <button
-                          onClick={() => {
-                            const transacaoCopia = { ...transacao };
-                            delete transacaoCopia.id;
-                            delete transacaoCopia.created_at;
-                            delete transacaoCopia.updated_at;
-                            transacaoCopia.descricao = `${transacaoCopia.descricao} (Cópia)`;
-                            setTransacaoEditando(transacaoCopia);
-                            
-                            if (transacao.tipo === 'receita') {
-                              handleOpenModal('receitas');
-                            } else if (transacao.tipo === 'despesa') {
-                              if (transacao.cartao_id) {
-                                handleOpenModal('despesasCartao');
-                              } else {
-                                handleOpenModal('despesas');
-                              }
-                            }
-                          }}
-                          className="acao-btn duplicar"
-                        >
-                          <Plus className="acao-icon" />
-                        </button>
-                      </ToolTip>
-                    )}
-                    
-                    {/* Ação para excluir */}
-                    <ToolTip content={transacao.isFaturaAgrupada ? 'Não é possível excluir fatura agrupada' : 'Excluir transação'}>
-                      <button
-                        onClick={() => handleDeleteTransacao(transacao)}
-                        className={`acao-btn excluir ${transacao.isFaturaAgrupada ? 'disabled' : ''}`}
-                        disabled={transacao.isFaturaAgrupada}
-                      >
-                        <Trash2 className="acao-icon" />
-                      </button>
-                    </ToolTip>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Paginação */}
-          {totalTransacoes > paginacao.itensPorPagina && (
-            <div className="pagination">
-              <div className="pagination-info">
-                <span className="pagination-text">
-                  Mostrando {((paginacao.pagina - 1) * paginacao.itensPorPagina) + 1} a {Math.min(paginacao.pagina * paginacao.itensPorPagina, totalTransacoes)} de {totalTransacoes} {agruparCartao ? 'itens' : 'transações'}
-                </span>
-              </div>
-              
-              <div className="pagination-controls">
-                <button
-                  onClick={() => handlePageChange(paginacao.pagina - 1)}
-                  disabled={paginacao.pagina <= 1 || loading}
-                  className="pagination-button"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  <span>Anterior</span>
-                </button>
-                
-                <div className="page-numbers">
-                  <span className="page-current">{paginacao.pagina}</span>
-                  <span className="page-separator">de</span>
-                  <span className="page-total">{paginacao.totalPaginas}</span>
-                </div>
-                
-                <button
-                  onClick={() => handlePageChange(paginacao.pagina + 1)}
-                  disabled={paginacao.pagina >= paginacao.totalPaginas || loading}
-                  className="pagination-button"
-                >
-                  <span>Próxima</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
-        </>
       )}
 
       {/* Modais */}
-      <ReceitasModal 
-        isOpen={modals.receitas} 
-        onClose={() => handleCloseModal('receitas')} 
-        onSave={handleSaveModal}
-        transacaoEditando={transacaoEditando}
-      />
-      
-      <DespesasModal 
-        isOpen={modals.despesas} 
-        onClose={() => handleCloseModal('despesas')} 
-        onSave={handleSaveModal}
-        transacaoEditando={transacaoEditando}
-      />
-      
-      <DespesasCartaoModal 
-        isOpen={modals.despesasCartao} 
-        onClose={() => handleCloseModal('despesasCartao')} 
-        onSave={handleSaveModal}
-        transacaoEditando={transacaoEditando}
-      />
-      
-      <TransferenciasModal 
-        isOpen={modals.transferencias} 
-        onClose={() => handleCloseModal('transferencias')} 
-        onSave={handleSaveModal}
-        transacaoEditando={transacaoEditando}
-      />
-    </div>
+      {showDespesasModal && (
+        <DespesasModal
+          isOpen={showDespesasModal}
+          onClose={() => {
+            setShowDespesasModal(false);
+            setTransacaoEditando(null);
+          }}
+          onSave={() => {
+            buscarTransacoes();
+          }}
+          transacaoEditando={transacaoEditando}
+        />
+      )}
+
+      {showReceitasModal && (
+        <ReceitasModal
+          isOpen={showReceitasModal}
+          onClose={() => {
+            setShowReceitasModal(false);
+            setTransacaoEditando(null);
+          }}
+          onSave={() => {
+            buscarTransacoes();
+          }}
+          transacaoEditando={transacaoEditando}
+        />
+      )}
+
+      {/* Modal de Pagamento de Fatura */}
+      <PagamentoFaturaModal />
+    </PageContainer>
   );
 };
 

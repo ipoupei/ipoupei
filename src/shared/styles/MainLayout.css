@@ -10,7 +10,7 @@
 
 /* ================== HEADER PRINCIPAL - SEMPRE MESMO TAMANHO ================== */
 .main-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #667eea 0%,  #764ba2 100%);
   color: white;
   padding: 1rem 0;
   position: sticky;
@@ -250,16 +250,16 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  padding: 1rem 1.25rem;
-  border: 1px solid #e5e7eb;
+  gap: 0.1rem;
+  padding: 1rem 1rem;
+  border: 1.5px solid #e5e7eb;
   border-radius: 16px;
   background: white;
   color: #374151;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  min-width: 90px;
-  font-size: 0.875rem;
+  min-width: 80px;
+  font-size: 0.800rem;
   font-weight: 600;
   position: relative;
   overflow: hidden;

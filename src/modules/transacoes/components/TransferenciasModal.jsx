@@ -1,4 +1,4 @@
-// src/components/TransferenciasModal.jsx - VERSÃO CORRIGIDA
+// src/modules/transacoes/components/TransferenciasModal.jsx - VERSÃO CSS PURO
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -8,25 +8,19 @@ import {
   X, 
   Building, 
   AlertTriangle,
-  Repeat
+  Repeat,
+  FileText
 } from 'lucide-react';
 
-import { useAuthStore } from '@modules/auth/store/authStore';;
+import { useAuthStore } from '@modules/auth/store/authStore';
 import { useUIStore } from '@store/uiStore';
-
-
-
-
-
-
 import { formatCurrency } from '@utils/formatCurrency';
-
-
 import { supabase } from '@lib/supabaseClient';
 import '@shared/styles/FormsModal.css';
+
 /**
- * Modal de Transferências - Versão Corrigida
- * Corrige problemas de formatação de moeda, layout e lógica
+ * Modal de Transferências - CSS Puro
+ * Seguindo o padrão dos outros modais
  */
 const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
   const { user } = useAuthStore();
@@ -68,45 +62,33 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
     }
   }, [user, showNotification]);
 
-  useEffect(() => {
-    if (isOpen && user) {
-      carregarContas();
-    }
-  }, [isOpen, user, carregarContas]);
-
-  // Formatação de valor ULTRA CORRIGIDA
+  // Formatação de valor
   const formatarValor = useCallback((valor) => {
-    // Remove tudo que não é dígito
     const apenasNumeros = valor.toString().replace(/\D/g, '');
-    
-    // Se não tem números, retorna vazio
     if (!apenasNumeros || apenasNumeros === '0') return '';
-    
-    // Converte para centavos e depois para reais
     const valorEmCentavos = parseInt(apenasNumeros, 10);
     const valorEmReais = valorEmCentavos / 100;
-    
-    // Formata com vírgula decimal brasileira
     return valorEmReais.toLocaleString('pt-BR', { 
       minimumFractionDigits: 2, 
       maximumFractionDigits: 2 
     });
   }, []);
 
-  // Valor numérico ULTRA CORRIGIDO
+  // Valor numérico
   const valorNumerico = useMemo(() => {
     if (!formData.valor) return 0;
-    
-    // Remove formatação brasileira e converte para número decimal
     const valorString = formData.valor.toString();
-    
-    // Remove pontos de milhares e substitui vírgula por ponto
-    const valorLimpo = valorString
-      .replace(/\./g, '') // Remove pontos (separadores de milhares)
-      .replace(',', '.'); // Substitui vírgula por ponto decimal
-      
-    const numero = parseFloat(valorLimpo);
-    return isNaN(numero) ? 0 : Math.round(numero * 100) / 100; // Arredonda para 2 casas decimais
+    if (valorString.includes(',')) {
+      const partes = valorString.split(',');
+      const inteira = partes[0].replace(/\./g, '');
+      const decimal = partes[1] || '00';
+      const valorFinal = parseFloat(`${inteira}.${decimal}`);
+      return isNaN(valorFinal) ? 0 : valorFinal;
+    } else {
+      const apenasNumeros = valorString.replace(/\./g, '');
+      const valorFinal = parseFloat(apenasNumeros) / 100;
+      return isNaN(valorFinal) ? 0 : valorFinal;
+    }
   }, [formData.valor]);
 
   // Dados das contas
@@ -120,7 +102,7 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
     [contas, formData.contaDestinoId]
   );
 
-  // Cálculo do aviso de saldo negativo corrigido
+  // Cálculo do aviso de saldo negativo
   const avisoSaldoNegativo = useMemo(() => {
     if (contaOrigem && valorNumerico > 0) {
       const novoSaldo = Number(contaOrigem.saldo) - valorNumerico;
@@ -135,12 +117,32 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
     setErrors({});
   }, []);
 
+  // Effects
+  useEffect(() => {
+    if (isOpen && user) {
+      carregarContas();
+    }
+  }, [isOpen, user, carregarContas]);
+
   useEffect(() => {
     if (isOpen) {
       resetForm();
       setTimeout(() => valorInputRef.current?.focus(), 150);
     }
   }, [isOpen, resetForm]);
+
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen, onClose]);
 
   // Handlers
   const handleInputChange = useCallback((e) => {
@@ -170,11 +172,12 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
     if (!formData.contaDestinoId) newErrors.contaDestinoId = "Selecione a conta de destino";
     if (formData.contaOrigemId === formData.contaDestinoId) newErrors.contaDestinoId = "Deve ser diferente da origem";
     if (!valorNumerico || valorNumerico <= 0) newErrors.valor = "Valor deve ser maior que zero";
+    if (formData.descricao && formData.descricao.length > 100) newErrors.descricao = "Máximo de 100 caracteres";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }, [formData, valorNumerico]);
 
-  // Executar transferência ULTRA CORRIGIDA
+  // Executar transferência
   const executarTransferencia = useCallback(async () => {
     if (!validateForm()) {
       showNotification('Corrija os erros no formulário', 'error');
@@ -183,12 +186,6 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
 
     try {
       setSubmitting(true);
-      
-      console.log('=== DEBUG TRANSFERÊNCIA ===');
-      console.log('Valor original:', formData.valor);
-      console.log('Valor numérico calculado:', valorNumerico);
-      console.log('Conta origem ID:', formData.contaOrigemId);
-      console.log('Conta destino ID:', formData.contaDestinoId);
       
       // Verificar se as contas ainda existem
       const { data: contasAtualizadas, error: contasError } = await supabase
@@ -199,7 +196,6 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
         .eq('ativo', true);
 
       if (contasError) {
-        console.error('Erro ao buscar contas:', contasError);
         throw new Error('Erro ao acessar dados das contas');
       }
 
@@ -213,24 +209,16 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
       if (!contaOrigemAtualizada || !contaDestinoAtualizada) {
         throw new Error('Erro ao identificar as contas');
       }
-
-      console.log('Conta origem:', contaOrigemAtualizada.nome, 'Saldo atual:', contaOrigemAtualizada.saldo);
-      console.log('Conta destino:', contaDestinoAtualizada.nome, 'Saldo atual:', contaDestinoAtualizada.saldo);
       
-      const grupoTransferencia = crypto.randomUUID();
       const dataAtual = new Date().toISOString().split('T')[0];
       const timestamp = new Date().toISOString();
-      
-      // Garantir que o valor é um número válido
-      const valorFinal = Math.round(valorNumerico * 100) / 100; // Arredonda para 2 casas decimais
+      const valorFinal = Math.round(valorNumerico * 100) / 100;
       
       if (valorFinal <= 0) {
         throw new Error('Valor da transferência deve ser maior que zero');
       }
       
-      console.log('Valor final da transferência:', valorFinal);
-      
-      // Criar transações SEM grupo_transferencia (que não existe na tabela)
+      // Criar identificador único para a transferência
       const identificadorTransferencia = `TRANS_${timestamp.replace(/[-:.T]/g, '')}_${Math.random().toString(36).substr(2, 5)}`;
       
       const transacoes = [
@@ -262,8 +250,6 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
         }
       ];
       
-      console.log('Transações a serem inseridas:', transacoes);
-      
       // Inserir transações
       const { data: transacoesInseridas, error: transacoesError } = await supabase
         .from('transacoes')
@@ -271,67 +257,41 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
         .select();
       
       if (transacoesError) {
-        console.error('Erro ao inserir transações:', transacoesError);
         throw new Error('Erro ao registrar transações: ' + transacoesError.message);
       }
       
-      console.log('Transações inseridas com sucesso:', transacoesInseridas);
-      
-      // Calcular novos saldos com MÁXIMA PRECISÃO
+      // Calcular novos saldos
       const saldoOrigemAtual = parseFloat(contaOrigemAtualizada.saldo);
       const saldoDestinoAtual = parseFloat(contaDestinoAtualizada.saldo);
-      
-      console.log('Saldos atuais EXATOS:');
-      console.log('- Origem:', saldoOrigemAtual, typeof saldoOrigemAtual);
-      console.log('- Destino:', saldoDestinoAtual, typeof saldoDestinoAtual);
-      console.log('- Valor transferência:', valorFinal, typeof valorFinal);
-      
-      // Calcula com precisão máxima
       const novoSaldoOrigem = Number((saldoOrigemAtual - valorFinal).toFixed(2));
       const novoSaldoDestino = Number((saldoDestinoAtual + valorFinal).toFixed(2));
       
-      console.log('Novos saldos calculados:');
-      console.log('- Origem:', saldoOrigemAtual, '-', valorFinal, '=', novoSaldoOrigem);
-      console.log('- Destino:', saldoDestinoAtual, '+', valorFinal, '=', novoSaldoDestino);
-      
-      // Atualizar saldos das contas INDIVIDUALMENTE para garantir sucesso
-      console.log('Atualizando conta origem...');
-      const { data: contaOrigemAtualizada2, error: origemError } = await supabase
+      // Atualizar saldos das contas
+      const { error: origemError } = await supabase
         .from('contas')
         .update({ 
           saldo: novoSaldoOrigem,
           updated_at: timestamp
         })
         .eq('id', formData.contaOrigemId)
-        .eq('usuario_id', user.id)
-        .select();
+        .eq('usuario_id', user.id);
       
       if (origemError) {
-        console.error('Erro ao atualizar conta origem:', origemError);
         throw new Error('Erro ao atualizar saldo da conta de origem: ' + origemError.message);
       }
       
-      console.log('Conta origem atualizada:', contaOrigemAtualizada2);
-      
-      console.log('Atualizando conta destino...');
-      const { data: contaDestinoAtualizada2, error: destinoError } = await supabase
+      const { error: destinoError } = await supabase
         .from('contas')
         .update({ 
           saldo: novoSaldoDestino,
           updated_at: timestamp
         })
         .eq('id', formData.contaDestinoId)
-        .eq('usuario_id', user.id)
-        .select();
+        .eq('usuario_id', user.id);
       
       if (destinoError) {
-        console.error('Erro ao atualizar conta destino:', destinoError);
         throw new Error('Erro ao atualizar saldo da conta de destino: ' + destinoError.message);
       }
-      
-      console.log('Conta destino atualizada:', contaDestinoAtualizada2);
-      
-      console.log('Saldos atualizados com sucesso!');
       
       const avisoSaldo = novoSaldoOrigem < 0;
       
@@ -348,14 +308,8 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
       setTimeout(() => onClose(), 1500);
       
     } catch (error) {
-      console.error('=== ERRO NA TRANSFERÊNCIA ===');
-      console.error('Detalhes do erro:', error);
-      console.error('Stack trace:', error.stack);
-      
-      showNotification(
-        `Erro ao realizar transferência: ${error.message}`, 
-        'error'
-      );
+      console.error('Erro na transferência:', error);
+      showNotification(`Erro ao realizar transferência: ${error.message}`, 'error');
     } finally {
       setSubmitting(false);
     }
@@ -364,73 +318,52 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="receitas-modal-overlay">
-      <div className="receitas-modal-container">
+    <div className="modal-overlay active">
+      <div className="forms-modal-container">
         {/* Header */}
-        <div className="receitas-modal-header" style={{ 
-          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.02) 100%)',
-          borderBottom: '1px solid rgba(16, 185, 129, 0.1)' 
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              width: '36px',
-              height: '36px',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-              color: 'white'
-            }}>
+        <div className="modal-header">
+          <div className="modal-header-content">
+            <div className="modal-icon-container modal-icon-primary">
               <ArrowLeftRight size={18} />
             </div>
             <div>
-              <h2 className="receitas-modal-title" style={{ margin: 0, fontSize: '1.1rem' }}>
-                Transferir entre Contas
-              </h2>
-              <p style={{ margin: 0, fontSize: '0.8rem', color: '#6b7280' }}>
-                {contas.length} conta{contas.length !== 1 ? 's' : ''} disponível{contas.length !== 1 ? 'is' : ''}
+              <h2 className="modal-title">Transferir entre Contas</h2>
+              <p className="modal-subtitle">
+                {contas.length} {contas.length === 1 ? 'conta disponível' : 'contas disponíveis'}
               </p>
             </div>
           </div>
-          <button className="receitas-modal-close" onClick={onClose}>
+          <button className="modal-close" onClick={onClose}>
             <X size={18} />
           </button>
         </div>
         
-        {/* Content */}
-        <div className="receitas-modal-content">
+        {/* Body */}
+        <div className="modal-body">
           {loading ? (
-            <div className="receitas-loading">
-              <div className="receitas-loading-spinner" style={{ borderTopColor: '#10b981' }}></div>
-              <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>
-                Carregando contas...
-              </p>
+            <div className="loading-container">
+              <div className="loading-spinner"></div>
+              <p className="loading-text">Carregando contas...</p>
             </div>
           ) : contas.length < 2 ? (
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '40px 20px',
-              textAlign: 'center',
-              color: '#6b7280'
-            }}>
-              <Building size={48} strokeWidth={1} style={{ color: '#d1d5db', marginBottom: '16px' }} />
-              <p style={{ margin: '0 0 20px 0', fontSize: '1rem' }}>
-                Precisa de pelo menos 2 contas para transferir
+            <div className="empty-state">
+              <Building size={48} className="empty-state-icon" />
+              <h3 className="empty-state-title">Precisa de pelo menos 2 contas</h3>
+              <p className="empty-state-description">
+                Para fazer transferências você precisa ter pelo menos 2 contas ativas.
               </p>
-              <button onClick={onClose} className="receitas-btn receitas-btn-primary" style={{ background: '#10b981' }}>
-                Fechar
+              <button onClick={onClose} className="btn-primary">
+                Entendi
               </button>
             </div>
           ) : (
-            <form onSubmit={(e) => { e.preventDefault(); executarTransferencia(); }} className="receitas-form">
+            <form onSubmit={(e) => { e.preventDefault(); executarTransferencia(); }}>
+              
+              <h3 className="section-title">Informações da Transferência</h3>
               
               {/* Valor */}
-              <div className="receitas-form-group receitas-form-full">
-                <label className="receitas-form-label">
+              <div className="flex flex-col mb-3">
+                <label className="form-label">
                   <DollarSign size={14} />
                   Valor da Transferência *
                 </label>
@@ -441,183 +374,176 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
                   onChange={handleValorChange}
                   placeholder="0,00"
                   disabled={submitting}
-                  className={`receitas-form-input receitas-valor-input ${errors.valor ? 'error' : ''}`}
-                  style={{ 
-                    fontSize: '1.1rem',
-                    fontWeight: '700',
-                    color: '#10b981',
-                    textAlign: 'center'
-                  }}
+                  className={`input-money input-money-highlight ${errors.valor ? 'error' : ''}`}
                 />
-                {errors.valor && <div className="receitas-form-error">{errors.valor}</div>}
+                {errors.valor && <div className="form-error">{errors.valor}</div>}
               </div>
 
-              {/* Contas - Tamanhos iguais */}
-              <div className="receitas-form-row">
-                <div className="receitas-form-group" style={{ flex: 1 }}>
-                  <label className="receitas-form-label">
+              {/* Contas */}
+              <div className="flex gap-3 row mb-3">
+                <div>
+                  <label className="form-label">
                     <Building size={14} />
-                    De *
+                    De (Origem) *
                   </label>
-                  <select
-                    name="contaOrigemId"
-                    value={formData.contaOrigemId}
-                    onChange={handleInputChange}
-                    disabled={submitting}
-                    className={`receitas-form-input ${errors.contaOrigemId ? 'error' : ''}`}
-                  >
-                    <option value="">Selecione origem</option>
-                    {contas.map(conta => (
-                      <option key={conta.id} value={conta.id}>
-                        {conta.nome} - {formatCurrency(conta.saldo)}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.contaOrigemId && <div className="receitas-form-error">{errors.contaOrigemId}</div>}
+                  <div className="select-search">
+                    <select
+                      name="contaOrigemId"
+                      value={formData.contaOrigemId}
+                      onChange={handleInputChange}
+                      disabled={submitting}
+                      className={errors.contaOrigemId ? 'error' : ''}
+                    >
+                      <option value="">Selecione origem</option>
+                      {contas.map(conta => (
+                        <option key={conta.id} value={conta.id}>
+                          {conta.nome} - {formatCurrency(conta.saldo)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {errors.contaOrigemId && <div className="form-error">{errors.contaOrigemId}</div>}
                 </div>
                 
-                <div className="receitas-form-group" style={{ flex: 1 }}>
-                  <label className="receitas-form-label">
+                <div>
+                  <label className="form-label">
                     <Building size={14} />
-                    Para *
+                    Para (Destino) *
                   </label>
-                  <select
-                    name="contaDestinoId"
-                    value={formData.contaDestinoId}
-                    onChange={handleInputChange}
-                    disabled={submitting}
-                    className={`receitas-form-input ${errors.contaDestinoId ? 'error' : ''}`}
-                  >
-                    <option value="">Selecione destino</option>
-                    {contas.filter(c => c.id !== formData.contaOrigemId).map(conta => (
-                      <option key={conta.id} value={conta.id}>
-                        {conta.nome} - {formatCurrency(conta.saldo)}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.contaDestinoId && <div className="receitas-form-error">{errors.contaDestinoId}</div>}
+                  <div className="select-search">
+                    <select
+                      name="contaDestinoId"
+                      value={formData.contaDestinoId}
+                      onChange={handleInputChange}
+                      disabled={submitting}
+                      className={errors.contaDestinoId ? 'error' : ''}
+                    >
+                      <option value="">Selecione destino</option>
+                      {contas.filter(c => c.id !== formData.contaOrigemId).map(conta => (
+                        <option key={conta.id} value={conta.id}>
+                          {conta.nome} - {formatCurrency(conta.saldo)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {errors.contaDestinoId && <div className="form-error">{errors.contaDestinoId}</div>}
                 </div>
               </div>
 
               {/* Botão Inverter */}
               {formData.contaOrigemId && formData.contaDestinoId && (
-                <div style={{ display: 'flex', justifyContent: 'center', margin: '8px 0' }}>
-                  <button
-                    type="button"
-                    onClick={inverterContas}
-                    disabled={submitting}
-                    className="receitas-btn receitas-btn-secondary"
-                    style={{ padding: '6px 12px', fontSize: '0.8rem' }}
-                  >
-                    <Repeat size={14} />
-                    Inverter
-                  </button>
+                <div className="flex flex-col mb-3">
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={inverterContas}
+                      disabled={submitting}
+                      className="btn-secondary"
+                    >
+                      <Repeat size={14} />
+                      Inverter Contas
+                    </button>
+                  </div>
                 </div>
               )}
 
               {/* Aviso saldo negativo */}
               {avisoSaldoNegativo && (
-                <div style={{
-                  background: '#fff7ed',
-                  border: '1px solid #fb923c',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  fontSize: '0.875rem',
-                  color: '#9a3412'
-                }}>
-                  <AlertTriangle size={18} color="#ea580c" />
-                  <div>
-                    <strong>{avisoSaldoNegativo.conta}</strong> ficará com{' '}
-                    <strong style={{ color: '#dc2626' }}>{formatCurrency(avisoSaldoNegativo.novoSaldo)}</strong>
+                <div className="summary-panel warning mb-3">
+                  <div className="summary-header">
+                    <AlertTriangle size={16} />
+                    <strong>Atenção: Saldo Negativo</strong>
                   </div>
+                  <p className="summary-value">
+                    <strong>{avisoSaldoNegativo.conta}</strong> ficará com{' '}
+                    <strong>{formatCurrency(avisoSaldoNegativo.novoSaldo)}</strong>
+                  </p>
                 </div>
               )}
 
-              {/* Preview com nomes das contas */}
+              {/* Preview da transferência */}
               {formData.contaOrigemId && formData.contaDestinoId && valorNumerico > 0 && contaOrigem && contaDestino && (
-                <div style={{
-                  background: avisoSaldoNegativo ? '#fef3c7' : '#f0f9ff',
-                  border: `1px solid ${avisoSaldoNegativo ? '#f59e0b' : '#10b981'}`,
-                  borderRadius: '8px',
-                  padding: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '8px',
-                  fontSize: '0.875rem',
-                  color: avisoSaldoNegativo ? '#92400e' : '#065f46',
-                  fontWeight: '500'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
-                    <span>{avisoSaldoNegativo ? '⚠️' : '💸'}</span>
-                    <span style={{ fontSize: '0.75rem' }}>{contaOrigem.nome}</span>
+                <div className={`summary-panel ${avisoSaldoNegativo ? 'warning' : 'success'} mb-3`}>
+                  <div className="summary-header">
+                    <ArrowLeftRight size={16} />
+                    <strong>Preview da Transferência</strong>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontWeight: '600' }}>{formatCurrency(valorNumerico)}</span>
-                    <ArrowRight size={16} />
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, justifyContent: 'flex-end' }}>
-                    <span style={{ fontSize: '0.75rem' }}>{contaDestino.nome}</span>
-                    <span>{avisoSaldoNegativo ? '⚠️' : '💰'}</span>
+                  <div className="transfer-preview">
+                    <div className="transfer-from">
+                      <span className="transfer-account">{contaOrigem.nome}</span>
+                      <span className="transfer-amount">-{formatCurrency(valorNumerico)}</span>
+                    </div>
+                    <div className="transfer-arrow">
+                      <ArrowRight size={16} />
+                    </div>
+                    <div className="transfer-to">
+                      <span className="transfer-account">{contaDestino.nome}</span>
+                      <span className="transfer-amount">+{formatCurrency(valorNumerico)}</span>
+                    </div>
                   </div>
                 </div>
               )}
 
               {/* Descrição opcional */}
-              <div className="receitas-form-group receitas-form-full">
-                <label className="receitas-form-label">
-                  Descrição (opcional)
+              <div className="flex flex-col mb-3">
+                <label className="form-label">
+                  <FileText size={14} />
+                  Descrição <span className="form-label-small">(opcional, máx. 100)</span>
                 </label>
                 <input
                   type="text"
                   name="descricao"
                   value={formData.descricao}
                   onChange={handleInputChange}
-                  placeholder="Ex: Pagamento de conta"
+                  placeholder="Ex: Pagamento de conta, reserva de emergência"
                   disabled={submitting}
                   maxLength="100"
-                  className="receitas-form-input"
+                  className={`input-text ${errors.descricao ? 'error' : ''}`}
                 />
+                <div className="char-counter">
+                  <span></span>
+                  <span className={formData.descricao.length > 80 ? 'char-counter-warning' : ''}>
+                    {formData.descricao.length}/100
+                  </span>
+                </div>
+                {errors.descricao && <div className="form-error">{errors.descricao}</div>}
               </div>
 
-              {/* Ações */}
-              <div className="receitas-form-actions">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  disabled={submitting}
-                  className="receitas-btn receitas-btn-secondary"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting || !formData.contaOrigemId || !formData.contaDestinoId || !valorNumerico}
-                  className="receitas-btn receitas-btn-primary"
-                  style={{ 
-                    flex: 1,
-                    background: avisoSaldoNegativo ? '#f59e0b' : '#10b981'
-                  }}
-                >
-                  {submitting ? (
-                    <>
-                      <div className="receitas-btn-spinner"></div>
-                      Transferindo...
-                    </>
-                  ) : (
-                    <>
-                      <ArrowLeftRight size={14} />
-                      {avisoSaldoNegativo ? 'Transferir mesmo assim' : 'Transferir'}
-                    </>
-                  )}
-                </button>
-              </div>
             </form>
           )}
         </div>
+
+        {/* Footer */}
+        {contas.length >= 2 && (
+          <div className="modal-footer">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="btn-cancel"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              onClick={(e) => { e.preventDefault(); executarTransferencia(); }}
+              disabled={submitting || !formData.contaOrigemId || !formData.contaDestinoId || !valorNumerico}
+              className={`btn-primary ${avisoSaldoNegativo ? 'btn-warning' : ''}`}
+            >
+              {submitting ? (
+                <>
+                  <span className="btn-spinner"></span>
+                  Transferindo...
+                </>
+              ) : (
+                <>
+                  <ArrowLeftRight size={14} />
+                  {avisoSaldoNegativo ? 'Transferir Mesmo Assim' : 'Realizar Transferência'}
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

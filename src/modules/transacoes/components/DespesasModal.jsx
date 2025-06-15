@@ -1,4 +1,4 @@
-// src/modules/transacoes/components/DespesasModal.jsx - VERSÃO COMPLETA
+// src/modules/transacoes/components/DespesasModal.jsx - VERSÃO CSS PURO
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -51,8 +51,8 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   // Estados para dropdowns
   const [categoriaDropdownOpen, setCategoriaDropdownOpen] = useState(false);
   const [subcategoriaDropdownOpen, setSubcategoriaDropdownOpen] = useState(false);
-  const [categoriaSelectedIndex, setCategoriaSelectedIndex] = useState(-1);
-  const [subcategoriaSelectedIndex, setSubcategoriaSelectedIndex] = useState(-1);
+  const [categoriasFiltradas, setCategoriasFiltradas] = useState([]);
+  const [subcategoriasFiltradas, setSubcategoriasFiltradas] = useState([]);
 
   // Estado para confirmação
   const [confirmacao, setConfirmacao] = useState({
@@ -180,18 +180,24 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     [subcategorias, formData.categoria]
   );
 
-  const categoriasFiltradas = useMemo(() => {
-    if (!categorias.length) return [];
-    return formData.categoriaTexto 
+  // Effects para filtros de categoria (igual ao DespesasCartaoModal)
+  useEffect(() => {
+    if (!categorias.length) return;
+    const filtradas = formData.categoriaTexto 
       ? categorias.filter(cat => cat.nome.toLowerCase().includes(formData.categoriaTexto.toLowerCase()))
       : categorias;
+    setCategoriasFiltradas(filtradas);
   }, [formData.categoriaTexto, categorias]);
 
-  const subcategoriasFiltradas = useMemo(() => {
-    if (!subcategoriasDaCategoria.length) return [];
-    return formData.subcategoriaTexto 
+  useEffect(() => {
+    if (!subcategoriasDaCategoria.length) {
+      setSubcategoriasFiltradas([]);
+      return;
+    }
+    const filtradas = formData.subcategoriaTexto 
       ? subcategoriasDaCategoria.filter(sub => sub.nome.toLowerCase().includes(formData.subcategoriaTexto.toLowerCase()))
       : subcategoriasDaCategoria;
+    setSubcategoriasFiltradas(filtradas);
   }, [formData.subcategoriaTexto, subcategoriasDaCategoria]);
 
   // ===== CÁLCULOS PARA PREVIEW =====
@@ -337,7 +343,7 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     });
   }, []);
 
-  // ===== HANDLERS DE CATEGORIA =====
+  // ===== HANDLERS DE CATEGORIA (igual ao DespesasCartaoModal) =====
   const handleCategoriaChange = useCallback((e) => {
     const { value } = e.target;
     setFormData(prev => ({
@@ -348,7 +354,6 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       subcategoriaTexto: ''
     }));
     setCategoriaDropdownOpen(true);
-    setCategoriaSelectedIndex(-1);
     if (errors.categoria) {
       setErrors(prev => ({ ...prev, categoria: null }));
     }
@@ -363,15 +368,11 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       subcategoriaTexto: ''
     }));
     setCategoriaDropdownOpen(false);
-    setCategoriaSelectedIndex(-1);
   }, []);
 
   const handleCategoriaBlur = useCallback(() => {
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       setCategoriaDropdownOpen(false);
-      setCategoriaSelectedIndex(-1);
-      
-      // Verificar se precisa criar categoria
       if (formData.categoriaTexto && !formData.categoria) {
         const existe = categorias.find(cat => 
           cat.nome.toLowerCase() === formData.categoriaTexto.toLowerCase()
@@ -386,39 +387,10 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
         }
       }
     }, 200);
+    return () => clearTimeout(timer);
   }, [formData.categoriaTexto, formData.categoria, categorias]);
 
-  const handleCategoriaKeyDown = useCallback((e) => {
-    if (!categoriaDropdownOpen || categoriasFiltradas.length === 0) return;
-    
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setCategoriaSelectedIndex(prev => 
-          prev < categoriasFiltradas.length - 1 ? prev + 1 : 0
-        );
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setCategoriaSelectedIndex(prev => 
-          prev > 0 ? prev - 1 : categoriasFiltradas.length - 1
-        );
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (categoriaSelectedIndex >= 0 && categoriaSelectedIndex < categoriasFiltradas.length) {
-          handleSelecionarCategoria(categoriasFiltradas[categoriaSelectedIndex]);
-        }
-        break;
-      case 'Escape':
-        e.preventDefault();
-        setCategoriaDropdownOpen(false);
-        setCategoriaSelectedIndex(-1);
-        break;
-    }
-  }, [categoriaDropdownOpen, categoriasFiltradas, categoriaSelectedIndex, handleSelecionarCategoria]);
-
-  // ===== HANDLERS DE SUBCATEGORIA =====
+  // ===== HANDLERS DE SUBCATEGORIA (igual ao DespesasCartaoModal) =====
   const handleSubcategoriaChange = useCallback((e) => {
     const { value } = e.target;
     setFormData(prev => ({ 
@@ -428,7 +400,6 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     }));
     if (categoriaSelecionada) {
       setSubcategoriaDropdownOpen(true);
-      setSubcategoriaSelectedIndex(-1);
     }
   }, [categoriaSelecionada]);
 
@@ -439,15 +410,11 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       subcategoriaTexto: subcategoria.nome
     }));
     setSubcategoriaDropdownOpen(false);
-    setSubcategoriaSelectedIndex(-1);
   }, []);
 
   const handleSubcategoriaBlur = useCallback(() => {
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       setSubcategoriaDropdownOpen(false);
-      setSubcategoriaSelectedIndex(-1);
-      
-      // Verificar se precisa criar subcategoria
       if (formData.subcategoriaTexto && !formData.subcategoria && categoriaSelecionada) {
         const existe = subcategoriasDaCategoria.find(sub => 
           sub.nome.toLowerCase() === formData.subcategoriaTexto.toLowerCase()
@@ -462,37 +429,8 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
         }
       }
     }, 200);
+    return () => clearTimeout(timer);
   }, [formData.subcategoriaTexto, formData.subcategoria, formData.categoria, categoriaSelecionada, subcategoriasDaCategoria]);
-
-  const handleSubcategoriaKeyDown = useCallback((e) => {
-    if (!subcategoriaDropdownOpen || subcategoriasFiltradas.length === 0) return;
-    
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setSubcategoriaSelectedIndex(prev => 
-          prev < subcategoriasFiltradas.length - 1 ? prev + 1 : 0
-        );
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setSubcategoriaSelectedIndex(prev => 
-          prev > 0 ? prev - 1 : subcategoriasFiltradas.length - 1
-        );
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (subcategoriaSelectedIndex >= 0 && subcategoriaSelectedIndex < subcategoriasFiltradas.length) {
-          handleSelecionarSubcategoria(subcategoriasFiltradas[subcategoriaSelectedIndex]);
-        }
-        break;
-      case 'Escape':
-        e.preventDefault();
-        setSubcategoriaDropdownOpen(false);
-        setSubcategoriaSelectedIndex(-1);
-        break;
-    }
-  }, [subcategoriaDropdownOpen, subcategoriasFiltradas, subcategoriaSelectedIndex, handleSelecionarSubcategoria]);
 
   // ===== CRIAR CATEGORIA/SUBCATEGORIA =====
   const handleConfirmarCriacao = useCallback(async () => {
@@ -607,8 +545,6 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     setTipoDespesa('extra');
     setCategoriaDropdownOpen(false);
     setSubcategoriaDropdownOpen(false);
-    setCategoriaSelectedIndex(-1);
-    setSubcategoriaSelectedIndex(-1);
     setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
   }, []);
 
@@ -892,43 +828,43 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
 
   if (!isOpen) return null;
 
-  const corAtual = tiposDespesa.find(t => t.id === tipoDespesa)?.cor || '#EF4444';
-
   return (
-    <div className="modal-overlay">
-      <div className="modal-container despesas-layout">
+    <div className="modal-overlay active">
+      <div className="forms-modal-container">
         {/* Header */}
-        <div className="modal-header simple">
-          <h2 className="modal-title">
-            <div className="form-icon-wrapper" style={{ background: corAtual }}>
+        <div className="modal-header">
+          <div className="modal-header-content">
+            <div className="modal-icon-container modal-icon-danger">
               {isEditMode ? <Edit size={18} /> : <TrendingDown size={18} />}
             </div>
             <div>
-              <div className="form-title-main">
+              <h2 className="modal-title">
                 {isEditMode ? 'Editar Despesa' : 'Nova Despesa'}
-              </div>
-              <div className="form-title-subtitle">
+              </h2>
+              <p className="modal-subtitle">
                 {isEditMode ? 'Atualize os dados da despesa' : 'Registre um novo gasto'}
-              </div>
+              </p>
             </div>
-          </h2>
+          </div>
           <button className="modal-close" onClick={onClose}>
             <X size={18} />
           </button>
         </div>
 
-        <div className="modal-content">
+        <div className="modal-body">
           {loading ? (
-            <div className="form-loading">
-              <div className="form-loading-spinner"></div>
-              <p>Carregando dados...</p>
+            <div className="loading-container">
+              <div className="loading-spinner"></div>
+              <p className="loading-text">Carregando dados...</p>
             </div>
           ) : (
-            <form onSubmit={(e) => handleSubmit(e, false)} className="form despesas-form">
+            <form onSubmit={(e) => handleSubmit(e, false)}>
+              
+              <h3 className="section-title">Informações da Despesa</h3>
               
               {/* VALOR E DATA */}
-              <div className="form-row primeira-linha">
-                <div className="form-field valor-field">
+              <div className="flex gap-3 row mb-3">
+                <div>
                   <label className="form-label">
                     <DollarSign size={14} />
                     {tipoDespesa === 'parcelada' ? 'Valor por Parcela' : 'Valor'} *
@@ -940,12 +876,12 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                     onChange={handleValorChange}
                     placeholder="0,00"
                     disabled={submitting}
-                    className={`form-input valor-input despesa-valor ${errors.valor ? 'error' : ''}`}
+                    className={`input-money input-money-highlight ${errors.valor ? 'error' : ''}`}
                   />
                   {errors.valor && <div className="form-error">{errors.valor}</div>}
                 </div>
                 
-                <div className="form-field data-field">
+                <div>
                   <label className="form-label">
                     <Calendar size={14} />
                     {tipoDespesa === 'previsivel' ? 'Data Início' : 
@@ -957,167 +893,163 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                     value={formData.data}
                     onChange={handleInputChange}
                     disabled={submitting}
-                    className={`form-input data-input ${errors.data ? 'error' : ''}`}
+                    className={`input-date ${errors.data ? 'error' : ''}`}
                   />
                   {errors.data && <div className="form-error">{errors.data}</div>}
                 </div>
               </div>
 
-              {/* ESCOLHA DO TIPO */}
+              {/* ESCOLHA DO TIPO - Só mostra se não está editando */}
               {!isEditMode && (
-                <div className="form-section tipo-section">
-                  <div className="section-header">
-                    <span className="section-subtitle">Escolha o tipo e preencha os dados</span>
-                  </div>
-                  
-                  <div className="tipos-buttons despesa-tipos">
+                <div className="flex flex-col mb-3">
+                  <h3 className="section-title">Tipo de Despesa</h3>
+                  <div className="type-selector mb-2">
                     {tiposDespesa.map((tipo) => (
-                      <div key={tipo.id} className="tipo-wrapper">
-                        <button
-                          type="button"
-                          className={`tipo-button ${tipoDespesa === tipo.id ? 'active' : ''}`}
-                          onClick={() => handleTipoChange(tipo.id)}
-                          disabled={submitting}
-                          style={{ '--cor-tipo': tipo.cor }}
-                          title={tipo.tooltip}
-                        >
-                          <div className="tipo-icon">{tipo.icone}</div>
-                          <div className="tipo-content">
-                            <div className="tipo-nome">{tipo.nome}</div>
-                            <div className="tipo-desc">{tipo.descricao}</div>
+                      <button
+                        key={tipo.id}
+                        type="button"
+                        className={`type-option ${tipoDespesa === tipo.id ? 'active' : ''}`}
+                        onClick={() => handleTipoChange(tipo.id)}
+                        disabled={submitting}
+                        title={tipo.tooltip}
+                      >
+                        <div className="type-option-content">
+                          <div className="type-option-icon">{tipo.icone}</div>
+                          <div className="type-option-text">
+                            <div className="type-option-name">{tipo.nome}</div>
+                            <div className="type-option-desc">{tipo.descricao}</div>
                           </div>
-                        </button>
-                        <div className="tipo-tooltip">
-                          <HelpCircle size={12} />
-                          <div className="tooltip-content">{tipo.tooltip}</div>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
               )}
 
               {/* STATUS */}
-              <div className="form-section status-section">
-                <label className="form-label status-label">
+              <div className="flex flex-col mb-3">
+                <label className="form-label">
                   <CheckCircle size={14} />
                   Status da {tipoDespesa === 'extra' ? 'Despesa' : 'Primeira'}
                 </label>
-                <div className="status-options">
-                  <label className={`status-option ${formData.efetivado ? 'selected' : ''}`}>
-                    <input
-                      type="radio"
-                      checked={formData.efetivado === true}
-                      onChange={() => setFormData(prev => ({ ...prev, efetivado: true }))}
-                      disabled={submitting}
-                    />
+                <div className="status-selector">
+                  <button
+                    type="button"
+                    className={`status-option ${formData.efetivado ? 'active' : ''}`}
+                    onClick={() => setFormData(prev => ({ ...prev, efetivado: true }))}
+                    disabled={submitting}
+                  >
                     <CheckCircle size={16} />
-                    <div className="status-content">
-                      <div className="status-title">Primeira já paga</div>
-                      <div className="status-subtitle">Dinheiro saiu da conta</div>
+                    <div>
+                      <div>Primeira já paga</div>
+                      <small>Dinheiro saiu da conta</small>
                     </div>
-                  </label>
-                  <label className={`status-option ${!formData.efetivado ? 'selected' : ''}`}>
-                    <input
-                      type="radio"
-                      checked={formData.efetivado === false}
-                      onChange={() => setFormData(prev => ({ ...prev, efetivado: false }))}
-                      disabled={submitting}
-                    />
+                  </button>
+                  <button
+                    type="button"
+                    className={`status-option ${!formData.efetivado ? 'active' : ''}`}
+                    onClick={() => setFormData(prev => ({ ...prev, efetivado: false }))}
+                    disabled={submitting}
+                  >
                     <Clock size={16} />
-                    <div className="status-content">
-                      <div className="status-title">Todas planejadas</div>
-                      <div className="status-subtitle">A pagar</div>
+                    <div>
+                      <div>Todas planejadas</div>
+                      <small>A pagar</small>
                     </div>
-                  </label>
+                  </button>
                 </div>
               </div>
 
               {/* CAMPOS ESPECÍFICOS POR TIPO */}
               {tipoDespesa === 'previsivel' && !isEditMode && (
-                <div className="form-row tipo-fields">
-                  <div className="form-field">
+                <div className="flex gap-3 row mb-3">
+                  <div>
                     <label className="form-label">
                       <Repeat size={14} />
                       Frequência *
                     </label>
-                    <select
-                      name="frequenciaPrevisivel"
-                      value={formData.frequenciaPrevisivel}
-                      onChange={handleInputChange}
-                      disabled={submitting}
-                      className="form-input"
-                    >
-                      {opcoesFrequencia.map(opcao => (
-                        <option key={opcao.value} value={opcao.value}>
-                          {opcao.label}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="select-search">
+                      <select
+                        name="frequenciaPrevisivel"
+                        value={formData.frequenciaPrevisivel}
+                        onChange={handleInputChange}
+                        disabled={submitting}
+                      >
+                        {opcoesFrequencia.map(opcao => (
+                          <option key={opcao.value} value={opcao.value}>
+                            {opcao.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                   
-                  <div className="form-field">
+                  <div>
                     <label className="form-label">
                       <Hash size={14} />
                       Quantidade *
                     </label>
-                    <select
-                      name="totalRecorrencias"
-                      value={formData.totalRecorrencias}
-                      onChange={handleInputChange}
-                      disabled={submitting}
-                      className="form-input"
-                    >
-                      {opcoesQuantidade.map(opcao => (
-                        <option key={opcao.value} value={opcao.value}>
-                          {opcao.label}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="select-search">
+                      <select
+                        name="totalRecorrencias"
+                        value={formData.totalRecorrencias}
+                        onChange={handleInputChange}
+                        disabled={submitting}
+                      >
+                        {opcoesQuantidade.map(opcao => (
+                          <option key={opcao.value} value={opcao.value}>
+                            {opcao.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
               )}
 
               {tipoDespesa === 'parcelada' && !isEditMode && (
-                <div className="form-row tipo-fields">
-                  <div className="form-field">
+                <div className="flex gap-3 row mb-3">
+                  <div>
                     <label className="form-label">
                       <Repeat size={14} />
                       Frequência *
                     </label>
-                    <select
-                      name="frequenciaParcelada"
-                      value={formData.frequenciaParcelada}
-                      onChange={handleInputChange}
-                      disabled={submitting}
-                      className="form-input"
-                    >
-                      {opcoesFrequencia.map(opcao => (
-                        <option key={opcao.value} value={opcao.value}>
-                          {opcao.label}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="select-search">
+                      <select
+                        name="frequenciaParcelada"
+                        value={formData.frequenciaParcelada}
+                        onChange={handleInputChange}
+                        disabled={submitting}
+                      >
+                        {opcoesFrequencia.map(opcao => (
+                          <option key={opcao.value} value={opcao.value}>
+                            {opcao.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                   
-                  <div className="form-field">
+                  <div>
                     <label className="form-label">
                       <Hash size={14} />
                       Número de Parcelas *
                     </label>
-                    <select
-                      name="numeroParcelas"
-                      value={formData.numeroParcelas}
-                      onChange={handleInputChange}
-                      disabled={submitting}
-                      className={`form-input ${errors.numeroParcelas ? 'error' : ''}`}
-                    >
-                      {opcoesParcelas.map(opcao => (
-                        <option key={opcao.value} value={opcao.value}>
-                          {opcao.label}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="select-search">
+                      <select
+                        name="numeroParcelas"
+                        value={formData.numeroParcelas}
+                        onChange={handleInputChange}
+                        disabled={submitting}
+                        className={errors.numeroParcelas ? 'error' : ''}
+                      >
+                        {opcoesParcelas.map(opcao => (
+                          <option key={opcao.value} value={opcao.value}>
+                            {opcao.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                     {errors.numeroParcelas && <div className="form-error">{errors.numeroParcelas}</div>}
                   </div>
                 </div>
@@ -1125,20 +1057,18 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
 
               {/* PREVIEW */}
               {valorNumerico > 0 && (
-                <div className={`preview-card despesa-${tipoDespesa}`} style={{ borderColor: corAtual + '40', background: corAtual + '10' }}>
-                  <div className="preview-header">
+                <div className="summary-panel danger mb-3">
+                  <div className="summary-header">
                     {tiposDespesa.find(t => t.id === tipoDespesa)?.icone}
                     <strong>Despesa {tiposDespesa.find(t => t.id === tipoDespesa)?.nome}</strong>
                   </div>
-                  <div className="preview-content">
-                    <div className="preview-valor">{calculos.mensagemPrincipal}</div>
-                    <div className="preview-info">{calculos.mensagemSecundaria}</div>
-                  </div>
+                  <h4 className="summary-title">{calculos.mensagemPrincipal}</h4>
+                  <p className="summary-value">{calculos.mensagemSecundaria}</p>
                 </div>
               )}
 
               {/* DESCRIÇÃO */}
-              <div className="form-field descricao-field">
+              <div className="flex flex-col mb-3">
                 <label className="form-label">
                   <FileText size={14} />
                   Descrição *
@@ -1154,88 +1084,123 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                   value={formData.descricao}
                   onChange={handleInputChange}
                   disabled={submitting}
-                  className={`form-input descricao-input ${errors.descricao ? 'error' : ''}`}
+                  className={`input-text ${errors.descricao ? 'error' : ''}`}
                 />
                 {errors.descricao && <div className="form-error">{errors.descricao}</div>}
               </div>
 
               {/* CATEGORIA */}
-              <div className="form-row categorias-row">
-                <div className="form-field categoria-field">
-                  <label className="form-label">
-                    <Tag size={14} />
-                    Categoria *
-                  </label>
-                  <div className="form-dropdown-wrapper">
+              <div className="flex flex-col mb-3">
+                <label className="form-label">
+                  <Tag size={14} />
+                  Categoria *
+                </label>
+                <div className="dropdown-container">
+                  <div style={{position: 'relative'}}>
                     <input
                       type="text"
                       value={formData.categoriaTexto}
                       onChange={handleCategoriaChange}
                       onBlur={handleCategoriaBlur}
                       onFocus={() => setCategoriaDropdownOpen(true)}
-                      onKeyDown={handleCategoriaKeyDown}
                       placeholder="Digite ou selecione uma categoria"
                       disabled={submitting}
                       autoComplete="off"
-                      className={`form-input categoria-input ${errors.categoria ? 'error' : ''}`}
+                      className={`input-text input-with-icon ${!formData.categoria ? 'input-muted' : ''} ${errors.categoria ? 'error' : ''}`}
+                      style={{
+                        paddingLeft: categoriaSelecionada ? '28px' : '10px'
+                      }}
                     />
-                    <Search size={14} className="form-dropdown-icon" />
-                    
-                    {categoriaDropdownOpen && categoriasFiltradas.length > 0 && (
-                      <div className="form-dropdown-options">
-                        {categoriasFiltradas.map((categoria, index) => (
-                          <div
-                            key={categoria.id}
-                            className={`form-dropdown-option despesa-context ${
-                              index === categoriaSelectedIndex ? 'selected' : ''
-                            }`}
-                            onMouseDown={() => handleSelecionarCategoria(categoria)}
-                            onMouseEnter={() => setCategoriaSelectedIndex(index)}
-                          >
-                            <div 
-                              className="category-color"
-                              style={{ backgroundColor: categoria.cor || '#ef4444' }}
-                            />
-                            {categoria.nome}
-                          </div>
-                        ))}
-                      </div>
+                    {categoriaSelecionada && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: '8px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          width: '12px',
+                          height: '12px',
+                          borderRadius: '50%',
+                          backgroundColor: categoriaSelecionada.cor || '#ef4444',
+                          pointerEvents: 'none'
+                        }}
+                      />
                     )}
+                    <Search size={14} className="input-search-icon" />
                   </div>
-                  {errors.categoria && <div className="form-error">{errors.categoria}</div>}
+                  
+                  {categoriaDropdownOpen && categoriasFiltradas.length > 0 && (
+                    <div className="dropdown-options">
+                      {categoriasFiltradas.map(categoria => (
+                        <div
+                          key={categoria.id}
+                          onMouseDown={() => handleSelecionarCategoria(categoria)}
+                          className="dropdown-option"
+                        >
+                          <div 
+                            className="category-color-tag"
+                            style={{backgroundColor: categoria.cor || '#ef4444'}}
+                          ></div>
+                          {categoria.nome}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
+                {errors.categoria && <div className="form-error">{errors.categoria}</div>}
+              </div>
 
-                <div className="form-field subcategoria-field">
+              {/* SUBCATEGORIA */}
+              {categoriaSelecionada && (
+                <div className="flex flex-col mb-3">
                   <label className="form-label">
                     <Tag size={14} />
-                    Subcategoria <small>({subcategoriasDaCategoria.length} disponíveis)</small>
+                    Subcategoria <span className="form-label-small">({subcategoriasDaCategoria.length} disponíveis)</span>
                   </label>
-                  <div className="form-dropdown-wrapper">
-                    <input
-                      type="text"
-                      value={formData.subcategoriaTexto}
-                      onChange={handleSubcategoriaChange}
-                      onBlur={handleSubcategoriaBlur}
-                      onFocus={() => setSubcategoriaDropdownOpen(true)}
-                      onKeyDown={handleSubcategoriaKeyDown}
-                      placeholder="Digite ou selecione uma subcategoria"
-                      disabled={submitting || !categoriaSelecionada}
-                      autoComplete="off"
-                      className="form-input subcategoria-input"
-                    />
-                    <Search size={14} className="form-dropdown-icon" />
+                  <div className="dropdown-container">
+                    <div style={{position: 'relative'}}>
+                      <input
+                        type="text"
+                        value={formData.subcategoriaTexto}
+                        onChange={handleSubcategoriaChange}
+                        onBlur={handleSubcategoriaBlur}
+                        onFocus={() => setSubcategoriaDropdownOpen(true)}
+                        placeholder="Digite ou selecione uma subcategoria"
+                        disabled={submitting}
+                        autoComplete="off"
+                        className="input-text input-with-icon"
+                        style={{
+                          paddingLeft: '28px'
+                        }}
+                      />
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: '8px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          width: '12px',
+                          height: '12px',
+                          borderRadius: '50%',
+                          backgroundColor: categoriaSelecionada.cor || '#ef4444',
+                          pointerEvents: 'none'
+                        }}
+                      />
+                      <Search size={14} className="input-search-icon" />
+                    </div>
                     
                     {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
-                      <div className="form-dropdown-options">
-                        {subcategoriasFiltradas.map((subcategoria, index) => (
+                      <div className="dropdown-options">
+                        {subcategoriasFiltradas.map(subcategoria => (
                           <div
                             key={subcategoria.id}
-                            className={`form-dropdown-option ${
-                              index === subcategoriaSelectedIndex ? 'selected' : ''
-                            }`}
                             onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
-                            onMouseEnter={() => setSubcategoriaSelectedIndex(index)}
+                            className="dropdown-option"
                           >
+                            <div 
+                              className="category-color-tag"
+                              style={{backgroundColor: categoriaSelecionada.cor || '#ef4444'}}
+                            ></div>
                             {subcategoria.nome}
                           </div>
                         ))}
@@ -1243,110 +1208,79 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                     )}
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* CARTÃO OU CONTA */}
-              <div className="form-section pagamento-section">
-                <label className="form-label">
-                  <Building size={14} />
-                  Como vai pagar?
-                </label>
-                <div className="form-radio-group pagamento-radio">
-                  <label className={`form-radio-option ${!formData.usarCartao ? 'selected' : ''}`}>
-                    <input
-                      type="radio"
-                      name="usarCartao"
-                      checked={!formData.usarCartao}
-                      onChange={() => handleInputChange({ target: { name: 'usarCartao', type: 'checkbox', checked: false }})}
-                      disabled={submitting}
-                    />
-                    <Building size={16} />
-                    <div>
-                      <div>Débito/Dinheiro</div>
-                      <small>Sai da conta na hora</small>
-                    </div>
-                  </label>
-                  <label className={`form-radio-option ${formData.usarCartao ? 'selected' : ''}`}>
-                    <input
-                      type="radio"
-                      name="usarCartao"
-                      checked={formData.usarCartao}
-                      onChange={() => handleInputChange({ target: { name: 'usarCartao', type: 'checkbox', checked: true }})}
-                      disabled={submitting}
-                    />
-                    <CreditCard size={16} />
-                    <div>
-                      <div>Cartão de Crédito</div>
-                      <small>Paga na fatura</small>
-                    </div>
-                  </label>
-                </div>
-              </div>
+              {/* COMO VAI PAGAR */}
+
 
               {/* CONTA OU CARTÃO ESPECÍFICO */}
               {!formData.usarCartao ? (
-                <div className="form-field conta-field">
+                <div className="flex flex-col mb-3">
                   <label className="form-label">
                     <Building size={14} />
                     Conta de Débito *
                   </label>
-                  <select
-                    name="conta"
-                    value={formData.conta}
-                    onChange={handleInputChange}
-                    disabled={submitting}
-                    className={`form-input conta-select ${errors.conta ? 'error' : ''}`}
-                  >
-                    <option value="">Selecione uma conta</option>
-                    {contasAtivas.map(conta => (
-                      <option key={conta.id} value={conta.id}>
-                        {conta.nome} - {formatCurrency(conta.saldo || 0)}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="select-search">
+                    <select
+                      name="conta"
+                      value={formData.conta}
+                      onChange={handleInputChange}
+                      disabled={submitting}
+                      className={errors.conta ? 'error' : ''}
+                    >
+                      <option value="">Selecione uma conta</option>
+                      {contasAtivas.map(conta => (
+                        <option key={conta.id} value={conta.id}>
+                          {conta.nome} - {formatCurrency(conta.saldo || 0)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   {errors.conta && <div className="form-error">{errors.conta}</div>}
                   
                   {contasAtivas.length === 0 && (
                     <div className="form-info">
-                      <small>Nenhuma conta ativa encontrada. Crie uma conta primeiro.</small>
+                      Nenhuma conta ativa encontrada. Crie uma conta primeiro.
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="form-field cartao-field">
+                <div className="flex flex-col mb-3">
                   <label className="form-label">
                     <CreditCard size={14} />
                     Cartão de Crédito *
                   </label>
-                  <select
-                    name="cartao"
-                    value={formData.cartao}
-                    onChange={handleInputChange}
-                    disabled={submitting}
-                    className={`form-input cartao-select ${errors.cartao ? 'error' : ''}`}
-                  >
-                    <option value="">Selecione um cartão</option>
-                    {cartoesAtivos.map(cartao => (
-                      <option key={cartao.id} value={cartao.id}>
-                        {cartao.nome} - Limite: {formatCurrency(cartao.limite || 0)}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="select-search">
+                    <select
+                      name="cartao"
+                      value={formData.cartao}
+                      onChange={handleInputChange}
+                      disabled={submitting}
+                      className={errors.cartao ? 'error' : ''}
+                    >
+                      <option value="">Selecione um cartão</option>
+                      {cartoesAtivos.map(cartao => (
+                        <option key={cartao.id} value={cartao.id}>
+                          {cartao.nome} - Limite: {formatCurrency(cartao.limite || 0)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   {errors.cartao && <div className="form-error">{errors.cartao}</div>}
                   
                   {cartoesAtivos.length === 0 && (
                     <div className="form-info">
-                      <small>Nenhum cartão ativo encontrado. Crie um cartão primeiro.</small>
+                      Nenhum cartão ativo encontrado. Crie um cartão primeiro.
                     </div>
                   )}
                 </div>
               )}
 
               {/* OBSERVAÇÕES */}
-              <div className="form-field observacoes-field">
+              <div className="flex flex-col mb-3">
                 <label className="form-label">
                   <FileText size={14} />
-                  Observações <small>(máx. 300)</small>
+                  Observações <span className="form-label-small">(máx. 300)</span>
                 </label>
                 <textarea
                   name="observacoes"
@@ -1356,108 +1290,111 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                   rows="2"
                   disabled={submitting}
                   maxLength="300"
-                  className={`form-input form-textarea observacoes-textarea ${errors.observacoes ? 'error' : ''}`}
+                  className={`textarea-observations ${errors.observacoes ? 'error' : ''}`}
                 />
-                <div className="form-char-counter">
+                <div className="char-counter">
                   <span></span>
-                  <span className={formData.observacoes.length > 250 ? 'text-danger' : ''}>
+                  <span className={formData.observacoes.length > 250 ? 'char-counter-warning' : ''}>
                     {formData.observacoes.length}/300
                   </span>
                 </div>
                 {errors.observacoes && <div className="form-error">{errors.observacoes}</div>}
               </div>
 
-              {/* AÇÕES */}
-              <div className="form-actions despesas-actions">
-                <button
-                  type="button"
-                  onClick={handleCancelar}
-                  disabled={submitting}
-                  className="form-btn form-btn-secondary cancelar-btn"
-                >
-                  Cancelar
-                </button>
-                
-                {!isEditMode && (
-                  <button
-                    type="button"
-                    onClick={(e) => handleSubmit(e, true)}
-                    disabled={submitting}
-                    className="form-btn form-btn-tertiary continuar-btn"
-                    style={{ 
-                      background: corAtual,
-                      color: 'white',
-                      border: 'none'
-                    }}
-                  >
-                    {submitting ? (
-                      <>
-                        <div className="form-spinner"></div>
-                        Salvando...
-                      </>
-                    ) : (
-                      <>
-                        <PlusCircle size={14} />
-                        Continuar Adicionando
-                      </>
-                    )}
-                  </button>
-                )}
-                
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className={`form-btn form-btn-primary adicionar-btn despesa-${tipoDespesa}`}
-                  style={{
-                    background: corAtual
-                  }}
-                >
-                  {submitting ? (
-                    <>
-                      <div className="form-spinner"></div>
-                      {isEditMode ? 'Atualizando...' :
-                       tipoDespesa === 'previsivel' ? `Criando ${formData.totalRecorrencias} despesas...` :
-                       tipoDespesa === 'parcelada' ? `Criando ${formData.numeroParcelas} parcelas...` :
-                       'Salvando...'}
-                    </>
-                  ) : (
-                    <>
-                      {isEditMode ? <Edit size={14} /> : <Plus size={14} />}
-                      {isEditMode ? 'Atualizar Despesa' :
-                       tipoDespesa === 'previsivel' ? `Criar ${formData.totalRecorrencias} Despesas` :
-                       tipoDespesa === 'parcelada' ? `Parcelar em ${formData.numeroParcelas}x` :
-                       'Adicionar Despesa Extra'}
-                    </>
-                  )}
-                </button>
-              </div>
             </form>
           )}
+        </div>
+
+        {/* AÇÕES */}
+        <div className="modal-footer">
+          <button
+            type="button"
+            onClick={handleCancelar}
+            disabled={submitting}
+            className="btn-cancel"
+          >
+            Cancelar
+          </button>
+          
+          {!isEditMode && (
+            <button
+              type="button"
+              onClick={(e) => handleSubmit(e, true)}
+              disabled={submitting}
+              className="btn-secondary btn-secondary--danger"
+            >
+              {submitting ? (
+                <>
+                  <span className="btn-spinner"></span>
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  <PlusCircle size={14} />
+                  Continuar Adicionando
+                </>
+              )}
+            </button>
+          )}
+          
+          <button
+            type="submit"
+            onClick={(e) => handleSubmit(e, false)}
+            disabled={submitting}
+            className="btn-primary"
+          >
+            {submitting ? (
+              <>
+                <span className="btn-spinner"></span>
+                {isEditMode ? 'Atualizando...' :
+                 tipoDespesa === 'previsivel' ? `Criando ${formData.totalRecorrencias} despesas...` :
+                 tipoDespesa === 'parcelada' ? `Criando ${formData.numeroParcelas} parcelas...` :
+                 'Salvando...'}
+              </>
+            ) : (
+              <>
+                {isEditMode ? <Edit size={14} /> : <Plus size={14} />}
+                {isEditMode ? 'Atualizar Despesa' :
+                 tipoDespesa === 'previsivel' ? `Criar ${formData.totalRecorrencias} Despesas` :
+                 tipoDespesa === 'parcelada' ? `Parcelar em ${formData.numeroParcelas}x` :
+                 'Adicionar Despesa'}
+              </>
+            )}
+          </button>
         </div>
       </div>
       
       {/* Modal de Confirmação */}
       {confirmacao.show && (
-        <div className="confirmation-overlay">
-          <div className="confirmation-container">
-            <h3 className="confirmation-title">
-              Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
-            </h3>
-            <p className="confirmation-message">
-              {confirmacao.type === 'categoria' ? 'A categoria' : 'A subcategoria'}{' '}
-              <strong>"{confirmacao.nome}"</strong> não existe. Deseja criá-la?
-            </p>
-            <div className="confirmation-actions">
+        <div className="modal-overlay active">
+          <div className="forms-modal-container modal-small">
+            <div className="modal-header">
+              <div className="modal-header-content">
+                <div className="modal-icon-container modal-icon-danger">
+                  <Plus size={18} />
+                </div>
+                <div>
+                  <h2 className="modal-title">
+                    Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
+                  </h2>
+                  <p className="modal-subtitle">
+                    {confirmacao.type === 'categoria' ? 'A categoria' : 'A subcategoria'}{' '}
+                    <strong>"{confirmacao.nome}"</strong> não existe. Deseja criá-la?
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="modal-footer">
               <button 
                 onClick={() => setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' })}
-                className="form-btn form-btn-secondary"
+                className="btn-cancel"
               >
                 Cancelar
               </button>
               <button 
                 onClick={handleConfirmarCriacao}
-                className="form-btn form-btn-primary despesa"
-                style={{ background: '#EF4444' }}
+                className="btn-primary"
               >
                 Criar {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
               </button>
