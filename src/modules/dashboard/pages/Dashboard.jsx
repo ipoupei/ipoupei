@@ -14,7 +14,7 @@ import { useNavigate } from 'react-router-dom';
 // Hooks personalizados existentes
 import useAuth from "@modules/auth/hooks/useAuth";
 import useDashboardData from '@modules/dashboard/hooks/useDashboardData';
-import usePeriodo from '@modules/transacoes/hooks/usePeriodo'; // ✅ Hook de período
+import usePeriodo from '@modules/transacoes/hooks/usePeriodo';
 
 // Utilitários
 import { formatCurrency } from '@utils/formatCurrency';
@@ -26,18 +26,17 @@ import CalendarioFinanceiro from '@modules/dashboard/components/CalendarioFinanc
 import ProjecaoSaldoGraph from '@modules/dashboard/components/ProjecaoSaldoGraph';
 import DetalhesDoDiaModal from '@modules/dashboard/components/DetalhesDoDiaModal';
 
-
-// IMPORTAR O CSS
-import '../styles/Dashboard.css';
-
-
-
+// ✅ NOVO SISTEMA CSS - Imports corretos
+import '@shared/styles/foundation.css';
+import '@shared/styles/components.css';
+import '@shared/styles/layouts.css';
 
 /**
- * Dashboard - Versão com Controle de Período via usePeriodo
- * ✅ Mantém seletor de período no Dashboard
- * ✅ Usa usePeriodo para sincronizar estado global
- * ✅ Reativo a mudanças de período
+ * Dashboard - Migrado para o Novo Sistema CSS
+ * ✅ Remove Tailwind completamente
+ * ✅ Usa apenas classes do novo sistema CSS
+ * ✅ Mantém funcionalidade com controle de período via usePeriodo
+ * ✅ Cards flip premium com estrutura HTML correta
  */
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -46,7 +45,7 @@ const Dashboard = () => {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const { data, loading, error, refreshData } = useDashboardData();
   
-  // ✅ Hook de período para controle global
+  // Hook de período para controle global
   const { 
     currentDate,
     navigateMonth, 
@@ -67,7 +66,7 @@ const Dashboard = () => {
     cartaoCredito: false
   });
 
-  // ✅ Log para debug - mostrar quando período muda
+  // Log para debug - mostrar quando período muda
   useEffect(() => {
     console.log('📅 Dashboard - período atualizado:', {
       data: currentDate,
@@ -104,7 +103,6 @@ const Dashboard = () => {
     
     try {
       setRefreshingCalendar(true);
-      // Força refresh dos dados
       refreshData();
     } catch (err) {
       console.error('Erro ao atualizar calendário:', err);
@@ -113,7 +111,7 @@ const Dashboard = () => {
     }
   };
 
-  // ✅ Handlers de navegação de período - Agora usa usePeriodo
+  // Handlers de navegação de período
   const handleNavigateMonth = (direction) => {
     console.log('📅 Navegando mês:', direction > 0 ? 'próximo' : 'anterior');
     navigateMonth(direction);
@@ -143,7 +141,7 @@ const Dashboard = () => {
   if (loading || authLoading) {
     return (
       <div className="dashboard-content">
-        <div className="loading-state">
+        <div className="loading-container">
           <div className="loading-spinner"></div>
           <p>Carregando dados do dashboard...</p>
         </div>
@@ -154,10 +152,10 @@ const Dashboard = () => {
   if (error) {
     return (
       <div className="dashboard-content">
-        <div className="error-message">
-          <h3 className="error-title">❌ Erro ao carregar dados</h3>
-          <p className="error-details">{error}</p>
-          <button onClick={() => refreshData()}>
+        <div className="empty-state">
+          <h3 className="section-title">❌ Erro ao carregar dados</h3>
+          <p className="calendar-subtitle">{error}</p>
+          <button className="btn-primary" onClick={() => refreshData()}>
             Tentar novamente
           </button>
         </div>
@@ -167,7 +165,7 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard-content">
-      {/* ✅ Seletor de Período - Agora controlado via usePeriodo */}
+      {/* ✅ Seletor de Período - Nova estrutura CSS */}
       <section className="dashboard-period-selector">
         <div className="period-selector-container">
           <div className="period-selector-inline">
@@ -205,8 +203,9 @@ const Dashboard = () => {
         </div>
       </section>
 
-      {/* Cards Grid Premium com Flip */}
+      {/* ✅ Cards Grid Premium com Flip - Nova estrutura */}
       <div className="cards-grid">
+        
         {/* Card de Saldo - Verde */}
         <div 
           className={`summary-card card-green ${flippedCards.saldo ? 'flipped' : ''}`}
@@ -215,7 +214,9 @@ const Dashboard = () => {
           <div className="card-inner">
             <div className="card-front">
               <div className="card-header">
-                <h3 className="card-title">💰 Saldo</h3>
+                <div className="card-title">
+                  💰 Saldo
+                </div>
               </div>
               
               <div className="card-value-section">
@@ -270,19 +271,21 @@ const Dashboard = () => {
           <div className="card-inner">
             <div className="card-front">
               <div className="card-header">
-                <h3 className="card-title">📈 Receitas</h3>
+                <div className="card-title">
+                  📈 Receitas
+                </div>
               </div>
               
               <div className="card-value-section">
                 <div className="card-label">Atual</div>
-                <div className="card-value">
+                <div className="card-value font-tabular">
                   {formatCurrency(dadosSeguroReceitas.atual)}
                 </div>
               </div>
               
               <div className="card-value-section">
                 <div className="card-label">Previsto</div>
-                <div className="card-value-sm">
+                <div className="card-value-sm font-tabular">
                   {formatCurrency(dadosSeguroReceitas.previsto)}
                 </div>
               </div>
@@ -291,7 +294,7 @@ const Dashboard = () => {
             <div className="card-back">
               <div className="card-detail-total">
                 <span>💵 Total Receitas:</span>
-                <span>{formatCurrency(dadosSeguroReceitas.atual)}</span>
+                <span className="font-tabular">{formatCurrency(dadosSeguroReceitas.atual)}</span>
               </div>
               
               <div className="card-details">
@@ -303,13 +306,13 @@ const Dashboard = () => {
                       style={{animationDelay: `${(index + 1) * 0.1}s`}}
                     >
                       <span className="detail-name">{receita.nome}</span>
-                      <span className="detail-value">{formatCurrency(receita.valor)}</span>
+                      <span className="detail-value font-tabular">{formatCurrency(receita.valor)}</span>
                     </div>
                   ))
                 ) : (
                   <div className="detail-item" style={{animationDelay: '0.1s'}}>
                     <span className="detail-name">Nenhuma receita registrada</span>
-                    <span className="detail-value">R$ 0,00</span>
+                    <span className="detail-value font-tabular">R$ 0,00</span>
                   </div>
                 )}
               </div>
@@ -325,19 +328,21 @@ const Dashboard = () => {
           <div className="card-inner">
             <div className="card-front">
               <div className="card-header">
-                <h3 className="card-title">📉 Despesas</h3>
+                <div className="card-title">
+                  📉 Despesas
+                </div>
               </div>
               
               <div className="card-value-section">
                 <div className="card-label">Atual</div>
-                <div className="card-value">
+                <div className="card-value font-tabular">
                   {formatCurrency(dadosSegurosDespesas.atual)}
                 </div>
               </div>
               
               <div className="card-value-section">
                 <div className="card-label">Previsto</div>
-                <div className="card-value-sm">
+                <div className="card-value-sm font-tabular">
                   {formatCurrency(dadosSegurosDespesas.previsto)}
                 </div>
               </div>
@@ -346,7 +351,7 @@ const Dashboard = () => {
             <div className="card-back">
               <div className="card-detail-total">
                 <span>💸 Total Despesas:</span>
-                <span>{formatCurrency(dadosSegurosDespesas.atual)}</span>
+                <span className="font-tabular">{formatCurrency(dadosSegurosDespesas.atual)}</span>
               </div>
               
               <div className="card-details">
@@ -358,13 +363,13 @@ const Dashboard = () => {
                       style={{animationDelay: `${(index + 1) * 0.1}s`}}
                     >
                       <span className="detail-name">{despesa.nome}</span>
-                      <span className="detail-value">{formatCurrency(despesa.valor)}</span>
+                      <span className="detail-value font-tabular">{formatCurrency(despesa.valor)}</span>
                     </div>
                   ))
                 ) : (
                   <div className="detail-item" style={{animationDelay: '0.1s'}}>
                     <span className="detail-name">Nenhuma despesa registrada</span>
-                    <span className="detail-value">R$ 0,00</span>
+                    <span className="detail-value font-tabular">R$ 0,00</span>
                   </div>
                 )}
               </div>
@@ -380,19 +385,21 @@ const Dashboard = () => {
           <div className="card-inner">
             <div className="card-front">
               <div className="card-header">
-                <h3 className="card-title">💳 Cartão</h3>
+                <div className="card-title">
+                  💳 Cartão
+                </div>
               </div>
               
               <div className="card-value-section">
                 <div className="card-label">Usado</div>
-                <div className="card-value">
+                <div className="card-value font-tabular">
                   {formatCurrency(dadosSeguroCartao.atual)}
                 </div>
               </div>
               
               <div className="card-value-section">
                 <div className="card-label">Limite Total</div>
-                <div className="card-value-sm">
+                <div className="card-value-sm font-tabular">
                   {formatCurrency(dadosSeguroCartao.limite)}
                 </div>
               </div>
@@ -401,7 +408,7 @@ const Dashboard = () => {
             <div className="card-back">
               <div className="card-detail-total">
                 <span>🔢 Limite Usado:</span>
-                <span>{formatCurrency(dadosSeguroCartao.atual)}</span>
+                <span className="font-tabular">{formatCurrency(dadosSeguroCartao.atual)}</span>
               </div>
               
               <div className="card-details">
@@ -413,18 +420,18 @@ const Dashboard = () => {
                       style={{animationDelay: `${(index + 1) * 0.1}s`}}
                     >
                       <span className="detail-name">{cartao.nome}</span>
-                      <span className="detail-value">{formatCurrency(cartao.usado)}</span>
+                      <span className="detail-value font-tabular">{formatCurrency(cartao.usado)}</span>
                     </div>
                   ))
                 ) : (
                   <div className="detail-item" style={{animationDelay: '0.1s'}}>
                     <span className="detail-name">Nenhum cartão cadastrado</span>
-                    <span className="detail-value">R$ 0,00</span>
+                    <span className="detail-value font-tabular">R$ 0,00</span>
                   </div>
                 )}
                 <div className="detail-item" style={{animationDelay: '0.2s'}}>
                   <span className="detail-name">💰 Disponível</span>
-                  <span className="detail-value">
+                  <span className="detail-value font-tabular">
                     {formatCurrency(dadosSeguroCartao.limite - dadosSeguroCartao.atual)}
                   </span>
                 </div>
@@ -434,7 +441,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Link rápido para transações */}
+      {/* ✅ Link rápido para transações - Estrutura correta */}
       <div className="quick-access-section">
         <div className="quick-access-card" onClick={() => navigate('/transacoes')}>
           <div className="quick-access-icon">
@@ -452,43 +459,44 @@ const Dashboard = () => {
         </div>
       </div>
       
-{/* Seção de gráficos */}
-<div className="charts-grid">
- <div className="chart-card">
-   <div className="chart-header">
-     <div className="chart-title-section">
-       <TrendingUp size={20} className="chart-icon" />
-       <h3 className="chart-title">Receitas por categoria</h3>
-     </div>
-   </div>
-   
-   <div className="chart-container">
-     <DonutChartCategoria 
-       data={receitasPorCategoria.length > 0 ? receitasPorCategoria : [
-         { nome: "Sem receitas", valor: 0, color: "#E5E7EB" }
-       ]} 
-     />
-   </div>
- </div>
- 
- <div className="chart-card">
-   <div className="chart-header">
-     <div className="chart-title-section">
-       <BarChart3 size={20} className="chart-icon" />
-       <h3 className="chart-title">Despesas por categoria</h3>
-     </div>
-   </div>
-   
-   <div className="chart-container">
-     <DonutChartCategoria 
-       data={despesasPorCategoria.length > 0 ? despesasPorCategoria : [
-         { nome: "Sem despesas", valor: 0, color: "#E5E7EB" }
-       ]} 
-     />
-   </div>
- </div>
-</div>
-      {/* Calendário Financeiro */}
+      {/* ✅ Seção de gráficos - Nova estrutura */}
+      <div className="charts-grid">
+        <div className="chart-card">
+          <div className="chart-header">
+            <div className="chart-title-section">
+              <TrendingUp size={20} className="chart-icon" />
+              <h3 className="chart-title">Receitas por categoria</h3>
+            </div>
+          </div>
+          
+          <div className="chart-container">
+            <DonutChartCategoria 
+              data={receitasPorCategoria.length > 0 ? receitasPorCategoria : [
+                { nome: "Sem receitas", valor: 0, color: "#E5E7EB" }
+              ]} 
+            />
+          </div>
+        </div>
+        
+        <div className="chart-card">
+          <div className="chart-header">
+            <div className="chart-title-section">
+              <BarChart3 size={20} className="chart-icon" />
+              <h3 className="chart-title">Despesas por categoria</h3>
+            </div>
+          </div>
+          
+          <div className="chart-container">
+            <DonutChartCategoria 
+              data={despesasPorCategoria.length > 0 ? despesasPorCategoria : [
+                { nome: "Sem despesas", valor: 0, color: "#E5E7EB" }
+              ]} 
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ✅ Calendário Financeiro - Estrutura correta com header próprio */}
       <div className="calendar-section">
         <div className="calendar-header">
           <div className="calendar-title-section">
@@ -503,7 +511,6 @@ const Dashboard = () => {
         </div>
         
         <div className="calendar-container">
-          {/* ✅ Calendário sincronizado com período global */}
           <CalendarioFinanceiro 
             mes={currentDate.getMonth()} 
             ano={currentDate.getFullYear()} 
@@ -512,7 +519,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Projeção de Saldo */}
+      {/* ✅ Projeção de Saldo - Estrutura correta com header próprio */}
       <div className="projection-section">
         <div className="projection-header">
           <div className="projection-title-section">
@@ -524,7 +531,6 @@ const Dashboard = () => {
           </div>
         </div>
         <div className="projection-container">
-          {/* ✅ Projeção sincronizada com período global */}
           <ProjecaoSaldoGraph 
             data={data?.historico || []} 
             mesAtual={currentDate.getMonth()}

@@ -1,4 +1,4 @@
-// src/shared/components/layout/MainLayout.jsx - COM DIAGNÓSTICO SIMPLES
+// src/shared/components/layout/MainLayout.jsx - VERSÃO CONSERVADORA (MANTÉM VISUAL ORIGINAL)
 import React, { useState, useEffect, Suspense, useCallback, useMemo, useRef } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { 
@@ -101,7 +101,7 @@ const Header = React.memo(({ user, isScrolled, pageTitle, showUserMenu, onToggle
   );
 });
 
-// ✅ Componente de Ações isolado - COM DIAGNÓSTICO SIMPLES
+// ✅ Componente de Ações - VERSÃO CONSERVADORA (CORRIGE APENAS OS PROBLEMAS)
 const QuickActions = React.memo(({ 
   isScrolled, 
   showMaisMenu, 
@@ -130,14 +130,15 @@ const QuickActions = React.memo(({
           <Home size={isScrolled ? 16 : 20} />
           <span>Dashboard</span>
         </button>
-        <button 
-            className="action-button contas"
-            onClick={onOpenContas}
-          >
-            <Wallet size={16} />
-            Minhas Contas
-          </button>        
 
+        <button 
+          className="action-button contas"
+          onClick={onOpenContas}
+          data-tooltip="Minhas Contas"
+        >
+          <Wallet size={isScrolled ? 16 : 20} />
+          <span>Minhas Contas</span>
+        </button>        
 
         <button 
           className="action-button receita"
@@ -174,6 +175,7 @@ const QuickActions = React.memo(({
           <ArrowLeftRight size={isScrolled ? 16 : 20} />
           <span>Transferir</span>
         </button>
+
         <button 
           className="action-button transacoes"
           onClick={onNavigateTransacoes}
@@ -182,6 +184,7 @@ const QuickActions = React.memo(({
           <List size={isScrolled ? 16 : 20} />
           <span>Minhas Transações</span>
         </button>
+
         <button 
           className="action-button mais"
           onClick={onToggleMaisMenu}
@@ -194,7 +197,6 @@ const QuickActions = React.memo(({
 
       {showMaisMenu && (
         <div className="mais-menu">
-
           <button 
             className="mais-menu-item"
             onClick={onOpenCartoes}

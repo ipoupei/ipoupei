@@ -488,72 +488,283 @@ const CalendarioFinanceiro = ({ mes = new Date().getMonth(), ano = new Date().ge
     }
   };
 
-  // ✅ Handler de clique no dia com RPC CORRIGIDO
-  const handleDiaClick = async (dia) => {
-    try {
-      const diaFormatado = format(dia, 'yyyy-MM-dd');
-      const movimentosDoDia = movimentosPorDia[diaFormatado] || [];
-      
-      if (onDiaClick && movimentosDoDia.length > 0) {
-        console.log('🔍 Buscando detalhes do dia via RPC:', { data: diaFormatado });
+// ✅ CORREÇÃO DO HANDLER DE CLIQUE NO DIA
+// ✅ VERSÃO COM DEBUG DETALHADO E FALLBACK ROBUSTO
+// Substitua a função handleDiaClick por esta versão:
 
-        // ✅ Tentar usar função RPC com PARÂMETROS CORRETOS
-        const { data: detalhesDia, error: detalhesError } = await supabase.rpc('gpt_detalhes_do_dia', {
-          p_usuario_id: user.id,          // ✅ CORRIGIDO: p_usuario_id
-          p_data_especifica: diaFormatado // ✅ CORRIGIDO: p_data_especifica
-        });
+const handleDiaClick = async (dia) => {
+  try {
+    const diaFormatado = format(dia, 'yyyy-MM-dd');
+    const movimentosDoDia = movimentosPorDia[diaFormatado] || [];
+    
+    console.log('🔍 Clique no dia - ANÁLISE DETALHADA:', { 
+      data: diaFormatado, 
+      movimentosLocais: movimentosDoDia.length,
+      temCallback: !!onDiaClick,
+      movimentosDetalhes: movimentosDoDia.map(m => ({
+        id: m.id,
+        tipo: m.tipo,
+        valor: m.valor,
+        descricao: m.descricao,
+        transferencia: m.transferencia,
+        efetivado: m.efetivado
+      }))
+    });
+    
+    if (onDiaClick) {
+      console.log('🔍 Preparando dados para o modal...');
 
-        let movimentosProcessados;
-        let totais;
+      let movimentosProcessados = [];
+      let totais = { 
+        total_receitas: 0, 
+        total_despesas: 0, 
+        saldo: 0, 
+        total_transacoes: 0 
+      };
 
-        if (detalhesError) {
-          console.warn('⚠️ Erro na RPC detalhes, usando dados locais:', detalhesError);
+      // ✅ Se há movimentos, processar dados detalhadamente
+      if (movimentosDoDia.length > 0) {
+        try {
+          console.log('📊 Buscando detalhes via RPC para dia com movimentos...');
+          console.log('🔍 Dados locais para comparação:', {
+            totalLocal: movimentosDoDia.length,
+            tiposLocal: movimentosDoDia.map(m => `${m.tipo}:${m.valor}`),
+            transferenciasLocal: movimentosDoDia.filter(m => m.transferencia).length,
+            naoEfetivadosLocal: movimentosDoDia.filter(m => m.efetivado === false).length
+          });
           
-          // Fallback para dados locais
+          // ✅ Chamadas RPC paralelas
+          const [detalhesResult, resumoResult] = await Promise.all([
+            supabase.rpc('gpt_detalhes_do_dia', {
+              p_usuario_id: user.id,
+              p_data_especifica: diaFormatado
+            }),
+            supabase.rpc('gpt_resumo_do_dia', {
+              p_usuario_id: user.id,
+              p_data_especifica: diaFormatado
+            })
+          ]);
+
+          console.log('🔍 Resultados das RPCs:', {
+            detalhesError: detalhesResult.error,
+            detalhesCount: detalhesResult.data?.length || 0,
+            resumoError: resumoResult.error,
+            resumoData: resumoResult.data?.[0] || null
+          });
+
+          // ✅ Processar detalhes (movimentações)
+          if (!detalhesResult.error && detalhesResult.data && detalhesResult.data.length > 0) {
+            movimentosProcessados = detalhesResult.data.map(mov => ({
+              id: mov.id,
+              descricao: mov.descricao || 'Sem descrição',
+              valor: parseFloat(mov.valor) || 0,
+              tipo: mov.tipo,
+              categoria: mov.categoria_nome || 'Sem categoria',
+              categoria_cor: mov.categoria_cor || '#6B7280',
+              conta: mov.conta_nome || 'Conta não informada',
+              status: 'realizado',
+              hora: mov.hora || '12:00',
+              observacoes: mov.observacoes || '',
+              data: mov.data
+            }));
+            console.log('✅ Detalhes obtidos via RPC:', movimentosProcessados.length);
+          } else {
+            console.warn('⚠️ RPC detalhes retornou vazio, mas há dados locais. Investigando...');
+            
+            // ✅ FALLBACK MELHORADO: Usar dados locais sempre que RPC falhar
+            console.log('🔄 Usando dados locais como fallback...');
+            movimentosProcessados = movimentosDoDia.map(mov => ({
+              id: mov.id,
+              descricao: mov.descricao || 'Sem descrição',
+              valor: parseFloat(mov.valor) || 0,
+              tipo: mov.tipo,
+              categoria: mov.categoria?.nome || 'Sem categoria',
+              categoria_cor: mov.categoria?.cor || '#6B7280',
+              conta: mov.conta?.nome || 'Conta não informada',
+              status: mov.efetivado !== false ? 'realizado' : 'agendado',
+              hora: '12:00',
+              observacoes: mov.observacoes || '',
+              data: mov.data
+            }));
+            console.log('✅ Usando dados locais:', movimentosProcessados.length);
+          }
+
+          // ✅ Processar resumo (totais)
+          if (!resumoResult.error && resumoResult.data?.[0]) {
+            const resumoData = resumoResult.data[0];
+            totais = {
+              total_receitas: parseFloat(resumoData.total_receitas) || 0,
+              total_despesas: parseFloat(resumoData.total_despesas) || 0,
+              saldo: parseFloat(resumoData.saldo) || 0,
+              total_transacoes: parseInt(resumoData.total_transacoes) || 0
+            };
+            console.log('✅ Resumo obtido via RPC:', totais);
+          } else {
+            console.warn('⚠️ RPC resumo falhou, calculando localmente');
+            
+            // ✅ FALLBACK: Calcular usando movimentosProcessados (que pode ser RPC ou local)
+            const totaisCalculados = {
+              total_receitas: 0,
+              total_despesas: 0,
+              saldo: 0,
+              total_transacoes: movimentosProcessados.length
+            };
+            
+            movimentosProcessados.forEach(mov => {
+              const valor = parseFloat(mov.valor) || 0;
+              if (mov.tipo === 'receita') {
+                totaisCalculados.total_receitas += valor;
+              } else if (mov.tipo === 'despesa') {
+                totaisCalculados.total_despesas += valor;
+              }
+            });
+            
+            totaisCalculados.saldo = totaisCalculados.total_receitas - totaisCalculados.total_despesas;
+            totais = totaisCalculados;
+            
+            console.log('✅ Totais calculados localmente:', totais);
+          }
+
+          // ✅ VALIDAÇÃO FINAL: Se ainda estiver vazio, forçar dados locais
+          if (movimentosProcessados.length === 0 && movimentosDoDia.length > 0) {
+            console.warn('🚨 INCONSISTÊNCIA DETECTADA: RPC vazia mas dados locais existem!');
+            console.log('🔧 Forçando uso de dados locais...');
+            
+            movimentosProcessados = movimentosDoDia.map(mov => ({
+              id: mov.id,
+              descricao: mov.descricao || 'Sem descrição',
+              valor: parseFloat(mov.valor) || 0,
+              tipo: mov.tipo,
+              categoria: mov.categoria?.nome || 'Sem categoria',
+              categoria_cor: mov.categoria?.cor || '#6B7280',
+              conta: mov.conta?.nome || 'Conta não informada',
+              status: mov.efetivado !== false ? 'realizado' : 'agendado',
+              hora: '12:00',
+              observacoes: mov.observacoes || '',
+              data: mov.data
+            }));
+            
+            // Recalcular totais
+            const totaisForced = {
+              total_receitas: 0,
+              total_despesas: 0,
+              saldo: 0,
+              total_transacoes: movimentosProcessados.length
+            };
+            
+            movimentosProcessados.forEach(mov => {
+              const valor = parseFloat(mov.valor) || 0;
+              if (mov.tipo === 'receita') {
+                totaisForced.total_receitas += valor;
+              } else if (mov.tipo === 'despesa') {
+                totaisForced.total_despesas += valor;
+              }
+            });
+            
+            totaisForced.saldo = totaisForced.total_receitas - totaisForced.total_despesas;
+            totais = totaisForced;
+            
+            console.log('🔧 Dados forçados aplicados:', {
+              movimentos: movimentosProcessados.length,
+              totais
+            });
+          }
+
+        } catch (rpcError) {
+          console.error('❌ Erro nas RPCs, usando dados locais:', rpcError);
+          
+          // ✅ Fallback total para dados locais
           movimentosProcessados = movimentosDoDia.map(mov => ({
             id: mov.id,
             descricao: mov.descricao || 'Sem descrição',
             valor: parseFloat(mov.valor) || 0,
             tipo: mov.tipo,
             categoria: mov.categoria?.nome || 'Sem categoria',
+            categoria_cor: mov.categoria?.cor || '#6B7280',
             conta: mov.conta?.nome || 'Conta não informada',
-            status: 'realizado',
+            status: mov.efetivado !== false ? 'realizado' : 'agendado',
             hora: '12:00',
-            observacoes: mov.observacoes || ''
+            observacoes: mov.observacoes || '',
+            data: mov.data
           }));
 
-          // ✅ Usar RPC para totais mesmo se detalhes falharem
-          totais = await fetchTotaisDoDia(dia);
-        } else {
-          // ✅ Usar dados da RPC
-          movimentosProcessados = (detalhesDia || []).map(mov => ({
-            id: mov.id,
-            descricao: mov.descricao || 'Sem descrição',
-            valor: parseFloat(mov.valor) || 0,
-            tipo: mov.tipo,
-            categoria: mov.categoria_nome || 'Sem categoria',
-            conta: mov.conta_nome || 'Conta não informada',
-            status: 'realizado',
-            hora: mov.hora || '12:00',
-            observacoes: mov.observacoes || ''
-          }));
-
-          // ✅ Usar RPC para totais
-          totais = await fetchTotaisDoDia(dia);
+          const totaisLocal = {
+            total_receitas: 0,
+            total_despesas: 0,
+            saldo: 0,
+            total_transacoes: movimentosProcessados.length
+          };
+          
+          movimentosProcessados.forEach(mov => {
+            const valor = parseFloat(mov.valor) || 0;
+            if (mov.tipo === 'receita') {
+              totaisLocal.total_receitas += valor;
+            } else if (mov.tipo === 'despesa') {
+              totaisLocal.total_despesas += valor;
+            }
+          });
+          
+          totaisLocal.saldo = totaisLocal.total_receitas - totaisLocal.total_despesas;
+          totais = totaisLocal;
         }
-
-        const dadosDia = {
-          data: dia,
-          movimentos: movimentosProcessados,
-          totais
+      } else {
+        console.log('📭 Dia sem movimentos, criando estrutura vazia...');
+        movimentosProcessados = [];
+        totais = { 
+          total_receitas: 0, 
+          total_despesas: 0, 
+          saldo: 0, 
+          total_transacoes: 0 
         };
-        
-        onDiaClick(dadosDia);
       }
-    } catch (err) {
-      console.error('❌ Erro ao processar clique no dia:', err);
+
+      // ✅ ESTRUTURA FINAL SEMPRE VÁLIDA
+      const dadosDia = {
+        data: dia,
+        movimentos: movimentosProcessados,
+        totais: totais
+      };
+      
+      console.log('🚀 Enviando dados FINAIS para o modal:', {
+        data: format(dia, 'yyyy-MM-dd'),
+        movimentosEnviados: dadosDia.movimentos.length,
+        totaisEnviados: dadosDia.totais,
+        estruturaCompleta: !!dadosDia.data && Array.isArray(dadosDia.movimentos) && !!dadosDia.totais,
+        comparacao: {
+          dadosLocais: movimentosDoDia.length,
+          dadosEnviados: dadosDia.movimentos.length,
+          consistente: movimentosDoDia.length === dadosDia.movimentos.length
+        }
+      });
+      
+      // ✅ Chamar o modal SEMPRE
+      onDiaClick(dadosDia);
+      
+    } else {
+      console.warn('⚠️ Callback onDiaClick não definido');
     }
-  };
+    
+  } catch (err) {
+    console.error('❌ Erro CRÍTICO ao processar clique no dia:', err);
+    
+    // ✅ Em caso de erro, ainda tentar abrir o modal com dados mínimos
+    if (onDiaClick) {
+      const dadosMinimos = {
+        data: dia,
+        movimentos: [],
+        totais: { 
+          total_receitas: 0, 
+          total_despesas: 0, 
+          saldo: 0, 
+          total_transacoes: 0 
+        }
+      };
+      
+      console.log('🔧 Abrindo modal com dados mínimos devido a erro CRÍTICO');
+      onDiaClick(dadosMinimos);
+    }
+  }
+};
 
   // ✅ Renderiza indicadores do dia (usa dados locais para performance)
   const renderizarIndicadoresDia = (dia) => {

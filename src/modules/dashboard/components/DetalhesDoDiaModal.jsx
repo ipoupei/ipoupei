@@ -18,13 +18,12 @@ import { ptBR } from 'date-fns/locale';
 import { formatCurrency } from '@utils/formatCurrency';
 import { supabase } from '@lib/supabaseClient';
 import useAuth from '@modules/auth/hooks/useAuth';
-import '../styles/DetalhesDoDiaModal.css';
 
 /**
  * Modal para exibir detalhes das movimentações de um dia específico
- * ✅ VERSÃO FINAL: Apenas RPC Supabase - Método único e eficiente
- * ✅ Sem fallbacks - Performance otimizada
- * ✅ Diagnóstico integrado para troubleshooting
+ * ✅ VERSÃO REFATORADA: Usando FormsModal.css unificado
+ * ✅ Sem CSS específico - Máxima reutilização
+ * ✅ Performance otimizada com RPC Supabase
  */
 const DetalhesDoDiaModal = ({ isOpen, onClose, dia }) => {
   const { user, isAuthenticated } = useAuth();
@@ -226,25 +225,47 @@ const DetalhesDoDiaModal = ({ isOpen, onClose, dia }) => {
     }
   };
 
-  // ✅ Carrega dados quando modal abre
+  // ✅ Carrega dados quando modal abre - OTIMIZADO
   useEffect(() => {
     if (isOpen && dia?.data && isAuthenticated && user) {
       const dataFormatada = format(dia.data, 'yyyy-MM-dd');
       
-      console.log('🔄 Modal aberto, carregando dados RPC para:', {
+      console.log('🔄 Modal aberto, analisando dados recebidos:', {
         data: dia.data,
         dataFormatada,
         userId: user.id,
+        temMovimentos: dia.movimentos?.length || 0,
+        temTotais: !!dia.totais,
         lastFetch: lastFetchDate
       });
       
-      // ✅ Cache inteligente - evita refetch desnecessário
+      // ✅ OTIMIZAÇÃO: Se já temos dados do calendário, usar direto
+      if (dia.movimentos && dia.totais && dia.movimentos.length > 0) {
+        console.log('✅ Usando dados já processados pelo calendário:', {
+          movimentos: dia.movimentos.length,
+          totais: dia.totais
+        });
+        
+        // Usar dados já processados pelo calendário
+        setMovimentacoes(dia.movimentos);
+        setResumoDia(dia.totais);
+        setLastFetchDate(dataFormatada);
+        setLoading(false);
+        setError(null);
+        return;
+      }
+      
+      // ✅ Só fazer RPC se não temos dados ou o cache está desatualizado
       if (lastFetchDate !== dataFormatada) {
+        console.log('🔄 Cache desatualizado, buscando via RPC...');
         const timer = setTimeout(() => {
           fetchDetalhesDoDia(dia.data);
         }, 100);
         
         return () => clearTimeout(timer);
+      } else {
+        console.log('✅ Cache válido, mantendo dados atuais');
+        setLoading(false);
       }
     } else if (!isOpen) {
       setError(null);
@@ -255,8 +276,16 @@ const DetalhesDoDiaModal = ({ isOpen, onClose, dia }) => {
     } else if (isOpen && !dia?.data) {
       setError('Data inválida para buscar transações.');
       setLoading(false);
+    } else if (isOpen && dia?.data && (!dia.movimentos || dia.movimentos.length === 0)) {
+      // Caso especial: dia sem movimentos
+      console.log('📭 Dia sem movimentos, definindo estado vazio');
+      setMovimentacoes([]);
+      setResumoDia({ total_receitas: 0, total_despesas: 0, saldo: 0, total_transacoes: 0 });
+      setLastFetchDate(format(dia.data, 'yyyy-MM-dd'));
+      setLoading(false);
+      setError(null);
     }
-  }, [isOpen, dia?.data, isAuthenticated, user, lastFetchDate]);
+  }, [isOpen, dia?.data, dia?.movimentos, dia?.totais, isAuthenticated, user, lastFetchDate]);
 
   // ✅ Bloquear scroll do body quando modal está aberto
   useEffect(() => {
@@ -283,7 +312,7 @@ const DetalhesDoDiaModal = ({ isOpen, onClose, dia }) => {
   const handleClose = () => onClose();
   const handleContentClick = (e) => e.stopPropagation();
 
-  // ✅ Componente de item de movimentação
+  // ✅ Componente de item de movimentação - USANDO CLASSES DO FORMSMODAL
   const MovimentacaoItem = ({ movimentacao }) => {
     const isReceita = movimentacao.tipo === 'receita';
     const valor = parseFloat(movimentacao.valor) || 0;
@@ -301,26 +330,26 @@ const DetalhesDoDiaModal = ({ isOpen, onClose, dia }) => {
     };
 
     return (
-      <div className={`detalhes-movimentacao-item ${isReceita ? 'receita' : 'despesa'}`}>
-        <div className="detalhes-movimentacao-content">
-          <div className={`detalhes-movimentacao-icon ${isReceita ? 'receita' : 'despesa'}`}>
+      <div className={`movimentacao-item ${isReceita ? 'receita' : 'despesa'}`}>
+        <div className="movimentacao-content">
+          <div className={`movimentacao-icon ${isReceita ? 'receita' : 'despesa'}`}>
             {isReceita ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
           </div>
           
-          <div className="detalhes-movimentacao-info">
-            <div className="detalhes-movimentacao-main">
+          <div className="movimentacao-info">
+            <div className="movimentacao-main">
               <div>
-                <h4 className="detalhes-movimentacao-descricao">
+                <h4 className="movimentacao-descricao">
                   {movimentacao.descricao}
                 </h4>
-                <p className={`detalhes-movimentacao-valor ${isReceita ? 'receita' : 'despesa'}`}>
+                <p className={`movimentacao-valor ${isReceita ? 'receita' : 'despesa'}`}>
                   {isReceita ? '+' : '-'} {formatCurrency(valor)}
                 </p>
               </div>
             </div>
             
-            <div className="detalhes-movimentacao-detalhes">
-              <div className="detalhes-movimentacao-detalhe">
+            <div className="movimentacao-detalhes">
+              <div className="movimentacao-detalhe">
                 <div 
                   style={{
                     width: '8px',
@@ -333,14 +362,14 @@ const DetalhesDoDiaModal = ({ isOpen, onClose, dia }) => {
                 <Tag size={12} />
                 <span>{movimentacao.categoria}</span>
               </div>
-              <div className="detalhes-movimentacao-detalhe">
+              <div className="movimentacao-detalhe">
                 {getContaIcon()}
                 <span>{movimentacao.conta}</span>
               </div>
             </div>
             
             {movimentacao.observacoes && (
-              <p className="detalhes-movimentacao-observacoes">
+              <p className="movimentacao-observacoes">
                 {movimentacao.observacoes}
               </p>
             )}
@@ -350,65 +379,45 @@ const DetalhesDoDiaModal = ({ isOpen, onClose, dia }) => {
     );
   };
 
-  // ✅ Estado de loading
+  // ✅ Estado de loading - USANDO CLASSES DO FORMSMODAL
   const renderLoadingState = () => (
-    <div className="detalhes-modal-body">
-      <div className="detalhes-empty-state">
-        <div className="detalhes-loading-spinner" style={{
-          width: '32px',
-          height: '32px',
-          border: '3px solid #f3f4f6',
-          borderTop: '3px solid #3b82f6',
-          borderRadius: '50%',
-          animation: 'spin 1s linear infinite',
-          marginBottom: '16px'
-        }}></div>
-        <h3 className="detalhes-empty-title">
+    <div className="modal-body">
+      <div className="modal-loading-state">
+        <div className="modal-loading-spinner"></div>
+        <h3 className="empty-state-title">
           Carregando movimentações...
         </h3>
-        <p className="detalhes-empty-description">
+        <p className="empty-state-description">
           Buscando dados via RPC Supabase
         </p>
       </div>
     </div>
   );
 
-  // ✅ Estado de erro com diagnóstico integrado
+  // ✅ Estado de erro - USANDO CLASSES DO FORMSMODAL
   const renderErrorState = () => (
-    <div className="detalhes-modal-body">
-      <div className="detalhes-empty-state">
-        <div className="detalhes-empty-icon" style={{ color: '#ef4444' }}>
+    <div className="modal-body">
+      <div className="empty-state">
+        <div className="empty-state-icon" style={{ color: '#ef4444' }}>
           <AlertCircle size={32} />
         </div>
-        <h3 className="detalhes-empty-title" style={{ color: '#ef4444' }}>
+        <h3 className="empty-state-title" style={{ color: '#ef4444' }}>
           Erro ao carregar dados
         </h3>
-        <p className="detalhes-empty-description">
+        <p className="empty-state-description">
           {error}
         </p>
         
         {/* Informações de diagnóstico */}
         {debugInfo.length > 0 && (
-          <div style={{ 
-            margin: '16px 0', 
-            padding: '12px', 
-            background: '#f9fafb', 
-            borderRadius: '8px',
-            fontSize: '0.875rem',
-            maxWidth: '100%'
-          }}>
-            <div style={{ fontWeight: '500', marginBottom: '8px', color: '#374151' }}>
+          <div className="diagnostico-container">
+            <div className="diagnostico-title">
               Diagnóstico das funções RPC:
             </div>
             {debugInfo.slice(0, 4).map((info, index) => (
-              <div key={index} style={{ 
-                display: 'flex', 
-                gap: '6px', 
-                marginBottom: '4px',
-                fontSize: '0.8rem'
-              }}>
+              <div key={index} className="diagnostico-item">
                 <span>{info.resultado ? '✅' : '❌'}</span>
-                <span style={{ color: '#6b7280' }}>
+                <span>
                   <strong>{info.teste}:</strong> {info.detalhes}
                 </span>
               </div>
@@ -429,22 +438,11 @@ const DetalhesDoDiaModal = ({ isOpen, onClose, dia }) => {
           </p>
         )}
 
-        <div style={{ display: 'flex', gap: '8px', marginTop: '16px', flexWrap: 'wrap' }}>
+        <div className="error-actions">
           <button 
             onClick={handleRetry}
             disabled={loading}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: loading ? '#9ca3af' : '#3b82f6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              fontSize: '0.875rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
+            className="btn-retry"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             {loading ? 'Carregando...' : 'Tentar novamente'}
@@ -452,15 +450,7 @@ const DetalhesDoDiaModal = ({ isOpen, onClose, dia }) => {
           
           <button 
             onClick={diagnosticarRPC}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#f59e0b',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '0.875rem'
-            }}
+            className="btn-diagnose"
           >
             Diagnosticar RPC
           </button>
@@ -472,15 +462,7 @@ const DetalhesDoDiaModal = ({ isOpen, onClose, dia }) => {
               setResumoDia({ total_receitas: 0, total_despesas: 0, saldo: 0, total_transacoes: 0 });
               setDebugInfo([]);
             }}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#6b7280',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '0.875rem'
-            }}
+            className="btn-clear"
           >
             Limpar
           </button>
@@ -492,39 +474,39 @@ const DetalhesDoDiaModal = ({ isOpen, onClose, dia }) => {
   if (!isOpen || !dia) return null;
 
   return (
-    <div className="detalhes-modal-overlay" onClick={handleClose}>
-      <div className="detalhes-modal-container" onClick={handleContentClick}>
-        {/* Header do Modal */}
-        <div className="detalhes-modal-header">
-          <button onClick={handleClose} className="detalhes-modal-close-button">
-            <X size={24} />
+    <div className="modal-overlay active" onClick={handleClose}>
+      <div className="forms-modal-container detalhes-modal" onClick={handleContentClick}>
+        {/* Header do Modal - USANDO CLASSES DO FORMSMODAL */}
+        <div className="modal-header modal-header-gradient">
+          <button onClick={handleClose} className="modal-close">
+            <X size={20} />
           </button>
           
-          <h2 className="detalhes-modal-title">
+          <h2 className="modal-title">
             {dia?.data ? format(dia.data, 'dd \'de\' MMMM', { locale: ptBR }) : 'Detalhes do Dia'}
           </h2>
-          <p className="detalhes-modal-subtitle">
+          <p className="modal-subtitle">
             {dia?.data ? format(dia.data, 'EEEE', { locale: ptBR }) : ''}
           </p>
           
-          {/* Resumo do Dia - dados do RPC */}
+          {/* Resumo do Dia - USANDO CLASSES DO FORMSMODAL */}
           {!loading && !error && (
-            <div className="detalhes-modal-resumo">
-              <div className="detalhes-resumo-item">
-                <p className="detalhes-resumo-label">Receitas</p>
-                <p className="detalhes-resumo-valor positivo">
+            <div className="modal-header-resumo">
+              <div className="modal-header-resumo-item">
+                <p className="modal-header-resumo-label">Receitas</p>
+                <p className="modal-header-resumo-valor">
                   {formatCurrency(resumoDia.total_receitas)}
                 </p>
               </div>
-              <div className="detalhes-resumo-item">
-                <p className="detalhes-resumo-label">Despesas</p>
-                <p className="detalhes-resumo-valor negativo">
+              <div className="modal-header-resumo-item">
+                <p className="modal-header-resumo-label">Despesas</p>
+                <p className="modal-header-resumo-valor">
                   {formatCurrency(resumoDia.total_despesas)}
                 </p>
               </div>
-              <div className="detalhes-resumo-item">
-                <p className="detalhes-resumo-label">Saldo</p>
-                <p className={`detalhes-resumo-valor ${resumoDia.saldo >= 0 ? 'positivo' : 'negativo'}`}>
+              <div className="modal-header-resumo-item">
+                <p className="modal-header-resumo-label">Saldo</p>
+                <p className="modal-header-resumo-valor">
                   {formatCurrency(resumoDia.saldo)}
                 </p>
               </div>
@@ -532,21 +514,21 @@ const DetalhesDoDiaModal = ({ isOpen, onClose, dia }) => {
           )}
         </div>
         
-        {/* Conteúdo do Modal */}
+        {/* Conteúdo do Modal - USANDO CLASSES DO FORMSMODAL */}
         {loading ? (
           renderLoadingState()
         ) : error ? (
           renderErrorState()
         ) : movimentacoes.length === 0 ? (
-          <div className="detalhes-modal-body">
-            <div className="detalhes-empty-state">
-              <div className="detalhes-empty-icon">
+          <div className="modal-body">
+            <div className="empty-state">
+              <div className="empty-state-icon">
                 <Calendar size={32} />
               </div>
-              <h3 className="detalhes-empty-title">
+              <h3 className="empty-state-title">
                 Nenhuma movimentação registrada
               </h3>
-              <p className="detalhes-empty-description">
+              <p className="empty-state-description">
                 Não há receitas ou despesas cadastradas para este dia.
               </p>
               {dia?.data && (
@@ -557,20 +539,19 @@ const DetalhesDoDiaModal = ({ isOpen, onClose, dia }) => {
             </div>
           </div>
         ) : (
-          <div className="detalhes-modal-body">
+          <div className="modal-body">
             {/* Cabeçalho da lista */}
-            <div className="detalhes-movimentacoes-header">
-              <h3 className="detalhes-movimentacoes-title">
+            <div className="secao-header">
+              <h3 className="secao-title">
                 Movimentações ({resumoDia.total_transacoes || movimentacoes.length})
-                
               </h3>
-              <p className="detalhes-movimentacoes-subtitle">
+              <p className="secao-subtitle">
                 {dia?.data ? format(dia.data, 'dd/MM/yyyy', { locale: ptBR }) : ''}
               </p>
             </div>
             
             {/* Lista de movimentações */}
-            <div className="detalhes-movimentacoes-lista">
+            <div className="movimentacoes-lista">
               {movimentacoes.map((movimentacao, index) => (
                 <MovimentacaoItem 
                   key={movimentacao.id || index} 
@@ -580,29 +561,29 @@ const DetalhesDoDiaModal = ({ isOpen, onClose, dia }) => {
             </div>
             
             {/* Resumo adicional */}
-            <div className="detalhes-resumo-adicional">
-              <div className="detalhes-resumo-grid">
-                <div className="detalhes-resumo-coluna">
-                  <p className="detalhes-resumo-coluna-label">Total de Transações</p>
-                  <p className="detalhes-resumo-coluna-valor neutro">
+            <div className="resumo-adicional">
+              <div className="resumo-grid-4">
+                <div className="resumo-coluna">
+                  <p className="resumo-coluna-label">Total de Transações</p>
+                  <p className="resumo-coluna-valor neutro">
                     {resumoDia.total_transacoes || movimentacoes.length}
                   </p>
                 </div>
-                <div className="detalhes-resumo-coluna">
-                  <p className="detalhes-resumo-coluna-label">Receitas</p>
-                  <p className="detalhes-resumo-coluna-valor positivo">
+                <div className="resumo-coluna">
+                  <p className="resumo-coluna-label">Receitas</p>
+                  <p className="resumo-coluna-valor positive">
                     {formatCurrency(resumoDia.total_receitas)}
                   </p>
                 </div>
-                <div className="detalhes-resumo-coluna">
-                  <p className="detalhes-resumo-coluna-label">Despesas</p>
-                  <p className="detalhes-resumo-coluna-valor negativo">
+                <div className="resumo-coluna">
+                  <p className="resumo-coluna-label">Despesas</p>
+                  <p className="resumo-coluna-valor negative">
                     {formatCurrency(resumoDia.total_despesas)}
                   </p>
                 </div>
-                <div className="detalhes-resumo-coluna">
-                  <p className="detalhes-resumo-coluna-label">Resultado</p>
-                  <p className={`detalhes-resumo-coluna-valor ${resumoDia.saldo >= 0 ? 'positivo' : 'negativo'}`}>
+                <div className="resumo-coluna">
+                  <p className="resumo-coluna-label">Resultado</p>
+                  <p className={`resumo-coluna-valor ${resumoDia.saldo >= 0 ? 'positive' : 'negative'}`}>
                     {formatCurrency(resumoDia.saldo)}
                   </p>
                 </div>
@@ -611,24 +592,24 @@ const DetalhesDoDiaModal = ({ isOpen, onClose, dia }) => {
           </div>
         )}
         
-        {/* Footer do Modal */}
-        <div className="detalhes-modal-footer">
-          <div className="detalhes-modal-info">
+        {/* Footer do Modal - USANDO CLASSES DO FORMSMODAL */}
+        <div className="modal-footer">
+          <div className="modal-footer-info">
             {loading ? (
               'Carregando via RPC Supabase...'
             ) : error ? (
               'Erro ao carregar dados'
             ) : (
               <>
-                {resumoDia.total_transacoes || movimentacoes.length} movimentação{(resumoDia.total_transacoes || movimentacoes.length) !== 1 ? 'ões' : ''} • 
-                Saldo do dia: <span className={`detalhes-modal-saldo-info ${resumoDia.saldo >= 0 ? 'positivo' : 'negativo'}`}>
+                {resumoDia.total_transacoes || movimentacoes.length} {((resumoDia.total_transacoes || movimentacoes.length) === 1 ? 'movimentação' : 'movimentações')} • 
+                Saldo do dia: <span className={`modal-footer-saldo ${resumoDia.saldo >= 0 ? 'positive' : 'negative'}`}>
                   {formatCurrency(resumoDia.saldo)}
                 </span>
               </>
             )}
           </div>
-          <div className="detalhes-modal-actions">
-            <button onClick={handleClose} className="detalhes-modal-button secondary">
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button onClick={handleClose} className="btn-cancel">
               Fechar
             </button>
             <button
@@ -636,7 +617,7 @@ const DetalhesDoDiaModal = ({ isOpen, onClose, dia }) => {
                 handleClose();
                 window.location.href = '/transacoes';
               }}
-              className="detalhes-modal-button primary"
+              className="btn-primary"
               disabled={loading}
             >
               Ver todas as transações
