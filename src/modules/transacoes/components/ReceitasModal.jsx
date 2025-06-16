@@ -1,4 +1,4 @@
-// src/modules/transacoes/components/ReceitasModal.jsx - VERSÃO CSS PURO CORRIGIDA
+// src/modules/transacoes/components/ReceitasModal.jsx - VERSÃO FINAL CORRIGIDA
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -20,7 +20,8 @@ import {
   Star,
   Gift,
   Banknote,
-  HelpCircle
+  HelpCircle,
+  AlertCircle
 } from 'lucide-react';
 
 import { useAuthStore } from '@modules/auth/store/authStore';
@@ -28,12 +29,14 @@ import { useUIStore } from '@store/uiStore';
 import { formatCurrency } from '@utils/formatCurrency';
 import { supabase } from '@lib/supabaseClient';
 import useContas from '@modules/contas/hooks/useContas';
+import { useTransactions } from '@modules/transacoes/store/transactionsStore';
 import '@shared/styles/FormsModal.css';
 
 const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   const { user } = useAuthStore();
   const { showNotification } = useUIStore();
   const { contas, recalcularSaldos } = useContas();
+  const { updateGrupoValor, isParceladaOuRecorrente } = useTransactions();
   
   const valorInputRef = useRef(null);
   const isEditMode = Boolean(transacaoEditando);
@@ -60,6 +63,10 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     nome: '',
     categoriaId: ''
   });
+
+  // Estados para edição de grupos (NOVO)
+  const [escopoEdicao, setEscopoEdicao] = useState('atual');
+  const [transacaoInfo, setTransacaoInfo] = useState(null);
 
   // Estado do formulário
   const [formData, setFormData] = useState({
@@ -171,7 +178,22 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     [subcategorias, formData.categoria]
   );
 
-  // Effects para filtros de categoria (igual ao DespesasCartaoModal)
+  // ===== VERIFICAR TRANSAÇÃO PARCELADA/RECORRENTE (NOVO) =====
+  useEffect(() => {
+    if (isEditMode && transacaoEditando) {
+      const info = isParceladaOuRecorrente(transacaoEditando);
+      setTransacaoInfo(info);
+      
+      console.log('🔍 Análise da transação para edição:', {
+        transacao: transacaoEditando,
+        analise: info
+      });
+    } else {
+      setTransacaoInfo(null);
+    }
+  }, [isEditMode, transacaoEditando, isParceladaOuRecorrente]);
+
+  // Effects para filtros de categoria
   useEffect(() => {
     if (!categorias.length) return;
     const filtradas = formData.categoriaTexto 
@@ -324,7 +346,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     });
   }, []);
 
-  // ===== HANDLERS DE CATEGORIA (igual ao DespesasCartaoModal) =====
+  // ===== HANDLERS DE CATEGORIA =====
   const handleCategoriaChange = useCallback((e) => {
     const { value } = e.target;
     setFormData(prev => ({
@@ -371,7 +393,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     return () => clearTimeout(timer);
   }, [formData.categoriaTexto, formData.categoria, categorias]);
 
-  // ===== HANDLERS DE SUBCATEGORIA (igual ao DespesasCartaoModal) =====
+  // ===== HANDLERS DE SUBCATEGORIA =====
   const handleSubcategoriaChange = useCallback((e) => {
     const { value } = e.target;
     setFormData(prev => ({ 
@@ -519,6 +541,8 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     });
     setErrors({});
     setTipoReceita('extra');
+    setEscopoEdicao('atual');
+    setTransacaoInfo(null);
     setCategoriaDropdownOpen(false);
     setSubcategoriaDropdownOpen(false);
     setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
@@ -569,9 +593,47 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     return Object.keys(newErrors).length === 0;
   }, [formData, tipoReceita, valorNumerico]);
 
-  // ===== ATUALIZAR TRANSAÇÃO =====
+  // ===== ATUALIZAR TRANSAÇÃO (MODIFICADO) =====
   const atualizarTransacao = useCallback(async () => {
     try {
+      // Verificar se é parcelada/recorrente e se só está mudando o valor
+      const isParceladaOuRecorrenteAtual = transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente);
+      const valorOriginal = transacaoEditando?.valor || 0;
+      const somenteValorMudou = (
+        formData.data === (transacaoEditando?.data || '') &&
+        formData.descricao.trim() === (transacaoEditando?.descricao?.replace(/\s\(\d+\/\d+\)$/, '') || '') &&
+        formData.categoria === (transacaoEditando?.categoria_id || '') &&
+        formData.subcategoria === (transacaoEditando?.subcategoria_id || '') &&
+        formData.conta === (transacaoEditando?.conta_id || '') &&
+        formData.efetivado === (transacaoEditando?.efetivado ?? true) &&
+        formData.observacoes.trim() === (transacaoEditando?.observacoes || '') &&
+        valorNumerico !== valorOriginal
+      );
+
+      // Se for parcelada/recorrente e só mudou o valor, usar RPC de grupo
+      if (isParceladaOuRecorrenteAtual && somenteValorMudou) {
+        console.log('🔄 Atualizando grupo de transações via RPC:', {
+          transacaoId: transacaoEditando.id,
+          escopoEdicao,
+          valorNumerico,
+          transacaoInfo
+        });
+
+        const resultado = await updateGrupoValor(
+          transacaoEditando.id,
+          escopoEdicao, // 'atual' ou 'futuras'
+          valorNumerico
+        );
+
+        if (!resultado.success) {
+          throw new Error(resultado.error || 'Erro ao atualizar grupo de transações');
+        }
+
+        showNotification(resultado.message || 'Transações atualizadas com sucesso!', 'success');
+        return true;
+      }
+
+      // Caso contrário, atualização normal individual
       const dadosAtualizacao = {
         data: formData.data,
         descricao: formData.descricao.trim(),
@@ -598,7 +660,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       console.error('❌ Erro ao atualizar receita:', error);
       throw error;
     }
-  }, [formData, valorNumerico, transacaoEditando, user.id, showNotification]);
+  }, [formData, valorNumerico, transacaoEditando, user.id, showNotification, transacaoInfo, escopoEdicao, updateGrupoValor]);
 
   // ===== CRIAR RECEITAS =====
   const criarReceitas = useCallback(async () => {
@@ -839,6 +901,66 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
           ) : (
             <form onSubmit={(e) => handleSubmit(e, false)}>
               
+              {/* ESCOPO DE EDIÇÃO - Só aparece quando editando parcelada/recorrente */}
+              {isEditMode && transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && (
+                <div className="section-header-warning">
+                  <div className="warning-icon">
+                    <AlertCircle size={16} />
+                  </div>
+                  <div className="warning-content">
+                    <h4 className="warning-title">
+                      Receita {transacaoInfo.tipo === 'parcelada' ? 'Parcelada' : 'Recorrente'} Detectada
+                    </h4>
+                    <p className="warning-description">
+                      {transacaoInfo.tipo === 'parcelada' 
+                        ? `Esta é a parcela ${transacaoInfo.parcelaAtual} de ${transacaoInfo.totalParcelas}. ` 
+                        : `Esta é uma receita recorrente. `
+                      }
+                      Escolha o escopo da alteração:
+                    </p>
+                    
+                    <div className="scope-selector">
+                      <label className={`scope-option ${escopoEdicao === 'atual' ? 'active' : ''}`}>
+                        <input
+                          type="radio"
+                          name="escopoEdicao"
+                          value="atual"
+                          checked={escopoEdicao === 'atual'}
+                          onChange={(e) => setEscopoEdicao(e.target.value)}
+                          disabled={submitting}
+                        />
+                        <div className="scope-content">
+                          <strong>Alterar apenas esta {transacaoInfo.tipo === 'parcelada' ? 'parcela' : 'ocorrência'}</strong>
+                          <small>Modifica somente esta transação específica</small>
+                        </div>
+                      </label>
+                      
+                      <label className={`scope-option ${escopoEdicao === 'futuras' ? 'active' : ''}`}>
+                        <input
+                          type="radio"
+                          name="escopoEdicao"
+                          value="futuras"
+                          checked={escopoEdicao === 'futuras'}
+                          onChange={(e) => setEscopoEdicao(e.target.value)}
+                          disabled={submitting}
+                        />
+                        <div className="scope-content">
+                          <strong>Alterar esta e todas as futuras</strong>
+                          <small>Modifica esta e todas as {transacaoInfo.tipo === 'parcelada' ? 'parcelas' : 'ocorrências'} não efetivadas</small>
+                        </div>
+                      </label>
+                    </div>
+                    
+                    {escopoEdicao === 'futuras' && (
+                      <div className="scope-note">
+                        <strong>Nota:</strong> Apenas o <em>valor</em> pode ser alterado em grupos. 
+                        Para outras modificações, edite individualmente.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <h3 className="section-title">Informações da Receita</h3>
               
               {/* VALOR E DATA */}
@@ -871,7 +993,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                     name="data"
                     value={formData.data}
                     onChange={handleInputChange}
-                    disabled={submitting}
+                    disabled={submitting || (isEditMode && transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && escopoEdicao === 'futuras')}
                     className={`input-date ${errors.data ? 'error' : ''}`}
                   />
                   {errors.data && <div className="form-error">{errors.data}</div>}
@@ -916,7 +1038,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                     type="button"
                     className={`status-option ${formData.efetivado ? 'active' : ''}`}
                     onClick={() => setFormData(prev => ({ ...prev, efetivado: true }))}
-                    disabled={submitting}
+                    disabled={submitting || (isEditMode && transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && escopoEdicao === 'futuras')}
                   >
                     <CheckCircle size={16} />
                     <div>
@@ -928,7 +1050,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                     type="button"
                     className={`status-option ${!formData.efetivado ? 'active' : ''}`}
                     onClick={() => setFormData(prev => ({ ...prev, efetivado: false }))}
-                    disabled={submitting}
+                    disabled={submitting || (isEditMode && transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && escopoEdicao === 'futuras')}
                   >
                     <Clock size={16} />
                     <div>
@@ -1039,7 +1161,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                   }
                   value={formData.descricao}
                   onChange={handleInputChange}
-                  disabled={submitting}
+                  disabled={submitting || (isEditMode && transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && escopoEdicao === 'futuras')}
                   className={`input-text ${errors.descricao ? 'error' : ''}`}
                 />
                 {errors.descricao && <div className="form-error">{errors.descricao}</div>}
@@ -1060,7 +1182,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                       onBlur={handleCategoriaBlur}
                       onFocus={() => setCategoriaDropdownOpen(true)}
                       placeholder="Digite ou selecione uma categoria"
-                      disabled={submitting}
+                      disabled={submitting || (isEditMode && transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && escopoEdicao === 'futuras')}
                       autoComplete="off"
                       className={`input-text input-with-icon ${!formData.categoria ? 'input-muted' : ''} ${errors.categoria ? 'error' : ''}`}
                       style={{
@@ -1122,7 +1244,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                         onBlur={handleSubcategoriaBlur}
                         onFocus={() => setSubcategoriaDropdownOpen(true)}
                         placeholder="Digite ou selecione uma subcategoria"
-                        disabled={submitting}
+                        disabled={submitting || (isEditMode && transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && escopoEdicao === 'futuras')}
                         autoComplete="off"
                         className="input-text input-with-icon"
                         style={{
@@ -1177,7 +1299,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                     name="conta"
                     value={formData.conta}
                     onChange={handleInputChange}
-                    disabled={submitting}
+                    disabled={submitting || (isEditMode && transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && escopoEdicao === 'futuras')}
                     className={errors.conta ? 'error' : ''}
                   >
                     <option value="">Selecione uma conta</option>
@@ -1209,7 +1331,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                   onChange={handleInputChange}
                   placeholder="Observações adicionais (opcional)..."
                   rows="2"
-                  disabled={submitting}
+                  disabled={submitting || (isEditMode && transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && escopoEdicao === 'futuras')}
                   maxLength="300"
                   className={`textarea-observations ${errors.observacoes ? 'error' : ''}`}
                 />
@@ -1275,10 +1397,12 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
             ) : (
               <>
                 {isEditMode ? <Edit size={14} /> : <Plus size={14} />}
-                {isEditMode ? 'Atualizar Receita' :
+                {isEditMode ? 
+                  (transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && escopoEdicao === 'futuras' ? 
+                    'Atualizar Grupo' : 'Atualizar Receita') :
                  tipoReceita === 'previsivel' ? `Criar Receitas Futuras` :
                  tipoReceita === 'parcelada' ? `Parcelar em ${formData.numeroParcelas}x` :
-                 'Adicionar Receita'}
+                 'Adicionar Receita Extra'}
               </>
             )}
           </button>

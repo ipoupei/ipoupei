@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -12,6 +12,7 @@ import PageContainer from '@shared/components/layouts/PageContainer';
 import Card from '@shared/components/ui/Card';
 import Button from '@shared/components/ui/Button';
 import ToolTip from '@shared/components/ui/ToolTip';
+import InputMoney from '@shared/components/ui/InputMoney';
 
 // Modals
 import DespesasModal from '@modules/transacoes/components/DespesasModal';
@@ -19,14 +20,42 @@ import ReceitasModal from '@modules/transacoes/components/ReceitasModal';
 
 // Utils
 import formatCurrency from '@shared/utils/formatCurrency';
-import supabase from '@lib/supabaseClient';
 
 // Hooks
 import useAuth from '@modules/auth/hooks/useAuth';
 
+// Store Zustand
+import { useTransactionsStore } from '@modules/transacoes/store/transactionsStore';
+
 const TransacoesPage = () => {
   // =============================================
-  // ESTADOS
+  // ZUSTAND STORE - ESTADO CENTRALIZADO
+  // =============================================
+  const {
+    // Dados
+    transacoes,
+    loading,
+    error,
+    filtros,
+    paginacao,
+    
+    // Ações principais
+    fetchTransacoes,
+    updateTransacao,
+    deleteTransacao,
+    
+    // Filtros
+    setFiltros,
+    limparFiltros,
+    hasActiveFilters,
+    
+    // Getters
+    estatisticas,
+    getById: getTransacaoById
+  } = useTransactionsStore();
+
+  // =============================================
+  // ESTADOS LOCAIS (APENAS UI)
   // =============================================
   const [currentDate, setCurrentDate] = useState(new Date());
   const [sortField, setSortField] = useState('data');
@@ -34,22 +63,19 @@ const TransacoesPage = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [groupByCard, setGroupByCard] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [showPagamentoFaturaModal, setShowPagamentoFaturaModal] = useState(false);
-  const [selectedFatura, setSelectedFatura] = useState(null);
-  
-  // Estados para dados
-  const [transacoes, setTransacoes] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [isNavigating, setIsNavigating] = useState(false);
-
-  // Estados dos modais de edição
+  
+  // Estados dos modais
   const [showDespesasModal, setShowDespesasModal] = useState(false);
   const [showReceitasModal, setShowReceitasModal] = useState(false);
   const [transacaoEditando, setTransacaoEditando] = useState(null);
+  const [showConfirmEfetivarModal, setShowConfirmEfetivarModal] = useState(false);
+  const [transacaoParaEfetivar, setTransacaoParaEfetivar] = useState(null);
+  const [showPagamentoFaturaModal, setShowPagamentoFaturaModal] = useState(false);
+  const [selectedFatura, setSelectedFatura] = useState(null);
 
-  // Estados dos filtros avançados
-  const [filtros, setFiltros] = useState({
+  // Estados dos filtros temporários (antes de aplicar)
+  const [filtrosTemp, setFiltrosTemp] = useState({
     tipo: [],
     categoria: [],
     subcategoria: [],
@@ -58,13 +84,13 @@ const TransacoesPage = () => {
     status: [],
     dataInicio: '',
     dataFim: '',
-    valorMinimo: '',
-    valorMaximo: '',
+    valorMinimo: 0,
+    valorMaximo: 10000,
     tipoReceita: [],
     tipoDespesa: []
   });
 
-  // Estados para dados dos filtros
+  // Estados para dados auxiliares dos filtros
   const [categorias, setCategorias] = useState([]);
   const [subcategorias, setSubcategorias] = useState([]);
   const [contas, setContas] = useState([]);
@@ -89,12 +115,35 @@ const TransacoesPage = () => {
   const dataFim = endOfMonth(currentDate);
 
   // =============================================
+  // CARREGAR DADOS INICIAIS
+  // =============================================
+  useEffect(() => {
+    if (user?.id) {
+      // Configurar período na store
+      setFiltros({
+        periodo: {
+          inicio: dataInicio,
+          fim: dataFim
+        }
+      });
+      
+      // Buscar transações
+      fetchTransacoes();
+      
+      // Carregar dados auxiliares
+      carregarDadosFiltros();
+    }
+  }, [user?.id, currentDate, fetchTransacoes, setFiltros]);
+
+  // =============================================
   // CARREGAR DADOS PARA FILTROS
   // =============================================
   const carregarDadosFiltros = async () => {
     if (!user?.id) return;
 
     try {
+      const { default: supabase } = await import('@lib/supabaseClient');
+      
       const [categoriasRes, subcategoriasRes, contasRes, cartoesRes] = await Promise.all([
         supabase.from('categorias').select('*').eq('usuario_id', user.id).eq('ativo', true).order('nome'),
         supabase.from('subcategorias').select('*').eq('usuario_id', user.id).eq('ativo', true).order('nome'),
@@ -112,177 +161,29 @@ const TransacoesPage = () => {
   };
 
   // =============================================
-  // BUSCAR TRANSAÇÕES
+  // PROCESSAMENTO DE TRANSAÇÕES (usando store)
   // =============================================
-  const buscarTransacoes = async () => {
-    if (!user?.id || loading) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      console.log('🔍 Buscando transações:', {
-        usuario: user.id,
-        periodo: `${format(dataInicio, 'yyyy-MM-dd')} até ${format(dataFim, 'yyyy-MM-dd')}`
-      });
-
-      const { data, error } = await supabase
-        .rpc('gpt_transacoes_do_mes', {
-          p_usuario_id: user.id,
-          p_data_inicio: format(dataInicio, 'yyyy-MM-dd'),
-          p_data_fim: format(dataFim, 'yyyy-MM-dd')
-        });
-
-      if (error) {
-        throw error;
-      }
-
-      console.log('✅ Transações encontradas:', data?.length || 0);
-
-      // Mapear dados para formato do componente
-      const transacoesMapeadas = (data || []).map(t => ({
-        id: t.id,
-        data: t.data,
-        tipo: t.tipo,
-        valor: parseFloat(t.valor) || 0,
-        descricao: t.descricao || 'Sem descrição',
-        categoria_id: t.categoria_id,
-        categoria_nome: t.categoria_nome || 'Sem categoria',
-        categoria_cor: t.categoria_cor || '#6B7280',
-        conta_id: t.conta_id,
-        conta_nome: t.conta_nome || 'Conta não informada',
-        cartao_id: t.cartao_id || null, // Garantir que cartao_id seja mapeado
-        cartao_nome: t.cartao_nome || null,
-        efetivado: t.efetivado !== false,
-        observacoes: t.observacoes || '',
-        subcategoria_id: t.subcategoria_id,
-        tipo_receita: t.tipo_receita,
-        tipo_despesa: t.tipo_despesa
-      }));
-
-      console.log('🗂️ Mapeamento de transações:', {
-        total: transacoesMapeadas.length,
-        comCartao: transacoesMapeadas.filter(t => t.cartao_id).length,
-        despesasComCartao: transacoesMapeadas.filter(t => t.tipo === 'despesa' && t.cartao_id).length,
-        exemplos: transacoesMapeadas.slice(0, 3).map(t => ({
-          id: t.id,
-          tipo: t.tipo,
-          cartao_id: t.cartao_id,
-          cartao_nome: t.cartao_nome
-        }))
-      });
-
-      setTransacoes(transacoesMapeadas);
-
-    } catch (err) {
-      console.error('❌ Erro ao buscar transações:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-      setIsNavigating(false);
-    }
-  };
-
-  // Executar busca quando usuário carregar
-  useEffect(() => {
-    if (user?.id) {
-      buscarTransacoes();
-      carregarDadosFiltros();
-    }
-  }, [user?.id]);
-
-  // =============================================
-  // APLICAR FILTROS
-  // =============================================
-  const aplicarFiltros = (transacoesOriginais) => {
-    let filtered = [...transacoesOriginais];
-
-    // Filtro por tipo
-    if (filtros.tipo.length > 0) {
-      filtered = filtered.filter(t => filtros.tipo.includes(t.tipo));
-    }
-
-    // Filtro por categoria
-    if (filtros.categoria.length > 0) {
-      filtered = filtered.filter(t => filtros.categoria.includes(t.categoria_id));
-    }
-
-    // Filtro por subcategoria
-    if (filtros.subcategoria.length > 0) {
-      filtered = filtered.filter(t => filtros.subcategoria.includes(t.subcategoria_id));
-    }
-
-    // Filtro por conta
-    if (filtros.conta.length > 0) {
-      filtered = filtered.filter(t => filtros.conta.includes(t.conta_id));
-    }
-
-    // Filtro por cartão
-    if (filtros.cartao.length > 0) {
-      filtered = filtered.filter(t => filtros.cartao.includes(t.cartao_id));
-    }
-
-    // Filtro por status
-    if (filtros.status.length > 0) {
-      filtered = filtered.filter(t => {
-        const status = t.efetivado ? 'efetivado' : 'pendente';
-        return filtros.status.includes(status);
-      });
-    }
-
-    // Filtro por valor mínimo
-    if (filtros.valorMinimo) {
-      const valorMin = parseFloat(filtros.valorMinimo) || 0;
-      filtered = filtered.filter(t => t.valor >= valorMin);
-    }
-
-    // Filtro por valor máximo
-    if (filtros.valorMaximo) {
-      const valorMax = parseFloat(filtros.valorMaximo) || 0;
-      filtered = filtered.filter(t => t.valor <= valorMax);
-    }
-
-    // Filtro por tipo de receita
-    if (filtros.tipoReceita.length > 0) {
-      filtered = filtered.filter(t => t.tipo === 'receita' && filtros.tipoReceita.includes(t.tipo_receita));
-    }
-
-    // Filtro por tipo de despesa
-    if (filtros.tipoDespesa.length > 0) {
-      filtered = filtered.filter(t => t.tipo === 'despesa' && filtros.tipoDespesa.includes(t.tipo_despesa));
-    }
-
-    return filtered;
-  };
-
-  // =============================================
-  // PROCESSAR E FILTRAR TRANSAÇÕES
-  // =============================================
-  const transacoesFiltradas = useMemo(() => {
-    let filtered = aplicarFiltros(transacoes);
+  const transacoesFiltradas = React.useMemo(() => {
+    let filtered = [...transacoes];
 
     // Agrupar por cartão se necessário
     if (groupByCard) {
       const cartaoGroups = {};
       const nonCardTransactions = [];
 
-      console.log('🔄 Agrupando faturas...', { 
-        totalTransacoes: filtered.length,
-        groupByCard: groupByCard
-      });
-
       filtered.forEach(transacao => {
-        // Verificar se é uma transação de cartão (despesa)
         if (transacao.cartao_id && transacao.tipo === 'despesa') {
           const mesReferencia = format(new Date(transacao.data), 'yyyy-MM');
           const key = `${transacao.cartao_id}-${mesReferencia}`;
           
           if (!cartaoGroups[key]) {
+            const cartaoNome = cartoes.find(c => c.id === transacao.cartao_id)?.nome || transacao.cartao_nome || 'Cartão';
+            
             cartaoGroups[key] = {
               id: `fatura-${key}`,
               tipo: 'fatura',
-              descricao: `Fatura ${transacao.cartao_nome || 'Cartão'} - ${format(new Date(transacao.data), 'MMM/yyyy', { locale: ptBR })}`,
-              cartao_nome: transacao.cartao_nome || 'Cartão',
+              descricao: `Fatura ${cartaoNome} - ${format(new Date(transacao.data), 'MMM/yyyy', { locale: ptBR })}`,
+              cartao_nome: cartaoNome,
               cartao_id: transacao.cartao_id,
               data: transacao.data,
               valor: 0,
@@ -296,31 +197,14 @@ const TransacoesPage = () => {
           
           cartaoGroups[key].valor += transacao.valor;
           cartaoGroups[key].transacoes.push(transacao);
-          
-          console.log('💳 Transação agrupada:', {
-            cartao: transacao.cartao_nome,
-            valor: transacao.valor,
-            totalFatura: cartaoGroups[key].valor
-          });
         } else {
-          // Transações que não são de cartão
           nonCardTransactions.push(transacao);
         }
       });
       
       const faturas = Object.values(cartaoGroups);
-      console.log('📊 Resultado do agrupamento:', {
-        totalFaturas: faturas.length,
-        totalTransacoesNaoCartao: nonCardTransactions.length,
-        faturas: faturas.map(f => ({ nome: f.descricao, valor: f.valor, transacoes: f.transacoes.length }))
-      });
-      
-      // Se temos faturas, mostrar elas primeiro
       if (faturas.length > 0) {
         filtered = [...faturas, ...nonCardTransactions];
-        console.log('✅ Faturas criadas:', faturas.length);
-      } else {
-        console.log('⚠️ Nenhuma fatura encontrada para agrupar');
       }
     }
 
@@ -346,7 +230,7 @@ const TransacoesPage = () => {
     });
 
     return filtered;
-  }, [transacoes, filtros, groupByCard, sortField, sortDirection]);
+  }, [transacoes, groupByCard, cartoes, sortField, sortDirection]);
 
   // =============================================
   // HANDLERS
@@ -374,32 +258,30 @@ const TransacoesPage = () => {
       newDate = new Date();
     }
     
+    console.log('📅 Navegando para:', format(newDate, 'MMMM/yyyy', { locale: ptBR }));
     setCurrentDate(newDate);
-    
-    setTimeout(() => {
-      if (user?.id) {
-        buscarTransacoes();
-      }
-    }, 50);
+    setIsNavigating(false);
   };
 
   const handleToggleEfetivado = async (transacao) => {
+    setTransacaoParaEfetivar(transacao);
+    setShowConfirmEfetivarModal(true);
+  };
+
+  const confirmarEfetivacao = async () => {
+    if (!transacaoParaEfetivar) return;
+
     try {
-      const { error } = await supabase
-        .from('transacoes')
-        .update({ efetivado: !transacao.efetivado })
-        .eq('id', transacao.id);
+      const novoStatus = !transacaoParaEfetivar.efetivado;
+      
+      const result = await updateTransacao(transacaoParaEfetivar.id, {
+        efetivado: novoStatus
+      });
 
-      if (error) throw error;
-
-      setTransacoes(prev => 
-        prev.map(t => 
-          t.id === transacao.id 
-            ? { ...t, efetivado: !t.efetivado }
-            : t
-        )
-      );
-
+      if (result.success) {
+        setShowConfirmEfetivarModal(false);
+        setTransacaoParaEfetivar(null);
+      }
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
     }
@@ -411,15 +293,7 @@ const TransacoesPage = () => {
     }
 
     try {
-      const { error } = await supabase
-        .from('transacoes')
-        .delete()
-        .eq('id', transacaoId);
-
-      if (error) throw error;
-
-      setTransacoes(prev => prev.filter(t => t.id !== transacaoId));
-
+      await deleteTransacao(transacaoId);
     } catch (error) {
       console.error('Erro ao excluir transação:', error);
     }
@@ -441,14 +315,32 @@ const TransacoesPage = () => {
   };
 
   const handleFiltroChange = (campo, valor) => {
-    setFiltros(prev => ({
+    setFiltrosTemp(prev => ({
       ...prev,
       [campo]: valor
     }));
   };
 
-  const limparFiltros = () => {
-    setFiltros({
+  const aplicarFiltrosManual = () => {
+    // Converter filtros temporários para formato da store
+    const novosFiltros = {
+      tipos: filtrosTemp.tipo,
+      categorias: filtrosTemp.categoria,
+      contas: filtrosTemp.conta,
+      cartoes: filtrosTemp.cartao,
+      status: filtrosTemp.status,
+      valorMinimo: filtrosTemp.valorMinimo,
+      valorMaximo: filtrosTemp.valorMaximo,
+      dataInicio: filtrosTemp.dataInicio ? new Date(filtrosTemp.dataInicio) : null,
+      dataFim: filtrosTemp.dataFim ? new Date(filtrosTemp.dataFim) : null
+    };
+    
+    setFiltros(novosFiltros);
+    setShowFilters(false);
+  };
+
+  const limparFiltrosCompleto = () => {
+    const filtrosLimpos = {
       tipo: [],
       categoria: [],
       subcategoria: [],
@@ -457,16 +349,616 @@ const TransacoesPage = () => {
       status: [],
       dataInicio: '',
       dataFim: '',
-      valorMinimo: '',
-      valorMaximo: '',
+      valorMinimo: 0,
+      valorMaximo: 10000,
       tipoReceita: [],
       tipoDespesa: []
-    });
+    };
+    
+    setFiltrosTemp(filtrosLimpos);
+    limparFiltros();
+    setShowFilters(false);
   };
 
-  const temFiltrosAtivos = () => {
-    return Object.values(filtros).some(valor => 
-      Array.isArray(valor) ? valor.length > 0 : valor !== ''
+  // =============================================
+  // MODAL DE CONFIRMAÇÃO DE EFETIVAÇÃO
+  // =============================================
+  const ConfirmEfetivarModal = () => {
+    if (!showConfirmEfetivarModal || !transacaoParaEfetivar) return null;
+
+    const isReceita = transacaoParaEfetivar.tipo === 'receita';
+    const novoStatus = !transacaoParaEfetivar.efetivado;
+    const acao = novoStatus ? 'efetivar' : 'marcar como pendente';
+
+    return (
+      <div className="modal-overlay">
+        <div className="modal-container confirm-modal">
+          <div className="modal-header">
+            <h2 className="modal-title">
+              Confirmar {novoStatus ? 'Efetivação' : 'Alteração de Status'}
+            </h2>
+            <button 
+              className="modal-close" 
+              onClick={() => {
+                setShowConfirmEfetivarModal(false);
+                setTransacaoParaEfetivar(null);
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="modal-content">
+            <div className="confirm-info">
+              <div className="confirm-icon">
+                {novoStatus ? '✅' : '⏳'}
+              </div>
+              <div className="confirm-text">
+                <p>
+                  Você deseja <strong>{acao}</strong> esta transação de{' '}
+                  <strong>{isReceita ? 'receita' : 'despesa'}</strong>?
+                </p>
+                <div className="transacao-details">
+                  <div className="detail-item">
+                    <span className="detail-label">Descrição:</span>
+                    <span className="detail-value">{transacaoParaEfetivar.descricao}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Valor:</span>
+                    <span className={`detail-value ${isReceita ? 'receita' : 'despesa'}`}>
+                      {isReceita ? '+' : '-'} {formatCurrency(Math.abs(transacaoParaEfetivar.valor))}
+                    </span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Conta:</span>
+                    <span className="detail-value">{transacaoParaEfetivar.conta_nome}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Data:</span>
+                    <span className="detail-value">
+                      {format(new Date(transacaoParaEfetivar.data), 'dd/MM/yyyy', { locale: ptBR })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <Button 
+                onClick={() => {
+                  setShowConfirmEfetivarModal(false);
+                  setTransacaoParaEfetivar(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                className="primary-button"
+                onClick={confirmarEfetivacao}
+              >
+                Confirmar {novoStatus ? 'Efetivação' : 'Alteração'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // =============================================
+  // COMPONENTES AUXILIARES
+  // =============================================
+  
+  // Combobox Component
+  const ComboBox = ({ label, options, value, onChange, searchable = true, multiple = false, placeholder = "Selecione..." }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const filteredOptions = searchable ? 
+      options.filter(option => 
+        option.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        option.label?.toLowerCase().includes(searchTerm.toLowerCase())
+      ) : options;
+
+    const selectedItems = multiple ? 
+      options.filter(option => value.includes(option.id || option.value)) : 
+      options.find(option => (option.id || option.value) === value);
+
+    const displayValue = multiple ? 
+      (value.length > 0 ? `${value.length} selecionado(s)` : placeholder) :
+      (selectedItems?.nome || selectedItems?.label || placeholder);
+
+    return (
+      <div className="combobox-container">
+        {label && <label className="filtro-label">{label}</label>}
+        <div className="combobox-wrapper">
+          <div 
+            className={`combobox-trigger ${isOpen ? 'open' : ''}`}
+            onClick={() => setIsOpen(!isOpen)}
+          >
+            <span className="combobox-value">{displayValue}</span>
+            <span className="combobox-arrow">▼</span>
+          </div>
+          
+          {isOpen && (
+            <div className="combobox-dropdown">
+              {searchable && (
+                <div className="combobox-search">
+                  <input
+                    type="text"
+                    className="combobox-search-input"
+                    placeholder="Pesquisar..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+              )}
+              
+              <div className="combobox-options">
+                {filteredOptions.length > 0 ? (
+                  filteredOptions.map(option => {
+                    const isSelected = multiple ? 
+                      value.includes(option.id || option.value) :
+                      (option.id || option.value) === value;
+                    
+                    return (
+                      <div
+                        key={option.id || option.value}
+                        className={`combobox-option ${isSelected ? 'selected' : ''}`}
+                        onClick={() => {
+                          if (multiple) {
+                            const newValue = isSelected ? 
+                              value.filter(v => v !== (option.id || option.value)) :
+                              [...value, option.id || option.value];
+                            onChange(newValue);
+                          } else {
+                            onChange(option.id || option.value);
+                            setIsOpen(false);
+                          }
+                        }}
+                      >
+                        <div className="combobox-option-content">
+                          {option.cor && (
+                            <div 
+                              className="combobox-color" 
+                              style={{ backgroundColor: option.cor }}
+                            />
+                          )}
+                          <span className="combobox-option-text">
+                            {option.nome || option.label}
+                          </span>
+                        </div>
+                        {multiple && (
+                          <div className="combobox-checkbox">
+                            {isSelected ? '✓' : ''}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="combobox-empty">Nenhuma opção encontrada</div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const SortableHeader = ({ field, children }) => (
+    <th 
+      className={`transacoes-th sortable`}
+      onClick={() => handleSort(field)}
+    >
+      <div className="sort-header">
+        {children}
+        <span className="sort-icons">
+          <span className={`sort-icon ${sortField === field && sortDirection === 'asc' ? 'active' : ''}`}>▲</span>
+          <span className={`sort-icon ${sortField === field && sortDirection === 'desc' ? 'active' : ''}`}>▼</span>
+        </span>
+      </div>
+    </th>
+  );
+
+  const FiltroAvancado = () => {
+    const [valorMinimoTemp, setValorMinimoTemp] = useState(filtrosTemp.valorMinimo);
+    const [valorMaximoTemp, setValorMaximoTemp] = useState(filtrosTemp.valorMaximo);
+
+    useEffect(() => {
+      setValorMinimoTemp(filtrosTemp.valorMinimo);
+      setValorMaximoTemp(filtrosTemp.valorMaximo);
+    }, [filtrosTemp.valorMinimo, filtrosTemp.valorMaximo]);
+
+    const handleValorMinimoBlur = () => {
+      handleFiltroChange('valorMinimo', valorMinimoTemp);
+    };
+
+    const handleValorMaximoBlur = () => {
+      handleFiltroChange('valorMaximo', valorMaximoTemp);
+    };
+
+    return (
+      <div className="filtro-avancado-popup">
+        <div className="filtro-header">
+          <h3>Filtros Avançados</h3>
+          <div className="filtro-actions">
+            <button onClick={limparFiltrosCompleto} className="filtro-limpar">
+              Limpar Todos
+            </button>
+            <button onClick={() => setShowFilters(false)} className="filtro-fechar">
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <div className="filtro-content">
+          {/* Período de Datas */}
+          <div className="filtro-row">
+            <div className="filtro-group">
+              <label className="filtro-label">📅 Data início:</label>
+              <input
+                type="date"
+                value={filtrosTemp.dataInicio}
+                onChange={(e) => handleFiltroChange('dataInicio', e.target.value)}
+                className="filtro-input"
+              />
+            </div>
+            <div className="filtro-group">
+              <label className="filtro-label">📅 Data fim:</label>
+              <input
+                type="date"
+                value={filtrosTemp.dataFim}
+                onChange={(e) => handleFiltroChange('dataFim', e.target.value)}
+                className="filtro-input"
+              />
+            </div>
+          </div>
+
+          {/* Tipo e Status como Botões */}
+          <div className="filtro-row">
+            <div className="filtro-group">
+              <label className="filtro-label">📊 Tipo</label>
+              <div className="filtro-buttons-group">
+                <button
+                  className={`filtro-btn ${filtrosTemp.tipo.includes('receita') ? 'active' : ''}`}
+                  onClick={() => {
+                    const newTipos = filtrosTemp.tipo.includes('receita') 
+                      ? filtrosTemp.tipo.filter(t => t !== 'receita')
+                      : [...filtrosTemp.tipo, 'receita'];
+                    handleFiltroChange('tipo', newTipos);
+                  }}
+                >
+                  📈 Receitas
+                </button>
+                <button
+                  className={`filtro-btn ${filtrosTemp.tipo.includes('despesa') ? 'active' : ''}`}
+                  onClick={() => {
+                    const newTipos = filtrosTemp.tipo.includes('despesa') 
+                      ? filtrosTemp.tipo.filter(t => t !== 'despesa')
+                      : [...filtrosTemp.tipo, 'despesa'];
+                    handleFiltroChange('tipo', newTipos);
+                  }}
+                >
+                  📉 Despesas
+                </button>
+              </div>
+            </div>
+            
+            <div className="filtro-group">
+              <label className="filtro-label">⚡ Status</label>
+              <div className="filtro-buttons-group">
+                <button
+                  className={`filtro-btn ${filtrosTemp.status.includes('efetivado') ? 'active' : ''}`}
+                  onClick={() => {
+                    const newStatus = filtrosTemp.status.includes('efetivado') 
+                      ? filtrosTemp.status.filter(s => s !== 'efetivado')
+                      : [...filtrosTemp.status, 'efetivado'];
+                    handleFiltroChange('status', newStatus);
+                  }}
+                >
+                  ✅ Efetivadas
+                </button>
+                <button
+                  className={`filtro-btn ${filtrosTemp.status.includes('pendente') ? 'active' : ''}`}
+                  onClick={() => {
+                    const newStatus = filtrosTemp.status.includes('pendente') 
+                      ? filtrosTemp.status.filter(s => s !== 'pendente')
+                      : [...filtrosTemp.status, 'pendente'];
+                    handleFiltroChange('status', newStatus);
+                  }}
+                >
+                  ⏳ Pendentes
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Faixa de Valores */}
+          <div className="filtro-row">
+            <div className="filtro-group">
+              <label className="filtro-label">💰 Valor mínimo:</label>
+              <InputMoney
+                value={valorMinimoTemp}
+                onChange={setValorMinimoTemp}
+                onBlur={handleValorMinimoBlur}
+                placeholder="R$ 0,00"
+                className="filtro-input"
+              />
+            </div>
+            <div className="filtro-group">
+              <label className="filtro-label">💰 Valor máximo:</label>
+              <InputMoney
+                value={valorMaximoTemp}
+                onChange={setValorMaximoTemp}
+                onBlur={handleValorMaximoBlur}
+                placeholder="R$ 10.000,00"
+                className="filtro-input"
+              />
+            </div>
+          </div>
+
+          {/* Categorias */}
+          {categorias.length > 0 && (
+            <ComboBox
+              label={`📁 Categorias (${filtrosTemp.categoria.length}/${categorias.length})`}
+              options={categorias.map(cat => ({
+                id: cat.id,
+                nome: cat.nome,
+                cor: cat.cor
+              }))}
+              value={filtrosTemp.categoria}
+              onChange={(value) => handleFiltroChange('categoria', value)}
+              multiple
+              placeholder="Todas as categorias"
+            />
+          )}
+
+          {/* Contas */}
+          {contas.length > 0 && (
+            <ComboBox
+              label={`🏦 Contas (${filtrosTemp.conta.length}/${contas.length})`}
+              options={contas.map(conta => ({
+                id: conta.id,
+                nome: conta.nome
+              }))}
+              value={filtrosTemp.conta}
+              onChange={(value) => handleFiltroChange('conta', value)}
+              multiple
+              placeholder="Todas as contas"
+            />
+          )}
+
+          {/* Cartões */}
+          {cartoes.length > 0 && (
+            <ComboBox
+              label={`💳 Cartões (${filtrosTemp.cartao.length}/${cartoes.length})`}
+              options={cartoes.map(cartao => ({
+                id: cartao.id,
+                nome: cartao.nome
+              }))}
+              value={filtrosTemp.cartao}
+              onChange={(value) => handleFiltroChange('cartao', value)}
+              multiple
+              placeholder="Todos os cartões"
+            />
+          )}
+
+          {/* Botão Aplicar */}
+          <div className="filtro-footer">
+            <Button 
+              className="primary-button aplicar-filtros-btn"
+              onClick={aplicarFiltrosManual}
+            >
+              Aplicar Filtros
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const TransactionRow = ({ transacao }) => {
+    const isReceita = transacao.tipo === 'receita';
+    const isFatura = transacao.tipo === 'fatura';
+    const isEfetivado = transacao.efetivado;
+    
+    let iconColor = '#6B7280';
+    if (isReceita) {
+      iconColor = isEfetivado ? '#006400' : '#90EE90';
+    } else if (!isFatura) {
+      iconColor = isEfetivado ? '#DC3545' : '#FFB6C1';
+    }
+    
+    return (
+      <tr className={`transaction-row ${!transacao.efetivado ? 'pending' : ''}`}>
+        <td className="data-cell">
+          {format(new Date(transacao.data), 'dd/MM', { locale: ptBR })}
+        </td>
+        <td className="descricao-cell">
+          <div className="transaction-info">
+            <ToolTip text={isReceita ? 'Receita' : isFatura ? 'Fatura' : 'Despesa'}>
+              <span 
+                className={`transaction-icon ${isReceita ? 'receita' : 'despesa'}`}
+                style={{ 
+                  backgroundColor: iconColor + '20',
+                  color: iconColor 
+                }}
+              >
+                {isReceita ? '▲' : isFatura ? '💳' : '▼'}
+              </span>
+            </ToolTip>
+            <span className="descricao-text" title={transacao.descricao}>
+              {transacao.descricao}
+            </span>
+          </div>
+        </td>
+        <td className="categoria-cell">
+          <ToolTip text={transacao.categoria_nome}>
+            <span 
+              className="categoria-badge"
+              style={{ backgroundColor: `${transacao.categoria_cor}20` }}
+              title={transacao.categoria_nome}
+            >
+              {transacao.categoria_nome}
+            </span>
+          </ToolTip>
+        </td>
+        <td className="conta-cell">
+          {isFatura ? '-' : transacao.conta_nome}
+        </td>
+        <td className="valor-cell">
+          <span className={`valor ${isReceita ? 'receita' : 'despesa'}`}>
+            {isReceita ? '+' : '-'} {formatCurrency(Math.abs(transacao.valor))}
+          </span>
+        </td>
+        <td className="status-cell">
+          <button
+            className={`status-badge ${transacao.efetivado ? 'efetivado' : 'pendente'}`}
+            onClick={() => !isFatura && handleToggleEfetivado(transacao)}
+            disabled={isFatura}
+            title={isFatura ? 'Fatura' : transacao.efetivado ? 'Clique para marcar como pendente' : 'Clique para efetivar'}
+          >
+            {isFatura ? 'Fatura' : transacao.efetivado ? 'Efetivado' : 'Efetivar'}
+          </button>
+        </td>
+        <td className="acoes-cell">
+          <div className="action-buttons">
+            {isFatura ? (
+              <ToolTip text="Pagar fatura">
+                <button
+                  className="action-btn pay-btn"
+                  onClick={() => handlePagarFatura(transacao)}
+                >
+                  💰
+                </button>
+              </ToolTip>
+            ) : (
+              <>
+                <ToolTip text="Editar transação">
+                  <button 
+                    className="action-btn edit-btn"
+                    onClick={() => handleEditar(transacao)}
+                  >
+                    ✏️
+                  </button>
+                </ToolTip>
+                <ToolTip text="Excluir transação">
+                  <button 
+                    className="action-btn delete-btn"
+                    onClick={() => handleExcluir(transacao.id)}
+                  >
+                    🗑️
+                  </button>
+                </ToolTip>
+              </>
+            )}
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
+  const TransactionCard = ({ transacao, isFirst }) => {
+    const isReceita = transacao.tipo === 'receita';
+    const isFatura = transacao.tipo === 'fatura';
+    const isEfetivado = transacao.efetivado;
+    const dataFormatada = format(new Date(transacao.data), 'dd \'de\' MMMM', { locale: ptBR });
+    
+    let iconColor = '#6B7280';
+    if (isReceita) {
+      iconColor = isEfetivado ? '#006400' : '#90EE90';
+    } else if (!isFatura) {
+      iconColor = isEfetivado ? '#DC3545' : '#FFB6C1';
+    }
+    
+    return (
+      <div className="transaction-card-container">
+        {isFirst && (
+          <div className="date-header">
+            {dataFormatada}
+          </div>
+        )}
+        <Card className="transaction-card">
+          <div className="card-header">
+            <div className="transaction-main">
+              <ToolTip text={isReceita ? 'Receita' : isFatura ? 'Fatura' : 'Despesa'}>
+                <span 
+                  className={`transaction-icon ${isReceita ? 'receita' : 'despesa'}`}
+                  style={{ 
+                    backgroundColor: iconColor + '20',
+                    color: iconColor 
+                  }}
+                >
+                  {isReceita ? '▲' : isFatura ? '💳' : '▼'}
+                </span>
+              </ToolTip>
+              <div className="transaction-details">
+                <h4 className="transaction-title">
+                  {transacao.descricao}
+                </h4>
+                <span className={`valor-mobile ${isReceita ? 'receita' : 'despesa'}`}>
+                  {isReceita ? '+' : '-'} {formatCurrency(Math.abs(transacao.valor))}
+                </span>
+              </div>
+            </div>
+            <div className="card-actions">
+              {isFatura ? (
+                <button
+                  className="action-btn pay-btn"
+                  onClick={() => handlePagarFatura(transacao)}
+                >
+                  💰
+                </button>
+              ) : (
+                <>
+                  <button 
+                    className="action-btn edit-btn"
+                    onClick={() => handleEditar(transacao)}
+                  >
+                    ✏️
+                  </button>
+                  <button 
+                    className="action-btn delete-btn"
+                    onClick={() => handleExcluir(transacao.id)}
+                  >
+                    🗑️
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="card-metadata">
+            <div className="metadata-item">
+              <span className="metadata-label">Categoria:</span>
+              <span 
+                className="categoria-badge"
+                style={{ backgroundColor: `${transacao.categoria_cor}20` }}
+              >
+                {transacao.categoria_nome}
+              </span>
+            </div>
+            {!isFatura && (
+              <div className="metadata-item">
+                <span className="metadata-label">Conta:</span>
+                <span>{transacao.conta_nome}</span>
+              </div>
+            )}
+            <div className="metadata-item">
+              <span className="metadata-label">Status:</span>
+              <button
+                className={`status-badge ${transacao.efetivado ? 'efetivado' : 'pendente'}`}
+                onClick={() => !isFatura && handleToggleEfetivado(transacao)}
+                disabled={isFatura}
+              >
+                {isFatura ? 'Fatura' : transacao.efetivado ? 'Efetivado' : 'Efetivar'}
+              </button>
+            </div>
+          </div>
+        </Card>
+      </div>
     );
   };
 
@@ -501,6 +993,8 @@ const TransacoesPage = () => {
       setPagamentoError('');
 
       try {
+        const { default: supabase } = await import('@lib/supabaseClient');
+        
         // Buscar dados da conta
         const { data: contaData, error: contaError } = await supabase
           .from('contas')
@@ -546,15 +1040,7 @@ const TransacoesPage = () => {
         // Fechar modal e recarregar dados
         setShowPagamentoFaturaModal(false);
         setSelectedFatura(null);
-        buscarTransacoes();
-        
-        // Feedback para o usuário (se houver sistema de notificações)
-        if (window.showNotification) {
-          window.showNotification(
-            `Pagamento de ${formatCurrency(valorPagamento)} realizado com sucesso!`,
-            'success'
-          );
-        }
+        fetchTransacoes();
 
       } catch (error) {
         console.error('Erro ao processar pagamento:', error);
@@ -699,430 +1185,8 @@ const TransacoesPage = () => {
     );
   };
 
-  // =============================================
-  // COMPONENTES
-  // =============================================
-  const SortableHeader = ({ field, children }) => (
-    <th 
-      className={`transacoes-th sortable`}
-      onClick={() => handleSort(field)}
-    >
-      <div className="sort-header">
-        {children}
-        <span className="sort-icons">
-          <span className={`sort-icon ${sortField === field && sortDirection === 'asc' ? 'active' : ''}`}>▲</span>
-          <span className={`sort-icon ${sortField === field && sortDirection === 'desc' ? 'active' : ''}`}>▼</span>
-        </span>
-      </div>
-    </th>
-  );
-
-  const FiltroAvancado = () => (
-    <div className="filtro-avancado-popup">
-      <div className="filtro-header">
-        <h3>Filtros Avançados</h3>
-        <div className="filtro-actions">
-          <button onClick={limparFiltros} className="filtro-limpar">
-            Limpar Todos
-          </button>
-          <button onClick={() => setShowFilters(false)} className="filtro-fechar">
-            ✕
-          </button>
-        </div>
-      </div>
-
-      <div className="filtro-content">
-        {/* Tipo e Status - Lado a lado */}
-        <div className="filtro-row">
-          <div className="filtro-group">
-            <label className="filtro-label">Tipo:</label>
-            <div className="filtro-options-horizontal">
-              {['receita', 'despesa'].map(tipo => (
-                <label key={tipo} className="filtro-checkbox-horizontal">
-                  <input
-                    type="checkbox"
-                    checked={filtros.tipo.includes(tipo)}
-                    onChange={(e) => {
-                      const newTipos = e.target.checked 
-                        ? [...filtros.tipo, tipo]
-                        : filtros.tipo.filter(t => t !== tipo);
-                      handleFiltroChange('tipo', newTipos);
-                    }}
-                  />
-                  <span className="checkbox-label">
-                    {tipo === 'receita' ? '📈 Receitas' : '📉 Despesas'}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="filtro-group">
-            <label className="filtro-label">Status:</label>
-            <div className="filtro-options-horizontal">
-              {['efetivado', 'pendente'].map(status => (
-                <label key={status} className="filtro-checkbox-horizontal">
-                  <input
-                    type="checkbox"
-                    checked={filtros.status.includes(status)}
-                    onChange={(e) => {
-                      const newStatus = e.target.checked 
-                        ? [...filtros.status, status]
-                        : filtros.status.filter(s => s !== status);
-                      handleFiltroChange('status', newStatus);
-                    }}
-                  />
-                  <span className="checkbox-label">
-                    {status === 'efetivado' ? '✅ Efetivadas' : '⏳ Pendentes'}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Valores - Lado a lado */}
-        <div className="filtro-row">
-          <div className="filtro-group">
-            <label className="filtro-label">Valor mínimo:</label>
-            <input
-              type="number"
-              step="0.01"
-              value={filtros.valorMinimo}
-              onChange={(e) => handleFiltroChange('valorMinimo', e.target.value)}
-              placeholder="R$ 0,00"
-              className="filtro-input"
-            />
-          </div>
-          <div className="filtro-group">
-            <label className="filtro-label">Valor máximo:</label>
-            <input
-              type="number"
-              step="0.01"
-              value={filtros.valorMaximo}
-              onChange={(e) => handleFiltroChange('valorMaximo', e.target.value)}
-              placeholder="R$ 0,00"
-              className="filtro-input"
-            />
-          </div>
-        </div>
-
-        {/* Categorias */}
-        {categorias.length > 0 && (
-          <div className="filtro-group">
-            <label className="filtro-label">
-              📁 Categorias ({filtros.categoria.length}/{categorias.length}):
-            </label>
-            <div className="filtro-grid">
-              {categorias.slice(0, 8).map(categoria => (
-                <label key={categoria.id} className="filtro-checkbox-grid">
-                  <input
-                    type="checkbox"
-                    checked={filtros.categoria.includes(categoria.id)}
-                    onChange={(e) => {
-                      const newCategorias = e.target.checked 
-                        ? [...filtros.categoria, categoria.id]
-                        : filtros.categoria.filter(c => c !== categoria.id);
-                      handleFiltroChange('categoria', newCategorias);
-                    }}
-                  />
-                  <span className="categoria-color" style={{ backgroundColor: categoria.cor }}></span>
-                  <span className="categoria-nome">{categoria.nome}</span>
-                </label>
-              ))}
-              {categorias.length > 8 && (
-                <div className="filtro-mais">
-                  +{categorias.length - 8} mais...
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Contas */}
-        {contas.length > 0 && (
-          <div className="filtro-group">
-            <label className="filtro-label">
-              🏦 Contas ({filtros.conta.length}/{contas.length}):
-            </label>
-            <div className="filtro-grid">
-              {contas.map(conta => (
-                <label key={conta.id} className="filtro-checkbox-grid">
-                  <input
-                    type="checkbox"
-                    checked={filtros.conta.includes(conta.id)}
-                    onChange={(e) => {
-                      const newContas = e.target.checked 
-                        ? [...filtros.conta, conta.id]
-                        : filtros.conta.filter(c => c !== conta.id);
-                      handleFiltroChange('conta', newContas);
-                    }}
-                  />
-                  <span className="conta-nome">{conta.nome}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Cartões */}
-        {cartoes.length > 0 && (
-          <div className="filtro-group">
-            <label className="filtro-label">
-              💳 Cartões ({filtros.cartao.length}/{cartoes.length}):
-            </label>
-            <div className="filtro-grid">
-              {cartoes.map(cartao => (
-                <label key={cartao.id} className="filtro-checkbox-grid">
-                  <input
-                    type="checkbox"
-                    checked={filtros.cartao.includes(cartao.id)}
-                    onChange={(e) => {
-                      const newCartoes = e.target.checked 
-                        ? [...filtros.cartao, cartao.id]
-                        : filtros.cartao.filter(c => c !== cartao.id);
-                      handleFiltroChange('cartao', newCartoes);
-                    }}
-                  />
-                  <span className="cartao-nome">{cartao.nome}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Tipos específicos - Colapsáveis */}
-        <div className="filtro-collapsible">
-          <div className="filtro-collapsible-header">
-            <label className="filtro-label">🎯 Filtros Específicos</label>
-          </div>
-          
-          <div className="filtro-row">
-            <div className="filtro-group">
-              <label className="filtro-label-small">Tipo de Receita:</label>
-              <div className="filtro-options-compact">
-                {['extra', 'previsivel', 'parcelada'].map(tipo => (
-                  <label key={tipo} className="filtro-checkbox-compact">
-                    <input
-                      type="checkbox"
-                      checked={filtros.tipoReceita.includes(tipo)}
-                      onChange={(e) => {
-                        const newTipos = e.target.checked 
-                          ? [...filtros.tipoReceita, tipo]
-                          : filtros.tipoReceita.filter(t => t !== tipo);
-                        handleFiltroChange('tipoReceita', newTipos);
-                      }}
-                    />
-                    <span className="checkbox-label-small">
-                      {tipo === 'extra' ? 'Extra' : tipo === 'previsivel' ? 'Previsível' : 'Parcelada'}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="filtro-group">
-              <label className="filtro-label-small">Tipo de Despesa:</label>
-              <div className="filtro-options-compact">
-                {['extra', 'previsivel', 'parcelada'].map(tipo => (
-                  <label key={tipo} className="filtro-checkbox-compact">
-                    <input
-                      type="checkbox"
-                      checked={filtros.tipoDespesa.includes(tipo)}
-                      onChange={(e) => {
-                        const newTipos = e.target.checked 
-                          ? [...filtros.tipoDespesa, tipo]
-                          : filtros.tipoDespesa.filter(t => t !== tipo);
-                        handleFiltroChange('tipoDespesa', newTipos);
-                      }}
-                    />
-                    <span className="checkbox-label-small">
-                      {tipo === 'extra' ? 'Extra' : tipo === 'previsivel' ? 'Previsível' : 'Parcelada'}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const TransactionRow = ({ transacao }) => {
-    const isReceita = transacao.tipo === 'receita';
-    const isFatura = transacao.tipo === 'fatura';
-    
-    return (
-      <tr className={`transaction-row ${!transacao.efetivado ? 'pending' : ''}`}>
-        <td className="data-cell">
-          {format(new Date(transacao.data), 'dd/MM', { locale: ptBR })}
-        </td>
-        <td className="descricao-cell">
-          <div className="transaction-info">
-            <ToolTip text={isReceita ? 'Receita' : isFatura ? 'Fatura' : 'Despesa'}>
-              <span className={`transaction-icon ${isReceita ? 'receita' : 'despesa'}`}>
-                {isReceita ? '↗️' : isFatura ? '💳' : '↙️'}
-              </span>
-            </ToolTip>
-            <span className="descricao-text">
-              {transacao.descricao}
-            </span>
-          </div>
-        </td>
-        <td className="categoria-cell">
-          <ToolTip text={transacao.categoria_nome}>
-            <span 
-              className="categoria-badge"
-              style={{ backgroundColor: `${transacao.categoria_cor}20` }}
-            >
-              {transacao.categoria_nome}
-            </span>
-          </ToolTip>
-        </td>
-        <td className="conta-cell">
-          {isFatura ? '-' : transacao.conta_nome}
-        </td>
-        <td className="valor-cell">
-          <span className={`valor ${isReceita ? 'receita' : 'despesa'}`}>
-            {isReceita ? '+' : '-'} {formatCurrency(Math.abs(transacao.valor))}
-          </span>
-        </td>
-        <td className="status-cell">
-          <button
-            className={`status-badge ${transacao.efetivado ? 'efetivado' : 'pendente'}`}
-            onClick={() => !isFatura && handleToggleEfetivado(transacao)}
-            disabled={isFatura}
-          >
-            {transacao.efetivado ? 'Efetivado' : 'Pendente'}
-          </button>
-        </td>
-        <td className="acoes-cell">
-          <div className="action-buttons">
-            {isFatura ? (
-              <ToolTip text="Pagar fatura">
-                <button
-                  className="action-btn pay-btn"
-                  onClick={() => handlePagarFatura(transacao)}
-                >
-                  💰
-                </button>
-              </ToolTip>
-            ) : (
-              <>
-                <ToolTip text="Editar transação">
-                  <button 
-                    className="action-btn edit-btn"
-                    onClick={() => handleEditar(transacao)}
-                  >
-                    ✏️
-                  </button>
-                </ToolTip>
-                <ToolTip text="Excluir transação">
-                  <button 
-                    className="action-btn delete-btn"
-                    onClick={() => handleExcluir(transacao.id)}
-                  >
-                    🗑️
-                  </button>
-                </ToolTip>
-              </>
-            )}
-          </div>
-        </td>
-      </tr>
-    );
-  };
-
-  const TransactionCard = ({ transacao, isFirst }) => {
-    const isReceita = transacao.tipo === 'receita';
-    const isFatura = transacao.tipo === 'fatura';
-    const dataFormatada = format(new Date(transacao.data), 'dd \'de\' MMMM', { locale: ptBR });
-    
-    return (
-      <div className="transaction-card-container">
-        {isFirst && (
-          <div className="date-header">
-            {dataFormatada}
-          </div>
-        )}
-        <Card className="transaction-card">
-          <div className="card-header">
-            <div className="transaction-main">
-              <ToolTip text={isReceita ? 'Receita' : isFatura ? 'Fatura' : 'Despesa'}>
-                <span className={`transaction-icon ${isReceita ? 'receita' : 'despesa'}`}>
-                  {isReceita ? '↗️' : isFatura ? '💳' : '↙️'}
-                </span>
-              </ToolTip>
-              <div className="transaction-details">
-                <h4 className="transaction-title">
-                  {transacao.descricao}
-                </h4>
-                <span className={`valor-mobile ${isReceita ? 'receita' : 'despesa'}`}>
-                  {isReceita ? '+' : '-'} {formatCurrency(Math.abs(transacao.valor))}
-                </span>
-              </div>
-            </div>
-            <div className="card-actions">
-              {isFatura ? (
-                <button
-                  className="action-btn pay-btn"
-                  onClick={() => handlePagarFatura(transacao)}
-                >
-                  💰
-                </button>
-              ) : (
-                <>
-                  <button 
-                    className="action-btn edit-btn"
-                    onClick={() => handleEditar(transacao)}
-                  >
-                    ✏️
-                  </button>
-                  <button 
-                    className="action-btn delete-btn"
-                    onClick={() => handleExcluir(transacao.id)}
-                  >
-                    🗑️
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-          <div className="card-metadata">
-            <div className="metadata-item">
-              <span className="metadata-label">Categoria:</span>
-              <span 
-                className="categoria-badge"
-                style={{ backgroundColor: `${transacao.categoria_cor}20` }}
-              >
-                {transacao.categoria_nome}
-              </span>
-            </div>
-            {!isFatura && (
-              <div className="metadata-item">
-                <span className="metadata-label">Conta:</span>
-                <span>{transacao.conta_nome}</span>
-              </div>
-            )}
-            <div className="metadata-item">
-              <span className="metadata-label">Status:</span>
-              <button
-                className={`status-badge ${transacao.efetivado ? 'efetivado' : 'pendente'}`}
-                onClick={() => !isFatura && handleToggleEfetivado(transacao)}
-                disabled={isFatura}
-              >
-                {transacao.efetivado ? 'Efetivado' : 'Pendente'}
-              </button>
-            </div>
-          </div>
-        </Card>
-      </div>
-    );
-  };
-
   // Agrupar por data para mobile
-  const transacoesAgrupadasPorData = useMemo(() => {
+  const transacoesAgrupadasPorData = React.useMemo(() => {
     const grupos = {};
     transacoesFiltradas.forEach(transacao => {
       const dataKey = format(new Date(transacao.data), 'yyyy-MM-dd');
@@ -1149,7 +1213,7 @@ const TransacoesPage = () => {
             <p>{error}</p>
             <Button 
               className="primary-button"
-              onClick={buscarTransacoes}
+              onClick={fetchTransacoes}
             >
               Tentar Novamente
             </Button>
@@ -1194,15 +1258,15 @@ const TransacoesPage = () => {
             <div className="empty-icon">📊</div>
             <h3>Nenhuma transação encontrada!</h3>
             <p>
-              {temFiltrosAtivos() 
+              {hasActiveFilters 
                 ? 'Nenhuma transação corresponde aos filtros aplicados.'
                 : 'Comece adicionando sua primeira transação financeira.'
               }
             </p>
-            {temFiltrosAtivos() && (
+            {hasActiveFilters && (
               <Button 
                 className="primary-button"
-                onClick={limparFiltros}
+                onClick={limparFiltrosCompleto}
               >
                 Limpar Filtros
               </Button>
@@ -1248,10 +1312,10 @@ const TransacoesPage = () => {
         <div className="header-controls">
           <div className="filter-toggle">
             <button
-              className={`filter-btn ${showFilters ? 'active' : ''} ${temFiltrosAtivos() ? 'has-filters' : ''}`}
+              className={`filter-btn ${showFilters ? 'active' : ''} ${hasActiveFilters ? 'has-filters' : ''}`}
               onClick={() => setShowFilters(!showFilters)}
             >
-              🔍 Filtros {temFiltrosAtivos() && <span className="filter-count">•</span>}
+              🔍 Filtros {hasActiveFilters && <span className="filter-count">•</span>}
             </button>
             {showFilters && <FiltroAvancado />}
           </div>
@@ -1259,13 +1323,11 @@ const TransacoesPage = () => {
           <button
             className={`group-toggle ${groupByCard ? 'active' : ''}`}
             onClick={() => {
-              console.log('🔄 Clicou no botão agrupar:', !groupByCard);
-              console.log('📊 Transações atuais:', transacoes.length);
-              console.log('💳 Transações com cartão:', transacoes.filter(t => t.cartao_id).length);
+              console.log('🔄 Alternando agrupamento:', !groupByCard);
               setGroupByCard(!groupByCard);
             }}
           >
-            🔁 {groupByCard ? 'Desagrupar' : 'Agrupar fatura'}
+            💳 {groupByCard ? 'Desagrupar Faturas' : 'Agrupar por Fatura'}
           </button>
         </div>
       </div>
@@ -1331,7 +1393,7 @@ const TransacoesPage = () => {
             setTransacaoEditando(null);
           }}
           onSave={() => {
-            buscarTransacoes();
+            fetchTransacoes();
           }}
           transacaoEditando={transacaoEditando}
         />
@@ -1345,11 +1407,14 @@ const TransacoesPage = () => {
             setTransacaoEditando(null);
           }}
           onSave={() => {
-            buscarTransacoes();
+            fetchTransacoes();
           }}
           transacaoEditando={transacaoEditando}
         />
       )}
+
+      {/* Modal de Confirmação de Efetivação */}
+      <ConfirmEfetivarModal />
 
       {/* Modal de Pagamento de Fatura */}
       <PagamentoFaturaModal />
