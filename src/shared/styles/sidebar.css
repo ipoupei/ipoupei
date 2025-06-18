@@ -1,0 +1,561 @@
+/* ========================================
+   SIDEBAR.CSS - VERSÃO FINAL iPOUPEI
+   CSS Limpo para Sidebar Independente
+   ======================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* ================== BASE DA SIDEBAR ================== */
+.ipoupei-sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  width: 230px;
+  background: #FFFFFF;
+  border-right: 1px solid #E5E7EB;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease-in-out;
+  z-index: 1000;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+}
+
+.ipoupei-sidebar--collapsed {
+  width: 50px; /* Reduzido de 64px para 56px */
+}
+
+.ipoupei-sidebar--mobile-hidden {
+  transform: translateX(-100%);
+}
+
+.ipoupei-sidebar--mobile-open {
+  transform: translateX(0);
+  z-index: 1100;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* ================== OVERLAY MOBILE ================== */
+.ipoupei-sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1050;
+  opacity: 1;
+}
+
+/* ================== HEADER ================== */
+.ipoupei-sidebar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px; /* Reduzido padding */
+  min-height: 68px; /* Reduzido de 80px para 68px */
+  flex-shrink: 0;
+}
+
+.ipoupei-sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* Reduzido de 12px para 10px */
+  flex: 1;
+  min-width: 0;
+}
+
+.ipoupei-sidebar__logo {
+  width: 36px; /* Reduzido de 40px para 36px */
+  height: 36px;
+  background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 14px; /* Reduzido de 16px para 14px */
+  flex-shrink: 0;
+}
+
+.ipoupei-sidebar__brand-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.ipoupei-sidebar__title {
+  font-size: 16px; /* Reduzido de 18px para 16px */
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.ipoupei-sidebar__subtitle {
+  font-size: 12px;
+  color: #6B7280;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.ipoupei-sidebar__controls {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ipoupei-sidebar__control-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6B7280;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  padding: 6px;
+}
+
+.ipoupei-sidebar__control-btn:hover {
+  background: #F3F4F6;
+  color: #374151;
+}
+
+.ipoupei-sidebar__control-btn:focus {
+  outline: 2px solid #8B5CF6;
+  outline-offset: 2px;
+}
+
+
+/* ================== PERFIL DO USUÁRIO ================== */
+.ipoupei-sidebar__user {
+  display: flex;
+  align-items: center;
+  gap: 12px; /* Voltou para 12px para dar mais espaço */
+  padding: 16px 16px; /* Aumentado padding para mais respiro */
+  flex-shrink: 0;
+  position: relative;
+}
+
+.ipoupei-sidebar__avatar {
+  width: 32px;
+  height: 32px;
+  background: #F3F4F6;
+  border-radius: 20%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6B7280;
+  flex-shrink: 0;
+}
+
+.ipoupei-sidebar__user-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px; /* Espaçamento entre nome e saudação */
+}
+
+.ipoupei-sidebar__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+  line-height: 1.2;
+  text-transform: capitalize; /* Primeira letra maiúscula */
+
+}
+
+.ipoupei-sidebar__greeting {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* Espaço entre "Seja bem-vindo" e o badge */
+  font-size: 12px;
+  color: #6B7280;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.ipoupei-sidebar__level {
+  /* Removido position absolute - agora fica inline */
+  background: #FEF9C3;
+  border: 1px solid #FEF08A;
+  border-radius: 12px;
+  padding: 2px 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600; /* Aumentado para 600 */
+  color: #F59E0B;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ================== CONTEÚDO ================== */
+.ipoupei-sidebar__content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.ipoupei-sidebar__content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.ipoupei-sidebar__content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ipoupei-sidebar__content::-webkit-scrollbar-thumb {
+  background: #E5E7EB;
+  border-radius: 2px;
+}
+
+.ipoupei-sidebar__content::-webkit-scrollbar-thumb:hover {
+  background: #D1D5DB;
+}
+
+/* ================== SEÇÕES ================== */
+.ipoupei-sidebar__section {
+  margin-bottom: 12px;
+}
+
+.ipoupei-sidebar__section:last-child {
+  margin-bottom: 0;
+}
+
+.ipoupei-sidebar__section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px; /* Reduzido de 8px para 6px */
+  padding: 0 6px; /* Ajustado conforme novo padding */
+  margin-bottom: 6px; /* Reduzido de 8px para 6px */
+  margin-top: 6px; /* Reduzido de 24px para 20px */
+}
+
+.ipoupei-sidebar__section:first-child .ipoupei-sidebar__section-title {
+  margin-top: 12px; /* Reduzido de 16px para 12px */
+}
+
+.ipoupei-sidebar__section-icon {
+  width: 14px;
+  height: 14px;
+  color: #9CA3AF;
+  flex-shrink: 0;
+}
+
+.ipoupei-sidebar__section-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #9CA3AF;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+/* ================== MENU ================== */
+.ipoupei-sidebar__menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5px; /* Reduzido de 2px para 1px */
+  padding: 0 2px; /* Reduzido de 8px para 6px */
+}
+
+/* ================== ITEM DE MENU ================== */
+.ipoupei-sidebar__item {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* Reduzido de 12px para 10px */
+  min-height: 40px; /* Reduzido de 44px para 40px */
+  padding: 4px 10px; /* Reduzido padding */
+  border-radius: 4px; /* Reduzido de 8px para 6px */
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  position: relative;
+  color: #374151;
+  background: transparent;
+  border: 1px solid transparent;
+  width: calc(100% - 12px); /* Ajustado conforme novo padding do menu */
+  text-align: left;
+  font-family: 'Inter', sans-serif;
+  margin: 0 4px; /* Ajustado conforme novo padding do menu */
+}
+
+.ipoupei-sidebar__item:hover {
+  background: #F9FAFB;
+  color: #111827;
+}
+
+.ipoupei-sidebar__item:focus {
+  outline: 2px solid #8B5CF6;
+  outline-offset: 2px;
+}
+
+.ipoupei-sidebar__item--active {
+  background: #F3E8FF;
+  border: 1px solid #DDD6FE;
+  color: #6B21A8;
+}
+
+.ipoupei-sidebar__item-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: currentColor;
+}
+
+.ipoupei-sidebar__item--active .ipoupei-sidebar__item-icon {
+  color: #7C3AED;
+}
+
+.ipoupei-sidebar__item-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: currentColor;
+  line-height: 1.3;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ================== AÇÕES RÁPIDAS ================== */
+.ipoupei-sidebar__item--receita {
+  color: #000000;
+}
+
+.ipoupei-sidebar__item--receita:hover {
+  background: #ECFDF5;
+  border: 1px solid #D1FAE5;
+}
+
+.ipoupei-sidebar__item--receita .ipoupei-sidebar__item-icon {
+  color: #10B981;
+}
+
+.ipoupei-sidebar__item--despesa {
+  color: #000000;
+}
+
+.ipoupei-sidebar__item--despesa:hover {
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+}
+
+.ipoupei-sidebar__item--despesa .ipoupei-sidebar__item-icon {
+  color: #EF4444;
+}
+
+.ipoupei-sidebar__item--cartao {
+  color: #000000;
+}
+
+.ipoupei-sidebar__item--cartao:hover {
+  background: #F9FAFB;
+}
+
+.ipoupei-sidebar__item--cartao .ipoupei-sidebar__item-icon {
+  color: #374151;
+}
+
+.ipoupei-sidebar__item--transferencia {
+  color: #000000;
+}
+
+.ipoupei-sidebar__item--transferencia:hover {
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+}
+
+.ipoupei-sidebar__item--transferencia .ipoupei-sidebar__item-icon {
+  color: #3B82F6;
+}
+
+/* ================== FOOTER ================== */
+.ipoupei-sidebar__footer {
+  padding: 12px 6px; /* Reduzido padding */
+  border-top: 1px solid #E5E7EB;
+  flex-shrink: 0;
+}
+
+.ipoupei-sidebar__item--logout {
+  color: #EF4444;
+}
+
+.ipoupei-sidebar__item--logout:hover {
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+}
+
+.ipoupei-sidebar__item--logout .ipoupei-sidebar__item-icon {
+  color: #EF4444;
+}
+
+/* ================== SIDEBAR COLAPSADA ================== */
+.ipoupei-sidebar--collapsed .ipoupei-sidebar__brand-text,
+.ipoupei-sidebar--collapsed .ipoupei-sidebar__user,
+.ipoupei-sidebar--collapsed .ipoupei-sidebar__section-label,
+.ipoupei-sidebar--collapsed .ipoupei-sidebar__item-text {
+  display: none;
+}
+
+.ipoupei-sidebar--collapsed .ipoupei-sidebar__item {
+  justify-content: center;
+  padding: 10px; /* Ajustado */
+}
+
+.ipoupei-sidebar--collapsed .ipoupei-sidebar__section-title {
+  justify-content: center;
+  padding: 0 8px;
+}
+
+/* ================== TOOLTIPS ================== */
+.ipoupei-sidebar--collapsed .ipoupei-sidebar__item:hover::after {
+  content: attr(title);
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: #1F2937;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 1001;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  pointer-events: none;
+}
+
+.ipoupei-sidebar--collapsed .ipoupei-sidebar__item:hover::before {
+  content: '';
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-right: 4px solid #1F2937;
+  z-index: 1001;
+}
+
+/* ================== RESPONSIVIDADE ================== */
+@media (min-width: 768px) {
+  .ipoupei-sidebar {
+    position: fixed;
+    transform: none;
+  }
+  
+  .ipoupei-sidebar .ipoupei-sidebar__control-btn--close {
+    display: none;
+  }
+}
+
+@media (max-width: 1023px) and (min-width: 768px) {
+  .ipoupei-sidebar {
+    width: 56px; /* Ajustado para nova largura colapsada */
+  }
+  
+  .ipoupei-sidebar .ipoupei-sidebar__brand-text,
+  .ipoupei-sidebar .ipoupei-sidebar__user,
+  .ipoupei-sidebar .ipoupei-sidebar__section-label,
+  .ipoupei-sidebar .ipoupei-sidebar__item-text {
+    display: none;
+  }
+  
+  .ipoupei-sidebar .ipoupei-sidebar__item {
+    justify-content: center;
+    padding: 10px; /* Ajustado */
+  }
+  
+  .ipoupei-sidebar .ipoupei-sidebar__control-btn--close {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .ipoupei-sidebar--mobile-hidden {
+    transform: translateX(-100%);
+  }
+  
+  .ipoupei-sidebar--mobile-open {
+    transform: translateX(0);
+    z-index: 1100;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  .ipoupei-sidebar .ipoupei-sidebar__control-btn--collapse {
+    display: none;
+  }
+}
+
+
+
+/* ================== REDUCED MOTION ================== */
+@media (prefers-reduced-motion: reduce) {
+  .ipoupei-sidebar,
+  .ipoupei-sidebar__item,
+  .ipoupei-sidebar__control-btn {
+    transition: none;
+    animation: none;
+  }
+}
+/* Adições para o arquivo sidebar.css */
+
+/* Item content wrapper para acomodar texto + badge */
+.ipoupei-sidebar__item-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  min-width: 0; /* Para permitir text truncation se necessário */
+}
+
+/* Badge "Em breve" */
+.ipoupei-sidebar__item-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.625rem;
+  font-weight: 500;
+  padding: 0.125rem 0.375rem;
+  background-color: var(--warning, #FFC107);
+  color: var(--dark, #333333);
+  border-radius: 0.75rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Estado "coming soon" para itens */
+.ipoupei-sidebar__item--coming-soon {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.ipoupei-sidebar__item--coming-soon:hover {
+  background-color: transparent;
+  transform: none;
+}
+
+.ipoupei-sidebar__item--coming-soon .ipoupei-sidebar__item-icon {
+  opacity: 0.6;
+}
+
+/* Responsividade para sidebar colapsada - esconder badges */
+.ipoupei-sidebar--collapsed .ipoupei-sidebar__item-badge {
+  display: none;
+}
+
+/* Para o caso onde só temos texto sem badge */
+.ipoupei-sidebar__item-text {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}

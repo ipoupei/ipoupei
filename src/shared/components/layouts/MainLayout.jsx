@@ -1,508 +1,349 @@
-// src/shared/components/layout/MainLayout.jsx - VERSÃO CONSERVADORA (MANTÉM VISUAL ORIGINAL)
-import React, { useState, useEffect, Suspense, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { 
-  User, 
-  ArrowUpCircle, 
-  ArrowDownCircle, 
-  CreditCard, 
-  ArrowLeftRight,
-  Wallet,
-  MoreHorizontal,
-  LogOut,
-  BarChart3,
-  Tags,
-  Home,
-  List,
-  Brain
+  Menu,
+  User,
+  Star
 } from 'lucide-react';
-
-// IMPORTS LIMPOS
 import useAuth from '@modules/auth/hooks/useAuth';
-import NotificationContainer from '@shared/components/ui/NotificationContainer';
+import { useUIStore } from '@store/uiStore';
+import TrilhaDashboard from '@modules/dashboard/components/TrilhaDashboard';
+import Sidebar from './Sidebar';
 
-// MODAIS - IMPORTS LIMPOS
-import DespesasModal from '@modules/transacoes/components/DespesasModal';
+// ===== IMPORTS DOS MODAIS =====
 import ReceitasModal from '@modules/transacoes/components/ReceitasModal';
+import DespesasModal from '@modules/transacoes/components/DespesasModal';
 import DespesasCartaoModal from '@modules/transacoes/components/DespesasCartaoModal';
-import ContasModal from '@modules/contas/components/ContasModal';
 import TransferenciasModal from '@modules/transacoes/components/TransferenciasModal';
+import ContasModal from '@modules/contas/components/ContasModal';
 import CartoesModal from '@modules/cartoes/components/CartoesModal';
 import CategoriasModal from '@modules/categorias/components/CategoriasModal';
-import TrilhaDashboard from '@modules/dashboard/components/TrilhaDashboard';
 
-// CSS
 import '@shared/styles/MainLayout.css';
 
-// ✅ Componente de Header isolado para evitar re-renders
-const Header = React.memo(({ user, isScrolled, pageTitle, showUserMenu, onToggleUserMenu, onLogout }) => {
-  const userName = useMemo(() => {
-    return user?.user_metadata?.nome || 
-           user?.user_metadata?.full_name || 
-           user?.email?.split('@')[0] || 
-           'Usuário';
-  }, [user]);
+/* CSS para posicionamento correto dos modais */
+const modalStyles = `
+.modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background-color: rgba(0, 0, 0, 0.5) !important;
+  z-index: 1000 !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  padding-top: 2rem !important;
+  overflow-y: auto !important;
+}
 
-  const avatarUrl = useMemo(() => {
-    return user?.user_metadata?.avatar_url;
-  }, [user]);
+.forms-modal-container {
+  position: relative !important;
+  background: white !important;
+  border-radius: 12px !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
+  max-width: 90vw !important;
+  max-height: calc(100vh - 4rem) !important;
+  margin: 0 auto !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  max-width: 600px !important;
+}
 
-  return (
-    <header className="main-header">
-      <div className="header-content">
-        <div className="header-left">
-          <div className="logo-section">
-            <h1 className="app-title">💰 iPoupei</h1>
-            {!isScrolled && <span className="page-title">{pageTitle}</span>}
-          </div>
-        </div>
-        
-        <div className="header-right">
-          <div className="user-section">
-            {!isScrolled && (
-              <div className="user-greeting">
-                <span className="greeting-text">Olá, {userName}!</span>
-                <span className="greeting-subtitle">Seja bem-vindo</span>
-              </div>
-            )}
-            
-            <div className="user-avatar-container">
-              <button 
-                className="user-avatar"
-                onClick={onToggleUserMenu}
-              >
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt="Avatar" />
-                ) : (
-                  <User size={isScrolled ? 20 : 24} />
-                )}
-              </button>
-              
-              {showUserMenu && (
-                <div className="user-menu">
-                  <a href="/profile" className="user-menu-item">
-                    <User size={16} />
-                    Perfil
-                  </a>
-                  <button 
-                    className="user-menu-item logout"
-                    onClick={onLogout}
-                  >
-                    <LogOut size={16} />
-                    Sair
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </header>
-  );
-});
+.forms-modal-container.modal-large {
+  max-width: 800px !important;
+}
 
-// ✅ Componente de Ações - VERSÃO CONSERVADORA (CORRIGE APENAS OS PROBLEMAS)
-const QuickActions = React.memo(({ 
-  isScrolled, 
-  showMaisMenu, 
-  onToggleMaisMenu,
-  onNavigateDashboard,
-  onNavigateTransacoes,
-  onNavigateDiagnostico,
-  onOpenReceitas,
-  onOpenDespesas,
-  onOpenDespesasCartao,
-  onOpenTransferencias,
-  onOpenContas,
-  onOpenCartoes,
-  onOpenCategorias,
-  onNavigateRelatorios
-}) => {
-  return (
-    <section className="quick-actions">
-      <div className="actions-container">
+.modal-overlay.active .forms-modal-container {
+  animation: modalSlideIn 0.3s ease-out forwards;
+}
 
-        <button 
-          className="action-button dashboard"
-          onClick={onNavigateDashboard}
-          data-tooltip="Dashboard"
-        >
-          <Home size={isScrolled ? 16 : 20} />
-          <span>Dashboard</span>
-        </button>
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
 
-        <button 
-          className="action-button contas"
-          onClick={onOpenContas}
-          data-tooltip="Minhas Contas"
-        >
-          <Wallet size={isScrolled ? 16 : 20} />
-          <span>Minhas Contas</span>
-        </button>        
+@media (max-width: 768px) {
+  .modal-overlay {
+    padding-top: 1rem !important;
+  }
+  .forms-modal-container {
+    max-width: 95vw !important;
+    max-height: calc(100vh - 2rem) !important;
+  }
+}
+`;
 
-        <button 
-          className="action-button receita"
-          onClick={onOpenReceitas}
-          data-tooltip="Receitas"
-        >
-          <ArrowUpCircle size={isScrolled ? 16 : 20} />
-          <span>Novas Receitas</span>
-        </button>
+// Injetar estilos CSS para os modais
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = modalStyles;
+  document.head.appendChild(style);
+}
 
-        <button 
-          className="action-button despesa"
-          onClick={onOpenDespesas}
-          data-tooltip="Despesas"
-        >
-          <ArrowDownCircle size={isScrolled ? 16 : 20} />
-          <span>Novas Despesas</span>
-        </button>
-
-        <button 
-          className="action-button cartao"
-          onClick={onOpenDespesasCartao}
-          data-tooltip="Cartão"
-        >
-          <CreditCard size={isScrolled ? 16 : 20} />
-          <span>Despesas Cartão</span>
-        </button>
-
-        <button 
-          className="action-button transferencia"
-          onClick={onOpenTransferencias}
-          data-tooltip="Transferir"
-        >
-          <ArrowLeftRight size={isScrolled ? 16 : 20} />
-          <span>Transferir</span>
-        </button>
-
-        <button 
-          className="action-button transacoes"
-          onClick={onNavigateTransacoes}
-          data-tooltip="Transações"
-        >
-          <List size={isScrolled ? 16 : 20} />
-          <span>Minhas Transações</span>
-        </button>
-
-        <button 
-          className="action-button mais"
-          onClick={onToggleMaisMenu}
-          data-tooltip="Mais"
-        >
-          <MoreHorizontal size={isScrolled ? 16 : 20} />
-          <span>Mais</span>
-        </button>
-      </div>
-
-      {showMaisMenu && (
-        <div className="mais-menu">
-          <button 
-            className="mais-menu-item"
-            onClick={onOpenCartoes}
-          >
-            <CreditCard size={16} />
-            Meus Cartões
-          </button>
-          <button 
-            className="mais-menu-item"
-            onClick={onOpenCategorias}
-          >
-            <Tags size={16} />
-            Categorias
-          </button>
-          <button 
-            className="mais-menu-item"
-            onClick={onNavigateRelatorios}
-          >
-            <BarChart3 size={16} />
-            Relatórios
-          </button>
-        </div>
-      )}
-    </section>
-  );
-});
-
+/**
+ * MainLayout - Layout principal da aplicação iPoupei
+ * Atualizado para gerenciar corretamente os modais
+ */
 const MainLayout = () => {
-  const { user, isAuthenticated, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+  const { 
+    openModal, 
+    closeModal,
+    modals,
+    showNotification 
+  } = useUIStore();
   
-  // ✅ Estados básicos - mínimos necessários
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [modals, setModals] = useState({
-    receitas: false,
-    despesas: false,
-    despesasCartao: false,
-    transferencias: false,
-    contas: false,
-    cartoes: false,
-    categorias: false
+  // Estados do layout
+  const [isMobile, setIsMobile] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  // Estados dos modais (removido UserProfile)
+  const [modalStates, setModalStates] = useState({
+    ReceitasModal: false,
+    DespesasModal: false,
+    DespesasCartaoModal: false,
+    TransferenciasModal: false,
+    ContasModal: false,
+    CartoesModal: false,
+    CategoriasModal: false
   });
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showMaisMenu, setShowMaisMenu] = useState(false);
 
-  // ✅ Refs para performance
-  const isScrollingRef = useRef(false);
-  const scrollTimeoutRef = useRef(null);
+  // Sistema de níveis/XP do usuário
+  const userLevel = user?.user_metadata?.level || 7;
+  const userXP = user?.user_metadata?.xp || 2847;
 
-  // ✅ Scroll handler ULTRA otimizado - LIMITADO
+  // Detectar mobile e scroll
   useEffect(() => {
-    let rafId = null;
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) {
+        setSidebarOpen(false);
+      }
+    };
 
     const handleScroll = () => {
-      if (isScrollingRef.current) return;
-
-      isScrollingRef.current = true;
-      
-      rafId = requestAnimationFrame(() => {
-        const scrollY = window.scrollY;
-        
-        setIsScrolled(prev => {
-          const shouldBeScrolled = scrollY > 120;
-          if (shouldBeScrolled !== prev) {
-            return shouldBeScrolled;
-          }
-          return prev;
-        });
-        
-        isScrollingRef.current = false;
-      });
+      setScrolled(window.scrollY > 50);
     };
-
-    const throttledScroll = () => {
-      if (scrollTimeoutRef.current) return;
-      
-      scrollTimeoutRef.current = setTimeout(() => {
-        handleScroll();
-        scrollTimeoutRef.current = null;
-      }, 200);
-    };
-
-    window.addEventListener('scroll', throttledScroll, { passive: true });
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    window.addEventListener('scroll', handleScroll);
     
     return () => {
-      window.removeEventListener('scroll', throttledScroll);
-      if (rafId) cancelAnimationFrame(rafId);
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
+      window.removeEventListener('resize', checkMobile);
+      window.removeEventListener('scroll', handleScroll);
     };
   }, []);
 
-  // ✅ Handlers ESTÁTICOS (não causam re-renders)
-  const openModal = useCallback((modalName) => {
-    setModals(prev => ({ ...prev, [modalName]: true }));
-  }, []);
+  // Função para abrir modais
+  const handleOpenModal = (modalType) => {
+    console.log('🚀 MainLayout recebeu pedido para abrir modal:', modalType);
+    
+    // Verificar se é um modal válido
+    if (modalStates.hasOwnProperty(modalType)) {
+      setModalStates(prev => ({
+        ...prev,
+        [modalType]: true
+      }));
+      console.log('✅ Modal aberto:', modalType);
+    } else {
+      console.error('❌ Tipo de modal não reconhecido:', modalType);
+      console.error('❌ Modais disponíveis:', Object.keys(modalStates));
+      showNotification(`Modal "${modalType}" não encontrado`, 'error');
+    }
+  };
 
-  const closeModal = useCallback((modalName) => {
-    setModals(prev => ({ ...prev, [modalName]: false }));
-  }, []);
+  // Função para fechar modais
+  const handleCloseModal = (modalType) => {
+    console.log('❌ Fechando modal:', modalType);
+    setModalStates(prev => ({
+      ...prev,
+      [modalType]: false
+    }));
+  };
 
-  const handleTransacaoSalva = useCallback(() => {
-    // Vazio para evitar side effects desnecessários
-  }, []);
+  // Função para salvar dados (callback comum)
+  const handleModalSave = () => {
+    // Aqui você pode adicionar lógica comum para todos os modais
+    // como recarregar dados, etc.
+    console.log('💾 Dados salvos com sucesso');
+  };
 
-  const handleLogout = useCallback(async () => {
+  // Handlers
+  const handleLogout = async () => {
     try {
       await signOut();
-      navigate('/login');
+      showNotification('Logout realizado com sucesso', 'success');
     } catch (error) {
-      console.error('Erro no logout:', error);
+      showNotification('Erro ao fazer logout', 'error');
     }
-  }, [signOut, navigate]);
+  };
 
-  // ✅ Handlers de toggle - ESTÁTICOS
-  const toggleUserMenu = useCallback(() => setShowUserMenu(prev => !prev), []);
-  const toggleMaisMenu = useCallback(() => setShowMaisMenu(prev => !prev), []);
-
-  // ✅ Handlers de navegação - ESTÁTICOS
-  const navigateToDashboard = useCallback(() => navigate('/dashboard'), [navigate]);
-  const navigateToTransacoes = useCallback(() => navigate('/transacoes'), [navigate]);
-  const navigateToDiagnostico = useCallback(() => navigate('/diagnostico'), [navigate]);
-
-  // ✅ Handlers de modal - ESTÁTICOS
-  const openReceitas = useCallback(() => openModal('receitas'), [openModal]);
-  const openDespesas = useCallback(() => openModal('despesas'), [openModal]);
-  const openDespesasCartao = useCallback(() => openModal('despesasCartao'), [openModal]);
-  const openTransferencias = useCallback(() => openModal('transferencias'), [openModal]);
-  const openContas = useCallback(() => {
-    openModal('contas');
-    setShowMaisMenu(false);
-  }, [openModal]);
-  
-  const openCartoes = useCallback(() => {
-    openModal('cartoes');
-    setShowMaisMenu(false);
-  }, [openModal]);
-  
-  const openCategorias = useCallback(() => {
-    openModal('categorias');
-    setShowMaisMenu(false);
-  }, [openModal]);
-  
-  const navigateRelatorios = useCallback(() => {
-    navigate('/relatorios');
-    setShowMaisMenu(false);
-  }, [navigate]);
-
-  // ✅ Click outside handler - ULTRA otimizado COM CONDIÇÕES
-  useEffect(() => {
-    if (!showUserMenu && !showMaisMenu) return;
-
-    const handleClickOutside = (event) => {
-      const target = event.target;
-      
-      if (showUserMenu && !target.closest('.user-avatar-container')) {
-        setShowUserMenu(false);
-      }
-      
-      if (showMaisMenu && !target.closest('.action-button.mais') && !target.closest('.mais-menu')) {
-        setShowMaisMenu(false);
-      }
+  const getPageTitle = () => {
+    const currentPath = location.pathname;
+    
+    const pageMap = {
+      '/': 'Dashboard',
+      '/transacoes': 'Transações',
+      '/relatorios': 'Relatórios',
+      '/diagnostico': 'Diagnóstico',
+      '/planejamento': 'Planejamento',
+      '/investimentos': 'Investimentos',
+      '/configuracoes': 'Configurações'
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showUserMenu, showMaisMenu]);
-
-  // ✅ Valores memoizados - OTIMIZADOS
-  const pageTitle = useMemo(() => {
-    switch (location.pathname) {
-      case '/':
-      case '/dashboard':
-        return 'Acompanhamento Mensal';
-      case '/transacoes':
-        return 'Transações';
-      case '/diagnostico':
-        return 'Diagnóstico Financeiro';
-      case '/relatorios':
-        return 'Relatórios';
-      default:
-        return 'iPoupei';
-    }
-  }, [location.pathname]);
-
-  const layoutClass = useMemo(() => {
-    return `main-layout ${isScrolled ? 'scrolled' : ''}`;
-  }, [isScrolled]);
-
-  const isDashboard = useMemo(() => {
-    return location.pathname === '/dashboard';
-  }, [location.pathname]);
+    return pageMap[currentPath] || 'iPoupei';
+  };
 
   return (
-    <div className={layoutClass}>
-      <NotificationContainer />
+    <div className={`main-layout ${scrolled ? 'main-layout--scrolled' : ''}`}>
       
-      <Header 
+      {/* Nova Sidebar */}
+      <Sidebar
+        onOpenModal={handleOpenModal}
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        isMobileOpen={sidebarOpen}
+        onMobileClose={() => setSidebarOpen(false)}
         user={user}
-        isScrolled={isScrolled}
-        pageTitle={pageTitle}
-        showUserMenu={showUserMenu}
-        onToggleUserMenu={toggleUserMenu}
         onLogout={handleLogout}
       />
 
-      <QuickActions 
-        isScrolled={isScrolled}
-        showMaisMenu={showMaisMenu}
-        onToggleMaisMenu={toggleMaisMenu}
-        onNavigateDashboard={navigateToDashboard}
-        onNavigateTransacoes={navigateToTransacoes}
-        onNavigateDiagnostico={navigateToDiagnostico}
-        onOpenReceitas={openReceitas}
-        onOpenDespesas={openDespesas}
-        onOpenDespesasCartao={openDespesasCartao}
-        onOpenTransferencias={openTransferencias}
-        onOpenContas={openContas}
-        onOpenCartoes={openCartoes}
-        onOpenCategorias={openCategorias}
-        onNavigateRelatorios={navigateRelatorios}
+      {/* Main Content Area */}
+      <div className="main-layout__content">
+        {/* Header Mobile */}
+        {isMobile && (
+          <header className="main-layout__mobile-header">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="mobile-header__menu-button"
+              aria-label="Abrir menu de navegação"
+            >
+              <Menu size={20} />
+            </button>
+            
+            <div className="mobile-header__title">
+              <div className="mobile-header__logo">
+                <span>iP</span>
+              </div>
+              <span>{getPageTitle()}</span>
+            </div>
+            
+            <div className="mobile-header__actions">
+              <button 
+                className="mobile-header__level-badge"
+                aria-label={`Nível ${userLevel}`}
+              >
+                <span>Nível {userLevel}</span>
+              </button>
+              <div className="mobile-header__user-avatar">
+                <User size={16} />
+              </div>
+            </div>
+          </header>
+        )}
+
+        {/* Trilha de Aprendizagem - Fixa no Topo */}
+        <section className="main-layout__evolution-track" aria-label="Trilha de aprendizagem">
+          <div className="evolution-track__container">
+            <TrilhaDashboard
+              className="evolution-track__component"
+              onPassoClick={(passo) => {
+                console.log('Passo da trilha clicado:', passo);
+                showNotification(`Passo: ${passo.titulo}`, 'info');
+              }}
+            />
+          </div>
+        </section>
+
+        {/* Área de Conteúdo Dinâmico */}
+        <main className="main-layout__page-content" role="main">
+          <Outlet />
+        </main>
+      </div>
+
+      {/* ===== MODAIS ===== */}
+      
+      {/* Modal de Receitas */}
+      <ReceitasModal
+        isOpen={modalStates.ReceitasModal}
+        onClose={() => handleCloseModal('ReceitasModal')}
+        onSave={handleModalSave}
       />
 
-      {/* ✅ Trilha de Evolução - Condicionalmente renderizada */}
-      {!isScrolled && isDashboard && (
-        <section className="evolution-track">
-          <TrilhaDashboard 
-            passos={[]} 
-            passoAtual="3"
-            onPassoClick={(passo) => console.log('Passo clicado:', passo)}
-          />
-        </section>
-      )}
+      {/* Modal de Despesas */}
+      <DespesasModal
+        isOpen={modalStates.DespesasModal}
+        onClose={() => handleCloseModal('DespesasModal')}
+        onSave={handleModalSave}
+      />
 
-      {/* ✅ Conteúdo */}
-      <main className="main-content">
-        <Suspense fallback={
-          <div className="loading-container">
-            <div className="loading-spinner"></div>
-            <p>Carregando...</p>
+      {/* Modal de Despesas Cartão */}
+      <DespesasCartaoModal
+        isOpen={modalStates.DespesasCartaoModal}
+        onClose={() => handleCloseModal('DespesasCartaoModal')}
+        onSave={handleModalSave}
+      />
+
+      {/* Modal de Transferências */}
+      <TransferenciasModal
+        isOpen={modalStates.TransferenciasModal}
+        onClose={() => handleCloseModal('TransferenciasModal')}
+        onSave={handleModalSave}
+      />
+
+      {/* Modal de Contas */}
+      <ContasModal
+        isOpen={modalStates.ContasModal}
+        onClose={() => handleCloseModal('ContasModal')}
+        onSave={handleModalSave}
+      />
+
+      {/* Modal de Cartões */}
+      <CartoesModal
+        isOpen={modalStates.CartoesModal}
+        onClose={() => handleCloseModal('CartoesModal')}
+        onSave={handleModalSave}
+      />
+
+      {/* Modal de Categorias */}
+      <CategoriasModal
+        isOpen={modalStates.CategoriasModal}
+        onClose={() => handleCloseModal('CategoriasModal')}
+        onSave={handleModalSave}
+      />
+
+      {/* Modal de Perfil do Usuário */}
+      {modalStates.UserProfile && (
+        <div className="modal-overlay active">
+          <div className="forms-modal-container modal-large">
+            <UserProfile
+              isOpen={modalStates.UserProfile}
+              onClose={() => handleCloseModal('UserProfile')}
+              onSave={handleModalSave}
+            />
           </div>
-        }>
-          <Outlet />
-        </Suspense>
-      </main>
-
-      {/* ✅ Modais - Renderização EXTREMAMENTE condicional */}
-      {modals.receitas && (
-        <ReceitasModal
-          isOpen={true}
-          onClose={() => closeModal('receitas')}
-          onSave={handleTransacaoSalva}
-        />
-      )}
-      
-      {modals.despesas && (
-        <DespesasModal
-          isOpen={true}
-          onClose={() => closeModal('despesas')}
-          onSave={handleTransacaoSalva}
-        />
-      )}
-      
-      {modals.despesasCartao && (
-        <DespesasCartaoModal
-          isOpen={true}
-          onClose={() => closeModal('despesasCartao')}
-          onSave={handleTransacaoSalva}
-        />
-      )}
-      
-      {modals.transferencias && (
-        <TransferenciasModal
-          isOpen={true}
-          onClose={() => closeModal('transferencias')}
-          onSave={handleTransacaoSalva}
-        />
-      )}
-      
-      {modals.contas && (
-        <ContasModal
-          isOpen={true}
-          onClose={() => closeModal('contas')}
-          onSave={handleTransacaoSalva}
-        />
-      )}
-      
-      {modals.cartoes && (
-        <CartoesModal
-          isOpen={true}
-          onClose={() => closeModal('cartoes')}
-          onSave={handleTransacaoSalva}
-        />
+        </div>
       )}
 
-      {modals.categorias && (
-        <CategoriasModal
-          isOpen={true}
-          onClose={() => closeModal('categorias')}
-          onSave={handleTransacaoSalva}
-        />
-      )}
+
     </div>
   );
 };
 
-export default React.memo(MainLayout);
+export default MainLayout;

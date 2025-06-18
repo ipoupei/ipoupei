@@ -1,171 +1,505 @@
-// src/components/layout/Sidebar.jsx
-import React from 'react';
-import PropTypes from 'prop-types';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
-  Home, 
-  BarChart2, 
-  DollarSign, 
+  TrendingUp, 
+  TrendingDown, 
   CreditCard, 
-  PieChart, 
-  Settings, 
-  HelpCircle,
-  X
+  ArrowUpDown,
+  Receipt,
+  Building2,
+  Home,
+  Target,
+  Calculator,
+  Wallet,
+  BarChart3,
+  PieChart,
+  Settings,
+  User,
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Zap,
+  Star,
+  Clock
 } from 'lucide-react';
+import '../../styles/sidebar.css';
 
-/**
- * Componente de Sidebar para navegação principal
- * 
- * @example
- * <Sidebar 
- *   isOpen={sidebarOpen} 
- *   onClose={closeSidebar}
- *   activePath="/dashboard" 
- * />
- */
-const Sidebar = ({
-  isOpen = false,
-  onClose = () => {},
-  activePath = '/',
-  className = '',
-  ...props
+const Sidebar = ({ 
+  onOpenModal, 
+  isCollapsed = false, 
+  onToggleCollapse,
+  isMobileOpen = false,
+  onMobileClose,
+  user = null,
+  onLogout = () => {}
 }) => {
-  // Itens de navegação - podem ser personalizados/estendidos
-  
-  const navItems = [
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [activeItem, setActiveItem] = useState('dashboard');
+
+  // Sistema de níveis/XP do usuário
+  const userLevel = user?.user_metadata?.level || 7;
+  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuário';
+
+  // Atualizar item ativo baseado na rota atual
+  useEffect(() => {
+    const path = location.pathname;
+    const searchParams = new URLSearchParams(location.search);
+    const filter = searchParams.get('filter');
+    
+    if (path === '/' || path === '/dashboard') {
+      setActiveItem('dashboard');
+    } else if (path.startsWith('/transacoes')) {
+      if (filter === 'receitas') {
+        setActiveItem('transacoes-receitas');
+      } else if (filter === 'despesas') {
+        setActiveItem('transacoes-despesas');
+      } else if (filter === 'cartoes') {
+        setActiveItem('transacoes-cartoes');
+      } else {
+        setActiveItem('transacoes-todas');
+      }
+    } else if (path.startsWith('/relatorios')) {
+      setActiveItem('relatorios');
+    } else if (path.startsWith('/diagnostico')) {
+      setActiveItem('diagnostico');
+    } else if (path.startsWith('/planejamento')) {
+      setActiveItem('planejamento');
+    } else if (path.startsWith('/investimentos')) {
+      setActiveItem('investimentos');
+    } else if (path.startsWith('/configuracoes') || path.startsWith('/profile') || path.startsWith('/settings') || path.startsWith('/perfil')) {
+      setActiveItem('configuracoes-perfil');
+    }
+  }, [location]);
+
+  // ========== CONFIGURAÇÃO DOS MENUS ==========
+
+  const acoesRapidas = [
     {
-      id: 'dashboard',
-      label: 'Dashboard',
-      icon: <Home size={20} />,
-      path: '/dashboard'
+      id: 'receita',
+      label: 'Nova Receita',
+      icon: TrendingUp,
+      modalType: 'ReceitasModal',
+      variant: 'receita'
     },
     {
-      id: 'transacoes',
-      label: 'Transações',
-      icon: <BarChart2 size={20} />,
+      id: 'despesa',
+      label: 'Nova Despesa',
+      icon: TrendingDown,
+      modalType: 'DespesasModal',
+      variant: 'despesa'
+    },
+    {
+      id: 'despesa-cartao',
+      label: 'Despesa Cartão',
+      icon: CreditCard,
+      modalType: 'DespesasCartaoModal',
+      variant: 'cartao'
+    },
+    {
+      id: 'transferencia',
+      label: 'Transferência',
+      icon: ArrowUpDown,
+      modalType: 'TransferenciasModal',
+      variant: 'transferencia'
+    }
+  ];
+
+  const movimentacoes = [
+    {
+      id: 'transacoes-todas',
+      label: 'Todas as Transações',
+      icon: Receipt,
       path: '/transacoes'
     },
     {
-    path: 'diagnostico',
-    icon: '🎯',
-    label: 'Diagnóstico',
-    description: 'Analise sua situação financeira'
-    },
-    {
-      id: 'receitas',
+      id: 'transacoes-receitas',
       label: 'Receitas',
-      icon: <DollarSign size={20} />,
-      path: '/receitas'
+      icon: TrendingUp,
+      path: '/transacoes?filter=receitas'
     },
     {
-      id: 'despesas',
+      id: 'transacoes-despesas',
       label: 'Despesas',
-      icon: <DollarSign size={20} />,
-      path: '/despesas'
+      icon: TrendingDown,
+      path: '/transacoes?filter=despesas'
     },
     {
-      id: 'cartoes',
-      label: 'Cartões de Crédito',
-      icon: <CreditCard size={20} />,
-      path: '/cartoes'
+      id: 'transacoes-cartoes',
+      label: 'Cartões',
+      icon: CreditCard,
+      path: '/transacoes?filter=cartoes'
     },
     {
       id: 'relatorios',
       label: 'Relatórios',
-      icon: <PieChart size={20} />,
-      path: '/relatorios'
+      icon: BarChart3,
+      comingSoon: true
     },
     {
-      id: 'configuracoes',
-      label: 'Configurações',
-      icon: <Settings size={20} />,
-      path: '/configuracoes'
+      id: 'analises',
+      label: 'Análises',
+      icon: PieChart,
+      comingSoon: true
     }
   ];
 
-  const baseSidebarClasses = 'fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-lg transition-transform duration-300 ease-in-out transform';
-  const mobileClasses = isOpen ? 'translate-x-0' : '-translate-x-full';
-  const desktopClasses = 'hidden lg:block lg:translate-x-0';
-  
+  const outrasSecoes = {
+    principal: [
+      {
+        id: 'dashboard',
+        label: 'Dashboard',
+        icon: Home,
+        path: '/'
+      }
+    ],
+    gestao: [
+      {
+        id: 'gestao-contas',
+        label: 'Minhas Contas',
+        icon: Building2,
+        modalType: 'ContasModal'
+      },
+      {
+        id: 'gestao-cartoes',
+        label: 'Meus Cartões',
+        icon: CreditCard,
+        modalType: 'CartoesModal'
+      },
+      {
+        id: 'gestao-categorias',
+        label: 'Minhas Categorias',
+        icon: PieChart,
+        modalType: 'CategoriasModal'
+      }
+    ],
+    planejamento: [
+      {
+        id: 'planejamento',
+        label: 'Planejamento',
+        icon: Target,
+        comingSoon: true
+      },
+      {
+        id: 'diagnostico',
+        label: 'Diagnóstico',
+        icon: Calculator,
+        comingSoon: true
+      },
+      {
+        id: 'investimentos',
+        label: 'Investimentos',
+        icon: Wallet,
+        comingSoon: true
+      }
+    ],
+    configuracoes: [
+      {
+        id: 'configuracoes-perfil',
+        label: 'Configurações',
+        icon: Settings,
+        path: '/configuracoes'
+      }
+    ]
+  };
+
+  // ========== HANDLERS ==========
+
+  const handleAcaoRapida = (acao) => {
+    console.log('🚀 Tentando abrir modal:', acao.modalType);
+    console.log('📋 Função onOpenModal disponível:', typeof onOpenModal);
+    console.log('📋 Dados da ação:', acao);
+    
+    if (onOpenModal && acao.modalType) {
+      onOpenModal(acao.modalType);
+    } else {
+      console.error('❌ onOpenModal não disponível ou modalType indefinido');
+    }
+    
+    if (onMobileClose) {
+      onMobileClose();
+    }
+  };
+
+  const handleNavigation = (item) => {
+    console.log('🧭 handleNavigation chamado com item:', item);
+    console.log('🔍 Item tem modalType?', !!item.modalType);
+    console.log('🔍 Item tem path?', !!item.path);
+    console.log('🔍 Item tem comingSoon?', !!item.comingSoon);
+    
+    // Se tem modalType, abrir modal
+    if (item.modalType && onOpenModal) {
+      console.log('🚀 Tentando abrir modal via navegação:', item.modalType);
+      console.log('📋 Dados do item:', item);
+      
+      onOpenModal(item.modalType);
+      if (onMobileClose) {
+        onMobileClose();
+      }
+      return;
+    }
+
+    // Se tem comingSoon, não fazer nada por enquanto
+    if (item.comingSoon) {
+      // Pode implementar um toast ou notificação aqui no futuro
+      console.log(`${item.label} - Em breve!`);
+      return;
+    }
+
+    // Se tem path, navegar
+    if (item.path) {
+      console.log('🧭 Navegando para:', item.path);
+      setActiveItem(item.id);
+      navigate(item.path);
+    } else {
+      console.warn('⚠️ Item não tem path nem modalType:', item);
+    }
+    
+    if (onMobileClose) {
+      onMobileClose();
+    }
+  };
+
+  const handleLogout = () => {
+    if (onLogout) {
+      onLogout();
+    }
+    if (onMobileClose) {
+      onMobileClose();
+    }
+  };
+
+  // ========== COMPONENTES AUXILIARES ==========
+
+  const SectionTitle = ({ title, icon: Icon }) => (
+    <div className="ipoupei-sidebar__section-title">
+      {Icon && <Icon className="ipoupei-sidebar__section-icon" />}
+      <span className="ipoupei-sidebar__section-label">{title}</span>
+    </div>
+  );
+
+  const MenuItem = ({ item, isActive, onClick, variant = null }) => {
+    const Icon = item.icon;
+    
+    const itemClasses = [
+      'ipoupei-sidebar__item',
+      isActive && 'ipoupei-sidebar__item--active',
+      variant && `ipoupei-sidebar__item--${variant}`,
+      item.comingSoon && 'ipoupei-sidebar__item--coming-soon'
+    ].filter(Boolean).join(' ');
+    
+    return (
+      <button
+        className={itemClasses}
+        onClick={onClick}
+        title={isCollapsed ? item.label : ''}
+        aria-label={item.label}
+        aria-current={isActive ? 'page' : undefined}
+        disabled={item.comingSoon}
+      >
+        <Icon className="ipoupei-sidebar__item-icon" />
+        {!isCollapsed && (
+          <div className="ipoupei-sidebar__item-content">
+            <span className="ipoupei-sidebar__item-text">{item.label}</span>
+            {item.comingSoon && (
+              <span className="ipoupei-sidebar__item-badge">
+                <Clock size={10} />
+                Em breve
+              </span>
+            )}
+          </div>
+        )}
+      </button>
+    );
+  };
+
+  // ========== CLASSES CONDICIONAIS ==========
   const sidebarClasses = [
-    baseSidebarClasses,
-    mobileClasses,
-    desktopClasses,
-    className
-  ].join(' ');
+    'ipoupei-sidebar',
+    isCollapsed && 'ipoupei-sidebar--collapsed',
+    isMobileOpen && 'ipoupei-sidebar--mobile-open',
+    !isMobileOpen && window.innerWidth < 768 && 'ipoupei-sidebar--mobile-hidden'
+  ].filter(Boolean).join(' ');
 
-  // Overlay para fechar ao clicar fora
-  const overlayClasses = `fixed inset-0 bg-black bg-opacity-50 z-30 transition-opacity duration-300 ${
-    isOpen ? 'opacity-100 lg:hidden' : 'opacity-0 pointer-events-none hidden'
-  }`;
-
+  // ========== RENDER ==========
+  console.log('🔧 Sidebar - Configurações item:', outrasSecoes.configuracoes[0]);
+  console.log('🔧 Sidebar - onOpenModal disponível:', typeof onOpenModal);
+  
   return (
     <>
       {/* Overlay para mobile */}
-      <div className={overlayClasses} onClick={onClose} />
-      
+      {isMobileOpen && (
+        <div className="ipoupei-sidebar-overlay" onClick={onMobileClose} />
+      )}
+
       {/* Sidebar */}
-      <aside className={sidebarClasses} {...props}>
-        <div className="h-full flex flex-col">
-          {/* Cabeçalho */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-800">Finanças</h2>
-            <button 
-              className="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
-              onClick={onClose}
-              aria-label="Fechar menu"
-            >
-              <X size={20} />
+      <aside className={sidebarClasses}>
+        
+        {/* ========== HEADER ========== */}
+        <div className="ipoupei-sidebar__header">
+          <div className="ipoupei-sidebar__brand">
+            <div className="ipoupei-sidebar__logo">iP</div>
+            {!isCollapsed && (
+              <div className="ipoupei-sidebar__brand-text">
+                <h1 className="ipoupei-sidebar__title">iPoupei</h1>
+                <p className="ipoupei-sidebar__subtitle">Gestão Financeira</p>
+              </div>
+            )}
+          </div>
+
+          <div className="ipoupei-sidebar__controls">
+            {onToggleCollapse && (
+              <button 
+                className="ipoupei-sidebar__control-btn ipoupei-sidebar__control-btn--collapse" 
+                onClick={onToggleCollapse}
+                aria-label="Recolher sidebar"
+              >
+                {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+              </button>
+            )}
+            
+            {onMobileClose && (
+              <button 
+                className="ipoupei-sidebar__control-btn ipoupei-sidebar__control-btn--close" 
+                onClick={onMobileClose}
+                aria-label="Fechar sidebar"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* ========== PERFIL USUÁRIO ========== */}
+        {!isCollapsed && (
+          <div className="ipoupei-sidebar__user">
+            <div className="ipoupei-sidebar__avatar">
+              <User size={16} />
+            </div>
+            <div className="ipoupei-sidebar__user-info">
+              <span className="ipoupei-sidebar__name">{userName}</span>
+              <span className="ipoupei-sidebar__greeting">Seja bem-vindo!</span>
+            </div>
+            <button className="ipoupei-sidebar__level" aria-label={`Nível ${userLevel}`}>
+              <Star size={12} />
+              <span>Nível {userLevel}</span>
             </button>
           </div>
+        )}
+
+        {/* ========== CONTENT ========== */}
+        <div className="ipoupei-sidebar__content">
           
-          {/* Navegação */}
-          <nav className="flex-1 overflow-y-auto pt-5 pb-4">
-            <ul className="px-2 space-y-1">
-              {navItems.map((item) => {
-                const isActive = activePath === item.path;
-                
-                return (
-                  <li key={item.id}>
-                    <a 
-                      href={item.path}
-                      className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
-                        isActive 
-                          ? 'bg-blue-50 text-blue-700' 
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    >
-                      <span className={`mr-3 ${isActive ? 'text-blue-500' : 'text-gray-500'}`}>
-                        {item.icon}
-                      </span>
-                      {item.label}
-                    </a>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
-          
-          {/* Rodapé */}
-          <div className="p-4 border-t border-gray-200">
-            <a 
-              href="/ajuda" 
-              className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"
-            >
-              <HelpCircle size={20} className="mr-3 text-gray-500" />
-              Ajuda e Suporte
-            </a>
+          {/* SEÇÃO 1: DASHBOARD */}
+          <div className="ipoupei-sidebar__section">
+            <div className="ipoupei-sidebar__menu">
+              {outrasSecoes.principal.map((item) => (
+                <MenuItem
+                  key={item.id}
+                  item={item}
+                  isActive={activeItem === item.id}
+                  onClick={() => handleNavigation(item)}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* SEÇÃO 2: AÇÕES RÁPIDAS */}
+          <div className="ipoupei-sidebar__section">
+            <SectionTitle title="Ações Rápidas" icon={Zap} />
+            <div className="ipoupei-sidebar__menu">
+              {acoesRapidas.map((acao) => (
+                <MenuItem
+                  key={acao.id}
+                  item={acao}
+                  isActive={false}
+                  onClick={() => handleAcaoRapida(acao)}
+                  variant={acao.variant}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* SEÇÃO 3: GESTÃO */}
+          <div className="ipoupei-sidebar__section">
+            <SectionTitle title="Gestão" icon={Settings} />
+            <div className="ipoupei-sidebar__menu">
+              {outrasSecoes.gestao.map((item) => (
+                <MenuItem
+                  key={item.id}
+                  item={item}
+                  isActive={activeItem === item.id}
+                  onClick={() => handleNavigation(item)}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* SEÇÃO 4: MOVIMENTAÇÕES */}
+          <div className="ipoupei-sidebar__section">
+            <SectionTitle title="Movimentações" icon={Receipt} />
+            <div className="ipoupei-sidebar__menu">
+              {movimentacoes.map((item) => (
+                <MenuItem
+                  key={item.id}
+                  item={item}
+                  isActive={activeItem === item.id}
+                  onClick={() => handleNavigation(item)}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* SEÇÃO 5: PLANEJAMENTO */}
+          <div className="ipoupei-sidebar__section">
+            <SectionTitle title="Planejamento" icon={Target} />
+            <div className="ipoupei-sidebar__menu">
+              {outrasSecoes.planejamento.map((item) => (
+                <MenuItem
+                  key={item.id}
+                  item={item}
+                  isActive={activeItem === item.id}
+                  onClick={() => handleNavigation(item)}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* SEÇÃO 6: CONFIGURAÇÕES */}
+          <div className="ipoupei-sidebar__section">
+            <SectionTitle title="Configurações" icon={User} />
+            <div className="ipoupei-sidebar__menu">
+              {outrasSecoes.configuracoes.map((item) => (
+                <MenuItem
+                  key={item.id}
+                  item={item}
+                  isActive={activeItem === item.id}
+                  onClick={() => handleNavigation(item)}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ========== FOOTER ========== */}
+        <div className="ipoupei-sidebar__footer">
+          <div className="ipoupei-sidebar__menu">
+            <MenuItem
+              item={{
+                id: 'logout',
+                label: 'Sair',
+                icon: LogOut
+              }}
+              isActive={false}
+              onClick={handleLogout}
+              variant="logout"
+            />
           </div>
         </div>
       </aside>
     </>
   );
-};
-
-Sidebar.propTypes = {
-  isOpen: PropTypes.bool,
-  onClose: PropTypes.func,
-  activePath: PropTypes.string,
-  className: PropTypes.string
 };
 
 export default Sidebar;
