@@ -17,19 +17,32 @@ const useDashboardData = () => {
   const { user, isAuthenticated } = useAuth();
   const isFetching = useRef(false);
 
-  // ✅ PERÍODO FIXO por enquanto (dezembro 2024)
+  // ✅ PERÍODO SEMPRE NO MÊS ATUAL
   const getCurrentPeriod = () => {
     const now = new Date();
     const year = now.getFullYear();
-    const month = now.getMonth();
+    const month = now.getMonth(); // 0-11
     
+    // Primeiro dia do mês atual
     const inicio = new Date(year, month, 1);
+    // Último dia do mês atual
     const fim = new Date(year, month + 1, 0);
+    
+    // Nome do mês em português
+    const nomesMeses = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    
+    const mesNome = nomesMeses[month];
+    const formatado = `${mesNome} ${year}`;
     
     return {
       inicio: inicio.toISOString().split('T')[0],
       fim: fim.toISOString().split('T')[0],
-      formatado: inicio.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+      formatado: formatado,
+      mesAtual: month + 1, // 1-12 para uso externo
+      anoAtual: year
     };
   };
 

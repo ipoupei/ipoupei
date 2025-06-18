@@ -114,6 +114,9 @@ const Dashboard = () => {
   const receitasPorCategoria = data?.receitasPorCategoria || [];
   const despesasPorCategoria = data?.despesasPorCategoria || [];
 
+  // ✅ PERÍODO FORMATADO - agora vem do usePeriodo que reage a mudanças
+  const periodoFormatado = getFormattedPeriod();
+
   // ✅ RENDERIZAÇÃO SEMPRE LINEAR - SEM IFS CONDICIONAIS PARA HOOKS
   
   // Loading state
@@ -175,7 +178,7 @@ const Dashboard = () => {
             <div className="dashboard__current-period">
               <Calendar size={18} className="dashboard__period-icon" />
               <span className="dashboard__period-text">
-                {getFormattedPeriod()}
+                {periodoFormatado}
               </span>
               {!isCurrentMonth() && (
                 <button 
@@ -219,7 +222,7 @@ const Dashboard = () => {
                 <div className="dashboard__card-content">
                   <h3 className="dashboard__card-title">Saldo Atual</h3>
                   <p className="dashboard__card-value">{formatCurrency(dadosSegurosSaldo.atual)}</p>
-                  <span className="dashboard__card-subtitle">Todas as contas</span>
+                  <span className="dashboard__card-subtitle">Previsto: {formatCurrency(dadosSegurosSaldo.previsto)}</span>
                 </div>
               </div>
               
@@ -266,7 +269,7 @@ const Dashboard = () => {
                 <div className="dashboard__card-content">
                   <h3 className="dashboard__card-title">Receitas</h3>
                   <p className="dashboard__card-value">{formatCurrency(dadosSeguroReceitas.atual)}</p>
-                  <span className="dashboard__card-subtitle">{getFormattedPeriod()}</span>
+                  <span className="dashboard__card-subtitle">Previsto: {formatCurrency(dadosSeguroReceitas.previsto)}</span>
                 </div>
               </div>
               
@@ -312,7 +315,7 @@ const Dashboard = () => {
                 <div className="dashboard__card-content">
                   <h3 className="dashboard__card-title">Despesas</h3>
                   <p className="dashboard__card-value">{formatCurrency(dadosSegurosDespesas.atual)}</p>
-                  <span className="dashboard__card-subtitle">{getFormattedPeriod()}</span>
+                  <span className="dashboard__card-subtitle">Previsto: {formatCurrency(dadosSegurosDespesas.previsto)}</span>
                 </div>
               </div>
               

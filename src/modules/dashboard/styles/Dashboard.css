@@ -1,10 +1,9 @@
 /* ========================================
    DASHBOARD.CSS - TELA PRINCIPAL iPOUPEI
    ✅ Design Tokens aplicados
-   ✅ Nomenclatura modular (dashboard__)
+   ✅ Cards flip CORRIGIDOS
    ✅ Acessibilidade completa
    ✅ Microinterações CSS
-   ✅ Estados hover/focus/active
    ======================================== */
 
 /* ================== IMPORTS DOS DESIGN TOKENS ================== */
@@ -301,13 +300,14 @@
   gap: var(--spacing-6);
 }
 
-/* ================== CARDS FLIP PREMIUM ================== */
+/* ================== CARDS FLIP PREMIUM - CORRIGIDO ================== */
 .dashboard__summary-card {
   height: 160px;
   perspective: 1000px;
   cursor: pointer;
   transition: transform var(--transition-slow);
   animation: dashboard-card-appear var(--transition-slow) ease-out both;
+  position: relative;
 }
 
 .dashboard__summary-card:nth-child(1) { animation-delay: 0.1s; }
@@ -349,6 +349,8 @@
 
 .dashboard__card-face {
   position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   backface-visibility: hidden;
@@ -360,6 +362,7 @@
   flex-direction: column;
   justify-content: space-between;
   transition: all var(--transition-base);
+  box-sizing: border-box;
 }
 
 .dashboard__card-face--front {
@@ -924,57 +927,4 @@
   .dashboard__projection-section {
     padding: var(--spacing-6);
   }
-  
-  .dashboard__section-title-group {
-    gap: var(--spacing-4);
   }
-  
-  .dashboard__section-title {
-    font-size: var(--font-size-lg);
-  }
-  
-  .dashboard__chart-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--spacing-3);
-  }
-}
-
-@media (max-width: 480px) {
-  .dashboard {
-    padding: var(--spacing-3) var(--spacing-2);
-    gap: var(--spacing-4);
-  }
-  
-  .dashboard__period-section {
-    padding: var(--spacing-4) 0;
-    margin-bottom: var(--spacing-5);
-  }
-  
-  .dashboard__period-controls {
-    padding: 0 var(--spacing-3);
-    gap: var(--spacing-3);
-  }
-  
-  .dashboard__period-nav {
-    width: 36px;
-    height: 36px;
-  }
-  
-  .dashboard__current-period {
-    min-width: 140px;
-    padding: var(--spacing-2) var(--spacing-3);
-  }
-  
-  .dashboard__period-text {
-    font-size: var(--font-size-sm);
-  }
-  
-  .dashboard__summary-card {
-    height: 120px;
-  }
-  
-  .dashboard__card-face {
-    padding: var(--spacing-4);
-  }
-}
