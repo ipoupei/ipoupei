@@ -24,7 +24,6 @@ import {
 } from 'lucide-react';
 import '../../styles/sidebar.css';
 
-
 /**
  * Componente Sidebar refatorado do iPoupei
  * Contém toda a lógica e dados de menu internamente
@@ -73,7 +72,6 @@ const Sidebar = ({
           comingSoon: false,
           variant: 'dashboard'
         }
-      
       ]
     },
 
@@ -137,7 +135,16 @@ const Sidebar = ({
         },
         {
           id: 'gestao-cartoes',
-          label: 'Meus Cartões',
+          label: 'Gestão de Cartões',
+          icon: CreditCard,
+          path: '/cartoes/gestao',
+          modalType: null,
+          comingSoon: false,
+          variant: 'cartao'
+        },
+        {
+          id: 'cartoes-modal',
+          label: 'Cadastrar Cartão',
           icon: CreditCard,
           path: null,
           modalType: 'CartoesModal',
@@ -193,6 +200,15 @@ const Sidebar = ({
           label: 'Cartões',
           icon: CreditCard,
           path: '/transacoes?filter=cartoes',
+          modalType: null,
+          comingSoon: false,
+          variant: 'cartao'
+        },
+        {
+          id: 'faturas-cartoes',
+          label: 'Faturas dos Cartões',
+          icon: CreditCard,
+          path: '/cartoes/faturas',
           modalType: null,
           comingSoon: false,
           variant: 'cartao'
@@ -302,6 +318,19 @@ const Sidebar = ({
     
     if (pathname === '/' || pathname === '/dashboard') {
       return 'dashboard';
+    }
+    
+    // Rotas específicas de cartões
+    if (pathname.startsWith('/cartoes/gestao') || pathname === '/cartoes/gestao') {
+      return 'gestao-cartoes';
+    }
+    
+    if (pathname.startsWith('/cartoes/faturas') || pathname === '/cartoes/faturas') {
+      return 'faturas-cartoes';
+    }
+    
+    if (pathname.startsWith('/cartoes')) {
+      return 'gestao-cartoes';
     }
     
     if (pathname.startsWith('/transacoes')) {

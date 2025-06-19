@@ -1,12 +1,13 @@
-// src/store/dashboardStore.js - VERSÃO APRIMORADA COM COMPATIBILIDADE
+// src/store/dashboardStore.js - VERSÃO APRIMORADA COM data_efetivacao
 import { create } from 'zustand';
 import { supabase } from '@lib/supabaseClient';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 /**
- * Store para gerenciar dados do dashboard
- * VERSÃO APRIMORADA: Mantém compatibilidade com o DashboardContent
+ * Store para gerenciar dados do dashboard COM NOVA FUNCIONALIDADE data_efetivacao
+ * ✅ VERSÃO APRIMORADA: Mantém compatibilidade com o DashboardContent
+ * ✅ NOVA LÓGICA: Considera data_efetivacao para cálculos de saldos
  */
 export const useDashboardStore = create((set, get) => ({
   // Estado principal
@@ -58,7 +59,7 @@ export const useDashboardStore = create((set, get) => ({
     get().fetchDashboardData();
   },
 
-  // PRINCIPAL: Buscar dados usando consultas diretas
+  // ✅ PRINCIPAL: Buscar dados usando consultas diretas COM data_efetivacao
   fetchDashboardData: async () => {
     const { selectedPeriod } = get();
     const { inicio, fim } = selectedPeriod;
@@ -97,31 +98,43 @@ export const useDashboardStore = create((set, get) => ({
         transacoes: transacoesResult.length
       });
 
-      // Calcular totais
+      // ✅ NOVA LÓGICA: Calcular totais considerando data_efetivacao
       const saldoTotalContas = contasResult.reduce((acc, conta) => acc + (conta.saldo || 0), 0);
       
-      const receitas = transacoesResult.filter(t => t.tipo === 'receita');
-      const despesas = transacoesResult.filter(t => t.tipo === 'despesa');
+      // Separar transações efetivadas e não efetivadas
+      const transacoesEfetivadas = transacoesResult.filter(t => t.data_efetivacao !== null);
+      const transacoesNaoEfetivadas = transacoesResult.filter(t => t.data_efetivacao === null);
       
-      const totalReceitas = receitas.reduce((acc, r) => acc + (r.valor || 0), 0);
-      const totalDespesas = despesas.reduce((acc, d) => acc + (d.valor || 0), 0);
+      const receitasEfetivadas = transacoesEfetivadas.filter(t => t.tipo === 'receita');
+      const despesasEfetivadas = transacoesEfetivadas.filter(t => t.tipo === 'despesa');
+      
+      const receitasNaoEfetivadas = transacoesNaoEfetivadas.filter(t => t.tipo === 'receita');
+      const despesasNaoEfetivadas = transacoesNaoEfetivadas.filter(t => t.tipo === 'despesa');
+      
+      const totalReceitasEfetivadas = receitasEfetivadas.reduce((acc, r) => acc + (r.valor || 0), 0);
+      const totalDespesasEfetivadas = despesasEfetivadas.reduce((acc, d) => acc + (d.valor || 0), 0);
+      
+      const totalReceitasNaoEfetivadas = receitasNaoEfetivadas.reduce((acc, r) => acc + (r.valor || 0), 0);
+      const totalDespesasNaoEfetivadas = despesasNaoEfetivadas.reduce((acc, d) => acc + (d.valor || 0), 0);
 
-      // Agrupar por categorias
-      const receitasPorCategoria = get().groupByCategoria(receitas, categoriasResult);
-      const despesasPorCategoria = get().groupByCategoria(despesas, categoriasResult);
+      // Agrupar por categorias (apenas efetivadas para o dashboard principal)
+      const receitasPorCategoria = get().groupByCategoria(receitasEfetivadas, categoriasResult);
+      const despesasPorCategoria = get().groupByCategoria(despesasEfetivadas, categoriasResult);
 
-      // Estruturar dados no formato esperado pelo Dashboard
+      // ✅ NOVA ESTRUTURA: Incluir dados de efetivação
       const structuredData = {
         // Saldo
         saldo: {
           atual: saldoTotalContas,
-          previsto: saldoTotalContas + (totalReceitas - totalDespesas) // Projeção simples
+          previsto: saldoTotalContas + (totalReceitasEfetivadas - totalDespesasEfetivadas) + (totalReceitasNaoEfetivadas - totalDespesasNaoEfetivadas)
         },
 
         // Receitas
         receitas: {
-          atual: totalReceitas,
-          previsto: totalReceitas * 1.05, // 5% de crescimento estimado
+          atual: totalReceitasEfetivadas,
+          previsto: totalReceitasEfetivadas + totalReceitasNaoEfetivadas,
+          efetivadas: totalReceitasEfetivadas, // ✅ NOVO
+          nao_efetivadas: totalReceitasNaoEfetivadas, // ✅ NOVO
           categorias: receitasPorCategoria.map(cat => ({
             nome: cat.categoria.nome,
             valor: cat.total
@@ -130,19 +143,21 @@ export const useDashboardStore = create((set, get) => ({
 
         // Despesas
         despesas: {
-          atual: totalDespesas,
-          previsto: totalDespesas * 0.95, // 5% de redução estimada
+          atual: totalDespesasEfetivadas,
+          previsto: totalDespesasEfetivadas + totalDespesasNaoEfetivadas,
+          efetivadas: totalDespesasEfetivadas, // ✅ NOVO
+          nao_efetivadas: totalDespesasNaoEfetivadas, // ✅ NOVO
           categorias: despesasPorCategoria.map(cat => ({
             nome: cat.categoria.nome,
             valor: cat.total
           }))
         },
 
-        // Cartão de Crédito (placeholder expandido)
+        // ✅ NOVO: Cartão de Crédito baseado em transações não efetivadas
         cartaoCredito: {
-          atual: 0, // TODO: implementar busca de faturas
+          atual: totalDespesasNaoEfetivadas, // Gastos em faturas abertas
           limite: 0, // TODO: implementar busca de limites
-          previsto: 0
+          previsto: totalDespesasNaoEfetivadas
         },
 
         // Período
@@ -177,22 +192,28 @@ export const useDashboardStore = create((set, get) => ({
         // Histórico para projeção (placeholder)
         historico: [],
 
-        // Resumo geral
+        // ✅ NOVO: Resumo geral com dados de efetivação
         resumo: {
           totalContas: contasResult.length,
           totalCartoes: 0, // TODO: implementar
           totalCategorias: categoriasResult.length,
           totalTransacoes: transacoesResult.length,
+          transacoesEfetivadas: transacoesEfetivadas.length,
+          transacoesNaoEfetivadas: transacoesNaoEfetivadas.length,
+          percentualEfetivado: transacoesResult.length > 0 ? ((transacoesEfetivadas.length / transacoesResult.length) * 100).toFixed(1) : 0,
           saldoLiquido: saldoTotalContas,
-          balanco: totalReceitas - totalDespesas,
-          percentualGasto: totalReceitas > 0 ? ((totalDespesas / totalReceitas) * 100).toFixed(1) : 0
+          balanco: totalReceitasEfetivadas - totalDespesasEfetivadas,
+          balancoTotal: (totalReceitasEfetivadas + totalReceitasNaoEfetivadas) - (totalDespesasEfetivadas + totalDespesasNaoEfetivadas),
+          percentualGasto: (totalReceitasEfetivadas > 0) ? ((totalDespesasEfetivadas / totalReceitasEfetivadas) * 100).toFixed(1) : 0
         },
 
         // Dados brutos para debug
         raw: {
           contas: contasResult,
           categorias: categoriasResult,
-          transacoes: transacoesResult
+          transacoes: transacoesResult,
+          transacoesEfetivadas,
+          transacoesNaoEfetivadas
         }
       };
 
@@ -209,7 +230,14 @@ export const useDashboardStore = create((set, get) => ({
         }
       });
 
-      console.log('✅ Dados do dashboard estruturados com sucesso:', structuredData);
+      console.log('✅ Dados do dashboard estruturados com sucesso:', {
+        saldoTotal: saldoTotalContas,
+        receitasEfetivadas: totalReceitasEfetivadas,
+        despesasEfetivadas: totalDespesasEfetivadas,
+        receitasNaoEfetivadas: totalReceitasNaoEfetivadas,
+        despesasNaoEfetivadas: totalDespesasNaoEfetivadas
+      });
+      
       return structuredData;
 
     } catch (error) {
@@ -272,7 +300,7 @@ export const useDashboardStore = create((set, get) => ({
     }
   },
 
-  // Buscar transações do período (consulta direta)
+  // ✅ Buscar transações do período INCLUINDO data_efetivacao
   fetchTransacoes: async (userId, inicio, fim) => {
     try {
       console.log('💰 Buscando transações para período:', {
@@ -299,6 +327,14 @@ export const useDashboardStore = create((set, get) => ({
       }
 
       console.log('✅ Transações encontradas:', data?.length || 0);
+      
+      // ✅ Log para debug de data_efetivacao
+      if (data?.length > 0) {
+        const comEfetivacao = data.filter(t => t.data_efetivacao !== null).length;
+        const semEfetivacao = data.filter(t => t.data_efetivacao === null).length;
+        console.log(`📅 Transações: ${comEfetivacao} efetivadas, ${semEfetivacao} não efetivadas`);
+      }
+      
       return data || [];
     } catch (error) {
       console.error('❌ Erro ao buscar transações:', error);
@@ -306,7 +342,7 @@ export const useDashboardStore = create((set, get) => ({
     }
   },
 
-  // Agrupar transações por categoria
+  // Agrupar transações por categoria (apenas efetivadas)
   groupByCategoria: (transacoes, categorias) => {
     const grupos = {};
     
@@ -336,7 +372,7 @@ export const useDashboardStore = create((set, get) => ({
     return Object.values(grupos).sort((a, b) => b.total - a.total);
   },
 
-  // Adicionar nova transação
+  // ✅ Adicionar nova transação COM data_efetivacao
   addTransacao: async (transacaoData) => {
     try {
       set({ loading: true });
@@ -347,11 +383,25 @@ export const useDashboardStore = create((set, get) => ({
         throw new Error('Usuário não autenticado');
       }
 
+      // ✅ DETERMINAR data_efetivacao baseada no tipo de transação
+      let dataEfetivacao = null;
+      
+      if (transacaoData.tipo === 'receita' || transacaoData.tipo === 'despesa' || transacaoData.tipo === 'transferencia') {
+        // Se não é despesa de cartão, data_efetivacao = data da transação
+        if (!transacaoData.cartao_id) {
+          dataEfetivacao = transacaoData.data;
+        }
+        // Se é despesa de cartão, data_efetivacao = NULL (já é o padrão)
+      }
+
+      console.log('➕ Adicionando transação COM data_efetivacao:', dataEfetivacao);
+
       const { data, error } = await supabase
         .from('transacoes')
         .insert([{
           ...transacaoData,
-          usuario_id: user.id
+          usuario_id: user.id,
+          data_efetivacao: dataEfetivacao // ✅ CAMPO OBRIGATÓRIO
         }])
         .select(`
           *,
@@ -378,14 +428,42 @@ export const useDashboardStore = create((set, get) => ({
     }
   },
 
-  // Atualizar transação existente
+  // ✅ Atualizar transação existente COM data_efetivacao
   updateTransacao: async (id, transacaoData) => {
     try {
       set({ loading: true });
 
+      // ✅ Se está atualizando dados que afetam data_efetivacao, recalcular
+      let updateData = { ...transacaoData };
+      if (transacaoData.tipo || transacaoData.cartao_id || transacaoData.data) {
+        // Buscar dados atuais da transação
+        const { data: transacaoAtual } = await supabase
+          .from('transacoes')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (transacaoAtual) {
+          // Mesclar dados atuais com novos
+          const dadosCompletos = { ...transacaoAtual, ...transacaoData };
+          
+          // Determinar nova data_efetivacao
+          let novaDataEfetivacao = null;
+          if (dadosCompletos.tipo === 'receita' || dadosCompletos.tipo === 'despesa' || dadosCompletos.tipo === 'transferencia') {
+            if (!dadosCompletos.cartao_id) {
+              novaDataEfetivacao = dadosCompletos.data;
+            }
+          }
+          
+          updateData.data_efetivacao = novaDataEfetivacao;
+          
+          console.log('🔄 Recalculando data_efetivacao:', novaDataEfetivacao);
+        }
+      }
+
       const { data, error } = await supabase
         .from('transacoes')
-        .update(transacaoData)
+        .update(updateData)
         .eq('id', id)
         .select(`
           *,
@@ -458,7 +536,7 @@ export const useDashboardStore = create((set, get) => ({
     return await get().fetchDashboardData();
   },
 
-  // Selectors (computed values) - COMPATIBILIDADE COM DASHBOARDCONTENT
+  // ✅ Selectors (computed values) - COMPATIBILIDADE COM DASHBOARDCONTENT + data_efetivacao
   getSaldoTotal: () => {
     const { data } = get();
     return data?.saldo?.atual || 0;
@@ -474,16 +552,49 @@ export const useDashboardStore = create((set, get) => ({
     return data?.despesas?.atual || 0;
   },
 
+  // ✅ NOVOS GETTERS: Incluir dados de efetivação
+  getTotalReceitasEfetivadas: () => {
+    const { data } = get();
+    return data?.receitas?.efetivadas || 0;
+  },
+
+  getTotalDespesasEfetivadas: () => {
+    const { data } = get();
+    return data?.despesas?.efetivadas || 0;
+  },
+
+  getTotalReceitasNaoEfetivadas: () => {
+    const { data } = get();
+    return data?.receitas?.nao_efetivadas || 0;
+  },
+
+  getTotalDespesasNaoEfetivadas: () => {
+    const { data } = get();
+    return data?.despesas?.nao_efetivadas || 0;
+  },
+
   getSaldoPeriodo: () => {
     const receitas = get().getTotalReceitas();
     const despesas = get().getTotalDespesas();
     return receitas - despesas;
   },
 
+  // ✅ NOVO: Saldo considerando transações não efetivadas
+  getSaldoPrevisto: () => {
+    const { data } = get();
+    return data?.saldo?.previsto || 0;
+  },
+
   getPercentualGasto: () => {
     const receitas = get().getTotalReceitas();
     const despesas = get().getTotalDespesas();
     return receitas > 0 ? (despesas / receitas) * 100 : 0;
+  },
+
+  // ✅ NOVO: Percentual de efetivação
+  getPercentualEfetivado: () => {
+    const { data } = get();
+    return parseFloat(data?.resumo?.percentualEfetivado || 0);
   },
 
   getStatusFinanceiro: () => {
@@ -509,6 +620,40 @@ export const useDashboardStore = create((set, get) => ({
     const { data } = get();
     if (!data?.receitas?.categorias?.length) return null;
     return data.receitas.categorias[0];
+  },
+
+  // ✅ NOVO: Insights baseados em efetivação
+  getInsightsEfetivacao: () => {
+    const { data } = get();
+    if (!data?.resumo) return null;
+
+    const { 
+      transacoesEfetivadas, 
+      transacoesNaoEfetivadas, 
+      percentualEfetivado 
+    } = data.resumo;
+
+    const insights = [];
+
+    if (parseFloat(percentualEfetivado) < 50) {
+      insights.push({
+        tipo: 'atencao',
+        titulo: 'Muitas transações pendentes',
+        descricao: `${transacoesNaoEfetivadas} transações ainda não foram efetivadas`,
+        acao: 'Revise pagamentos de faturas e transferências pendentes'
+      });
+    }
+
+    if (transacoesNaoEfetivadas > 0) {
+      insights.push({
+        tipo: 'informativo',
+        titulo: 'Transações não efetivadas',
+        descricao: `${transacoesNaoEfetivadas} transações ainda não impactaram seu saldo`,
+        acao: 'Acompanhe os vencimentos para planejar melhor'
+      });
+    }
+
+    return insights;
   },
 
   // Estados booleanos
@@ -546,7 +691,7 @@ export const useDashboardStore = create((set, get) => ({
   }
 }));
 
-// Hook personalizado para usar dados específicos do dashboard
+// ✅ Hook personalizado para usar dados específicos do dashboard COM data_efetivacao
 export const useDashboardData = () => {
   const store = useDashboardStore();
   
@@ -568,7 +713,7 @@ export const useDashboardData = () => {
     updateTransacao: store.updateTransacao,
     deleteTransacao: store.deleteTransacao,
     
-    // Computed values
+    // Computed values tradicionais
     saldoTotal: store.getSaldoTotal(),
     totalReceitas: store.getTotalReceitas(),
     totalDespesas: store.getTotalDespesas(),
@@ -576,6 +721,15 @@ export const useDashboardData = () => {
     percentualGasto: store.getPercentualGasto(),
     statusFinanceiro: store.getStatusFinanceiro(),
     periodoFormatado: store.getPeriodoFormatado(),
+    
+    // ✅ NOVOS computed values com data_efetivacao
+    receitasEfetivadas: store.getTotalReceitasEfetivadas(),
+    despesasEfetivadas: store.getTotalDespesasEfetivadas(),
+    receitasNaoEfetivadas: store.getTotalReceitasNaoEfetivadas(),
+    despesasNaoEfetivadas: store.getTotalDespesasNaoEfetivadas(),
+    saldoPrevisto: store.getSaldoPrevisto(),
+    percentualEfetivado: store.getPercentualEfetivado(),
+    insightsEfetivacao: store.getInsightsEfetivacao(),
     
     // Estados
     hasData: store.hasData(),

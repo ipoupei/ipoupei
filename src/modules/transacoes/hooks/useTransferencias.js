@@ -1,10 +1,11 @@
-// src/hooks/useTransferencias.js - VERSÃO CORRIGIDA
+// src/hooks/useTransferencias.js - VERSÃO CORRIGIDA COM data_efetivacao
 import { useState, useCallback } from 'react';
 import { supabase } from '@lib/supabaseClient';
 import useAuth from '@/modules/auth/hooks/useAuth'; 
 
 /**
  * Hook para gerenciar transferências entre contas - CORRIGIDO
+ * ✅ NOVA FUNCIONALIDADE: Inclui data_efetivacao para transferências
  * Permite saldos negativos e cria transações vinculadas
  * Corrige problemas de formatação e validação
  */
@@ -14,7 +15,7 @@ const useTransferencias = () => {
   
   const { user, isAuthenticated } = useAuth();
 
-  // Realizar transferência entre contas - CORRIGIDO
+  // Realizar transferência entre contas - CORRIGIDO COM data_efetivacao
   const realizarTransferencia = useCallback(async (dadosTransferencia) => {
     if (!isAuthenticated || !user) {
       return { success: false, error: 'Usuário não autenticado' };
@@ -84,15 +85,19 @@ const useTransferencias = () => {
       }
 
       // Gerar identificador único para a transferência (sem usar grupo_transferencia)
+      const timestamp = new Date().toISOString();
       const identificadorTransferencia = `TRANS_${timestamp.replace(/[-:.T]/g, '')}_${Math.random().toString(36).substr(2, 5)}`;
       const dataAtual = new Date().toISOString().split('T')[0];
-      const timestamp = new Date().toISOString();
 
-      // Criar as transações da transferência SEM grupo_transferencia
+      // ✅ NOVA REGRA: Para transferências, data_efetivacao = data da transação
+      const dataEfetivacao = dataAtual;
+
+      // Criar as transações da transferência COM data_efetivacao
       const transacoes = [
         {
           usuario_id: user.id,
           data: dataAtual,
+          data_efetivacao: dataEfetivacao, // ✅ NOVO CAMPO
           descricao: `Transferência para ${contaDestino.nome}${descricao ? ` - ${descricao}` : ''} [${identificadorTransferencia}]`,
           conta_id: contaOrigemId,
           valor: valorNumerico,
@@ -106,6 +111,7 @@ const useTransferencias = () => {
         {
           usuario_id: user.id,
           data: dataAtual,
+          data_efetivacao: dataEfetivacao, // ✅ NOVO CAMPO
           descricao: `Transferência de ${contaOrigem.nome}${descricao ? ` - ${descricao}` : ''} [${identificadorTransferencia}]`,
           conta_id: contaDestinoId,
           valor: valorNumerico,
@@ -118,7 +124,7 @@ const useTransferencias = () => {
         }
       ];
 
-      console.log('Transações preparadas:', transacoes);
+      console.log('Transações preparadas COM data_efetivacao:', transacoes);
 
       // Inserir as transações
       const { data: transacoesInseridas, error: transacoesError } = await supabase
@@ -131,7 +137,7 @@ const useTransferencias = () => {
         throw new Error('Erro ao registrar transações da transferência: ' + transacoesError.message);
       }
       
-      console.log('Transações inseridas:', transacoesInseridas);
+      console.log('Transações inseridas COM data_efetivacao:', transacoesInseridas);
 
       // Calcular novos saldos com ALTA PRECISÃO
       const saldoOrigemAtual = parseFloat(contaOrigem.saldo) || 0;
@@ -177,7 +183,7 @@ const useTransferencias = () => {
       // Verificar se ficou com saldo negativo
       const avisoSaldoNegativo = novoSaldoOrigem < 0;
 
-              return { 
+      return { 
         success: true, 
         message: avisoSaldoNegativo 
           ? `Transferência realizada! ${contaOrigem.nome} ficou com saldo negativo.`
@@ -189,7 +195,8 @@ const useTransferencias = () => {
           contaDestino: contaDestino.nome,
           valor: valorNumerico,
           novoSaldoOrigem,
-          novoSaldoDestino
+          novoSaldoDestino,
+          dataEfetivacao // ✅ INCLUIR na resposta para debug
         }
       };
 
@@ -288,6 +295,7 @@ const useTransferencias = () => {
             return {
               id: origem.grupo_transferencia,
               data: origem.data,
+              data_efetivacao: origem.data_efetivacao, // ✅ INCLUIR no histórico
               valor: Number(origem.valor),
               descricao: origem.observacoes,
               contaOrigem: origem.conta,
@@ -435,7 +443,7 @@ const useTransferencias = () => {
 
       let query = supabase
         .from('transacoes')
-        .select('valor, data, created_at')
+        .select('valor, data, data_efetivacao, created_at') // ✅ INCLUIR data_efetivacao
         .eq('usuario_id', user.id)
         .eq('transferencia', true)
         .eq('tipo', 'despesa'); // Conta apenas uma vez por transferência

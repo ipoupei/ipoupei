@@ -1,11 +1,16 @@
-// src/modules/transacoes/store/transactionsStore.js
+// src/modules/transacoes/store/transactionsStore.js - ATUALIZADO COM data_efetivacao
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 
 /**
- * Store específico para gerenciar transações
- * Versão atualizada para funcionar com TransacoesPage migrada
+ * Store específico para gerenciar transações COM NOVA FUNCIONALIDADE data_efetivacao
+ * ✅ REGRAS IMPLEMENTADAS:
+ * - Receitas: data_efetivacao = data da transação
+ * - Despesas: data_efetivacao = data da transação
+ * - Transferências: data_efetivacao = data da transação
+ * - Despesas de cartão: data_efetivacao = NULL
+ * - Estornos de cartão: data_efetivacao = NULL
  */
 export const useTransactionsStore = create(
   subscribeWithSelector((set, get) => ({
@@ -107,69 +112,69 @@ export const useTransactionsStore = create(
       get().fetchTransacoes();
     },
 
-// ===========================
-// BUSCAR TRANSAÇÕES
-// ===========================
+    // ===========================
+    // BUSCAR TRANSAÇÕES
+    // ===========================
 
-fetchTransacoes: async () => {
-  const { filtros, paginacao } = get();
+    fetchTransacoes: async () => {
+      const { filtros, paginacao } = get();
 
-  set({ loading: true, error: null });
+      set({ loading: true, error: null });
 
-  console.log('🔍 Buscando transações com filtros:', filtros);
+      console.log('🔍 Buscando transações com filtros:', filtros);
 
-  try {
-    // Importação dinâmica do Supabase
-    const { default: supabase } = await import('@lib/supabaseClient');
+      try {
+        // Importação dinâmica do Supabase
+        const { default: supabase } = await import('@lib/supabaseClient');
 
-    // Obter o ID do usuário antes de tudo
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError || !userData?.user?.id) {
-      throw new Error('Usuário não autenticado');
-    }
-    const userId = userData.user.id;
-
-    // Tentar buscar via RPC
-    try {
-      const { data, error } = await supabase.rpc('gpt_transacoes_do_mes', {
-        p_usuario_id: userId,
-        p_data_inicio: format(filtros.periodo.inicio, 'yyyy-MM-dd'),
-        p_data_fim: format(filtros.periodo.fim, 'yyyy-MM-dd')
-      });
-
-      if (error) throw error;
-
-      console.log(`✅ ${data?.length || 0} transações carregadas via RPC`);
-
-      // Aplicar filtros locais adicionais se necessário
-      const transacoesFiltradas = get().aplicarFiltrosLocais(data || []);
-
-      set({
-        transacoes: transacoesFiltradas,
-        loading: false,
-        paginacao: {
-          ...paginacao,
-          total: transacoesFiltradas.length,
-          totalPaginas: Math.ceil(transacoesFiltradas.length / paginacao.itensPorPagina)
+        // Obter o ID do usuário antes de tudo
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError || !userData?.user?.id) {
+          throw new Error('Usuário não autenticado');
         }
-      });
+        const userId = userData.user.id;
 
-      return transacoesFiltradas;
+        // Tentar buscar via RPC
+        try {
+          const { data, error } = await supabase.rpc('gpt_transacoes_do_mes', {
+            p_usuario_id: userId,
+            p_data_inicio: format(filtros.periodo.inicio, 'yyyy-MM-dd'),
+            p_data_fim: format(filtros.periodo.fim, 'yyyy-MM-dd')
+          });
 
-    } catch (rpcError) {
-      console.warn('⚠️ RPC falhou, usando query manual como fallback:', rpcError);
-      return await get().fetchTransacoesManual();
-    }
+          if (error) throw error;
 
-  } catch (error) {
-    console.error('❌ Erro ao buscar transações:', error);
-    set({
-      error: error.message || 'Erro ao carregar transações',
-      loading: false
-    });
-    throw error;
-  }
-},
+          console.log(`✅ ${data?.length || 0} transações carregadas via RPC`);
+
+          // Aplicar filtros locais adicionais se necessário
+          const transacoesFiltradas = get().aplicarFiltrosLocais(data || []);
+
+          set({
+            transacoes: transacoesFiltradas,
+            loading: false,
+            paginacao: {
+              ...paginacao,
+              total: transacoesFiltradas.length,
+              totalPaginas: Math.ceil(transacoesFiltradas.length / paginacao.itensPorPagina)
+            }
+          });
+
+          return transacoesFiltradas;
+
+        } catch (rpcError) {
+          console.warn('⚠️ RPC falhou, usando query manual como fallback:', rpcError);
+          return await get().fetchTransacoesManual();
+        }
+
+      } catch (error) {
+        console.error('❌ Erro ao buscar transações:', error);
+        set({
+          error: error.message || 'Erro ao carregar transações',
+          loading: false
+        });
+        throw error;
+      }
+    },
 
     // Fallback: busca manual via query SQL
     fetchTransacoesManual: async () => {
@@ -178,7 +183,7 @@ fetchTransacoes: async () => {
       try {
         const { default: supabase } = await import('@lib/supabaseClient');
         
-        // Construir query base
+        // Construir query base - ✅ INCLUIR data_efetivacao
         let query = supabase
           .from('transacoes')
           .select(`
@@ -229,10 +234,11 @@ fetchTransacoes: async () => {
 
         if (error) throw error;
 
-        // Mapear dados para formato padrão
+        // ✅ Mapear dados para formato padrão INCLUINDO data_efetivacao
         const transacoesMapeadas = (data || []).map(t => ({
           id: t.id,
           data: t.data,
+          data_efetivacao: t.data_efetivacao, // ✅ NOVO CAMPO
           tipo: t.tipo,
           valor: parseFloat(t.valor) || 0,
           descricao: t.descricao || 'Sem descrição',
@@ -248,6 +254,7 @@ fetchTransacoes: async () => {
           efetivado: t.efetivado !== false,
           observacoes: t.observacoes || '',
           subcategoria_id: t.subcategoria_id,
+          transferencia: t.transferencia || false,
           created_at: t.created_at,
           updated_at: t.updated_at
         }));
@@ -312,7 +319,7 @@ fetchTransacoes: async () => {
     // CRUD DE TRANSAÇÕES
     // ===========================
 
-    // Atualizar valor de grupo de transações (parceladas/recorrentes)
+    // ✅ Atualizar valor de grupo de transações (parceladas/recorrentes)
     updateGrupoTransacoesValor: async (transacaoId, tipoAtualizacao, novoValor) => {
       try {
         set({ loading: true });
@@ -325,18 +332,18 @@ fetchTransacoes: async () => {
 
         const { default: supabase } = await import('@lib/supabaseClient');
         
-          const { data: userData, error: userError } = await supabase.auth.getUser();
+        const { data: userData, error: userError } = await supabase.auth.getUser();
 
-          if (userError || !userData?.user?.id) {
-            throw new Error('Usuário não autenticado');
-          }
+        if (userError || !userData?.user?.id) {
+          throw new Error('Usuário não autenticado');
+        }
 
-          const userId = userData.user.id;
+        const userId = userData.user.id;
 
         // Chamar RPC para atualizar grupo
         const { data, error } = await supabase
           .rpc('update_grupo_transacoes_valor', {
-            p_usuario_id: user.id,
+            p_usuario_id: userId,
             p_transacao_id: transacaoId,
             p_tipo_atualizacao: tipoAtualizacao, // 'atual' ou 'futuras'
             p_novo_valor: parseFloat(novoValor)
@@ -393,7 +400,28 @@ fetchTransacoes: async () => {
       }
     },
 
-    // Adicionar nova transação
+    // ✅ NOVA FUNÇÃO: Determinar data_efetivacao baseada no tipo de transação
+    determinarDataEfetivacao: (transacaoData) => {
+      const { tipo, cartao_id, data } = transacaoData;
+
+      // ✅ REGRA 1: Despesas de cartão = NULL
+      if (tipo === 'despesa' && cartao_id) {
+        console.log('💳 Despesa de cartão - data_efetivacao = NULL');
+        return null;
+      }
+
+      // ✅ REGRA 2: Receitas, despesas normais e transferências = data da transação
+      if (tipo === 'receita' || tipo === 'despesa' || tipo === 'transferencia') {
+        console.log(`💰 ${tipo} - data_efetivacao = data da transação`);
+        return data;
+      }
+
+      // ✅ REGRA 3: Outros casos (fallback) = data da transação
+      console.log('🔄 Caso padrão - data_efetivacao = data da transação');
+      return data;
+    },
+
+    // ✅ Adicionar nova transação COM data_efetivacao
     addTransacao: async (transacaoData) => {
       try {
         set({ loading: true });
@@ -402,10 +430,14 @@ fetchTransacoes: async () => {
 
         const { default: supabase } = await import('@lib/supabaseClient');
         
+        // ✅ DETERMINAR data_efetivacao baseada nas regras
+        const dataEfetivacao = get().determinarDataEfetivacao(transacaoData);
+        
         const { data, error } = await supabase
           .from('transacoes')
           .insert([{
             ...transacaoData,
+            data_efetivacao: dataEfetivacao, // ✅ CAMPO OBRIGATÓRIO
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           }])
@@ -420,10 +452,11 @@ fetchTransacoes: async () => {
 
         if (error) throw error;
 
-        // Mapear dados
+        // ✅ Mapear dados INCLUINDO data_efetivacao
         const transacaoMapeada = {
           id: data.id,
           data: data.data,
+          data_efetivacao: data.data_efetivacao, // ✅ INCLUIR
           tipo: data.tipo,
           valor: parseFloat(data.valor) || 0,
           descricao: data.descricao || 'Sem descrição',
@@ -446,7 +479,7 @@ fetchTransacoes: async () => {
         }
 
         set({ loading: false });
-        console.log('✅ Transação adicionada com sucesso');
+        console.log('✅ Transação adicionada com sucesso - data_efetivacao:', dataEfetivacao);
         
         return { success: true, data: transacaoMapeada };
 
@@ -460,7 +493,7 @@ fetchTransacoes: async () => {
       }
     },
 
-    // Atualizar transação existente
+    // ✅ Atualizar transação existente COM data_efetivacao
     updateTransacao: async (id, transacaoData) => {
       try {
         set({ loading: true });
@@ -469,10 +502,30 @@ fetchTransacoes: async () => {
 
         const { default: supabase } = await import('@lib/supabaseClient');
         
+        // ✅ Se está atualizando dados que afetam data_efetivacao, recalcular
+        let updateData = { ...transacaoData };
+        if (transacaoData.tipo || transacaoData.cartao_id || transacaoData.data) {
+          // Buscar dados atuais da transação
+          const { data: transacaoAtual } = await supabase
+            .from('transacoes')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+          if (transacaoAtual) {
+            // Mesclar dados atuais com novos
+            const dadosCompletos = { ...transacaoAtual, ...transacaoData };
+            const novaDataEfetivacao = get().determinarDataEfetivacao(dadosCompletos);
+            updateData.data_efetivacao = novaDataEfetivacao;
+            
+            console.log('🔄 Recalculando data_efetivacao:', novaDataEfetivacao);
+          }
+        }
+        
         const { data, error } = await supabase
           .from('transacoes')
           .update({
-            ...transacaoData,
+            ...updateData,
             updated_at: new Date().toISOString()
           })
           .eq('id', id)
@@ -487,10 +540,11 @@ fetchTransacoes: async () => {
 
         if (error) throw error;
 
-        // Mapear dados
+        // ✅ Mapear dados INCLUINDO data_efetivacao
         const transacaoMapeada = {
           id: data.id,
           data: data.data,
+          data_efetivacao: data.data_efetivacao, // ✅ INCLUIR
           tipo: data.tipo,
           valor: parseFloat(data.valor) || 0,
           descricao: data.descricao || 'Sem descrição',
@@ -540,46 +594,6 @@ fetchTransacoes: async () => {
           .from('transacoes')
           .delete()
           .eq('id', id);
-
-        if (error) throw error;
-
-        // Remover da lista local
-        set(state => ({
-          transacoes: state.transacoes.filter(t => t.id !== id)
-        }));
-
-        set({ loading: false });
-        console.log('✅ Transação excluída com sucesso');
-        
-        return { success: true };
-
-      } catch (error) {
-        console.error('❌ Erro ao excluir transação:', error);
-        set({ 
-          error: error.message || 'Erro ao excluir transação',
-          loading: false 
-        });
-        return { success: false, error: error.message };
-      }
-    },
-
-    // ===========================
-    // OPERAÇÕES EM LOTE
-    // ===========================
-
-    // Excluir múltiplas transações
-    deleteMultipleTransacoes: async (ids) => {
-      try {
-        set({ loading: true });
-
-        console.log('🗑️ Excluindo múltiplas transações:', ids);
-
-        const { default: supabase } = await import('@lib/supabaseClient');
-        
-        const { error } = await supabase
-          .from('transacoes')
-          .delete()
-          .in('id', ids);
 
         if (error) throw error;
 
@@ -714,13 +728,17 @@ fetchTransacoes: async () => {
       }, 0);
     },
 
-    // Obter estatísticas das transações
+    // ✅ NOVA FUNÇÃO: Obter estatísticas incluindo data_efetivacao
     getEstatisticas: () => {
       const { transacoes } = get();
       
       const receitas = transacoes.filter(t => t.tipo === 'receita');
       const despesas = transacoes.filter(t => t.tipo === 'despesa');
       const transferencias = transacoes.filter(t => t.tipo === 'transferencia');
+      
+      // ✅ Estatísticas por data de efetivação
+      const efetivadas = transacoes.filter(t => t.data_efetivacao !== null);
+      const naoEfetivadas = transacoes.filter(t => t.data_efetivacao === null);
 
       return {
         total: transacoes.length,
@@ -735,6 +753,18 @@ fetchTransacoes: async () => {
         transferencias: {
           quantidade: transferencias.length,
           valor: transferencias.reduce((acc, t) => acc + t.valor, 0)
+        },
+        // ✅ NOVAS ESTATÍSTICAS
+        efetivacao: {
+          efetivadas: {
+            quantidade: efetivadas.length,
+            valor: efetivadas.reduce((acc, t) => acc + t.valor, 0)
+          },
+          naoEfetivadas: {
+            quantidade: naoEfetivadas.length,
+            valor: naoEfetivadas.reduce((acc, t) => acc + t.valor, 0)
+          },
+          percentualEfetivado: transacoes.length > 0 ? (efetivadas.length / transacoes.length * 100).toFixed(1) : 0
         }
       };
     },
@@ -857,7 +887,7 @@ fetchTransacoes: async () => {
 // ===========================
 
 /**
- * Hook principal para usar transações
+ * Hook principal para usar transações COM data_efetivacao
  */
 export const useTransactions = () => {
   const store = useTransactionsStore();
@@ -877,8 +907,13 @@ export const useTransactions = () => {
     deleteTransacao: store.deleteTransacao,
     deleteMultiple: store.deleteMultipleTransacoes,
     
-    // Nova ação para grupos
+    // Ações para grupos
     updateGrupoValor: store.updateGrupoTransacoesValor,
+    
+    // ✅ NOVAS AÇÕES para data_efetivacao
+    determinarDataEfetivacao: store.determinarDataEfetivacao,
+    updateDataEfetivacaoLote: store.updateDataEfetivacaoLote,
+    limparDataEfetivacaoLote: store.limparDataEfetivacaoLote,
     
     // Filtros
     setFiltros: store.setFiltros,
@@ -893,25 +928,65 @@ export const useTransactions = () => {
     // Utilitários
     getById: store.getTransacaoById,
     isParceladaOuRecorrente: store.isTransacaoParceladaOuRecorrente,
+    transacaoEncaixaFiltros: store.transacaoEncaixaFiltros,
     reset: store.reset,
     
     // Estados auxiliares
     setLoading: store.setLoading,
     setError: store.setError,
-    clearError: store.clearError
+    clearError: store.clearError,
+    
+    // Cache e performance
+    getCacheKey: store.getCacheKey,
+    invalidateCache: store.invalidateCache
   };
 };
 
 // Hook simplificado para componentes que só precisam ler dados
 export const useTransactionsData = () => {
-  const { transacoes, loading, error, hasActiveFilters } = useTransactionsStore();
-  return { transacoes, loading, error, hasActiveFilters };
+  const { transacoes, loading, error, hasActiveFilters, estatisticas } = useTransactionsStore();
+  return { transacoes, loading, error, hasActiveFilters, estatisticas: estatisticas() };
 };
 
 // Hook para filtros
 export const useTransactionsFilters = () => {
   const { filtros, setFiltros, limparFiltros, hasActiveFilters } = useTransactionsStore();
-  return { filtros, setFiltros, limparFiltros, hasActiveFilters };
+  return { filtros, setFiltros, limparFiltros, hasActiveFilters: hasActiveFilters() };
+};
+
+// ✅ NOVO: Hook específico para operações de efetivação
+export const useTransactionsEfetivacao = () => {
+  const store = useTransactionsStore();
+  
+  return {
+    // Operações de efetivação
+    determinarDataEfetivacao: store.determinarDataEfetivacao,
+    updateDataEfetivacaoLote: store.updateDataEfetivacaoLote,
+    limparDataEfetivacaoLote: store.limparDataEfetivacaoLote,
+    
+    // Estatísticas de efetivação
+    estatisticasEfetivacao: () => {
+      const stats = store.getEstatisticas();
+      return stats.efetivacao;
+    },
+    
+    // Filtrar por status de efetivação
+    getTransacoesEfetivadas: () => {
+      const { transacoes } = store;
+      return transacoes.filter(t => t.data_efetivacao !== null);
+    },
+    
+    getTransacoesNaoEfetivadas: () => {
+      const { transacoes } = store;
+      return transacoes.filter(t => t.data_efetivacao === null);
+    },
+    
+    // Verificar se transação foi efetivada
+    isTransacaoEfetivada: (transacaoId) => {
+      const transacao = store.getTransacaoById(transacaoId);
+      return transacao ? transacao.data_efetivacao !== null : false;
+    }
+  };
 };
 
 export default useTransactionsStore;

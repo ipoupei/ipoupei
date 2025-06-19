@@ -195,6 +195,7 @@ const MainLayout = () => {
       '/diagnostico': 'Diagnóstico',
       '/planejamento': 'Planejamento',
       '/investimentos': 'Investimentos',
+      '/cartoes': 'Cartões',
       '/configuracoes': 'Configurações'
     };
 

@@ -5,7 +5,7 @@ import {
   TrendingUp, ArrowRight, Clock 
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import useFaturasCartao from '../../hooks/useFaturasCartao';
+//import useFaturasCartao from '../../hooks/useFaturasCartao';
 import useCartoes from '../../hooks/useCartoes';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { format, differenceInDays } from 'date-fns';
