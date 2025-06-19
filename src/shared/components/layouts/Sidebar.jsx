@@ -71,8 +71,9 @@ const Sidebar = ({
           path: '/',
           modalType: null,
           comingSoon: false,
-          variant: null
+          variant: 'dashboard'
         }
+      
       ]
     },
 

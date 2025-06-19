@@ -21,8 +21,27 @@ import CategoriasModal from '@modules/categorias/components/CategoriasModal';
 
 import '@shared/styles/MainLayout.css';
 
-/* CSS para posicionamento correto dos modais */
+
+
 const modalStyles = `
+.main-layout__content {
+  margin-left: 230px !important;
+  width: calc(100% - 230px) !important;
+  transition: margin-left 0.3s ease-in-out !important;
+}
+
+.ipoupei-sidebar--collapsed ~ .main-layout .main-layout__content {
+  margin-left: 56px !important;
+  width: calc(100% - 56px) !important;
+}
+
+@media (max-width: 767px) {
+  .main-layout__content {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+}
+
 .modal-overlay {
   position: fixed !important;
   top: 0 !important;
@@ -83,35 +102,23 @@ const modalStyles = `
 }
 `;
 
-// Injetar estilos CSS para os modais
 if (typeof document !== 'undefined') {
   const style = document.createElement('style');
   style.textContent = modalStyles;
   document.head.appendChild(style);
 }
 
-/**
- * MainLayout - Layout principal da aplicação iPoupei
- * Atualizado para gerenciar corretamente os modais
- */
 const MainLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
-  const { 
-    openModal, 
-    closeModal,
-    modals,
-    showNotification 
-  } = useUIStore();
+  const { showNotification } = useUIStore();
   
-  // Estados do layout
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
-  // Estados dos modais (removido UserProfile)
   const [modalStates, setModalStates] = useState({
     ReceitasModal: false,
     DespesasModal: false,
@@ -122,11 +129,8 @@ const MainLayout = () => {
     CategoriasModal: false
   });
 
-  // Sistema de níveis/XP do usuário
   const userLevel = user?.user_metadata?.level || 7;
-  const userXP = user?.user_metadata?.xp || 2847;
 
-  // Detectar mobile e scroll
   useEffect(() => {
     const checkMobile = () => {
       const mobile = window.innerWidth < 768;
@@ -150,41 +154,28 @@ const MainLayout = () => {
     };
   }, []);
 
-  // Função para abrir modais
   const handleOpenModal = (modalType) => {
-    console.log('🚀 MainLayout recebeu pedido para abrir modal:', modalType);
-    
-    // Verificar se é um modal válido
     if (modalStates.hasOwnProperty(modalType)) {
       setModalStates(prev => ({
         ...prev,
         [modalType]: true
       }));
-      console.log('✅ Modal aberto:', modalType);
     } else {
-      console.error('❌ Tipo de modal não reconhecido:', modalType);
-      console.error('❌ Modais disponíveis:', Object.keys(modalStates));
       showNotification(`Modal "${modalType}" não encontrado`, 'error');
     }
   };
 
-  // Função para fechar modais
   const handleCloseModal = (modalType) => {
-    console.log('❌ Fechando modal:', modalType);
     setModalStates(prev => ({
       ...prev,
       [modalType]: false
     }));
   };
 
-  // Função para salvar dados (callback comum)
   const handleModalSave = () => {
-    // Aqui você pode adicionar lógica comum para todos os modais
-    // como recarregar dados, etc.
-    console.log('💾 Dados salvos com sucesso');
+    console.log('Dados salvos com sucesso');
   };
 
-  // Handlers
   const handleLogout = async () => {
     try {
       await signOut();
@@ -211,9 +202,7 @@ const MainLayout = () => {
   };
 
   return (
-    <div className={`main-layout ${scrolled ? 'main-layout--scrolled' : ''}`}>
-      
-      {/* Nova Sidebar */}
+    <>
       <Sidebar
         onOpenModal={handleOpenModal}
         isCollapsed={sidebarCollapsed}
@@ -224,126 +213,111 @@ const MainLayout = () => {
         onLogout={handleLogout}
       />
 
-      {/* Main Content Area */}
-      <div className="main-layout__content">
-        {/* Header Mobile */}
-        {isMobile && (
-          <header className="main-layout__mobile-header">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="mobile-header__menu-button"
-              aria-label="Abrir menu de navegação"
-            >
-              <Menu size={20} />
-            </button>
-            
-            <div className="mobile-header__title">
-              <div className="mobile-header__logo">
-                <span>iP</span>
-              </div>
-              <span>{getPageTitle()}</span>
-            </div>
-            
-            <div className="mobile-header__actions">
-              <button 
-                className="mobile-header__level-badge"
-                aria-label={`Nível ${userLevel}`}
-              >
-                <span>Nível {userLevel}</span>
-              </button>
-              <div className="mobile-header__user-avatar">
-                <User size={16} />
-              </div>
-            </div>
-          </header>
-        )}
-
-        {/* Trilha de Aprendizagem - Fixa no Topo */}
-        <section className="main-layout__evolution-track" aria-label="Trilha de aprendizagem">
-          <div className="evolution-track__container">
-            <TrilhaDashboard
-              className="evolution-track__component"
-              onPassoClick={(passo) => {
-                console.log('Passo da trilha clicado:', passo);
-                showNotification(`Passo: ${passo.titulo}`, 'info');
-              }}
-            />
-          </div>
-        </section>
-
-        {/* Área de Conteúdo Dinâmico */}
-        <main className="main-layout__page-content" role="main">
-          <Outlet />
-        </main>
-      </div>
-
-      {/* ===== MODAIS ===== */}
-      
-      {/* Modal de Receitas */}
       <ReceitasModal
         isOpen={modalStates.ReceitasModal}
         onClose={() => handleCloseModal('ReceitasModal')}
         onSave={handleModalSave}
       />
 
-      {/* Modal de Despesas */}
       <DespesasModal
         isOpen={modalStates.DespesasModal}
         onClose={() => handleCloseModal('DespesasModal')}
         onSave={handleModalSave}
       />
 
-      {/* Modal de Despesas Cartão */}
       <DespesasCartaoModal
         isOpen={modalStates.DespesasCartaoModal}
         onClose={() => handleCloseModal('DespesasCartaoModal')}
         onSave={handleModalSave}
       />
 
-      {/* Modal de Transferências */}
       <TransferenciasModal
         isOpen={modalStates.TransferenciasModal}
         onClose={() => handleCloseModal('TransferenciasModal')}
         onSave={handleModalSave}
       />
 
-      {/* Modal de Contas */}
       <ContasModal
         isOpen={modalStates.ContasModal}
         onClose={() => handleCloseModal('ContasModal')}
         onSave={handleModalSave}
       />
 
-      {/* Modal de Cartões */}
       <CartoesModal
         isOpen={modalStates.CartoesModal}
         onClose={() => handleCloseModal('CartoesModal')}
         onSave={handleModalSave}
       />
 
-      {/* Modal de Categorias */}
       <CategoriasModal
         isOpen={modalStates.CategoriasModal}
         onClose={() => handleCloseModal('CategoriasModal')}
         onSave={handleModalSave}
       />
 
-      {/* Modal de Perfil do Usuário */}
-      {modalStates.UserProfile && (
-        <div className="modal-overlay active">
-          <div className="forms-modal-container modal-large">
-            <UserProfile
-              isOpen={modalStates.UserProfile}
-              onClose={() => handleCloseModal('UserProfile')}
-              onSave={handleModalSave}
-            />
-          </div>
+      <div className={`main-layout ${scrolled ? 'main-layout--scrolled' : ''}`}>
+        
+        <div 
+          className="main-layout__content"
+          style={{
+            marginLeft: isMobile ? '0px' : (sidebarCollapsed ? '56px' : '230px'),
+            width: isMobile ? '100%' : (sidebarCollapsed ? 'calc(100% - 56px)' : 'calc(100% - 230px)'),
+            transition: 'margin-left 0.3s ease-in-out'
+          }}
+        >
+          {isMobile && (
+            <header className="main-layout__mobile-header">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="mobile-header__menu-button"
+                aria-label="Abrir menu de navegação"
+              >
+                <Menu size={20} />
+              </button>
+              
+              <div className="mobile-header__title">
+                <div className="mobile-header__logo">
+                  <span>iP</span>
+                </div>
+                <span>{getPageTitle()}</span>
+              </div>
+              
+              <div className="mobile-header__actions">
+                <button 
+                  className="mobile-header__level-badge"
+                  aria-label={`Nível ${userLevel}`}
+                >
+                  <span>Nível {userLevel}</span>
+                </button>
+                <div className="mobile-header__user-avatar">
+                  <User size={16} />
+                </div>
+              </div>
+            </header>
+          )}
+
+          <section className="main-layout__evolution-track" aria-label="Trilha de aprendizagem">
+            <div className="evolution-track__container">
+              <TrilhaDashboard
+                className="evolution-track__component"
+                onPassoClick={(passo) => {
+                  showNotification(`Passo: ${passo.titulo}`, 'info');
+                }}
+              />
+            </div>
+          </section>
+
+          <main className="main-layout__page-content" role="main">
+            <Outlet />
+          </main>
         </div>
-      )}
-
-
-    </div>
+      </div>
+      
+    </>
+    
   );
+  
 };
+
 
 export default MainLayout;

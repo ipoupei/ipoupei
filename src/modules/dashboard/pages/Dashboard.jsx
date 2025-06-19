@@ -645,56 +645,7 @@ const Dashboard = () => {
       {/* Seção de Insights - Nova */}
       <InsightsSection />
 
-      {/* Acesso Rápido - Aprimorado */}
-      <section className="dashboard__quick-access-section">
-        <div className="dashboard__quick-access-grid">
-          <Link to="/transacoes" className="dashboard__quick-access-card dashboard__quick-access-card--primary">
-            <div className="dashboard__quick-access-icon">
-              <Eye size={24} />
-            </div>
-            <div className="dashboard__quick-access-content">
-              <h3 className="dashboard__quick-access-title">👀 Ver Todas as Transações</h3>
-              <p className="dashboard__quick-access-description">
-                Visualize, filtre e gerencie todas as suas movimentações
-              </p>
-            </div>
-            <div className="dashboard__quick-access-arrow">
-              <ArrowRight size={20} />
-            </div>
-          </Link>
 
-          <Link to="/transacoes/nova-receita" className="dashboard__quick-access-card dashboard__quick-access-card--success">
-            <div className="dashboard__quick-access-icon">
-              <Plus size={24} />
-            </div>
-            <div className="dashboard__quick-access-content">
-              <h3 className="dashboard__quick-access-title">💚 Nova Receita</h3>
-              <p className="dashboard__quick-access-description">
-                Registrar uma nova receita rapidamente
-              </p>
-            </div>
-            <div className="dashboard__quick-access-arrow">
-              <ArrowRight size={20} />
-            </div>
-          </Link>
-
-          <Link to="/relatorios" className="dashboard__quick-access-card dashboard__quick-access-card--info">
-            <div className="dashboard__quick-access-icon">
-              <Activity size={24} />
-            </div>
-            <div className="dashboard__quick-access-content">
-              <h3 className="dashboard__quick-access-title">📊 Relatórios</h3>
-              <p className="dashboard__quick-access-description">
-                Analise seus padrões financeiros em detalhes
-              </p>
-            </div>
-            <div className="dashboard__quick-access-arrow">
-              <ArrowRight size={20} />
-            </div>
-          </Link>
-        </div>
-      </section>
-      
       {/* Gráficos - Aprimorados */}
       <section className="dashboard__charts-section">
         <div className="dashboard__charts-grid">

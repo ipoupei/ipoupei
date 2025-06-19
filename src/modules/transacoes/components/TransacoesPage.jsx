@@ -92,7 +92,35 @@ const TransacoesPage = () => {
       });
     }
   };
-
+// No início do componente, logo após as declarações de estado
+useEffect(() => {
+  const filter = searchParams.get('filter');
+  
+  if (filter) {
+    switch (filter) {
+      case 'receitas':
+        setFilters(prev => ({ ...prev, tipo: 'receita' }));
+        break;
+      case 'despesas':
+        setFilters(prev => ({ ...prev, tipo: 'despesa' }));
+        break;
+      case 'cartoes':
+        // Para cartões, você pode ativar o groupByCard ou outro filtro específico
+        setGroupByCard(true);
+        setFilters(prev => ({ ...prev, tipo: 'despesa' })); // Cartões são despesas
+        break;
+      default:
+        // Limpar filtros se não reconhecer o filtro
+        setFilters({ tipo: '', status: '', categoria: '' });
+        setGroupByCard(false);
+        
+    }
+  }
+    if (!filter) {
+    setFilters({ tipo: '', status: '', categoria: '' });
+    setGroupByCard(false);
+  }
+}, [searchParams]); // Executar sempre que a URL mudar
   // Carregar dados
   useEffect(() => {
     if (user?.id) {
