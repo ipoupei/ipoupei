@@ -300,7 +300,7 @@ const Dashboard = () => {
         <div className="dashboard__insights-header">
           <div className="dashboard__insights-title-group">
             <Lightbulb size={20} className="dashboard__insights-icon" />
-            <h3 className="dashboard__insights-title">💡 Insights Rápidos</h3>
+            <h3 className="dashboard__insights-title"> Insights Rápidos</h3>
           </div>
         </div>
         

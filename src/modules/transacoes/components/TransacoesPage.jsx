@@ -47,20 +47,105 @@ const TransacoesPage = () => {
   const [confirmAction, setConfirmAction] = useState(null);
   const [groupByCard, setGroupByCard] = useState(false);
 
-  // Estados para funcionalidades novas
+  // Estados para funcionalidades
   const [sortConfig, setSortConfig] = useState({ key: 'data', direction: 'desc' });
   const [showFilterModal, setShowFilterModal] = useState(false);
-  const [filters, setFilters] = useState({
-    tipo: '',
-    status: '',
-    categoria: ''
-  });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(30);
+
+  // FILTROS - separamos os filtros ativos dos filtros do modal
+  const [filters, setFilters] = useState({
+    tipo: '',
+    dataInicio: '',
+    dataFim: '',
+    efetivado: '',
+    recorrente: '',
+    categoria: '',
+    cartao: '',
+    conta: '',
+    subcategoria: '',
+    valorMin: '',
+    valorMax: '',
+    descricao: ''
+  });
+
+  // Filtros temporários do modal - só aplicam quando clicar "Aplicar"
+  const [modalFilters, setModalFilters] = useState({
+    tipo: '',
+    dataInicio: '',
+    dataFim: '',
+    efetivado: '',
+    recorrente: '',
+    categoria: '',
+    cartao: '',
+    conta: '',
+    subcategoria: '',
+    valorMin: '',
+    valorMax: '',
+    descricao: ''
+  });
+
+  // Estados para dados auxiliares dos filtros
+  const [filterData, setFilterData] = useState({
+    categorias: [],
+    cartoes: [],
+    contas: [],
+    subcategorias: []
+  });
 
   // Período
   const dataInicio = startOfMonth(currentDate);
   const dataFim = endOfMonth(currentDate);
+
+  // ========== FUNÇÃO PARA BUSCAR DADOS AUXILIARES ==========
+  const fetchFilterData = async () => {
+    if (!user?.id) return;
+
+    try {
+      const { default: supabase } = await import('@lib/supabaseClient');
+      
+      // Buscar categorias
+      const { data: categorias } = await supabase
+        .from('categorias')
+        .select('id, nome, tipo, cor')
+        .eq('usuario_id', user.id)
+        .eq('ativo', true)
+        .order('nome');
+
+      // Buscar cartões
+      const { data: cartoes } = await supabase
+        .from('cartoes')
+        .select('id, nome, bandeira')
+        .eq('usuario_id', user.id)
+        .eq('ativo', true)
+        .order('nome');
+
+      // Buscar contas
+      const { data: contas } = await supabase
+        .from('contas')
+        .select('id, nome, tipo')
+        .eq('usuario_id', user.id)
+        .eq('ativo', true)
+        .order('nome');
+
+      // Buscar subcategorias
+      const { data: subcategorias } = await supabase
+        .from('subcategorias')
+        .select('id, nome, categoria_id, categorias(nome)')
+        .eq('usuario_id', user.id)
+        .eq('ativo', true)
+        .order('nome');
+
+      setFilterData({
+        categorias: categorias || [],
+        cartoes: cartoes || [],
+        contas: contas || [],
+        subcategorias: subcategorias || []
+      });
+    } catch (error) {
+      console.error('Erro ao carregar dados dos filtros:', error);
+    }
+  };
 
   // Função para buscar transações
   const fetchTransacoes = async () => {
@@ -92,53 +177,132 @@ const TransacoesPage = () => {
       });
     }
   };
-// No início do componente, logo após as declarações de estado
-useEffect(() => {
-  const filter = searchParams.get('filter');
-  
-  if (filter) {
-    switch (filter) {
-      case 'receitas':
-        setFilters(prev => ({ ...prev, tipo: 'receita' }));
-        break;
-      case 'despesas':
-        setFilters(prev => ({ ...prev, tipo: 'despesa' }));
-        break;
-      case 'cartoes':
-        // Para cartões, você pode ativar o groupByCard ou outro filtro específico
-        setGroupByCard(true);
-        setFilters(prev => ({ ...prev, tipo: 'despesa' })); // Cartões são despesas
-        break;
-      default:
-        // Limpar filtros se não reconhecer o filtro
-        setFilters({ tipo: '', status: '', categoria: '' });
-        setGroupByCard(false);
-        
+
+  // Aplicar filtros da URL na inicialização
+  useEffect(() => {
+    const filter = searchParams.get('filter');
+    
+    if (filter) {
+      switch (filter) {
+        case 'receitas':
+          const receitaFilters = { ...filters, tipo: 'receita' };
+          setFilters(receitaFilters);
+          setModalFilters(receitaFilters);
+          break;
+        case 'despesas':
+          const despesaFilters = { ...filters, tipo: 'despesa' };
+          setFilters(despesaFilters);
+          setModalFilters(despesaFilters);
+          break;
+        case 'cartoes':
+          setGroupByCard(true);
+          const cartaoFilters = { ...filters, tipo: 'despesa' };
+          setFilters(cartaoFilters);
+          setModalFilters(cartaoFilters);
+          break;
+        default:
+          const emptyFilters = {
+            tipo: '', dataInicio: '', dataFim: '', efetivado: '', recorrente: '',
+            categoria: '', cartao: '', conta: '', subcategoria: '', valorMin: '', valorMax: '', descricao: ''
+          };
+          setFilters(emptyFilters);
+          setModalFilters(emptyFilters);
+          setGroupByCard(false);
+      }
+    } else {
+      const emptyFilters = {
+        tipo: '', dataInicio: '', dataFim: '', efetivado: '', recorrente: '',
+        categoria: '', cartao: '', conta: '', subcategoria: '', valorMin: '', valorMax: '', descricao: ''
+      };
+      setFilters(emptyFilters);
+      setModalFilters(emptyFilters);
+      setGroupByCard(false);
     }
-  }
-    if (!filter) {
-    setFilters({ tipo: '', status: '', categoria: '' });
-    setGroupByCard(false);
-  }
-}, [searchParams]); // Executar sempre que a URL mudar
+  }, [searchParams]);
+
   // Carregar dados
   useEffect(() => {
     if (user?.id) {
       fetchTransacoes();
+      fetchFilterData();
     }
   }, [user?.id, currentDate]);
 
-  // Filtrar e ordenar transações
+  // ========== FILTRAR E ORDENAR TRANSAÇÕES ==========
   const transacoesProcessadas = useMemo(() => {
     let filtered = [...transacoes];
 
-    // Aplicar filtros básicos
+    // Filtro por tipo
     if (filters.tipo) {
       filtered = filtered.filter(t => t.tipo === filters.tipo);
     }
-    if (filters.status) {
-      const isEfetivado = filters.status === 'efetivadas';
+
+    // Filtro por status (efetivado)
+    if (filters.efetivado) {
+      const isEfetivado = filters.efetivado === 'true';
       filtered = filtered.filter(t => t.efetivado === isEfetivado);
+    }
+
+    // Filtro por recorrente
+    if (filters.recorrente) {
+      const isRecorrente = filters.recorrente === 'true';
+      filtered = filtered.filter(t => t.recorrente === isRecorrente);
+    }
+
+    // Filtro por categoria
+    if (filters.categoria) {
+      filtered = filtered.filter(t => t.categoria_id === filters.categoria);
+    }
+
+    // Filtro por cartão
+    if (filters.cartao) {
+      filtered = filtered.filter(t => t.cartao_id === filters.cartao);
+    }
+
+    // Filtro por conta
+    if (filters.conta) {
+      filtered = filtered.filter(t => t.conta_id === filters.conta);
+    }
+
+    // Filtro por subcategoria
+    if (filters.subcategoria) {
+      filtered = filtered.filter(t => t.subcategoria_id === filters.subcategoria);
+    }
+
+    // Filtro por valor mínimo
+    if (filters.valorMin) {
+      const valorMin = parseFloat(filters.valorMin);
+      if (!isNaN(valorMin)) {
+        filtered = filtered.filter(t => Math.abs(t.valor) >= valorMin);
+      }
+    }
+
+    // Filtro por valor máximo
+    if (filters.valorMax) {
+      const valorMax = parseFloat(filters.valorMax);
+      if (!isNaN(valorMax)) {
+        filtered = filtered.filter(t => Math.abs(t.valor) <= valorMax);
+      }
+    }
+
+    // Filtro por descrição
+    if (filters.descricao) {
+      filtered = filtered.filter(t => 
+        t.descricao?.toLowerCase().includes(filters.descricao.toLowerCase())
+      );
+    }
+
+    // Filtro por período específico
+    if (filters.dataInicio) {
+      filtered = filtered.filter(t => 
+        new Date(t.data) >= new Date(filters.dataInicio)
+      );
+    }
+
+    if (filters.dataFim) {
+      filtered = filtered.filter(t => 
+        new Date(t.data) <= new Date(filters.dataFim)
+      );
     }
 
     // Agrupar por cartão se solicitado
@@ -230,7 +394,9 @@ useEffect(() => {
     };
   }, [transacoesProcessadas]);
 
-  // Handlers - Navegação
+  // ========== HANDLERS ==========
+
+  // Navegação
   const handleNavigateMonth = (direction) => {
     if (loading) return;
     
@@ -247,7 +413,7 @@ useEffect(() => {
     setCurrentPage(1);
   };
 
-  // Handlers - Ordenação
+  // Ordenação
   const handleSort = (key) => {
     let direction = 'asc';
     if (sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -257,20 +423,39 @@ useEffect(() => {
     setCurrentPage(1);
   };
 
-  // Handlers - Filtros
+  // Filtros
   const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
+    // No modal, só atualiza modalFilters
+    setModalFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  const applyFilters = () => {
+    // Só aqui que aplica os filtros de verdade
+    setFilters({ ...modalFilters });
     setCurrentPage(1);
+    setShowFilterModal(false);
+  };
+
+  const openFilterModal = () => {
+    // Copia os filtros atuais para o modal APENAS quando abrir
+    setModalFilters({ ...filters });
+    setShowFilterModal(true);
   };
 
   const clearFilters = () => {
-    setFilters({ tipo: '', status: '', categoria: '' });
+    const emptyFilters = {
+      tipo: '', dataInicio: '', dataFim: '', efetivado: '', recorrente: '',
+      categoria: '', cartao: '', conta: '', subcategoria: '', valorMin: '', valorMax: '', descricao: ''
+    };
+    setFilters(emptyFilters);
+    setModalFilters(emptyFilters);
+    setGroupByCard(false);
     setCurrentPage(1);
   };
 
-  const hasActiveFilters = Object.values(filters).some(value => value !== '');
+  const hasActiveFilters = Object.values(filters).some(value => value !== '') || groupByCard;
 
-  // Handlers - Ações das transações
+  // Ações das transações
   const handleToggleEfetivado = (transacao) => {
     setTransacaoParaConfirm(transacao);
     setConfirmAction('toggle_efetivado');
@@ -313,7 +498,9 @@ useEffect(() => {
     }
   };
 
-  // Componente - Cabeçalho da tabela
+  // ========== COMPONENTES ==========
+
+  // Cabeçalho da tabela
   const TableHeader = ({ label, sortKey, className = '' }) => {
     const isSorted = sortConfig.key === sortKey;
     const direction = isSorted ? sortConfig.direction : null;
@@ -336,7 +523,7 @@ useEffect(() => {
     );
   };
 
-  // Componente - Linha da transação
+  // Linha da transação
   const TransactionRow = ({ transacao }) => {
     const isReceita = transacao.tipo === 'receita';
     const isFatura = transacao.tipo === 'fatura';
@@ -436,104 +623,267 @@ useEffect(() => {
     );
   };
 
-  // Componente - Modal de Filtros Simples
+  // Modal de Filtros Avançados - VERSÃO ISOLADA
   const FilterModal = () => {
+    // Estado LOCAL do modal - completamente isolado
+    const [localFilters, setLocalFilters] = useState(filters);
+
     if (!showFilterModal) return null;
 
+    const handleLocalChange = (key, value) => {
+      setLocalFilters(prev => ({ ...prev, [key]: value }));
+    };
+
+    const handleApply = () => {
+      setFilters({ ...localFilters });
+      setCurrentPage(1);
+      setShowFilterModal(false);
+    };
+
+    const handleCancel = () => {
+      setLocalFilters({ ...filters }); // Reset para valores originais
+      setShowFilterModal(false);
+    };
+
     return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000
-      }}>
-        <div style={{
-          backgroundColor: 'white',
-          borderRadius: '12px',
-          padding: '24px',
-          width: '400px',
-          maxWidth: '90vw'
-        }}>
-          <h3 style={{ margin: '0 0 16px 0', fontSize: '1.125rem', fontWeight: '600' }}>
-            Filtros
-          </h3>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.875rem', fontWeight: '500' }}>
-                Tipo
-              </label>
-              <select
-                value={filters.tipo}
-                onChange={(e) => handleFilterChange('tipo', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '6px',
-                  fontSize: '0.875rem'
-                }}
-              >
-                <option value="">Todos os tipos</option>
-                <option value="receita">Receitas</option>
-                <option value="despesa">Despesas</option>
-              </select>
+      <div className="modal-overlay active" style={{ alignItems: 'flex-start', paddingTop: '120px' }}>
+        <div className="forms-modal-container">
+          {/* Header */}
+          <div className="modal-header">
+            <div className="modal-header-content">
+              <div className="modal-icon-container modal-icon-primary">
+                🔍
+              </div>
+              <div>
+                <h2 className="modal-title">Filtros Avançados</h2>
+                <p className="modal-subtitle">
+                  Configure os filtros para refinar sua busca de transações
+                </p>
+              </div>
+            </div>
+            <button onClick={handleCancel} className="modal-close">×</button>
+          </div>
+
+          {/* Body */}
+          <div className="modal-body">
+            <div className="flex gap-3 row">
+              <div>
+                <label className="form-label">Tipo de Transação</label>
+                <select
+                  value={localFilters.tipo}
+                  onChange={(e) => handleLocalChange('tipo', e.target.value)}
+                  className="input-base"
+                >
+                  <option value="">Todos os tipos</option>
+                  <option value="receita">💰 Receitas</option>
+                  <option value="despesa">💸 Despesas</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="form-label">Status</label>
+                <select
+                  value={localFilters.efetivado}
+                  onChange={(e) => handleLocalChange('efetivado', e.target.value)}
+                  className="input-base"
+                >
+                  <option value="">Todos os status</option>
+                  <option value="true">✅ Efetivadas</option>
+                  <option value="false">⏳ Pendentes</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="form-label">Recorrente</label>
+                <select
+                  value={localFilters.recorrente}
+                  onChange={(e) => handleLocalChange('recorrente', e.target.value)}
+                  className="input-base"
+                >
+                  <option value="">Todas</option>
+                  <option value="true">🔄 Recorrentes</option>
+                  <option value="false">📅 Não Recorrentes</option>
+                </select>
+              </div>
             </div>
 
-            <div>
-              <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.875rem', fontWeight: '500' }}>
-                Status
+            <div className="flex gap-3 row">
+              <div>
+                <label className="form-label">Categoria</label>
+                <select
+                  value={localFilters.categoria}
+                  onChange={(e) => handleLocalChange('categoria', e.target.value)}
+                  className="input-base"
+                >
+                  <option value="">Todas as categorias</option>
+                  {filterData.categorias.map(categoria => (
+                    <option key={categoria.id} value={categoria.id}>
+                      {categoria.nome} ({categoria.tipo})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="form-label">Subcategoria</label>
+                <select
+                  value={localFilters.subcategoria}
+                  onChange={(e) => handleLocalChange('subcategoria', e.target.value)}
+                  className="input-base"
+                  disabled={!localFilters.categoria}
+                >
+                  <option value="">Todas as subcategorias</option>
+                  {filterData.subcategorias
+                    .filter(sub => !localFilters.categoria || sub.categoria_id === localFilters.categoria)
+                    .map(sub => (
+                      <option key={sub.id} value={sub.id}>
+                        {sub.nome}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-3 row">
+              <div>
+                <label className="form-label">Conta</label>
+                <select
+                  value={localFilters.conta}
+                  onChange={(e) => handleLocalChange('conta', e.target.value)}
+                  className="input-base"
+                >
+                  <option value="">Todas as contas</option>
+                  {filterData.contas.map(conta => (
+                    <option key={conta.id} value={conta.id}>
+                      {conta.nome} ({conta.tipo})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="form-label">Cartão</label>
+                <select
+                  value={localFilters.cartao}
+                  onChange={(e) => handleLocalChange('cartao', e.target.value)}
+                  className="input-base"
+                >
+                  <option value="">Todos os cartões</option>
+                  {filterData.cartoes.map(cartao => (
+                    <option key={cartao.id} value={cartao.id}>
+                      {cartao.nome} ({cartao.bandeira})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-3 row">
+              <div>
+                <label className="form-label">Valor Mínimo</label>
+                <input
+                  type="number"
+                  value={localFilters.valorMin}
+                  onChange={(e) => handleLocalChange('valorMin', e.target.value)}
+                  placeholder="0,00"
+                  className="input-money"
+                  step="0.01"
+                  min="0"
+                />
+              </div>
+
+              <div>
+                <label className="form-label">Valor Máximo</label>
+                <input
+                  type="number"
+                  value={localFilters.valorMax}
+                  onChange={(e) => handleLocalChange('valorMax', e.target.value)}
+                  placeholder="999999,00"
+                  className="input-money"
+                  step="0.01"
+                  min="0"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 row">
+              <div>
+                <label className="form-label">Data Início</label>
+                <input
+                  type="date"
+                  value={localFilters.dataInicio}
+                  onChange={(e) => handleLocalChange('dataInicio', e.target.value)}
+                  className="input-date"
+                />
+              </div>
+
+              <div>
+                <label className="form-label">Data Fim</label>
+                <input
+                  type="date"
+                  value={localFilters.dataFim}
+                  onChange={(e) => handleLocalChange('dataFim', e.target.value)}
+                  className="input-date"
+                />
+              </div>
+
+              <div>
+                <label className="form-label">Buscar Descrição</label>
+                <input
+                  type="text"
+                  value={localFilters.descricao}
+                  onChange={(e) => handleLocalChange('descricao', e.target.value)}
+                  placeholder="Digite para buscar..."
+                  className="input-text"
+                />
+              </div>
+            </div>
+
+            <div className="section-title">Opções Especiais</div>
+            
+            <div className="section-block">
+              <label className="form-label" style={{ cursor: 'pointer', margin: 0 }}>
+                <input
+                  type="checkbox"
+                  checked={groupByCard}
+                  onChange={(e) => setGroupByCard(e.target.checked)}
+                  style={{ marginRight: '8px', accentColor: '#008080' }}
+                />
+                💳 Agrupar despesas de cartão por fatura
+                <span className="form-label-small">
+                  Agrupa as despesas do cartão em uma única linha por fatura
+                </span>
               </label>
-              <select
-                value={filters.status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '6px',
-                  fontSize: '0.875rem'
-                }}
-              >
-                <option value="">Todos os status</option>
-                <option value="efetivadas">Efetivadas</option>
-                <option value="pendentes">Pendentes</option>
-              </select>
             </div>
           </div>
 
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'flex-end', 
-            gap: '8px', 
-            marginTop: '24px' 
-          }}>
-            <Button 
-              onClick={clearFilters}
-              style={{ 
-                backgroundColor: '#f3f4f6', 
-                color: '#374151', 
-                border: 'none' 
-              }}
-            >
-              Limpar
-            </Button>
-            <Button onClick={() => setShowFilterModal(false)}>
-              Aplicar
-            </Button>
+          {/* Footer */}
+          <div className="modal-footer">
+            <div className="footer-left">
+              <button 
+                onClick={clearFilters}
+                className="btn-secondary"
+                disabled={!hasActiveFilters}
+              >
+                🗑️ Limpar Todos
+              </button>
+            </div>
+            
+            <div className="footer-right">
+              <button onClick={handleCancel} className="btn-cancel">
+                Cancelar
+              </button>
+              <button onClick={handleApply} className="btn-primary">
+                ✅ Aplicar Filtros
+              </button>
+            </div>
           </div>
         </div>
       </div>
     );
   };
 
-  // Componente - Modal de Confirmação
+  // Modal de Confirmação
   const ConfirmModal = () => {
     if (!showConfirmModal || !transacaoParaConfirm) return null;
 
@@ -542,70 +892,88 @@ useEffect(() => {
     const novoStatus = isToggle ? !transacaoParaConfirm.efetivado : null;
 
     return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000
-      }}>
-        <div style={{
-          backgroundColor: 'white',
-          borderRadius: '12px',
-          padding: '24px',
-          width: '400px',
-          maxWidth: '90vw',
-          textAlign: 'center'
-        }}>
-          <h3 style={{ margin: '0 0 16px 0', fontSize: '1.125rem', fontWeight: '600' }}>
-            {isDelete ? 'Confirmar Exclusão' : 'Confirmar Alteração'}
-          </h3>
-          
-          <p style={{ margin: '0 0 16px 0', color: '#6b7280' }}>
-            {isDelete && 'Tem certeza que deseja excluir esta transação?'}
-            {isToggle && `Deseja ${novoStatus ? 'efetivar' : 'marcar como pendente'} esta transação?`}
-          </p>
-          
-          <div style={{
-            backgroundColor: '#f3f4f6',
-            padding: '12px',
-            borderRadius: '8px',
-            margin: '16px 0'
-          }}>
-            <strong>{transacaoParaConfirm.descricao}</strong>
-            <div style={{ fontSize: '1.125rem', fontWeight: 'bold', color: '#7c3aed', marginTop: '4px' }}>
-              {formatCurrency(Math.abs(transacaoParaConfirm.valor))}
+      <div className="modal-overlay active">
+        <div className="forms-modal-container">
+          <div className="modal-header">
+            <div className="modal-header-content">
+              <div className={`modal-icon-container ${isDelete ? 'modal-icon-danger' : 'modal-icon-warning'}`}>
+                {isDelete ? '🗑️' : '⚠️'}
+              </div>
+              <div>
+                <h2 className="modal-title">
+                  {isDelete ? 'Confirmar Exclusão' : 'Confirmar Alteração'}
+                </h2>
+                <p className="modal-subtitle">
+                  {isDelete && 'Esta ação não pode ser desfeita'}
+                  {isToggle && 'Alterar status da transação'}
+                </p>
+              </div>
             </div>
+            <button 
+              onClick={() => setShowConfirmModal(false)}
+              className="modal-close"
+            >
+              ×
+            </button>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-            <Button 
-              onClick={() => setShowConfirmModal(false)}
-              style={{ backgroundColor: '#f3f4f6', color: '#374151', border: 'none' }}
-            >
-              Cancelar
-            </Button>
-            <Button 
-              onClick={executeConfirmAction}
-              style={{
-                backgroundColor: isDelete ? '#ef4444' : '#7c3aed',
-                color: 'white'
-              }}
-            >
-              {isDelete ? 'Excluir' : 'Confirmar'}
-            </Button>
+          <div className="modal-body">
+            <div className="confirmation-question">
+              <p className="confirmation-text">
+                {isDelete && 'Tem certeza que deseja excluir esta transação?'}
+                {isToggle && `Deseja ${novoStatus ? 'efetivar' : 'marcar como pendente'} esta transação?`}
+              </p>
+            </div>
+            
+            <div className="confirmation-info">
+              <div className="confirmation-item">
+                <strong>Descrição:</strong> {transacaoParaConfirm.descricao}
+              </div>
+              <div className="confirmation-item">
+                <strong>Valor:</strong> {formatCurrency(Math.abs(transacaoParaConfirm.valor))}
+              </div>
+              <div className="confirmation-item">
+                <strong>Data:</strong> {format(new Date(transacaoParaConfirm.data), 'dd/MM/yyyy')}
+              </div>
+              <div className="confirmation-item">
+                <strong>Categoria:</strong> {transacaoParaConfirm.categoria_nome}
+              </div>
+            </div>
+
+            {isDelete && (
+              <div className="confirmation-warning">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+                </svg>
+                <p>
+                  Esta transação será excluída permanentemente. Esta ação não pode ser desfeita.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="modal-footer">
+            <div className="footer-right">
+              <button 
+                onClick={() => setShowConfirmModal(false)}
+                className="btn-cancel"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={executeConfirmAction}
+                className={isDelete ? 'btn-secondary btn-secondary--danger' : 'btn-primary'}
+              >
+                {isDelete ? '🗑️ Excluir' : '✅ Confirmar'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
     );
   };
 
-  // Componente - Paginação
+  // Paginação
   const Pagination = () => {
     if (totalPages <= 1) return null;
 
@@ -686,7 +1054,8 @@ useEffect(() => {
     );
   };
 
-  // Estados de erro/loading
+  // ========== RENDER PRINCIPAL ==========
+
   if (error) {
     return (
       <PageContainer title="Transações">
@@ -705,18 +1074,12 @@ useEffect(() => {
       <PageContainer title="Transações">
         <div className="transacoes-header">
           <div className="period-navigation">
-            <button onClick={() => handleNavigateMonth('prev')} className="nav-btn">
-              ←
-            </button>
+            <button onClick={() => handleNavigateMonth('prev')} className="nav-btn">←</button>
             <h2 className="current-period">
               {format(currentDate, 'MMMM \'de\' yyyy', { locale: ptBR })}
             </h2>
-            <button onClick={() => handleNavigateMonth('next')} className="nav-btn">
-              →
-            </button>
-            <button onClick={() => handleNavigateMonth('today')} className="today-btn">
-              Hoje
-            </button>
+            <button onClick={() => handleNavigateMonth('next')} className="nav-btn">→</button>
+            <button onClick={() => handleNavigateMonth('today')} className="today-btn">Hoje</button>
           </div>
         </div>
         
@@ -774,15 +1137,26 @@ useEffect(() => {
             style={{
               backgroundColor: hasActiveFilters ? '#eff6ff' : '#f3f4f6',
               color: hasActiveFilters ? '#3b82f6' : '#374151',
-              border: hasActiveFilters ? '1px solid #93c5fd' : '1px solid #e5e7eb'
+              border: hasActiveFilters ? '1px solid #93c5fd' : '1px solid #e5e7eb',
+              fontWeight: hasActiveFilters ? '600' : '400'
             }}
           >
-            🔍 Filtros {hasActiveFilters && `(${Object.values(filters).filter(v => v).length})`}
+            🔍 Filtros Avançados {hasActiveFilters && `(${Object.values(filters).filter(v => v !== '').length + (groupByCard ? 1 : 0)})`}
           </Button>
           
           <button
             className={`group-toggle ${groupByCard ? 'active' : ''}`}
             onClick={() => setGroupByCard(!groupByCard)}
+            style={{
+              padding: '8px 16px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '6px',
+              backgroundColor: groupByCard ? '#eff6ff' : '#f3f4f6',
+              color: groupByCard ? '#3b82f6' : '#374151',
+              cursor: 'pointer',
+              fontSize: '0.875rem',
+              fontWeight: groupByCard ? '600' : '400'
+            }}
           >
             💳 {groupByCard ? 'Desagrupar' : 'Agrupar'}
           </button>
@@ -799,53 +1173,164 @@ useEffect(() => {
           backgroundColor: '#eff6ff',
           border: '1px solid #93c5fd',
           borderRadius: '8px',
-          marginBottom: '16px'
+          marginBottom: '16px',
+          flexWrap: 'wrap'
         }}>
-          <span style={{ fontSize: '0.875rem', color: '#2563eb' }}>Filtros ativos:</span>
+          <span style={{ fontSize: '0.875rem', color: '#2563eb', fontWeight: '500' }}>
+            🔍 Filtros ativos:
+          </span>
+          
           {Object.entries(filters).map(([key, value]) => {
             if (!value) return null;
+            
+            let displayValue = value;
+            let displayKey = key;
+            
+            switch (key) {
+              case 'efetivado':
+                displayKey = 'Status';
+                displayValue = value === 'true' ? 'Efetivadas' : 'Pendentes';
+                break;
+              case 'recorrente':
+                displayKey = 'Recorrente';
+                displayValue = value === 'true' ? 'Sim' : 'Não';
+                break;
+              case 'categoria':
+                displayKey = 'Categoria';
+                const categoria = filterData.categorias.find(c => c.id === value);
+                displayValue = categoria ? categoria.nome : value;
+                break;
+              case 'cartao':
+                displayKey = 'Cartão';
+                const cartao = filterData.cartoes.find(c => c.id === value);
+                displayValue = cartao ? cartao.nome : value;
+                break;
+              case 'conta':
+                displayKey = 'Conta';
+                const conta = filterData.contas.find(c => c.id === value);
+                displayValue = conta ? conta.nome : value;
+                break;
+              case 'subcategoria':
+                displayKey = 'Subcategoria';
+                const sub = filterData.subcategorias.find(s => s.id === value);
+                displayValue = sub ? sub.nome : value;
+                break;
+              case 'valorMin':
+                displayKey = 'Valor Min';
+                displayValue = formatCurrency(parseFloat(value));
+                break;
+              case 'valorMax':
+                displayKey = 'Valor Max';
+                displayValue = formatCurrency(parseFloat(value));
+                break;
+              case 'dataInicio':
+                displayKey = 'Data Início';
+                displayValue = format(new Date(value), 'dd/MM/yyyy');
+                break;
+              case 'dataFim':
+                displayKey = 'Data Fim';
+                displayValue = format(new Date(value), 'dd/MM/yyyy');
+                break;
+              default:
+                displayKey = key.charAt(0).toUpperCase() + key.slice(1);
+            }
+            
             return (
               <span
                 key={key}
                 style={{
-                  padding: '4px 8px',
+                  padding: '6px 10px',
                   backgroundColor: '#3b82f6',
                   color: 'white',
-                  borderRadius: '4px',
+                  borderRadius: '6px',
                   fontSize: '0.75rem',
+                  fontWeight: '500',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '4px'
+                  gap: '6px',
+                  maxWidth: '200px'
                 }}
               >
-                {value}
+                <span style={{ fontWeight: '600' }}>{displayKey}:</span>
+                <span style={{ 
+                  overflow: 'hidden', 
+                  textOverflow: 'ellipsis', 
+                  whiteSpace: 'nowrap',
+                  flex: 1,
+                  minWidth: 0
+                }}>
+                  {displayValue}
+                </span>
                 <button
-                  onClick={() => handleFilterChange(key, '')}
+                  onClick={() => {
+                    setFilters(prev => ({ ...prev, [key]: '' }));
+                    setModalFilters(prev => ({ ...prev, [key]: '' }));
+                  }}
                   style={{
                     background: 'none',
                     border: 'none',
                     color: 'white',
                     cursor: 'pointer',
                     padding: '0',
-                    marginLeft: '4px'
+                    marginLeft: '4px',
+                    fontWeight: 'bold',
+                    fontSize: '0.875rem'
                   }}
+                  title={`Remover filtro ${displayKey}`}
                 >
                   ×
                 </button>
               </span>
             );
           })}
+          
+          {groupByCard && (
+            <span
+              style={{
+                padding: '6px 10px',
+                backgroundColor: '#8b5cf6',
+                color: 'white',
+                borderRadius: '6px',
+                fontSize: '0.75rem',
+                fontWeight: '500',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <span style={{ fontWeight: '600' }}>Agrupado:</span>
+              <span>Por Cartão</span>
+              <button
+                onClick={() => setGroupByCard(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'white',
+                  cursor: 'pointer',
+                  padding: '0',
+                  marginLeft: '4px',
+                  fontWeight: 'bold',
+                  fontSize: '0.875rem'
+                }}
+                title="Remover agrupamento"
+              >
+                ×
+              </button>
+            </span>
+          )}
+          
           <Button 
             onClick={clearFilters}
             style={{ 
               fontSize: '0.75rem', 
-              padding: '4px 8px', 
+              padding: '6px 12px', 
               backgroundColor: 'transparent',
               color: '#2563eb',
-              border: '1px solid #93c5fd'
+              border: '1px solid #93c5fd',
+              fontWeight: '500'
             }}
           >
-            Limpar todos
+            🗑️ Limpar todos
           </Button>
         </div>
       )}
@@ -861,7 +1346,6 @@ useEffect(() => {
       {/* Conteúdo principal */}
       {!loading && transacoesProcessadas.length > 0 && (
         <div className="transacoes-content">
-          {/* Tabela */}
           <div className="table-container">
             <Card className="transactions-table-card">
               <div style={{ overflowX: 'auto' }}>
@@ -885,12 +1369,9 @@ useEffect(() => {
                 </table>
               </div>
             </Card>
-
-            {/* Paginação */}
             <Pagination />
           </div>
 
-          {/* Sidebar com estatísticas */}
           <aside className="resumo-sidebar">
             <Card>
               <h3>Resumo Financeiro</h3>
@@ -956,7 +1437,7 @@ useEffect(() => {
                   <div className="extra-stat">
                     <span className="extra-stat-label">Filtros Aplicados</span>
                     <span className="extra-stat-value">
-                      {Object.values(filters).filter(v => v).length} ativo(s)
+                      {Object.values(filters).filter(v => v !== '').length + (groupByCard ? 1 : 0)} ativo(s)
                     </span>
                   </div>
                 )}
@@ -966,7 +1447,6 @@ useEffect(() => {
         </div>
       )}
 
-      {/* Modais */}
       <FilterModal />
       <ConfirmModal />
 
