@@ -1,4 +1,4 @@
-// src/modules/contas/components/ContasModal.jsx - MIGRADO PARA FormsModal.css
+// src/modules/contas/components/ContasModal.jsx - Z-INDEX CORRIGIDO + CLASSES CSS LIMPAS
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -24,12 +24,16 @@ import useContas from '@modules/contas/hooks/useContas';
 import '@shared/styles/FormsModal.css';
 
 /**
- * Modal de Gerenciamento de Contas - VERSÃO MIGRADA PARA FormsModal.css
+ * Modal de Gerenciamento de Contas - Z-INDEX CORRIGIDO + CLASSES CSS LIMPAS
  * Funcionalidades:
  * - Criar/editar contas
  * - Arquivar/desarquivar 
  * - Corrigir saldo (2 métodos)
  * - Visualizar saldo inicial vs atual
+ * 
+ * Z-INDEX HIERARCHY:
+ * - Modal principal: z-index: 1000
+ * - Modais aninhados: z-index: 1100
  */
 const ContasModal = ({ isOpen, onClose, onSave }) => {
   const { user } = useAuthStore();
@@ -99,20 +103,9 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
   ];
 
   const coresPredefinidas = [
-    '#3B82F6', // Azul
-    '#EF4444', // Vermelho 
-    '#10B981', // Verde
-    '#F59E0B', // Amarelo
-    '#8B5CF6', // Roxo
-    '#EC4899', // Rosa
-    '#06B6D4', // Ciano
-    '#84CC16', // Lima
-    '#F97316', // Laranja
-    '#6366F1'  // Índigo
+    '#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6',
+    '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1'
   ];
-
-  console.log('Cores predefinidas:', coresPredefinidas);
-  console.log('Cor selecionada:', formData.cor);
 
   // =============================================================================
   // UTILITÁRIOS
@@ -188,11 +181,18 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
     }
   }, [isOpen, mostrarArquivadas, user, fetchContasArquivadas]);
 
-  // ESC para fechar
+  // ESC para fechar - CORRIGIDO para fechar modais aninhados primeiro
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape' && isOpen) {
-        if (modoFormulario) {
+        // Prioridade: fechar modais aninhados primeiro
+        if (modalCorreirSaldo.ativo) {
+          setModalCorrigirSaldo({ ativo: false, conta: null, novoSaldo: '', metodo: 'ajuste', motivo: '' });
+        } else if (modalArquivar.ativo) {
+          setModalArquivar({ ativo: false, conta: null, motivo: '' });
+        } else if (modalDesarquivar.ativo) {
+          setModalDesarquivar({ ativo: false, conta: null });
+        } else if (modoFormulario) {
           resetFormulario();
         } else {
           onClose();
@@ -204,7 +204,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
       document.addEventListener('keydown', handleEscape);
       return () => document.removeEventListener('keydown', handleEscape);
     }
-  }, [isOpen, modoFormulario, resetFormulario, onClose]);
+  }, [isOpen, modoFormulario, modalCorreirSaldo.ativo, modalArquivar.ativo, modalDesarquivar.ativo, resetFormulario, onClose]);
 
   // =============================================================================
   // HANDLERS DO FORMULÁRIO
@@ -250,14 +250,12 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
   // =============================================================================
   
   const iniciarCriacaoConta = useCallback(() => {
-    console.log('Iniciando criação de conta');
     resetFormulario();
     setModoFormulario('criar');
     setTimeout(() => nomeInputRef.current?.focus(), 100);
   }, [resetFormulario]);
 
   const iniciarEdicaoConta = useCallback((conta) => {
-    console.log('Iniciando edição da conta:', conta);
     const saldoFormatado = (conta.saldo_inicial || 0).toLocaleString('pt-BR', { 
       minimumFractionDigits: 2, 
       maximumFractionDigits: 2 
@@ -358,7 +356,6 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
   // =============================================================================
   
   const iniciarCorrecaoSaldo = useCallback((conta) => {
-    console.log('Iniciando correção de saldo para:', conta);
     setModalCorrigirSaldo({
       ativo: true,
       conta,
@@ -372,7 +369,6 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
   }, []);
 
   const processarCorrecaoSaldo = useCallback(async () => {
-    console.log('Processando correção de saldo:', modalCorreirSaldo);
     if (!modalCorreirSaldo.conta) return;
 
     const novoSaldoNumerico = parseFloat(
@@ -409,12 +405,10 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
   // =============================================================================
   
   const iniciarArquivamento = useCallback((conta) => {
-    console.log('Iniciando arquivamento de:', conta);
     setModalArquivar({ ativo: true, conta, motivo: '' });
   }, []);
 
   const processarArquivamento = useCallback(async () => {
-    console.log('Processando arquivamento:', modalArquivar);
     if (!modalArquivar.conta) return;
     
     setSubmitting(true);
@@ -433,12 +427,10 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
   }, [modalArquivar, arquivarConta, onSave]);
 
   const iniciarDesarquivamento = useCallback((conta) => {
-    console.log('Iniciando desarquivamento de:', conta);
     setModalDesarquivar({ ativo: true, conta });
   }, []);
 
   const processarDesarquivamento = useCallback(async () => {
-    console.log('Processando desarquivamento:', modalDesarquivar);
     if (!modalDesarquivar.conta) return;
     
     setSubmitting(true);
@@ -500,10 +492,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
             <button
               type="button"
               className="card-action-btn"
-              onClick={() => {
-                console.log('Clicou em corrigir saldo para conta:', conta.nome);
-                iniciarCorrecaoSaldo(conta);
-              }}
+              onClick={() => iniciarCorrecaoSaldo(conta)}
               disabled={submitting}
               title="Corrigir saldo"
             >
@@ -515,10 +504,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
             <button
               type="button"
               className="card-action-btn edit"
-              onClick={() => {
-                console.log('Clicou em editar conta:', conta.nome);
-                iniciarEdicaoConta(conta);
-              }}
+              onClick={() => iniciarEdicaoConta(conta)}
               disabled={submitting}
               title="Editar conta"
             >
@@ -530,7 +516,6 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
             type="button"
             className={`card-action-btn ${isArquivada ? 'success' : 'archive'}`}
             onClick={() => {
-              console.log(isArquivada ? 'Desarquivando' : 'Arquivando', 'conta:', conta.nome);
               if (isArquivada) {
                 iniciarDesarquivamento(conta);
               } else {
@@ -554,289 +539,292 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay active">
-      <div className="forms-modal-container">
-        {/* Header */}
-        <div className="modal-header">
-          <div className="modal-header-content">
-            <div className="modal-icon-container modal-icon-primary">
-              <Building size={18} />
-            </div>
-            <div>
-              <h2 className="modal-title">Gerenciar Contas</h2>
-              <p className="modal-subtitle">
-                {resumo.totalAtivas} ativa{resumo.totalAtivas !== 1 ? 's' : ''} • 
-                {resumo.totalArquivadas > 0 && ` ${resumo.totalArquivadas} arquivada${resumo.totalArquivadas !== 1 ? 's' : ''} • `}
-                Total: {formatCurrency(resumo.saldoTotal)}
-              </p>
-            </div>
-          </div>
-          <button className="modal-close" onClick={onClose}>
-            <X size={18} />
-          </button>
-        </div>
-        
-        {/* Body */}
-        <div className="modal-body">
-          {loading ? (
-            <div className="loading-container">
-              <div className="loading-spinner"></div>
-              <p className="loading-text">Carregando contas...</p>
-            </div>
-          ) : (
-            <>
-              {/* Controles superiores - sempre visíveis */}
-              <div className="controls-container mb-3">
-                <button
-                  onClick={() => setMostrarArquivadas(!mostrarArquivadas)}
-                  className={`btn-secondary ${mostrarArquivadas ? 'active' : ''}`}
-                >
-                  {mostrarArquivadas ? <EyeOff size={14} /> : <Eye size={14} />}
-                  {mostrarArquivadas ? 'Ocultar Arquivadas' : 'Ver Arquivadas'}
-                  {resumo.totalArquivadas > 0 && (
-                    <span className="count-badge">{resumo.totalArquivadas}</span>
-                  )}
-                </button>
-                
-                {!modoFormulario ? (
-                  <button
-                    onClick={iniciarCriacaoConta}
-                    disabled={submitting}
-                    className="btn-primary"
-                  >
-                    <Plus size={14} />
-                    Nova Conta
-                  </button>
-                ) : (
-                  <button
-                    onClick={resetFormulario}
-                    disabled={submitting}
-                    className="btn-cancel"
-                  >
-                    <X size={14} />
-                    Cancelar
-                  </button>
-                )}
+    <>
+      {/* MODAL PRINCIPAL - Z-INDEX: 1000 */}
+      <div className="modal-overlay active" style={{ zIndex: 1000 }}>
+        <div className="forms-modal-container">
+          {/* Header */}
+          <div className="modal-header">
+            <div className="modal-header-content">
+              <div className="modal-icon-container modal-icon-primary">
+                <Building size={18} />
               </div>
-
-              {/* Resumo financeiro */}
-              {(contas.length > 0 || contasArquivadas.length > 0) && (
-                <div className="summary-panel mb-3">
-                  <div className="summary-stats">
-                    <div className="stat-item">
-                      <div className="stat-label">Saldo Total</div>
-                      <div className={`stat-value ${resumo.saldoTotal >= 0 ? 'positive' : 'negative'}`}>
-                        {formatCurrency(resumo.saldoTotal)}
-                      </div>
-                    </div>
-                    <div className="stat-item">
-                      <div className="stat-label">Positivas</div>
-                      <div className="stat-value positive">{resumo.contasPositivas}</div>
-                    </div>
-                    <div className="stat-item">
-                      <div className="stat-label">Negativas</div>
-                      <div className="stat-value negative">{resumo.contasNegativas}</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Formulário de conta */}
-              {modoFormulario && (
-                <div className="section-block mb-3">
-                  <h3 className="section-title">
-                    {modoFormulario === 'editar' ? 'Editar Conta' : 'Nova Conta'}
-                  </h3>
-
-                  <form onSubmit={submeterFormulario}>
-                    {/* Nome e Tipo */}
-                    <div className="flex gap-3 row mb-3">
-                      <div className="flex flex-col">
-                        <label className="form-label">
-                          <Building size={14} />
-                          Nome da Conta *
-                        </label>
-                        <input
-                          ref={nomeInputRef}
-                          type="text"
-                          name="nome"
-                          value={formData.nome}
-                          onChange={handleInputChange}
-                          placeholder="Ex: Banco do Brasil, Nubank"
-                          disabled={submitting}
-                          className={`input-text ${formErrors.nome ? 'error' : ''}`}
-                        />
-                        {formErrors.nome && <div className="form-error">{formErrors.nome}</div>}
-                      </div>
-                      
-                      <div className="flex flex-col">
-                        <label className="form-label">
-                          <FileText size={14} />
-                          Tipo *
-                        </label>
-                        <div className="select-search">
-                          <select
-                            name="tipo"
-                            value={formData.tipo}
-                            onChange={handleInputChange}
-                            disabled={submitting}
-                            className={formErrors.tipo ? 'error' : ''}
-                          >
-                            {tiposConta.map(tipo => (
-                              <option key={tipo.value} value={tipo.value}>
-                                {tipo.icon} {tipo.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        {formErrors.tipo && <div className="form-error">{formErrors.tipo}</div>}
-                      </div>
-                    </div>
-
-                    {/* Banco e Saldo */}
-                    <div className="flex gap-3 row mb-3">
-                      <div className="flex flex-col">
-                        <label className="form-label">
-                          <Building size={14} />
-                          Banco 
-                          <span className="form-label-small">(opcional)</span>
-                        </label>
-                        <input
-                          type="text"
-                          name="banco"
-                          value={formData.banco}
-                          onChange={handleInputChange}
-                          placeholder="Ex: Itaú, Santander"
-                          disabled={submitting}
-                          className="input-text"
-                        />
-                      </div>
-                      
-                      <div className="flex flex-col">
-                        <label className="form-label">
-                          <DollarSign size={14} />
-                          Saldo
-                          <span className="form-label-small">(Ex: 1000 ou -500,00)</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.saldoInicial}
-                          onChange={handleSaldoChange}
-                          placeholder="0,00"
-                          disabled={submitting}
-                          className={`input-money ${parseValorInput(formData.saldoInicial) >= 0 ? 'positive' : 'negative'}`}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Seletor de Cor */}
-                    <div className="flex flex-col mb-3">
-                      <label className="form-label">
-                        <Palette size={14} />
-                        Cor da Conta
-                      </label>
-                      <div className="color-picker">
-                        {coresPredefinidas.map(cor => (
-                          <button
-                            key={cor}
-                            type="button"
-                            onClick={() => handleCorChange(cor)}
-                            disabled={submitting}
-                            className={`color-option ${formData.cor === cor ? 'active' : ''}`}
-                            style={{ backgroundColor: cor }}
-                            title={`Cor: ${cor}`}
-                          />
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Ações do formulário */}
-                    <div className="flex gap-3 row">
-                      <button
-                        type="button"
-                        onClick={resetFormulario}
-                        disabled={submitting}
-                        className="btn-cancel"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={submitting}
-                        className="btn-primary"
-                      >
-                        {submitting ? (
-                          <>
-                            <span className="btn-spinner"></span>
-                            Salvando...
-                          </>
-                        ) : (
-                          <>
-                            {modoFormulario === 'editar' ? <Edit size={14} /> : <Plus size={14} />}
-                            {modoFormulario === 'editar' ? 'Atualizar Conta' : 'Criar Conta'}
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              )}
-
-              {/* Lista de Contas Ativas */}
-              {!modoFormulario && contas.length > 0 && (
-                <div className="mb-3">
-                  <h3 className="section-title">Contas Ativas ({contas.length})</h3>
-                  <div className="account-list">
-                    {contas.map(conta => renderConta(conta, false))}
-                  </div>
-                </div>
-              )}
-
-              {/* Lista de Contas Arquivadas */}
-              {!modoFormulario && mostrarArquivadas && contasArquivadas.length > 0 && (
-                <div className="mb-3">
-                  <h3 className="section-title archived">Contas Arquivadas ({contasArquivadas.length})</h3>
-                  <div className="account-list">
-                    {contasArquivadas.map(conta => renderConta(conta, true))}
-                  </div>
-                </div>
-              )}
-
-              {/* Estado vazio */}
-              {!modoFormulario && contas.length === 0 && !loading && (
-                <div className="empty-state">
-                  <Building size={48} className="empty-state-icon" />
-                  <h3 className="empty-state-title">
-                    {contasArquivadas.length > 0 ? 
-                      'Todas as contas estão arquivadas' : 
-                      'Nenhuma conta cadastrada'
-                    }
-                  </h3>
-                  <p className="empty-state-description">
-                    {contasArquivadas.length > 0 ? 
-                      'Use o botão "Ver Arquivadas" para visualizar suas contas arquivadas' :
-                      'Crie sua primeira conta para começar a controlar suas finanças'
-                    }
-                  </p>
+              <div>
+                <h2 className="modal-title">Gerenciar Contas</h2>
+                <p className="modal-subtitle">
+                  {resumo.totalAtivas} ativa{resumo.totalAtivas !== 1 ? 's' : ''} • 
+                  {resumo.totalArquivadas > 0 && ` ${resumo.totalArquivadas} arquivada${resumo.totalArquivadas !== 1 ? 's' : ''} • `}
+                  Total: {formatCurrency(resumo.saldoTotal)}
+                </p>
+              </div>
+            </div>
+            <button className="modal-close" onClick={onClose}>
+              <X size={18} />
+            </button>
+          </div>
+          
+          {/* Body */}
+          <div className="modal-body">
+            {loading ? (
+              <div className="loading-container">
+                <div className="loading-spinner"></div>
+                <p className="loading-text">Carregando contas...</p>
+              </div>
+            ) : (
+              <>
+                {/* Controles superiores */}
+                <div className="controls-container mb-3">
                   <button
-                    onClick={iniciarCriacaoConta}
-                    className="btn-primary"
+                    onClick={() => setMostrarArquivadas(!mostrarArquivadas)}
+                    className={`btn-secondary ${mostrarArquivadas ? 'active' : ''}`}
                   >
-                    <Plus size={16} />
-                    Criar Primeira Conta
+                    {mostrarArquivadas ? <EyeOff size={14} /> : <Eye size={14} />}
+                    {mostrarArquivadas ? 'Ocultar Arquivadas' : 'Ver Arquivadas'}
+                    {resumo.totalArquivadas > 0 && (
+                      <span className="count-badge">{resumo.totalArquivadas}</span>
+                    )}
                   </button>
+                  
+                  {!modoFormulario ? (
+                    <button
+                      onClick={iniciarCriacaoConta}
+                      disabled={submitting}
+                      className="btn-primary"
+                    >
+                      <Plus size={14} />
+                      Nova Conta
+                    </button>
+                  ) : (
+                    <button
+                      onClick={resetFormulario}
+                      disabled={submitting}
+                      className="btn-cancel"
+                    >
+                      <X size={14} />
+                      Cancelar
+                    </button>
+                  )}
                 </div>
-              )}
-            </>
-          )}
+
+                {/* Resumo financeiro */}
+                {(contas.length > 0 || contasArquivadas.length > 0) && (
+                  <div className="summary-panel mb-3">
+                    <div className="summary-stats">
+                      <div className="stat-item">
+                        <div className="stat-label">Saldo Total</div>
+                        <div className={`stat-value ${resumo.saldoTotal >= 0 ? 'positive' : 'negative'}`}>
+                          {formatCurrency(resumo.saldoTotal)}
+                        </div>
+                      </div>
+                      <div className="stat-item">
+                        <div className="stat-label">Positivas</div>
+                        <div className="stat-value positive">{resumo.contasPositivas}</div>
+                      </div>
+                      <div className="stat-item">
+                        <div className="stat-label">Negativas</div>
+                        <div className="stat-value negative">{resumo.contasNegativas}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Formulário de conta */}
+                {modoFormulario && (
+                  <div className="section-block mb-3">
+                    <h3 className="section-title">
+                      {modoFormulario === 'editar' ? 'Editar Conta' : 'Nova Conta'}
+                    </h3>
+
+                    <form onSubmit={submeterFormulario}>
+                      {/* Nome e Tipo */}
+                      <div className="flex gap-3 row mb-3">
+                        <div className="flex flex-col">
+                          <label className="form-label">
+                            <Building size={14} />
+                            Nome da Conta *
+                          </label>
+                          <input
+                            ref={nomeInputRef}
+                            type="text"
+                            name="nome"
+                            value={formData.nome}
+                            onChange={handleInputChange}
+                            placeholder="Ex: Banco do Brasil, Nubank"
+                            disabled={submitting}
+                            className={`input-text ${formErrors.nome ? 'error' : ''}`}
+                          />
+                          {formErrors.nome && <div className="form-error">{formErrors.nome}</div>}
+                        </div>
+                        
+                        <div className="flex flex-col">
+                          <label className="form-label">
+                            <FileText size={14} />
+                            Tipo *
+                          </label>
+                          <div className="select-search">
+                            <select
+                              name="tipo"
+                              value={formData.tipo}
+                              onChange={handleInputChange}
+                              disabled={submitting}
+                              className={formErrors.tipo ? 'error' : ''}
+                            >
+                              {tiposConta.map(tipo => (
+                                <option key={tipo.value} value={tipo.value}>
+                                  {tipo.icon} {tipo.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          {formErrors.tipo && <div className="form-error">{formErrors.tipo}</div>}
+                        </div>
+                      </div>
+
+                      {/* Banco e Saldo */}
+                      <div className="flex gap-3 row mb-3">
+                        <div className="flex flex-col">
+                          <label className="form-label">
+                            <Building size={14} />
+                            Banco 
+                            <span className="form-label-small">(opcional)</span>
+                          </label>
+                          <input
+                            type="text"
+                            name="banco"
+                            value={formData.banco}
+                            onChange={handleInputChange}
+                            placeholder="Ex: Itaú, Santander"
+                            disabled={submitting}
+                            className="input-text"
+                          />
+                        </div>
+                        
+                        <div className="flex flex-col">
+                          <label className="form-label">
+                            <DollarSign size={14} />
+                            Saldo
+                            <span className="form-label-small">(Ex: 1000 ou -500,00)</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.saldoInicial}
+                            onChange={handleSaldoChange}
+                            placeholder="0,00"
+                            disabled={submitting}
+                            className={`input-money ${parseValorInput(formData.saldoInicial) >= 0 ? 'positive' : 'negative'}`}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Seletor de Cor */}
+                      <div className="flex flex-col mb-3">
+                        <label className="form-label">
+                          <Palette size={14} />
+                          Cor da Conta
+                        </label>
+                        <div className="color-picker">
+                          {coresPredefinidas.map(cor => (
+                            <button
+                              key={cor}
+                              type="button"
+                              onClick={() => handleCorChange(cor)}
+                              disabled={submitting}
+                              className={`color-option ${formData.cor === cor ? 'active' : ''}`}
+                              style={{ backgroundColor: cor }}
+                              title={`Cor: ${cor}`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Ações do formulário */}
+                      <div className="flex gap-3 row">
+                        <button
+                          type="button"
+                          onClick={resetFormulario}
+                          disabled={submitting}
+                          className="btn-cancel"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={submitting}
+                          className="btn-primary"
+                        >
+                          {submitting ? (
+                            <>
+                              <span className="btn-spinner"></span>
+                              Salvando...
+                            </>
+                          ) : (
+                            <>
+                              {modoFormulario === 'editar' ? <Edit size={14} /> : <Plus size={14} />}
+                              {modoFormulario === 'editar' ? 'Atualizar Conta' : 'Criar Conta'}
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
+                {/* Lista de Contas Ativas */}
+                {!modoFormulario && contas.length > 0 && (
+                  <div className="mb-3">
+                    <h3 className="section-title">Contas Ativas ({contas.length})</h3>
+                    <div className="account-list">
+                      {contas.map(conta => renderConta(conta, false))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Lista de Contas Arquivadas */}
+                {!modoFormulario && mostrarArquivadas && contasArquivadas.length > 0 && (
+                  <div className="mb-3">
+                    <h3 className="section-title archived">Contas Arquivadas ({contasArquivadas.length})</h3>
+                    <div className="account-list">
+                      {contasArquivadas.map(conta => renderConta(conta, true))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Estado vazio */}
+                {!modoFormulario && contas.length === 0 && !loading && (
+                  <div className="empty-state">
+                    <Building size={48} className="empty-state-icon" />
+                    <h3 className="empty-state-title">
+                      {contasArquivadas.length > 0 ? 
+                        'Todas as contas estão arquivadas' : 
+                        'Nenhuma conta cadastrada'
+                      }
+                    </h3>
+                    <p className="empty-state-description">
+                      {contasArquivadas.length > 0 ? 
+                        'Use o botão "Ver Arquivadas" para visualizar suas contas arquivadas' :
+                        'Crie sua primeira conta para começar a controlar suas finanças'
+                      }
+                    </p>
+                    <button
+                      onClick={iniciarCriacaoConta}
+                      className="btn-primary"
+                    >
+                      <Plus size={16} />
+                      Criar Primeira Conta
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* MODAIS */}
+      {/* MODAIS ANINHADOS - Z-INDEX: 1100 */}
 
       {/* Modal de Correção de Saldo */}
       {modalCorreirSaldo.ativo && (
-        <div className="modal-overlay active">
+        <div className="modal-overlay active" style={{ zIndex: 1100 }}>
           <div className="forms-modal-container modal-small">
             <div className="modal-header">
               <div className="modal-header-content">
@@ -962,7 +950,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
 
       {/* Modal de Arquivamento */}
       {modalArquivar.ativo && (
-        <div className="modal-overlay active">
+        <div className="modal-overlay active" style={{ zIndex: 1100 }}>
           <div className="forms-modal-container modal-small">
             <div className="modal-header">
               <div className="modal-header-content">
@@ -1043,7 +1031,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
 
       {/* Modal de Desarquivamento */}
       {modalDesarquivar.ativo && (
-        <div className="modal-overlay active">
+        <div className="modal-overlay active" style={{ zIndex: 1100 }}>
           <div className="forms-modal-container modal-small">
             <div className="modal-header">
               <div className="modal-header-content">
@@ -1106,7 +1094,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

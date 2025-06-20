@@ -3222,4 +3222,16 @@
   .confirmation-text {
     font-size: 15px;
   }
+  .modal-overlay-confirmation {
+    z-index: 9999 !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
 }

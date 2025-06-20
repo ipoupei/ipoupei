@@ -1,4 +1,4 @@
-// src/modules/transacoes/components/DespesasCartaoModal.jsx - CSS PURO SEM ESTILOS INLINE
+// src/modules/transacoes/components/DespesasCartaoModal.jsx - OTIMIZADO COM ZUSTAND
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -14,39 +14,61 @@ import {
   Search
 } from 'lucide-react';
 
+// ✅ OTIMIZAÇÃO: Usar stores e hooks existentes
 import { useAuthStore } from '@modules/auth/store/authStore';
 import { useUIStore } from '@store/uiStore';
+import useCartoesStore from '@modules/cartoes/store/cartoesStore';
+import useCategorias from '@modules/categorias/hooks/useCategorias';
+import useCartoes from '@modules/cartoes/hooks/useCartoes';
+
 import { formatCurrency } from '@utils/formatCurrency';
 import { supabase } from '@lib/supabaseClient';
 import '@shared/styles/FormsModal.css';
 
 /**
- * Modal de Despesas Cartão - CSS Puro Sem Estilos Inline
- * Aplicação correta das classes FormsModal.css
- * Zero estilos inline para máxima consistência
+ * Modal de Despesas Cartão - OTIMIZADO COM ZUSTAND E HOOKS
+ * ✅ MELHORIAS IMPLEMENTADAS:
+ * - Usar useCartoesStore para dados dos cartões (cache)
+ * - Usar useCategoriasStore para categorias (cache)
+ * - Usar useCartoes.adicionarDespesaCartao() para salvar
+ * - Calcular fatura_vencimento via RPC existente
+ * - Menos fetches diretos, mais reuso de dados
  */
 const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
   const { user } = useAuthStore();
   const { showNotification } = useUIStore();
   
+  // ✅ OTIMIZAÇÃO: Usar stores em vez de estado local
+  const { 
+    cartoes, 
+    cartoesAtivos,
+    loading: isLoadingCartoes,
+    fetchCartoes,
+    adicionarDespesaCartao 
+  } = useCartoes();
+  
+  const { 
+    categorias, 
+    loading: isLoadingCategorias,
+    addCategoria,
+    addSubcategoria,
+    getCategoriasPorTipo,
+    getSubcategoriasPorCategoria
+  } = useCategorias();
+  
   const valorInputRef = useRef(null);
 
-  // Estados principais
+  // Estados reduzidos (apenas o que não está no store)
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Estados para dados
-  const [categorias, setCategorias] = useState([]);
-  const [subcategorias, setSubcategorias] = useState([]);
-  const [cartoes, setCartoes] = useState([]);
-
-  // Estados para dropdowns
+  // Estados para dropdowns (UI local)
   const [categoriaDropdownOpen, setCategoriaDropdownOpen] = useState(false);
   const [subcategoriaDropdownOpen, setSubcategoriaDropdownOpen] = useState(false);
   const [categoriasFiltradas, setCategoriasFiltradas] = useState([]);
   const [subcategoriasFiltradas, setSubcategoriasFiltradas] = useState([]);
 
-  // Estado para confirmação
+  // Estado para confirmação (UI local)
   const [confirmacao, setConfirmacao] = useState({
     show: false,
     type: '',
@@ -54,7 +76,7 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     categoriaId: ''
   });
 
-  // Estado do formulário
+  // Estado do formulário (local)
   const [formData, setFormData] = useState({
     valorTotal: '',
     dataCompra: new Date().toISOString().split('T')[0],
@@ -71,52 +93,67 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
 
   const [errors, setErrors] = useState({});
 
-  // Carregar dados quando modal abre
+  // ✅ OTIMIZAÇÃO: Carregar dados via stores quando modal abre
   useEffect(() => {
     if (isOpen && user) {
-      carregarDados();
+      carregarDadosOtimizado();
     }
   }, [isOpen, user]);
 
-  const carregarDados = async () => {
+  const carregarDadosOtimizado = async () => {
     if (!user) return;
     
     setLoading(true);
     try {
-      const [categoriasRes, subcategoriasRes, cartoesRes] = await Promise.all([
-        supabase.from('categorias').select('*').eq('usuario_id', user.id).eq('tipo', 'despesa').eq('ativo', true).order('nome'),
-        supabase.from('subcategorias').select('*').eq('usuario_id', user.id).eq('ativo', true).order('nome'),
-        supabase.from('cartoes').select('*').eq('usuario_id', user.id).eq('ativo', true).order('nome')
-      ]);
-
-      setCategorias(categoriasRes.data || []);
-      setSubcategorias(subcategoriasRes.data || []);
-      setCartoes(cartoesRes.data || []);
+      // ✅ USAR HOOKS: Os dados já estão sendo carregados automaticamente pelos hooks
+      // useCategorias já carrega automaticamente quando o usuário está autenticado
+      // useCartoes já carrega automaticamente quando o usuário está autenticado
+      
+      // Apenas force refresh se necessário
+      if (cartoesAtivos.length === 0) {
+        await fetchCartoes(true); // force refresh
+      }
+      
+      console.log('✅ Dados carregados via hooks:', {
+        cartoes: cartoesAtivos.length,
+        categorias: categoriasDisponiveis.length,
+        subcategorias: todasSubcategorias.length
+      });
+      
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
+      console.error('Erro ao carregar dados via hooks:', error);
       showNotification('Erro ao carregar dados', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  // Dados derivados
-  const cartoesAtivos = useMemo(() => 
-    cartoes.filter(cartao => cartao.ativo !== false), 
-    [cartoes]
+  // ✅ OTIMIZAÇÃO: Dados derivados dos hooks
+  const categoriasDisponiveis = useMemo(() => 
+    getCategoriasPorTipo('despesa'), 
+    [getCategoriasPorTipo]
   );
 
+  const todasSubcategorias = useMemo(() => {
+    return categorias.reduce((acc, categoria) => {
+      if (categoria.subcategorias && categoria.subcategorias.length > 0) {
+        acc.push(...categoria.subcategorias);
+      }
+      return acc;
+    }, []);
+  }, [categorias]);
+
   const categoriaSelecionada = useMemo(() => 
-    categorias.find(cat => cat.id === formData.categoria), 
-    [categorias, formData.categoria]
+    categoriasDisponiveis.find(cat => cat.id === formData.categoria), 
+    [categoriasDisponiveis, formData.categoria]
   );
 
   const subcategoriasDaCategoria = useMemo(() => 
-    subcategorias.filter(sub => sub.categoria_id === formData.categoria), 
-    [subcategorias, formData.categoria]
+    getSubcategoriasPorCategoria(formData.categoria), 
+    [getSubcategoriasPorCategoria, formData.categoria]
   );
 
-  // Opções de parcelamento
+  // Opções de parcelamento (mantido)
   const opcoesParcelamento = useMemo(() => 
     Array.from({ length: 24 }, (_, i) => ({
       value: i + 1,
@@ -125,7 +162,7 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     []
   );
 
-  // Formatação de valor
+  // Formatação de valor (mantido)
   const formatarValor = useCallback((valor) => {
     const apenasNumeros = valor.toString().replace(/\D/g, '');
     if (!apenasNumeros || apenasNumeros === '0') return '';
@@ -137,7 +174,7 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     });
   }, []);
 
-  // Valor numérico
+  // Valor numérico (mantido)
   const valorNumerico = useMemo(() => {
     if (!formData.valorTotal) return 0;
     const valorString = formData.valorTotal.toString();
@@ -159,8 +196,35 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     [valorNumerico, formData.numeroParcelas]
   );
 
-  // Função para calcular opções de fatura
-  const calcularOpcoesFatura = useCallback(() => {
+  // ✅ OTIMIZAÇÃO: Usar RPC existente para calcular fatura
+  const calcularOpcoesFatura = useCallback(async () => {
+    if (!formData.dataCompra || !formData.cartaoId) return [];
+    
+    try {
+      console.log('🧮 Calculando opções de fatura via RPC');
+      
+      // ✅ USAR RPC: buscar_opcoes_fatura (se existir) ou calcular_fatura_vencimento
+      const { data: opcoesFatura, error } = await supabase
+        .rpc('buscar_opcoes_fatura', {
+          p_cartao_id: formData.cartaoId,
+          p_data_compra: formData.dataCompra
+        });
+        
+      if (error) {
+        console.warn('RPC buscar_opcoes_fatura não encontrada, usando fallback');
+        return calcularOpcoesFaturaFallback();
+      }
+      
+      return opcoesFatura || [];
+      
+    } catch (error) {
+      console.error('Erro ao calcular opções via RPC:', error);
+      return calcularOpcoesFaturaFallback();
+    }
+  }, [formData.dataCompra, formData.cartaoId]);
+
+  // Fallback para cálculo de fatura (mantido como estava)
+  const calcularOpcoesFaturaFallback = useCallback(() => {
     if (!formData.dataCompra || !formData.cartaoId) return [];
     
     const cartao = cartoesAtivos.find(c => c.id === formData.cartaoId);
@@ -172,12 +236,10 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     
     const opcoes = [];
     
-    // Gera 6 opções: 2 antes da calculada + calculada + 3 depois
     for (let i = -2; i <= 3; i++) {
       const dataFechamento = new Date(dataCompra.getFullYear(), dataCompra.getMonth() + i, diaFechamento);
       const dataVencimento = new Date(dataCompra.getFullYear(), dataCompra.getMonth() + i, diaVencimento);
       
-      // Se vencimento é antes do fechamento, é do mês seguinte
       if (diaVencimento <= diaFechamento) {
         dataVencimento.setMonth(dataVencimento.getMonth() + 1);
       }
@@ -197,16 +259,25 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     return opcoes;
   }, [formData.dataCompra, formData.cartaoId, cartoesAtivos]);
 
-  const opcoesFatura = useMemo(() => calcularOpcoesFatura(), [calcularOpcoesFatura]);
+  const [opcoesFatura, setOpcoesFatura] = useState([]);
 
-  // Effects para filtros de categoria
+  // Effect para calcular opções de fatura
   useEffect(() => {
-    if (!categorias.length) return;
+    if (formData.cartaoId && formData.dataCompra) {
+      calcularOpcoesFatura().then(setOpcoesFatura);
+    } else {
+      setOpcoesFatura([]);
+    }
+  }, [formData.cartaoId, formData.dataCompra, calcularOpcoesFatura]);
+
+  // Effects para filtros (mantidos)
+  useEffect(() => {
+    if (!categoriasDisponiveis.length) return;
     const filtradas = formData.categoriaTexto 
-      ? categorias.filter(cat => cat.nome.toLowerCase().includes(formData.categoriaTexto.toLowerCase()))
-      : categorias;
+      ? categoriasDisponiveis.filter(cat => cat.nome.toLowerCase().includes(formData.categoriaTexto.toLowerCase()))
+      : categoriasDisponiveis;
     setCategoriasFiltradas(filtradas);
-  }, [formData.categoriaTexto, categorias]);
+  }, [formData.categoriaTexto, categoriasDisponiveis]);
 
   useEffect(() => {
     if (!subcategoriasDaCategoria.length) {
@@ -232,7 +303,7 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     }
   }, [formData.cartaoId, formData.dataCompra, opcoesFatura, formData.faturaVencimento]);
 
-  // Reset form
+  // Reset form (mantido)
   const resetForm = useCallback(() => {
     const dataAtual = new Date().toISOString().split('T')[0];
     setFormData({
@@ -262,7 +333,7 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     }
   }, [isOpen, resetForm]);
 
-  // Handler para ESC e cancelar
+  // Handler para ESC e cancelar (mantido)
   const handleCancelar = useCallback(() => {
     resetForm();
     onClose();
@@ -281,7 +352,7 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     }
   }, [isOpen, handleCancelar]);
 
-  // Handlers de input
+  // Handlers de input (mantidos)
   const handleInputChange = useCallback((e) => {
     const { name, value } = e.target;
     
@@ -319,7 +390,7 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     }
   }, [errors]);
 
-  // Handler de valor
+  // Handler de valor (mantido)
   const handleValorChange = useCallback((e) => {
     const valorFormatado = formatarValor(e.target.value);
     setFormData(prev => ({ ...prev, valorTotal: valorFormatado }));
@@ -328,7 +399,7 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     }
   }, [formatarValor, errors.valorTotal]);
 
-  // Handlers de categoria
+  // Handlers de categoria (mantidos)
   const handleCategoriaChange = useCallback((e) => {
     const { value } = e.target;
     setFormData(prev => ({
@@ -359,7 +430,7 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     const timer = setTimeout(() => {
       setCategoriaDropdownOpen(false);
       if (formData.categoriaTexto && !formData.categoria) {
-        const existe = categorias.find(cat => 
+        const existe = categoriasDisponiveis.find(cat => 
           cat.nome.toLowerCase() === formData.categoriaTexto.toLowerCase()
         );
         if (!existe) {
@@ -373,9 +444,9 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
       }
     }, 200);
     return () => clearTimeout(timer);
-  }, [formData.categoriaTexto, formData.categoria, categorias]);
+  }, [formData.categoriaTexto, formData.categoria, categoriasDisponiveis]);
 
-  // Handlers de subcategoria
+  // Handlers de subcategoria (mantidos)
   const handleSubcategoriaChange = useCallback((e) => {
     const { value } = e.target;
     setFormData(prev => ({ 
@@ -417,59 +488,42 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     return () => clearTimeout(timer);
   }, [formData.subcategoriaTexto, formData.subcategoria, formData.categoria, categoriaSelecionada, subcategoriasDaCategoria]);
 
-  // Criar categoria/subcategoria
+  // ✅ OTIMIZAÇÃO: Usar hook para criar categoria/subcategoria
   const handleConfirmarCriacao = useCallback(async () => {
     try {
       if (confirmacao.type === 'categoria') {
-        const { data, error } = await supabase
-          .from('categorias')
-          .insert([{
-            nome: confirmacao.nome,
-            tipo: 'despesa',
-            cor: '#EF4444',
-            usuario_id: user.id,
-            ativo: true,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }])
-          .select()
-          .single();
+        const resultado = await addCategoria({
+          nome: confirmacao.nome,
+          tipo: 'despesa',
+          cor: '#EF4444'
+        });
         
-        if (error) throw error;
-        
-        setFormData(prev => ({
-          ...prev,
-          categoria: data.id,
-          categoriaTexto: data.nome
-        }));
-        
-        setCategorias(prev => [...prev, data]);
-        showNotification(`Categoria "${confirmacao.nome}" criada com sucesso!`, 'success');
+        if (resultado.success) {
+          setFormData(prev => ({
+            ...prev,
+            categoria: resultado.data.id,
+            categoriaTexto: resultado.data.nome
+          }));
+          showNotification(`Categoria "${confirmacao.nome}" criada com sucesso!`, 'success');
+        } else {
+          throw new Error(resultado.error);
+        }
         
       } else if (confirmacao.type === 'subcategoria') {
-        const { data, error } = await supabase
-          .from('subcategorias')
-          .insert([{
-            nome: confirmacao.nome,
-            categoria_id: confirmacao.categoriaId,
-            usuario_id: user.id,
-            ativo: true,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }])
-          .select()
-          .single();
+        const resultado = await addSubcategoria(confirmacao.categoriaId, {
+          nome: confirmacao.nome
+        });
         
-        if (error) throw error;
-        
-        setFormData(prev => ({
-          ...prev,
-          subcategoria: data.id,
-          subcategoriaTexto: data.nome
-        }));
-        
-        setSubcategorias(prev => [...prev, data]);
-        showNotification(`Subcategoria "${confirmacao.nome}" criada com sucesso!`, 'success');
+        if (resultado.success) {
+          setFormData(prev => ({
+            ...prev,
+            subcategoria: resultado.data.id,
+            subcategoriaTexto: resultado.data.nome
+          }));
+          showNotification(`Subcategoria "${confirmacao.nome}" criada com sucesso!`, 'success');
+        } else {
+          throw new Error(resultado.error);
+        }
       }
     } catch (error) {
       console.error('❌ Erro ao criar categoria/subcategoria:', error);
@@ -477,9 +531,9 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     }
     
     setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
-  }, [confirmacao, user.id, showNotification]);
+  }, [confirmacao, addCategoria, addSubcategoria, showNotification]);
 
-  // Validação
+  // Validação (mantida)
   const validateForm = useCallback(() => {
     const newErrors = {};
     
@@ -515,51 +569,59 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     return Object.keys(newErrors).length === 0;
   }, [formData, valorNumerico]);
 
-  // Salvar parcelas
-  const salvarParcelas = useCallback(async () => {
-    const valorParcelaCalc = valorNumerico / formData.numeroParcelas;
-    const grupoParcelamento = crypto.randomUUID();
-    
-    const parcelas = [];
-    
-    for (let i = 1; i <= formData.numeroParcelas; i++) {
-      // Calcular data de vencimento para cada parcela
-      const dataVencimento = new Date(formData.faturaVencimento);
-      dataVencimento.setMonth(dataVencimento.getMonth() + (i - 1));
-      
-      parcelas.push({
-        usuario_id: user.id,
+  // ✅ OTIMIZAÇÃO: Usar hook useCartoes.adicionarDespesaCartao()
+  const salvarDespesaCartao = useCallback(async () => {
+    try {
+      // ✅ PREPARAR: Dados para cada parcela
+      const dadosBase = {
         data: formData.dataCompra,
-        descricao: formData.descricao.trim() + (formData.numeroParcelas > 1 ? ` (${i}/${formData.numeroParcelas})` : ''),
+        descricao: formData.descricao.trim(),
         categoria_id: formData.categoria,
         subcategoria_id: formData.subcategoria || null,
-        cartao_id: formData.cartaoId,
-        valor: valorParcelaCalc,
-        tipo: 'despesa',
-        efetivado: true,
-        recorrente: false,
-        transferencia: false,
-        parcela_atual: i,
-        total_parcelas: formData.numeroParcelas,
-        grupo_parcelamento: grupoParcelamento,
-        fatura_vencimento: dataVencimento.toISOString().split('T')[0],
         observacoes: formData.observacoes.trim() || null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      });
-    }
-    
-    const { data, error } = await supabase
-      .from('transacoes')
-      .insert(parcelas)
-      .select();
-    
-    if (error) throw error;
-    
-    return data;
-  }, [formData, user.id, valorNumerico]);
+        fatura_vencimento: formData.faturaVencimento
+      };
 
-  // Submissão
+      // ✅ USAR HOOK: Para cada parcela, usar adicionarDespesaCartao do hook
+      const resultados = [];
+      
+      const valorParcelaCalc = valorNumerico / formData.numeroParcelas;
+      const grupoParcelamento = crypto.randomUUID();
+      
+      for (let i = 1; i <= formData.numeroParcelas; i++) {
+        // Calcular data de vencimento para cada parcela
+        const dataVencimento = new Date(formData.faturaVencimento);
+        dataVencimento.setMonth(dataVencimento.getMonth() + (i - 1));
+        
+        const dadosParcela = {
+          ...dadosBase,
+          descricao: dadosBase.descricao + (formData.numeroParcelas > 1 ? ` (${i}/${formData.numeroParcelas})` : ''),
+          valor: valorParcelaCalc,
+          parcela_atual: i,
+          total_parcelas: formData.numeroParcelas,
+          grupo_parcelamento: grupoParcelamento,
+          fatura_vencimento: dataVencimento.toISOString().split('T')[0]
+        };
+        
+        // ✅ USAR: Função do hook useCartoes
+        const resultado = await adicionarDespesaCartao(formData.cartaoId, dadosParcela);
+        resultados.push(resultado);
+        
+        if (!resultado.success) {
+          throw new Error(resultado.error || `Erro na parcela ${i}`);
+        }
+      }
+      
+      console.log('✅ Todas as parcelas salvas via hook:', resultados.length);
+      return resultados;
+      
+    } catch (error) {
+      console.error('❌ Erro ao salvar via hook:', error);
+      throw error;
+    }
+  }, [formData, valorNumerico, adicionarDespesaCartao]);
+
+  // ✅ OTIMIZAÇÃO: Submissão usando hook
   const handleSubmit = useCallback(async (e, criarNova = false) => {
     e.preventDefault();
     
@@ -571,7 +633,7 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     try {
       setSubmitting(true);
       
-      await salvarParcelas();
+      await salvarDespesaCartao();
       
       if (onSave) onSave();
       
@@ -602,9 +664,12 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     } finally {
       setSubmitting(false);
     }
-  }, [validateForm, salvarParcelas, onSave, showNotification, resetForm, onClose]);
+  }, [validateForm, salvarDespesaCartao, onSave, showNotification, resetForm, onClose]);
 
   if (!isOpen) return null;
+
+  // ✅ LOADING: Mostrar loading enquanto carrega dados dos hooks
+  const isLoadingData = loading || isLoadingCartoes || isLoadingCategorias;
 
   return (
     <div className={`modal-overlay ${isOpen ? 'active' : ''}`}>
@@ -627,7 +692,7 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
         
         {/* Body */}
         <div className="modal-body">
-          {loading ? (
+          {isLoadingData ? (
             <div className="loading-container">
               <div className="loading-spinner"></div>
               <p className="loading-text">Carregando dados...</p>
@@ -637,41 +702,42 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
               
               <h3 className="section-title">Informações da Compra</h3>
               
-          {/* Valor e Data */}
-          <div className="flex gap-3 row mb-3">
-            <div>
-              <label className="form-label">
-                <DollarSign size={14} />
-                Valor Total *
-              </label>
-              <input
-                ref={valorInputRef}
-                type="text"
-                value={formData.valorTotal}
-                onChange={handleValorChange}
-                placeholder="0,00"
-                disabled={submitting}
-                className={`input-money input-money-highlight ${errors.valorTotal ? 'error' : ''}`}
-              />
-              {errors.valorTotal && <div className="form-error">{errors.valorTotal}</div>}
-            </div>
-            
-            <div>
-              <label className="form-label">
-                <Calendar size={14} />
-                Data da Compra *
-              </label>
-              <input
-                type="date"
-                name="dataCompra"
-                value={formData.dataCompra}
-                onChange={handleInputChange}
-                disabled={submitting}
-                className={`input-date ${errors.dataCompra ? 'error' : ''}`}
-              />
-              {errors.dataCompra && <div className="form-error">{errors.dataCompra}</div>}
-            </div>
-          </div>
+              {/* Valor e Data */}
+              <div className="flex gap-3 row mb-3">
+                <div>
+                  <label className="form-label">
+                    <DollarSign size={14} />
+                    Valor Total *
+                  </label>
+                  <input
+                    ref={valorInputRef}
+                    type="text"
+                    value={formData.valorTotal}
+                    onChange={handleValorChange}
+                    placeholder="0,00"
+                    disabled={submitting}
+                    className={`input-money input-money-highlight ${errors.valorTotal ? 'error' : ''}`}
+                  />
+                  {errors.valorTotal && <div className="form-error">{errors.valorTotal}</div>}
+                </div>
+                
+                <div>
+                  <label className="form-label">
+                    <Calendar size={14} />
+                    Data da Compra *
+                  </label>
+                  <input
+                    type="date"
+                    name="dataCompra"
+                    value={formData.dataCompra}
+                    onChange={handleInputChange}
+                    disabled={submitting}
+                    className={`input-date ${errors.dataCompra ? 'error' : ''}`}
+                  />
+                  {errors.dataCompra && <div className="form-error">{errors.dataCompra}</div>}
+                </div>
+              </div>
+
               {/* Descrição */}
               <div className="flex flex-col mb-3">
                 <label className="form-label">
@@ -690,176 +756,177 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
                 {errors.descricao && <div className="form-error">{errors.descricao}</div>}
               </div>
 
-                {/* Categoria */}
+              {/* Categoria */}
+              <div className="flex flex-col mb-3">
+                <label className="form-label">
+                  <Tag size={14} />
+                  Categoria *
+                </label>
+                <div className="dropdown-container">
+                  <div style={{position: 'relative'}}>
+                    <input
+                      type="text"
+                      value={formData.categoriaTexto}
+                      onChange={handleCategoriaChange}
+                      onBlur={handleCategoriaBlur}
+                      onFocus={() => setCategoriaDropdownOpen(true)}
+                      placeholder="Digite ou selecione uma categoria"
+                      disabled={submitting}
+                      autoComplete="off"
+                      className={`input-text input-with-icon ${!formData.categoria ? 'input-muted' : ''} ${errors.categoria ? 'error' : ''}`}
+                      style={{
+                        paddingLeft: categoriaSelecionada ? '28px' : '10px'
+                      }}
+                    />
+                    {categoriaSelecionada && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: '8px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          width: '12px',
+                          height: '12px',
+                          borderRadius: '50%',
+                          backgroundColor: categoriaSelecionada.cor || '#ef4444',
+                          pointerEvents: 'none'
+                        }}
+                      />
+                    )}
+                    <Search size={14} className="input-search-icon" />
+                  </div>
+                  
+                  {categoriaDropdownOpen && categoriasFiltradas.length > 0 && (
+                    <div className="dropdown-options">
+                      {categoriasFiltradas.map(categoria => (
+                        <div
+                          key={categoria.id}
+                          onMouseDown={() => handleSelecionarCategoria(categoria)}
+                          className="dropdown-option"
+                        >
+                          <div 
+                            className="category-color-tag"
+                            style={{backgroundColor: categoria.cor || '#ef4444'}}
+                          ></div>
+                          {categoria.nome}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {errors.categoria && <div className="form-error">{errors.categoria}</div>}
+              </div>
+
+              {/* Subcategoria */}
+              {categoriaSelecionada && (
                 <div className="flex flex-col mb-3">
                   <label className="form-label">
                     <Tag size={14} />
-                    Categoria *
+                    Subcategoria ({subcategoriasDaCategoria.length} disponíveis)
                   </label>
                   <div className="dropdown-container">
                     <div style={{position: 'relative'}}>
                       <input
                         type="text"
-                        value={formData.categoriaTexto}
-                        onChange={handleCategoriaChange}
-                        onBlur={handleCategoriaBlur}
-                        onFocus={() => setCategoriaDropdownOpen(true)}
-                        placeholder="Digite ou selecione uma categoria"
+                        value={formData.subcategoriaTexto}
+                        onChange={handleSubcategoriaChange}
+                        onBlur={handleSubcategoriaBlur}
+                        onFocus={() => setSubcategoriaDropdownOpen(true)}
+                        placeholder="Digite ou selecione uma subcategoria"
                         disabled={submitting}
                         autoComplete="off"
-                        className={`input-text input-with-icon ${!formData.categoria ? 'input-muted' : ''} ${errors.categoria ? 'error' : ''}`}
+                        className="input-text input-with-icon"
                         style={{
-                          paddingLeft: categoriaSelecionada ? '28px' : '10px'
+                          paddingLeft: '28px'
                         }}
                       />
-                      {categoriaSelecionada && (
-                        <div
-                          style={{
-                            position: 'absolute',
-                            left: '8px',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            width: '12px',
-                            height: '12px',
-                            borderRadius: '50%',
-                            backgroundColor: categoriaSelecionada.cor || '#ef4444',
-                            pointerEvents: 'none'
-                          }}
-                        />
-                      )}
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: '8px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          width: '12px',
+                          height: '12px',
+                          borderRadius: '50%',
+                          backgroundColor: categoriaSelecionada.cor || '#ef4444',
+                          pointerEvents: 'none'
+                        }}
+                      />
                       <Search size={14} className="input-search-icon" />
                     </div>
                     
-                    {categoriaDropdownOpen && categoriasFiltradas.length > 0 && (
+                    {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
                       <div className="dropdown-options">
-                        {categoriasFiltradas.map(categoria => (
+                        {subcategoriasFiltradas.map(subcategoria => (
                           <div
-                            key={categoria.id}
-                            onMouseDown={() => handleSelecionarCategoria(categoria)}
+                            key={subcategoria.id}
+                            onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
                             className="dropdown-option"
                           >
                             <div 
                               className="category-color-tag"
-                              style={{backgroundColor: categoria.cor || '#ef4444'}}
+                              style={{backgroundColor: categoriaSelecionada.cor || '#ef4444'}}
                             ></div>
-                            {categoria.nome}
+                            {subcategoria.nome}
                           </div>
                         ))}
                       </div>
                     )}
                   </div>
-                  {errors.categoria && <div className="form-error">{errors.categoria}</div>}
                 </div>
-
-                {/* Subcategoria */}
-                {categoriaSelecionada && (
-                  <div className="flex flex-col mb-3">
-                    <label className="form-label">
-                      <Tag size={14} />
-                      Subcategoria ({subcategoriasDaCategoria.length} disponíveis)
-                    </label>
-                    <div className="dropdown-container">
-                      <div style={{position: 'relative'}}>
-                        <input
-                          type="text"
-                          value={formData.subcategoriaTexto}
-                          onChange={handleSubcategoriaChange}
-                          onBlur={handleSubcategoriaBlur}
-                          onFocus={() => setSubcategoriaDropdownOpen(true)}
-                          placeholder="Digite ou selecione uma subcategoria"
-                          disabled={submitting}
-                          autoComplete="off"
-                          className="input-text input-with-icon"
-                          style={{
-                            paddingLeft: '28px'
-                          }}
-                        />
-                        <div
-                          style={{
-                            position: 'absolute',
-                            left: '8px',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            width: '12px',
-                            height: '12px',
-                            borderRadius: '50%',
-                            backgroundColor: categoriaSelecionada.cor || '#ef4444',
-                            pointerEvents: 'none'
-                          }}
-                        />
-                        <Search size={14} className="input-search-icon" />
-                      </div>
-                      
-                      {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
-                        <div className="dropdown-options">
-                          {subcategoriasFiltradas.map(subcategoria => (
-                            <div
-                              key={subcategoria.id}
-                              onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
-                              className="dropdown-option"
-                            >
-                              <div 
-                                className="category-color-tag"
-                                style={{backgroundColor: categoriaSelecionada.cor || '#ef4444'}}
-                              ></div>
-                              {subcategoria.nome}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+              )}
 
               {/* Cartão e Parcelas */}
-                <div className="flex gap-3 row mb-3">
-                  <div>
-                    <label className="form-label">
-                      <CreditCard size={14} />
-                      Cartão *
-                    </label>
-                    <div className="select-search">
-                      <select
-                        name="cartaoId"
-                        value={formData.cartaoId}
-                        onChange={handleInputChange}
-                        disabled={submitting}
-                        className={errors.cartaoId ? 'error' : ''}
-                      >
-                        <option value="">Selecione um cartão</option>
-                        {cartoesAtivos.map(cartao => (
-                          <option key={cartao.id} value={cartao.id}>
-                            {cartao.nome} ({cartao.bandeira})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    {errors.cartaoId && <div className="form-error">{errors.cartaoId}</div>}
+              <div className="flex gap-3 row mb-3">
+                <div>
+                  <label className="form-label">
+                    <CreditCard size={14} />
+                    Cartão *
+                  </label>
+                  <div className="select-search">
+                    <select
+                      name="cartaoId"
+                      value={formData.cartaoId}
+                      onChange={handleInputChange}
+                      disabled={submitting}
+                      className={errors.cartaoId ? 'error' : ''}
+                    >
+                      <option value="">Selecione um cartão</option>
+                      {cartoesAtivos.map(cartao => (
+                        <option key={cartao.id} value={cartao.id}>
+                          {cartao.nome} ({cartao.bandeira})
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  
-                  <div>
-                    <label className="form-label">
-                      <Hash size={14} />
-                      Parcelas *
-                    </label>
-                    <div className="select-search">
-                      <select
-                        name="numeroParcelas"
-                        value={formData.numeroParcelas}
-                        onChange={handleInputChange}
-                        disabled={submitting}
-                        className={errors.numeroParcelas ? 'error' : ''}
-                      >
-                        {opcoesParcelamento.map(opcao => (
-                          <option key={opcao.value} value={opcao.value}>
-                            {opcao.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    {errors.numeroParcelas && <div className="form-error">{errors.numeroParcelas}</div>}
-                  </div>
+                  {errors.cartaoId && <div className="form-error">{errors.cartaoId}</div>}
                 </div>
+                
+                <div>
+                  <label className="form-label">
+                    <Hash size={14} />
+                    Parcelas *
+                  </label>
+                  <div className="select-search">
+                    <select
+                      name="numeroParcelas"
+                      value={formData.numeroParcelas}
+                      onChange={handleInputChange}
+                      disabled={submitting}
+                      className={errors.numeroParcelas ? 'error' : ''}
+                    >
+                      {opcoesParcelamento.map(opcao => (
+                        <option key={opcao.value} value={opcao.value}>
+                          {opcao.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {errors.numeroParcelas && <div className="form-error">{errors.numeroParcelas}</div>}
+                </div>
+              </div>
+
               {/* Fatura de Vencimento */}
               <div className="flex flex-col mb-3">
                 <label className="form-label">
@@ -944,7 +1011,7 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
           <button
             type="button"
             onClick={(e) => handleSubmit(e, true)}
-            disabled={submitting}
+            disabled={submitting || isLoadingData}
             className="btn-secondary btn-secondary--success"
           >
             {submitting ? (
@@ -962,7 +1029,7 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
           <button
             type="submit"
             onClick={(e) => handleSubmit(e, false)}
-            disabled={submitting}
+            disabled={submitting || isLoadingData}
             className="btn-primary"
           >
             {submitting ? (
@@ -982,7 +1049,7 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
       
       {/* Modal de Confirmação */}
       {confirmacao.show && (
-        <div className="modal-overlay active">
+        <div className="modal-overlay-confirmation">
           <div className="forms-modal-container modal-small">
             <div className="modal-header">
               <h3 className="modal-title">

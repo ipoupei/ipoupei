@@ -1366,7 +1366,7 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       
       {/* Modal de Confirmação */}
       {confirmacao.show && (
-        <div className="modal-overlay active">
+        <div className="modal-overlay-confirmation">
           <div className="forms-modal-container modal-small">
             <div className="modal-header">
               <div className="modal-header-content">

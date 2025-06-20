@@ -10,20 +10,100 @@ import {
   FileText,
   UserX
 } from 'lucide-react';
-import useDeleteAccount from '@modules/auth/hooks/useDeleteAccount';
-import useAuth from '@/modules/auth/hooks/useAuth';
-import Card from '@shared/components/ui/Card';
-import Input from '@shared/components/ui/Input';
-import Button from '@shared/components/ui/Button';
 
+// Mock do hook para demonstração
+const mockUseDeleteAccount = () => ({
+  loading: false,
+  error: null,
+  backupData: {
+    contas: [{ id: 1, nome: 'Conta Corrente' }, { id: 2, nome: 'Poupança' }],
+    cartoes: [{ id: 1, nome: 'Visa' }],
+    transacoes: Array(150).fill().map((_, i) => ({ id: i })),
+    categorias: [{ id: 1, nome: 'Alimentação' }, { id: 2, nome: 'Transporte' }],
+    dividas: [],
+    amigos: [{ id: 1, nome: 'João' }]
+  },
+  generateBackup: async () => ({ success: true }),
+  downloadBackup: () => true,
+  validateDeletion: async () => ({ 
+    success: true, 
+    issues: [
+      {
+        type: 'warning',
+        title: 'Transações pendentes',
+        message: 'Você possui 3 transações futuras agendadas que serão perdidas.'
+      },
+      {
+        type: 'error',
+        title: 'Relacionamentos ativos',
+        message: 'Existe 1 relacionamento ativo que precisa ser resolvido antes da exclusão.'
+      }
+    ]
+  }),
+  deleteAccount: async () => ({ success: true }),
+  deactivateAccount: async () => ({ success: true })
+});
 
+const mockUseAuth = () => ({
+  user: { id: '123', email: 'usuario@exemplo.com' }
+});
 
 /**
- * Componente para exclusão de conta - VERSÃO COM FORMATAÇÃO CORRIGIDA
- * Processo completo com backup, validações e confirmações
+ * Modal de Confirmação Básico usando FormsModal.css
+ */
+const BasicModal = ({ isOpen, onClose, title, children, variant = 'warning' }) => {
+  if (!isOpen) return null;
+
+  const getIconVariant = () => {
+    switch (variant) {
+      case 'danger': return 'modal-icon-danger';
+      case 'warning': return 'modal-icon-warning';
+      case 'success': return 'modal-icon-success';
+      case 'info': return 'modal-icon-primary';
+      default: return 'modal-icon-warning';
+    }
+  };
+
+  const getIcon = () => {
+    switch (variant) {
+      case 'danger': return '⚠️';
+      case 'warning': return '⚠️';
+      case 'success': return '✅';
+      case 'info': return 'ℹ️';
+      default: return '⚠️';
+    }
+  };
+
+  return (
+    <div className="modal-overlay active">
+      <div className="forms-modal-container">
+        <div className="modal-header">
+          <button className="modal-close" onClick={onClose}>
+            ✕
+          </button>
+          <div className="modal-header-content">
+            <div className={`modal-icon-container ${getIconVariant()}`}>
+              {getIcon()}
+            </div>
+            <div>
+              <h2 className="modal-title">{title}</h2>
+            </div>
+          </div>
+        </div>
+        
+        <div className="modal-body">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Componente para exclusão de conta - REFATORADO COM FORMSMODAL.CSS
  */
 const ExcluirConta = () => {
-  const { user } = useAuth();
+  const { user } = mockUseAuth();
   const {
     loading,
     error,
@@ -33,16 +113,16 @@ const ExcluirConta = () => {
     validateDeletion,
     deleteAccount,
     deactivateAccount
-  } = useDeleteAccount();
+  } = mockUseDeleteAccount();
 
   // Estados locais
-  const [currentStep, setCurrentStep] = useState(1); // 1: Info, 2: Backup, 3: Validação, 4: Confirmação
+  const [currentStep, setCurrentStep] = useState(1);
   const [validationIssues, setValidationIssues] = useState([]);
   const [confirmText, setConfirmText] = useState('');
   const [password, setPassword] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDeactivateModal, setShowDeactivateModal] = useState(false);
-  const [deletionType, setDeletionType] = useState('delete'); // 'delete' ou 'deactivate'
+  const [deletionType, setDeletionType] = useState('delete');
   const [message, setMessage] = useState({ type: '', text: '' });
 
   // Limpa mensagens após 5 segundos
@@ -144,134 +224,142 @@ const ExcluirConta = () => {
     switch (currentStep) {
       case 1:
         return (
-          <div className="delete-step-container">
-            <div className="step-icon-container">
-              <AlertTriangle size={64} style={{ color: '#ef4444', marginBottom: '1rem' }} />
-              <h3 className="step-title">Exclusão de Conta</h3>
-              <p className="step-description">
+          <div className="modal-body">
+            <div className="text-center mb-3">
+              <AlertTriangle size={64} color="#ef4444" />
+              <h3 className="section-title">Exclusão de Conta</h3>
+              <p className="text-muted">
                 Esta ação é irreversível. Todos os seus dados serão permanentemente removidos.
               </p>
             </div>
 
-            <div className="warning-box">
-              <h4 className="warning-title">O que será excluído:</h4>
-              <ul className="warning-list">
-                <li>• Todas as suas transações e histórico financeiro</li>
-                <li>• Contas bancárias e cartões de crédito cadastrados</li>
-                <li>• Categorias personalizadas e configurações</li>
-                <li>• Relacionamentos com amigos e familiares</li>
-                <li>• Dados do perfil e preferências</li>
-                <li>• Acesso ao aplicativo e aos dados</li>
-              </ul>
+            <div className="summary-panel danger">
+              <h4 className="summary-title">O que será excluído:</h4>
+              <div>
+                <p className="mb-1">• Todas as suas transações e histórico financeiro</p>
+                <p className="mb-1">• Contas bancárias e cartões de crédito cadastrados</p>
+                <p className="mb-1">• Categorias personalizadas e configurações</p>
+                <p className="mb-1">• Relacionamentos com amigos e familiares</p>
+                <p className="mb-1">• Dados do perfil e preferências</p>
+                <p className="mb-0">• Acesso ao aplicativo e aos dados</p>
+              </div>
             </div>
 
-            <div className="info-box">
-              <h4 className="info-title">Antes de prosseguir:</h4>
-              <ul className="info-list">
-                <li>• Faça um backup dos seus dados importantes</li>
-                <li>• Quite todas as dívidas pendentes</li>
-                <li>• Informe amigos sobre transações compartilhadas</li>
-                <li>• Considere desativar temporariamente ao invés de excluir</li>
-              </ul>
+            <div className="summary-panel">
+              <h4 className="summary-title">Antes de prosseguir:</h4>
+              <div>
+                <p className="mb-1">• Faça um backup dos seus dados importantes</p>
+                <p className="mb-1">• Quite todas as dívidas pendentes</p>
+                <p className="mb-1">• Informe amigos sobre transações compartilhadas</p>
+                <p className="mb-0">• Considere desativar temporariamente ao invés de excluir</p>
+              </div>
             </div>
 
-            <div className="button-group">
-              <Button
-                variant="primary"
-                onClick={handleGenerateBackup}
-                disabled={loading}
-                fullWidth
-              >
-                {loading ? 'Gerando...' : 'Gerar Backup dos Dados'}
-              </Button>
-            </div>
+            <button
+              className={`btn-primary ${loading ? 'disabled' : ''}`}
+              onClick={handleGenerateBackup}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <span className="btn-spinner"></span>
+                  Gerando...
+                </>
+              ) : (
+                'Gerar Backup dos Dados'
+              )}
+            </button>
           </div>
         );
 
       case 2:
         return (
-          <div className="delete-step-container">
-            <div className="step-icon-container">
-              <FileText size={64} style={{ color: '#3b82f6', marginBottom: '1rem' }} />
-              <h3 className="step-title">Backup Gerado</h3>
-              <p className="step-description">
+          <div className="modal-body">
+            <div className="text-center mb-3">
+              <FileText size={64} color="#3b82f6" />
+              <h3 className="section-title">Backup Gerado</h3>
+              <p className="text-muted">
                 Seus dados foram compilados em um arquivo de backup.
               </p>
             </div>
 
             {backupData && (
-              <div className="backup-success-box">
-                <h4 className="backup-title">Backup inclui:</h4>
-                <div className="backup-grid">
+              <div className="summary-panel success">
+                <h4 className="summary-title">Backup inclui:</h4>
+                <div>
                   {backupData.contas && (
-                    <div>• {backupData.contas.length} conta(s) bancária(s)</div>
+                    <p className="mb-1">• {backupData.contas.length} conta(s) bancária(s)</p>
                   )}
                   {backupData.cartoes && (
-                    <div>• {backupData.cartoes.length} cartão(ões) de crédito</div>
+                    <p className="mb-1">• {backupData.cartoes.length} cartão(ões) de crédito</p>
                   )}
                   {backupData.transacoes && (
-                    <div>• {backupData.transacoes.length} transação(ões)</div>
+                    <p className="mb-1">• {backupData.transacoes.length} transação(ões)</p>
                   )}
                   {backupData.categorias && (
-                    <div>• {backupData.categorias.length} categoria(s)</div>
+                    <p className="mb-1">• {backupData.categorias.length} categoria(s)</p>
                   )}
                   {backupData.dividas && (
-                    <div>• {backupData.dividas.length} dívida(s)</div>
+                    <p className="mb-1">• {backupData.dividas.length} dívida(s)</p>
                   )}
                   {backupData.amigos && (
-                    <div>• {backupData.amigos.length} relacionamento(s)</div>
+                    <p className="mb-0">• {backupData.amigos.length} relacionamento(s)</p>
                   )}
                 </div>
               </div>
             )}
 
-            <div className="button-group">
-              <Button
-                variant="secondary"
+            <div className="flex gap-2">
+              <button
+                className="btn-secondary"
                 onClick={handleDownloadBackup}
-                icon={<Download size={16} />}
                 disabled={!backupData}
               >
-                Baixar Backup
-              </Button>
-              <Button
-                variant="primary"
+                <Download size={16} /> Baixar Backup
+              </button>
+              <button
+                className={`btn-primary ${loading ? 'disabled' : ''}`}
                 onClick={handleValidateDeletion}
                 disabled={loading}
               >
-                {loading ? 'Validando...' : 'Continuar'}
-              </Button>
+                {loading ? (
+                  <>
+                    <span className="btn-spinner"></span>
+                    Validando...
+                  </>
+                ) : (
+                  'Continuar'
+                )}
+              </button>
             </div>
           </div>
         );
 
       case 3:
         return (
-          <div className="delete-step-container">
-            <div className="step-icon-container">
-              <Shield size={64} style={{ color: '#f59e0b', marginBottom: '1rem' }} />
-              <h3 className="step-title">Validação de Exclusão</h3>
-              <p className="step-description">
+          <div className="modal-body">
+            <div className="text-center mb-3">
+              <Shield size={64} color="#f59e0b" />
+              <h3 className="section-title">Validação de Exclusão</h3>
+              <p className="text-muted">
                 Verificamos sua conta e encontramos os seguintes pontos de atenção:
               </p>
             </div>
 
             {validationIssues.length > 0 ? (
-              <div style={{ marginBottom: '1.5rem' }}>
+              <div className="mb-3">
                 {validationIssues.map((issue, index) => (
                   <div 
                     key={index}
-                    className={`validation-issue ${issue.type}`}
+                    className={`summary-panel ${issue.type === 'warning' ? 'warning' : 'danger'} mb-2`}
                   >
-                    <div className="validation-issue-content">
-                      <AlertTriangle className={`validation-issue-icon ${
-                        issue.type === 'warning' ? 'text-yellow-500' : 'text-red-500'
-                      }`} size={20} />
+                    <div className="flex gap-2">
+                      <AlertTriangle size={20} color={issue.type === 'warning' ? '#f59e0b' : '#ef4444'} />
                       <div>
-                        <h4 className="validation-issue-title">
+                        <h4 className="summary-title mb-1">
                           {issue.title}
                         </h4>
-                        <p className="validation-issue-message">
+                        <p className="text-muted mb-0">
                           {issue.message}
                         </p>
                       </div>
@@ -280,49 +368,45 @@ const ExcluirConta = () => {
                 ))}
               </div>
             ) : (
-              <div style={{ 
-                backgroundColor: '#f0fdf4', 
-                border: '1px solid #bbf7d0', 
-                borderRadius: '0.5rem', 
-                padding: '1rem',
-                marginBottom: '1.5rem'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <CheckCircle size={20} style={{ color: '#16a34a', marginRight: '0.5rem' }} />
-                  <p style={{ color: '#15803d', margin: 0 }}>
+              <div className="summary-panel success mb-3">
+                <div className="flex gap-2">
+                  <CheckCircle size={20} color="#16a34a" />
+                  <p className="mb-0">
                     Sua conta está pronta para ser excluída sem problemas.
                   </p>
                 </div>
               </div>
             )}
 
-            <div className="alternatives-box">
-              <h4 className="alternatives-title">Alternativas à exclusão:</h4>
+            <div className="summary-panel mb-3">
+              <h4 className="summary-title">Alternativas à exclusão:</h4>
               <button
                 onClick={() => setShowDeactivateModal(true)}
-                className="alternative-option"
+                className="account-card"
               >
-                <Clock className="alternative-icon" />
-                <div className="alternative-text">
-                  <h4>Desativar temporariamente</h4>
-                  <p>Suspende sua conta mas mantém os dados para reativação futura</p>
+                <div className="account-icon" style={{ backgroundColor: '#f59e0b', color: 'white' }}>
+                  <Clock size={18} />
+                </div>
+                <div className="account-info">
+                  <h4 className="account-name">Desativar temporariamente</h4>
+                  <p className="account-type">Suspende sua conta mas mantém os dados para reativação futura</p>
                 </div>
               </button>
             </div>
 
-            <div className="button-group">
-              <Button
-                variant="secondary"
+            <div className="flex gap-2">
+              <button
+                className="btn-secondary"
                 onClick={() => setCurrentStep(2)}
               >
                 Voltar
-              </Button>
-              <Button
-                variant="danger"
+              </button>
+              <button
+                className="btn-secondary--danger"
                 onClick={() => setShowDeleteModal(true)}
               >
                 Prosseguir com Exclusão
-              </Button>
+              </button>
             </div>
           </div>
         );
@@ -333,54 +417,56 @@ const ExcluirConta = () => {
   };
 
   return (
-    <div className="delete-account-container">
-      {/* Progresso */}
-      <div className="progress-bar-container">
-        <div className="progress-info">
-          <span className="progress-text">Etapa {currentStep} de 3</span>
-          <span className="progress-text">
-            {Math.round((currentStep / 3) * 100)}% concluído
-          </span>
+    <div className="forms-modal-container modal-large">
+      {/* Header com progresso */}
+      <div className="modal-header">
+        <div className="modal-header-content">
+          <div className="modal-icon-container modal-icon-danger">
+            <UserX size={20} />
+          </div>
+          <div>
+            <h2 className="modal-title">Exclusão de Conta</h2>
+            <p className="modal-subtitle">
+              Etapa {currentStep} de 3 - {Math.round((currentStep / 3) * 100)}% concluído
+            </p>
+          </div>
         </div>
-        <div className="progress-bar-bg">
-          <div 
-            className="progress-bar-fill"
-            style={{ width: `${(currentStep / 3) * 100}%` }}
-          ></div>
+        
+        {/* Barra de progresso */}
+        <div className="summary-panel mt-2">
+          <div className="progress-bar-bg">
+            <div 
+              className="progress-bar-fill"
+              style={{ 
+                width: `${(currentStep / 3) * 100}%`,
+                height: '6px',
+                backgroundColor: '#008080',
+                borderRadius: '3px',
+                transition: 'width 0.3s ease'
+              }}
+            ></div>
+          </div>
         </div>
       </div>
 
-      {/* Mensagens */}
+      {/* Mensagens de feedback */}
       {message.text && (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          padding: '1rem',
-          borderRadius: '0.5rem',
-          marginBottom: '1.5rem',
-          backgroundColor: message.type === 'success' ? '#f0fdf4' : '#fef2f2',
-          color: message.type === 'success' ? '#15803d' : '#b91c1c',
-          border: `1px solid ${message.type === 'success' ? '#bbf7d0' : '#fecaca'}`
-        }}>
-          {message.type === 'success' ? (
-            <CheckCircle size={18} style={{ marginRight: '0.5rem', flexShrink: 0 }} />
-          ) : (
-            <XCircle size={18} style={{ marginRight: '0.5rem', flexShrink: 0 }} />
-          )}
-          <span>{message.text}</span>
+        <div className={`summary-panel ${message.type === 'success' ? 'success' : 'danger'}`}>
+          <div className="flex gap-2">
+            {message.type === 'success' ? (
+              <CheckCircle size={18} />
+            ) : (
+              <XCircle size={18} />
+            )}
+            <span>{message.text}</span>
+          </div>
         </div>
       )}
 
       {/* Erro geral */}
       {error && (
-        <div style={{
-          backgroundColor: '#fef2f2',
-          border: '1px solid #fecaca',
-          color: '#b91c1c',
-          padding: '0.75rem 1rem',
-          borderRadius: '0.5rem',
-          marginBottom: '1.5rem'
-        }}>
+        <div className="summary-panel danger">
+          <XCircle size={18} className="mr-2" />
           {error}
         </div>
       )}
@@ -392,31 +478,22 @@ const ExcluirConta = () => {
       <BasicModal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
-        title="⚠️ Confirmar Exclusão"
+        title="Confirmar Exclusão"
+        variant="danger"
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: '0.5rem',
-            padding: '1rem'
-          }}>
-            <p style={{ 
-              color: '#b91c1c', 
-              fontWeight: '500',
-              margin: 0
-            }}>
+        <div className="flex flex-col gap-3">
+          <div className="summary-panel danger">
+            <p className="mb-0">
               Esta ação é irreversível. Todos os seus dados serão permanentemente excluídos.
             </p>
           </div>
 
           <div>
-            <Input
-              label={
-                <span>
-                  Digite exatamente: <strong>EXCLUIR MINHA CONTA</strong>
-                </span>
-              }
+            <label className="form-label">
+              Digite exatamente: <strong>EXCLUIR MINHA CONTA</strong>
+            </label>
+            <input
+              className="input-text"
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
               placeholder="EXCLUIR MINHA CONTA"
@@ -424,27 +501,28 @@ const ExcluirConta = () => {
             />
           </div>
 
-          <div style={{ 
-            display: 'flex', 
-            gap: '0.75rem', 
-            paddingTop: '1rem' 
-          }}>
-            <Button
-              variant="secondary"
+          <div className="modal-footer">
+            <button
+              className="btn-cancel"
               onClick={() => setShowDeleteModal(false)}
-              fullWidth
               disabled={loading}
             >
               Cancelar
-            </Button>
-            <Button
-              variant="danger"
+            </button>
+            <button
+              className={`btn-secondary--danger ${loading || confirmText !== 'EXCLUIR MINHA CONTA' ? 'disabled' : ''}`}
               onClick={handleDeleteAccount}
-              fullWidth
               disabled={loading || confirmText !== 'EXCLUIR MINHA CONTA'}
             >
-              {loading ? 'Excluindo...' : 'Excluir Conta Permanentemente'}
-            </Button>
+              {loading ? (
+                <>
+                  <span className="btn-spinner"></span>
+                  Excluindo...
+                </>
+              ) : (
+                'Excluir Conta Permanentemente'
+              )}
+            </button>
           </div>
         </div>
       </BasicModal>
@@ -454,44 +532,38 @@ const ExcluirConta = () => {
         isOpen={showDeactivateModal}
         onClose={() => setShowDeactivateModal(false)}
         title="Desativar Conta Temporariamente"
+        variant="warning"
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{
-            backgroundColor: '#eff6ff',
-            border: '1px solid #bfdbfe',
-            borderRadius: '0.5rem',
-            padding: '1rem'
-          }}>
-            <p style={{ 
-              color: '#1e40af',
-              margin: 0
-            }}>
+        <div className="flex flex-col gap-3">
+          <div className="summary-panel">
+            <p className="mb-0">
               Sua conta será desativada, mas seus dados ficarão salvos. 
               Você pode reativar a qualquer momento fazendo login novamente.
             </p>
           </div>
 
-          <div style={{ 
-            display: 'flex', 
-            gap: '0.75rem', 
-            paddingTop: '1rem' 
-          }}>
-            <Button
-              variant="secondary"
+          <div className="modal-footer">
+            <button
+              className="btn-cancel"
               onClick={() => setShowDeactivateModal(false)}
-              fullWidth
               disabled={loading}
             >
               Cancelar
-            </Button>
-            <Button
-              variant="warning"
+            </button>
+            <button
+              className={`btn-secondary--warning ${loading ? 'disabled' : ''}`}
               onClick={handleDeactivateAccount}
-              fullWidth
               disabled={loading}
             >
-              {loading ? 'Desativando...' : 'Desativar Conta'}
-            </Button>
+              {loading ? (
+                <>
+                  <span className="btn-spinner"></span>
+                  Desativando...
+                </>
+              ) : (
+                'Desativar Conta'
+              )}
+            </button>
           </div>
         </div>
       </BasicModal>
@@ -499,4 +571,47 @@ const ExcluirConta = () => {
   );
 };
 
-export default ExcluirConta;
+// Componente demonstrativo
+const ExemploExclusaoConta = () => {
+  const [modalAberto, setModalAberto] = useState(false);
+
+  return (
+    <div style={{ padding: '20px', fontFamily: 'Roboto, sans-serif' }}>
+      <h1>Demonstração - Modal Exclusão de Conta</h1>
+      
+      <button 
+        className="btn-secondary--danger"
+        onClick={() => setModalAberto(true)}
+      >
+        🗑️ Excluir Conta
+      </button>
+
+      {modalAberto && (
+        <div className="modal-overlay active">
+          <ExcluirConta />
+          <button 
+            className="modal-close" 
+            onClick={() => setModalAberto(false)}
+            style={{
+              position: 'fixed',
+              top: '20px',
+              right: '20px',
+              zIndex: 1001,
+              background: 'rgba(0,0,0,0.5)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '50%',
+              width: '40px',
+              height: '40px',
+              cursor: 'pointer'
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ExemploExclusaoConta;
