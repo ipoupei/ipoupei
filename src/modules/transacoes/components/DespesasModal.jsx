@@ -1,4 +1,4 @@
-// src/modules/transacoes/components/DespesasModal.jsx - VERSÃO CSS PURO
+// src/modules/transacoes/components/DespesasModal.jsx - VERSÃO CORRIGIDA
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -20,7 +20,8 @@ import {
   ShoppingBag,
   CreditCard,
   Receipt,
-  HelpCircle
+  HelpCircle,
+  AlertCircle
 } from 'lucide-react';
 
 import { useAuthStore } from '@modules/auth/store/authStore';
@@ -28,12 +29,16 @@ import { useUIStore } from '@store/uiStore';
 import { formatCurrency } from '@utils/formatCurrency';
 import { supabase } from '@lib/supabaseClient';
 import useContas from '@modules/contas/hooks/useContas';
+import { useTransactions } from '@modules/transacoes/store/transactionsStore';
 import '@shared/styles/FormsModal.css';
 
 const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   const { user } = useAuthStore();
   const { showNotification } = useUIStore();
   const { contas, recalcularSaldos } = useContas();
+  
+  // ✅ CORREÇÃO: Usar o hook correto para obter a função
+  const { updateGrupoValor, isParceladaOuRecorrente } = useTransactions();
   
   const valorInputRef = useRef(null);
   const isEditMode = Boolean(transacaoEditando);
@@ -61,6 +66,12 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     nome: '',
     categoriaId: ''
   });
+
+  // ✅ CORREÇÃO: Estados para edição de grupos (igual ao ReceitasModal)
+  const [mostrarEscopoEdicao, setMostrarEscopoEdicao] = useState(false);
+  const [escopoEdicao, setEscopoEdicao] = useState('atual');
+  const [transacaoInfo, setTransacaoInfo] = useState(null);
+  const [valorOriginal, setValorOriginal] = useState(0);
 
   // Estado do formulário
   const [formData, setFormData] = useState({
@@ -127,10 +138,55 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     label: `${i + 1} ${i === 0 ? 'parcela' : 'parcelas'}`
   }));
 
-  const opcoesQuantidade = Array.from({ length: 60 }, (_, i) => ({
-    value: i + 1,
-    label: `${i + 1} ${i === 0 ? 'vez' : 'vezes'}`
-  }));
+  // ✅ CORREÇÃO: Identificar tipo de transação CORRIGIDO
+  const identificarTipoTransacao = useCallback((transacao) => {
+    if (!transacao) return 'extra';
+
+    console.log('🔍 [CORRIGIDO] Identificando tipo da transação:', {
+      id: transacao.id,
+      grupo_parcelamento: transacao.grupo_parcelamento,
+      grupo_recorrencia: transacao.grupo_recorrencia,
+      parcela_atual: transacao.parcela_atual,
+      total_parcelas: transacao.total_parcelas
+    });
+
+    // ✅ REGRA CORRETA: Se tem grupo_parcelamento, é parcelada
+    if (transacao.grupo_parcelamento) {
+      console.log('✅ Transação é PARCELADA (grupo_parcelamento presente)');
+      return 'parcelada';
+    }
+
+    // ✅ REGRA CORRETA: Se tem grupo_recorrencia, é previsível
+    if (transacao.grupo_recorrencia) {
+      console.log('✅ Transação é PREVISÍVEL (grupo_recorrencia presente)');
+      return 'previsivel';
+    }
+
+    // Senão, é extra
+    console.log('✅ Transação é EXTRA (sem grupos)');
+    return 'extra';
+  }, []);
+
+  // ✅ CORREÇÃO: Carregar subcategorias por categoria CORRIGIDO
+  const getSubcategoriasPorCategoria = useCallback(async (categoriaId) => {
+    if (!categoriaId || !user?.id) return [];
+    
+    try {
+      const { data, error } = await supabase
+        .from('subcategorias')
+        .select('*')
+        .eq('usuario_id', user.id)
+        .eq('categoria_id', categoriaId)
+        .eq('ativo', true)
+        .order('nome');
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('❌ Erro ao carregar subcategorias:', error);
+      return [];
+    }
+  }, [user?.id]);
 
   // ===== FUNÇÕES UTILITÁRIAS =====
   const formatarValor = useCallback((valor) => {
@@ -180,7 +236,40 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     [subcategorias, formData.categoria]
   );
 
-  // Effects para filtros de categoria (igual ao DespesasCartaoModal)
+  // ✅ CORREÇÃO: Identificar tipo e grupo no modo edição CORRIGIDO
+  useEffect(() => {
+    if (isEditMode && transacaoEditando) {
+      console.log('🔍 [EDIT MODE] Analisando transação para edição:', transacaoEditando);
+      
+      // ✅ Usar a função do store para identificar tipo
+      const infoGrupo = isParceladaOuRecorrente(transacaoEditando);
+      console.log('🎯 [EDIT MODE] Análise do grupo via store:', infoGrupo);
+      
+      // Determinar tipo baseado na análise
+      let tipoIdentificado = 'extra';
+      if (infoGrupo.isParcelada) {
+        tipoIdentificado = 'parcelada';
+      } else if (infoGrupo.isRecorrente) {
+        tipoIdentificado = 'previsivel';
+      }
+      
+      console.log('🎯 [EDIT MODE] Tipo identificado:', tipoIdentificado);
+      setTipoDespesa(tipoIdentificado);
+      
+      // Armazenar informações do grupo
+      setTransacaoInfo(infoGrupo);
+      
+      // Armazenar valor original
+      const valorOrig = transacaoEditando.valor || 0;
+      setValorOriginal(valorOrig);
+      console.log('💰 [EDIT MODE] Valor original armazenado:', valorOrig);
+    } else {
+      setTransacaoInfo(null);
+      setValorOriginal(0);
+    }
+  }, [isEditMode, transacaoEditando, isParceladaOuRecorrente]);
+
+  // Effects para filtros de categoria
   useEffect(() => {
     if (!categorias.length) return;
     const filtradas = formData.categoriaTexto 
@@ -242,21 +331,11 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     }
   }, [tipoDespesa, valorNumerico, formData.frequenciaPrevisivel, formData.numeroParcelas, formData.frequenciaParcelada]);
 
-  // ===== PREENCHIMENTO PARA EDIÇÃO =====
-  const preencherFormularioEdicao = useCallback(() => {
-    if (!transacaoEditando) return;
+  // ✅ CORREÇÃO: Preenchimento para edição CORRIGIDO
+  const preencherFormularioEdicao = useCallback(async () => {
+    if (!transacaoEditando || !categorias.length) return;
     
-    console.log('🖊️ Preenchendo formulário para edição:', transacaoEditando);
-    
-    // Determinar tipo de despesa baseado na descrição e dados
-    let tipoDetectado = 'extra';
-    if (transacaoEditando.descricao && /\(\d+\/\d+\)/.test(transacaoEditando.descricao)) {
-      if (transacaoEditando.total_parcelas > 1) {
-        tipoDetectado = 'parcelada';
-      } else {
-        tipoDetectado = 'previsivel';
-      }
-    }
+    console.log('🖊️ [CORRIGIDO] Preenchendo formulário para edição:', transacaoEditando);
     
     // Formatar valor para exibição
     const valorFormatado = transacaoEditando.valor ? 
@@ -265,19 +344,48 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
         maximumFractionDigits: 2 
       }) : '';
     
-    // Buscar nomes de categoria e subcategoria
+    // Buscar categoria
     const categoria = categorias.find(c => c.id === transacaoEditando.categoria_id);
-    const subcategoria = subcategorias.find(s => s.id === transacaoEditando.subcategoria_id);
+    let subcategoriaTexto = '';
+    let subcategoriaId = '';
+
+    // ✅ CORREÇÃO: Carregar subcategoria corretamente
+    if (transacaoEditando.subcategoria_id) {
+      console.log('🔍 [CORRIGIDO] Carregando subcategoria:', transacaoEditando.subcategoria_id);
+      
+      try {
+        const { data: subcategoriaData, error } = await supabase
+          .from('subcategorias')
+          .select('*')
+          .eq('id', transacaoEditando.subcategoria_id)
+          .eq('usuario_id', user.id)
+          .single();
+
+        if (!error && subcategoriaData) {
+          subcategoriaTexto = subcategoriaData.nome;
+          subcategoriaId = subcategoriaData.id;
+          console.log('✅ [CORRIGIDO] Subcategoria carregada:', subcategoriaData.nome);
+          
+          // Garantir que as subcategorias da categoria estão carregadas
+          const subcategoriasCarregadas = await getSubcategoriasPorCategoria(transacaoEditando.categoria_id);
+          setSubcategorias(prev => {
+            const semCategoriasAntigas = prev.filter(sub => sub.categoria_id !== transacaoEditando.categoria_id);
+            return [...semCategoriasAntigas, ...subcategoriasCarregadas];
+          });
+        }
+      } catch (error) {
+        console.error('❌ Erro ao carregar subcategoria:', error);
+      }
+    }
     
-    setTipoDespesa(tipoDetectado);
     setFormData({
       valor: valorFormatado,
       data: transacaoEditando.data || new Date().toISOString().split('T')[0],
       descricao: transacaoEditando.descricao?.replace(/\s\(\d+\/\d+\)$/, '') || '',
       categoria: transacaoEditando.categoria_id || '',
       categoriaTexto: categoria?.nome || '',
-      subcategoria: transacaoEditando.subcategoria_id || '',
-      subcategoriaTexto: subcategoria?.nome || '',
+      subcategoria: subcategoriaId,
+      subcategoriaTexto: subcategoriaTexto,
       conta: transacaoEditando.conta_id || '',
       cartao: transacaoEditando.cartao_id || '',
       efetivado: transacaoEditando.efetivado ?? true,
@@ -291,7 +399,12 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       primeiroEfetivado: true,
       primeiraParcela: transacaoEditando.data || new Date().toISOString().split('T')[0]
     });
-  }, [transacaoEditando, categorias, subcategorias]);
+
+    console.log('✅ [CORRIGIDO] Formulário preenchido com subcategoria:', {
+      subcategoria_id: subcategoriaId,
+      subcategoriaTexto: subcategoriaTexto
+    });
+  }, [transacaoEditando, categorias, user?.id, getSubcategoriasPorCategoria]);
 
   // ===== HANDLERS DE INPUT =====
   const handleInputChange = useCallback((e) => {
@@ -325,13 +438,49 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     }
   }, [errors]);
 
+  // ✅ CORREÇÃO: Handle de valor CORRIGIDO para verificar mudança de valor
   const handleValorChange = useCallback((e) => {
     const valorFormatado = formatarValor(e.target.value);
     setFormData(prev => ({ ...prev, valor: valorFormatado }));
+    
+    // ✅ LÓGICA CORRIGIDA: Verificar se mudou o valor de uma transação de grupo
+    if (isEditMode && transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente)) {
+      console.log('🔄 [CORRIGIDO] Verificando mudança de valor em grupo:', {
+        valorFormatado,
+        valorOriginal,
+        transacaoInfo
+      });
+      
+      // Converter valor formatado para número
+      let novoValor = 0;
+      if (valorFormatado) {
+        const valorLimpo = valorFormatado.replace(/\./g, '').replace(',', '.');
+        novoValor = parseFloat(valorLimpo) || 0;
+      }
+      
+      console.log('💰 [CORRIGIDO] Comparação de valores:', {
+        valorOriginal,
+        novoValor,
+        saoIguais: novoValor === valorOriginal,
+        deveUsoEscopo: novoValor !== valorOriginal && novoValor > 0
+      });
+      
+      if (novoValor !== valorOriginal && novoValor > 0) {
+        console.log('✅ [CORRIGIDO] ATIVANDO escopo de edição');
+        setMostrarEscopoEdicao(true);
+      } else {
+        console.log('❌ [CORRIGIDO] DESATIVANDO escopo de edição');
+        setMostrarEscopoEdicao(false);
+      }
+    } else {
+      console.log('ℹ️ [CORRIGIDO] Não é grupo ou não está editando, escopo desativado');
+      setMostrarEscopoEdicao(false);
+    }
+    
     if (errors.valor) {
       setErrors(prev => ({ ...prev, valor: null }));
     }
-  }, [formatarValor, errors.valor]);
+  }, [formatarValor, errors.valor, isEditMode, transacaoInfo, valorOriginal]);
 
   const handleTipoChange = useCallback((novoTipo) => {
     setTipoDespesa(novoTipo);
@@ -343,7 +492,7 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     });
   }, []);
 
-  // ===== HANDLERS DE CATEGORIA (igual ao DespesasCartaoModal) =====
+  // ===== HANDLERS DE CATEGORIA =====
   const handleCategoriaChange = useCallback((e) => {
     const { value } = e.target;
     setFormData(prev => ({
@@ -359,7 +508,7 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     }
   }, [errors.categoria]);
 
-  const handleSelecionarCategoria = useCallback((categoria) => {
+  const handleSelecionarCategoria = useCallback(async (categoria) => {
     setFormData(prev => ({
       ...prev,
       categoria: categoria.id,
@@ -368,7 +517,15 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       subcategoriaTexto: ''
     }));
     setCategoriaDropdownOpen(false);
-  }, []);
+    
+    // Carregar subcategorias da categoria selecionada
+    const subcategoriasCarregadas = await getSubcategoriasPorCategoria(categoria.id);
+    setSubcategorias(prev => {
+      // Remover subcategorias antigas da categoria anterior e adicionar as novas
+      const semCategoriasAntigas = prev.filter(sub => sub.categoria_id !== categoria.id);
+      return [...semCategoriasAntigas, ...subcategoriasCarregadas];
+    });
+  }, [getSubcategoriasPorCategoria]);
 
   const handleCategoriaBlur = useCallback(() => {
     const timer = setTimeout(() => {
@@ -390,7 +547,7 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     return () => clearTimeout(timer);
   }, [formData.categoriaTexto, formData.categoria, categorias]);
 
-  // ===== HANDLERS DE SUBCATEGORIA (igual ao DespesasCartaoModal) =====
+  // ===== HANDLERS DE SUBCATEGORIA =====
   const handleSubcategoriaChange = useCallback((e) => {
     const { value } = e.target;
     setFormData(prev => ({ 
@@ -543,6 +700,10 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     });
     setErrors({});
     setTipoDespesa('extra');
+    setEscopoEdicao('atual');
+    setMostrarEscopoEdicao(false);
+    setTransacaoInfo(null);
+    setValorOriginal(0);
     setCategoriaDropdownOpen(false);
     setSubcategoriaDropdownOpen(false);
     setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
@@ -574,6 +735,11 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       newErrors.observacoes = "Máximo de 300 caracteres";
     }
     
+    // ✅ CORREÇÃO: Validação para transações de grupo que mudaram valor
+    if (isEditMode && transacaoInfo && mostrarEscopoEdicao && !escopoEdicao) {
+      newErrors.escopoEdicao = "Escolha o escopo da alteração";
+    }
+    
     if (tipoDespesa === 'parcelada') {
       if (formData.numeroParcelas < 1) {
         newErrors.numeroParcelas = "Número de parcelas deve ser pelo menos 1";
@@ -594,11 +760,35 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [formData, tipoDespesa, valorNumerico]);
+  }, [formData, tipoDespesa, valorNumerico, isEditMode, transacaoInfo, mostrarEscopoEdicao, escopoEdicao]);
 
-  // ===== ATUALIZAR TRANSAÇÃO =====
+  // ✅ CORREÇÃO: Atualizar transação CORRIGIDO
   const atualizarTransacao = useCallback(async () => {
     try {
+      // ✅ CORREÇÃO: Se é transação de grupo e o valor mudou, usar updateGrupoTransacoesValor
+      if (transacaoInfo && mostrarEscopoEdicao && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente)) {
+        console.log('🔄 [CORRIGIDO] Atualizando grupo de transações via hook correto:', {
+          transacaoId: transacaoEditando.id,
+          escopoEdicao,
+          valorNumerico,
+          transacaoInfo
+        });
+
+        const resultado = await updateGrupoValor(
+          transacaoEditando.id,
+          escopoEdicao, // 'atual' ou 'futuras'
+          valorNumerico
+        );
+
+        if (!resultado.success) {
+          throw new Error(resultado.error || 'Erro ao atualizar grupo de transações');
+        }
+
+        showNotification(resultado.message || 'Transações atualizadas com sucesso!', 'success');
+        return true;
+      }
+
+      // Caso contrário, atualização normal individual
       const dadosAtualizacao = {
         data: formData.data,
         descricao: formData.descricao.trim(),
@@ -626,7 +816,7 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       console.error('❌ Erro ao atualizar despesa:', error);
       throw error;
     }
-  }, [formData, valorNumerico, transacaoEditando, user.id, showNotification]);
+  }, [formData, valorNumerico, transacaoEditando, user.id, showNotification, transacaoInfo, mostrarEscopoEdicao, escopoEdicao, updateGrupoValor]);
 
   // ===== CRIAR DESPESAS =====
   const criarDespesas = useCallback(async () => {
@@ -664,8 +854,17 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
           const grupoId = crypto.randomUUID();
           const dataBase = new Date(formData.data);
           
+          // ✅ CORREÇÃO: Para previsíveis, criar por muitos anos (igual às receitas)
           const totalRecorrencias = tipoDespesa === 'previsivel' ? 
-            formData.totalRecorrencias : 
+            (() => {
+              switch (formData.frequenciaPrevisivel) {
+                case 'semanal': return 20 * 52; // 20 anos
+                case 'quinzenal': return 20 * 26; // 20 anos
+                case 'mensal': return 20 * 12; // 20 anos
+                case 'anual': return 20; // 20 anos
+                default: return 20 * 12;
+              }
+            })() : 
             formData.numeroParcelas;
           
           const frequencia = tipoDespesa === 'previsivel' ? 
@@ -699,7 +898,12 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
               descricao: dadosBase.descricao + sufixo,
               efetivado: efetivoStatus,
               recorrente: true,
-              grupo_recorrencia: grupoId
+              grupo_recorrencia: tipoDespesa === 'previsivel' ? grupoId : null,
+              grupo_parcelamento: tipoDespesa === 'parcelada' ? grupoId : null,
+              parcela_atual: tipoDespesa === 'parcelada' ? i + 1 : null,
+              total_parcelas: tipoDespesa === 'parcelada' ? totalRecorrencias : null,
+              numero_recorrencia: tipoDespesa === 'previsivel' ? i + 1 : null,
+              total_recorrencias: tipoDespesa === 'previsivel' ? totalRecorrencias : null
             });
           }
           break;
@@ -860,6 +1064,85 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
           ) : (
             <form onSubmit={(e) => handleSubmit(e, false)}>
               
+              {/* ✅ CORREÇÃO: ESCOPO DE EDIÇÃO MELHORADO */}
+              {isEditMode && transacaoInfo && mostrarEscopoEdicao && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && (
+                <div className="confirmation-warning mb-3">
+                  <AlertCircle size={16} />
+                  <div>
+                    <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>
+                      {transacaoInfo.isParcelada ? 'Despesa Parcelada Detectada' : 'Despesa Previsível Detectada'}
+                    </h4>
+                    <p style={{ margin: '0 0 12px 0', fontSize: '13px', lineHeight: '1.4' }}>
+                      {transacaoInfo.isParcelada 
+                        ? `Esta é a parcela ${transacaoInfo.parcelaAtual} de ${transacaoInfo.totalParcelas}. Você alterou o valor.` 
+                        : `Esta é uma despesa que se repete automaticamente. Você alterou o valor.`
+                      }
+                      <br />Escolha o escopo da alteração:
+                    </p>
+                    
+                    <div className="confirmation-options" style={{ gap: '8px' }}>
+                      <label className={`confirmation-option ${escopoEdicao === 'atual' ? 'active' : ''}`}>
+                        <input
+                          type="radio"
+                          name="escopoEdicao"
+                          value="atual"
+                          checked={escopoEdicao === 'atual'}
+                          onChange={(e) => setEscopoEdicao(e.target.value)}
+                          disabled={submitting}
+                        />
+                        <div className="confirmation-option-content">
+                          <div className="confirmation-option-header">
+                            <CheckCircle size={16} />
+                            <span>
+                              {transacaoInfo.isParcelada 
+                                ? 'Alterar apenas esta parcela' 
+                                : 'Alterar apenas esta ocorrência'
+                              }
+                            </span>
+                          </div>
+                          <p className="confirmation-option-description">
+                            {transacaoInfo.isParcelada
+                              ? 'Modifica somente a parcela atual, mantendo as demais com o valor original'
+                              : 'Modifica somente esta ocorrência específica da despesa recorrente'
+                            }
+                          </p>
+                        </div>
+                      </label>
+                      
+                      <label className={`confirmation-option ${escopoEdicao === 'futuras' ? 'active' : ''}`}>
+                        <input
+                          type="radio"
+                          name="escopoEdicao"
+                          value="futuras"
+                          checked={escopoEdicao === 'futuras'}
+                          onChange={(e) => setEscopoEdicao(e.target.value)}
+                          disabled={submitting}
+                        />
+                        <div className="confirmation-option-content">
+                          <div className="confirmation-option-header">
+                            <AlertCircle size={16} />
+                            <span>
+                              {transacaoInfo.isParcelada
+                                ? 'Alterar esta e todas as parcelas futuras'
+                                : 'Alterar esta e todas as ocorrências futuras'
+                              }
+                            </span>
+                          </div>
+                          <p className="confirmation-option-description">
+                            {transacaoInfo.isParcelada
+                              ? 'Modifica esta parcela e todas as parcelas ainda não efetivadas'
+                              : 'Modifica esta e todas as ocorrências futuras não efetivadas da despesa'
+                            }
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+                    
+                    {errors.escopoEdicao && <div className="form-error">{errors.escopoEdicao}</div>}
+                  </div>
+                </div>
+              )}
+
               <h3 className="section-title">Informações da Despesa</h3>
               
               {/* VALOR E DATA */}
@@ -899,8 +1182,58 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                 </div>
               </div>
 
-              {/* ESCOLHA DO TIPO - Só mostra se não está editando */}
-              {!isEditMode && (
+              {/* ESCOLHA DO TIPO - Mostra o tipo identificado quando editando */}
+              {isEditMode ? (
+                <div className="flex flex-col mb-3">
+                  <h3 className="section-title">Tipo de Despesa Detectado</h3>
+                  <div className="type-selector mb-2" style={{ 
+                    background: '#f8fafc', 
+                    border: '1px solid #e2e8f0', 
+                    borderRadius: '8px', 
+                    padding: '0px' 
+                  }}>
+                    {tiposDespesa.map((tipo) => (
+                      <div
+                        key={tipo.id}
+                        className={`type-option ${tipoDespesa === tipo.id ? 'active' : 'inactive'}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          background: tipoDespesa === tipo.id ? tipo.cor + '15' : 'transparent',
+                          border: tipoDespesa === tipo.id ? `1px solid ${tipo.cor}` : '1px solid transparent',
+                          opacity: tipoDespesa === tipo.id ? 1 : 0.4,
+                          marginBottom: '0px'
+                        }}
+                        title={tipo.tooltip}
+                      >
+                        <div style={{ color: tipo.cor, marginRight: '8px' }}>{tipo.icone}</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: '500', fontSize: '14px' }}>{tipo.nome}</div>
+                          <div style={{ fontSize: '12px', color: '#6b7280' }}>{tipo.descricao}</div>
+                        </div>
+                        {tipoDespesa === tipo.id && (
+                          <div style={{ color: tipo.cor, fontWeight: 'bold' }}>✓</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && (
+                    <div className="confirmation-info-box" style={{ marginTop: '4px' }}>
+                      <HelpCircle size={16} />
+                      <p>
+                        {transacaoInfo.isParcelada && (
+                          <>📦 Parcela {transacaoInfo.parcelaAtual} de {transacaoInfo.totalParcelas}</>
+                        )}
+                        {transacaoInfo.isRecorrente && (
+                          <>🔄 Ocorrência {transacaoInfo.numeroRecorrencia}{transacaoInfo.totalRecorrencias ? ` de ${transacaoInfo.totalRecorrencias}` : ''}</>
+                        )}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
                 <div className="flex flex-col mb-3">
                   <h3 className="section-title">Tipo de Despesa</h3>
                   <div className="type-selector mb-2">
@@ -962,47 +1295,24 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
 
               {/* CAMPOS ESPECÍFICOS POR TIPO */}
               {tipoDespesa === 'previsivel' && !isEditMode && (
-                <div className="flex gap-3 row mb-3">
-                  <div>
-                    <label className="form-label">
-                      <Repeat size={14} />
-                      Frequência *
-                    </label>
-                    <div className="select-search">
-                      <select
-                        name="frequenciaPrevisivel"
-                        value={formData.frequenciaPrevisivel}
-                        onChange={handleInputChange}
-                        disabled={submitting}
-                      >
-                        {opcoesFrequencia.map(opcao => (
-                          <option key={opcao.value} value={opcao.value}>
-                            {opcao.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="form-label">
-                      <Hash size={14} />
-                      Quantidade *
-                    </label>
-                    <div className="select-search">
-                      <select
-                        name="totalRecorrencias"
-                        value={formData.totalRecorrencias}
-                        onChange={handleInputChange}
-                        disabled={submitting}
-                      >
-                        {opcoesQuantidade.map(opcao => (
-                          <option key={opcao.value} value={opcao.value}>
-                            {opcao.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                <div className="flex flex-col mb-3">
+                  <label className="form-label">
+                    <Repeat size={14} />
+                    Frequência *
+                  </label>
+                  <div className="select-search">
+                    <select
+                      name="frequenciaPrevisivel"
+                      value={formData.frequenciaPrevisivel}
+                      onChange={handleInputChange}
+                      disabled={submitting}
+                    >
+                      {opcoesFrequencia.map(opcao => (
+                        <option key={opcao.value} value={opcao.value}>
+                          {opcao.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               )}
@@ -1211,7 +1521,29 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
               )}
 
               {/* COMO VAI PAGAR */}
-
+              <div className="flex flex-col mb-3">
+                <label className="form-label">Como vai pagar?</label>
+                <div className="payment-selector">
+                  <button
+                    type="button"
+                    className={`payment-option ${!formData.usarCartao ? 'active' : ''}`}
+                    onClick={() => setFormData(prev => ({ ...prev, usarCartao: false, cartao: '' }))}
+                    disabled={submitting}
+                  >
+                    <Building size={16} />
+                    <span>Conta Bancária</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`payment-option ${formData.usarCartao ? 'active' : ''}`}
+                    onClick={() => setFormData(prev => ({ ...prev, usarCartao: true, conta: '' }))}
+                    disabled={submitting}
+                  >
+                    <CreditCard size={16} />
+                    <span>Cartão de Crédito</span>
+                  </button>
+                </div>
+              </div>
 
               {/* CONTA OU CARTÃO ESPECÍFICO */}
               {!formData.usarCartao ? (
@@ -1347,15 +1679,16 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
               <>
                 <span className="btn-spinner"></span>
                 {isEditMode ? 'Atualizando...' :
-                 tipoDespesa === 'previsivel' ? `Criando ${formData.totalRecorrencias} despesas...` :
+                 tipoDespesa === 'previsivel' ? `Criando despesas para o futuro...` :
                  tipoDespesa === 'parcelada' ? `Criando ${formData.numeroParcelas} parcelas...` :
                  'Salvando...'}
               </>
             ) : (
               <>
                 {isEditMode ? <Edit size={14} /> : <Plus size={14} />}
-                {isEditMode ? 'Atualizar Despesa' :
-                 tipoDespesa === 'previsivel' ? `Criar ${formData.totalRecorrencias} Despesas` :
+                {isEditMode ? 
+                  (mostrarEscopoEdicao ? 'Atualizar Grupo' : 'Atualizar Despesa') :
+                 tipoDespesa === 'previsivel' ? `Criar Despesas Futuras` :
                  tipoDespesa === 'parcelada' ? `Parcelar em ${formData.numeroParcelas}x` :
                  'Adicionar Despesa'}
               </>

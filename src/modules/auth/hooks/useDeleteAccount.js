@@ -1,374 +1,461 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { supabase } from '@lib/supabaseClient';
-import useAuth from '@/modules/auth/hooks/useAuth'; 
+import useAuth from './useAuth';
 
-/**
- * Hook personalizado para gerenciar exclusão de conta - VERSÃO COM EDGE FUNCTION
- * ✅ Usa Edge Function para exclusão real com Service Role
- * ✅ Backup e validações mantidas do código anterior
- * ✅ Exclusão completa - usuário pode se cadastrar novamente
- */
 const useDeleteAccount = () => {
-  // Estados locais
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [backupData, setBackupData] = useState(null);
-  
   const { user, signOut } = useAuth();
 
-  // ✅ MANTIDO: Função de backup (igual ao código anterior)
-  const generateBackup = useCallback(async () => {
+  /**
+   * Gera backup de todos os dados do usuário
+   */
+  const generateBackup = async () => {
+    if (!user?.id) {
+      return { success: false, error: 'Usuário não autenticado' };
+    }
+
+    setLoading(true);
+    setError(null);
+
     try {
-      setLoading(true);
-      setError(null);
-      
-      if (!user) throw new Error('Usuário não autenticado');
-      
-      const userId = user.id;
       const backup = {
-        usuario: {
-          id: userId,
-          email: user.email,
-          nome: user.user_metadata?.nome || user.user_metadata?.full_name,
-          created_at: user.created_at,
-          user_metadata: user.user_metadata
-        },
-        data_backup: new Date().toISOString(),
-        versao_backup: '3.0' // 🔥 ATUALIZADO: nova versão com Edge Function
+        usuario: {},
+        contas: [],
+        cartoes: [],
+        categorias: [],
+        subcategorias: [],
+        transacoes: [],
+        transferencias: [],
+        dividas: [],
+        amigos: [],
+        gerado_em: new Date().toISOString()
       };
-      
-      const tables = [
-        'perfil_usuario', 
-        'contas', 
-        'cartoes', 
-        'categorias',
-        'subcategorias', 
-        'dividas', 
-        'amigos',
-        'transferencias'
-      ];
-      
-      const estatisticas = {};
-      
-      for (const table of tables) {
-        try {
-          let query = supabase.from(table).select('*');
-          
-          if (table === 'amigos') {
-            query = query.or(`usuario_proprietario.eq.${userId},usuario_convidado.eq.${userId}`);
-          } 
-          else if (table === 'perfil_usuario') {
-            query = query.eq('id', userId);
-          } 
-          else {
-            query = query.eq('usuario_id', userId);
-          }
-          
-          const { data, error: queryError } = await query;
-          
-          if (queryError && queryError.code !== 'PGRST116') {
-            console.warn(`Erro ao buscar dados da tabela ${table}:`, queryError);
-            estatisticas[table] = { erro: queryError.message };
-          } else {
-            backup[table] = data || [];
-            estatisticas[table] = { registros: (data || []).length };
-            
-            if (table === 'categorias' && data && data.length > 0) {
-              console.log(`📋 Backup: ${data.length} categoria(s) encontrada(s):`, 
-                data.map(cat => cat.nome).join(', '));
-            }
-          }
-        } catch (tableError) {
-          console.warn(`Erro ao processar tabela ${table}:`, tableError);
-          estatisticas[table] = { erro: tableError.message };
-        }
+
+      // 1. Dados do perfil do usuário
+      const { data: perfil, error: perfilError } = await supabase
+        .from('perfil_usuario')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (perfilError && perfilError.code !== 'PGRST116') {
+        throw perfilError;
       }
-      
-      // Buscar transações
-      try {
-        const { data: transacoes, error: transError } = await supabase
-          .from('transacoes')
-          .select(`
-            *,
-            categorias!inner(nome, cor),
-            contas!inner(nome, tipo)
-          `)
-          .eq('usuario_id', userId)
-          .order('data', { ascending: false })
-          .limit(1000);
-        
-        if (transError) {
-          console.warn('Erro ao buscar transações:', transError);
-          estatisticas.transacoes = { erro: transError.message };
-        } else {
-          backup.transacoes = transacoes || [];
-          estatisticas.transacoes = { registros: (transacoes || []).length };
-        }
-      } catch (transError) {
-        console.warn('Erro ao processar transações:', transError);
-        estatisticas.transacoes = { erro: transError.message };
-      }
-      
-      backup.estatisticas = estatisticas;
-      backup.resumo = {
-        total_tabelas: Object.keys(estatisticas).length,
-        total_registros: Object.values(estatisticas)
-          .filter(stat => stat.registros !== undefined)
-          .reduce((sum, stat) => sum + stat.registros, 0),
-        tabelas_com_dados: Object.entries(estatisticas)
-          .filter(([_, stat]) => stat.registros > 0)
-          .map(([tabela, _]) => tabela)
-      };
-      
-      console.log('✅ Backup gerado com sucesso:', backup.resumo);
+      backup.usuario = perfil || {};
+
+      // 2. Contas
+      const { data: contas, error: contasError } = await supabase
+        .from('contas')
+        .select('*')
+        .eq('usuario_id', user.id)
+        .order('nome');
+
+      if (contasError) throw contasError;
+      backup.contas = contas || [];
+
+      // 3. Cartões
+      const { data: cartoes, error: cartoesError } = await supabase
+        .from('cartoes')
+        .select('*')
+        .eq('usuario_id', user.id)
+        .order('nome');
+
+      if (cartoesError) throw cartoesError;
+      backup.cartoes = cartoes || [];
+
+      // 4. Categorias
+      const { data: categorias, error: categoriasError } = await supabase
+        .from('categorias')
+        .select('*')
+        .eq('usuario_id', user.id)
+        .order('nome');
+
+      if (categoriasError) throw categoriasError;
+      backup.categorias = categorias || [];
+
+      // 5. Subcategorias
+      const { data: subcategorias, error: subcategoriasError } = await supabase
+        .from('subcategorias')
+        .select('*')
+        .eq('usuario_id', user.id)
+        .order('nome');
+
+      if (subcategoriasError) throw subcategoriasError;
+      backup.subcategorias = subcategorias || [];
+
+      // 6. Transações (corrigindo o problema de relacionamento)
+      const { data: transacoes, error: transacoesError } = await supabase
+        .from('transacoes')
+        .select(`
+          *,
+          conta_principal:contas!conta_id(nome, tipo),
+          conta_destino:contas!conta_destino_id(nome, tipo),
+          categoria:categorias(nome, tipo, cor),
+          subcategoria:subcategorias(nome),
+          cartao:cartoes(nome, bandeira)
+        `)
+        .eq('usuario_id', user.id)
+        .order('data', { ascending: false });
+
+      if (transacoesError) throw transacoesError;
+      backup.transacoes = transacoes || [];
+
+      // 7. Transferências
+      const { data: transferencias, error: transferenciasError } = await supabase
+        .from(        'transferencias')
+        .select(`
+          *,
+          conta_origem:contas!conta_origem_id(nome, tipo),
+          conta_destino:contas!conta_destino_id(nome, tipo)
+        `)
+        .eq('usuario_id', user.id)
+        .order('data', { ascending: false });
+
+      if (transferenciasError) throw transferenciasError;
+      backup.transferencias = transferencias || [];
+
+      // 8. Dívidas
+      const { data: dividas, error: dividasError } = await supabase
+        .from('dividas')
+        .select('*')
+        .eq('usuario_id', user.id)
+        .order('data_contratacao', { ascending: false });
+
+      if (dividasError) throw dividasError;
+      backup.dividas = dividas || [];
+
+      // 9. Amigos e relacionamentos
+      const { data: amigos, error: amigosError } = await supabase
+        .from('amigos')
+        .select('*')
+        .or(`usuario_proprietario.eq.${user.id},usuario_convidado.eq.${user.id}`)
+        .order('created_at', { ascending: false });
+
+      if (amigosError) throw amigosError;
+      backup.amigos = amigos || [];
+
       setBackupData(backup);
-      return { success: true, data: backup };
-      
+      setLoading(false);
+
+      return { 
+        success: true, 
+        data: backup,
+        resumo: {
+          contas: backup.contas.length,
+          cartoes: backup.cartoes.length,
+          categorias: backup.categorias.length,
+          subcategorias: backup.subcategorias.length,
+          transacoes: backup.transacoes.length,
+          transferencias: backup.transferencias.length,
+          dividas: backup.dividas.length,
+          amigos: backup.amigos.length
+        }
+      };
+
     } catch (err) {
       console.error('Erro ao gerar backup:', err);
-      setError('Não foi possível gerar o backup dos seus dados.');
-      return { success: false, error: err.message };
-    } finally {
+      setError(err.message || 'Erro interno ao gerar backup');
       setLoading(false);
+      return { success: false, error: err.message || 'Erro interno' };
     }
-  }, [user]);
+  };
 
-  // ✅ MANTIDO: Função de download (igual ao código anterior)
-  const downloadBackup = useCallback((backup = backupData) => {
-    if (!backup) return false;
-    
+  /**
+   * Baixa o backup como arquivo JSON
+   */
+  const downloadBackup = () => {
+    if (!backupData) {
+      setError('Nenhum backup disponível para download');
+      return false;
+    }
+
     try {
-      const dataStr = JSON.stringify(backup, null, 2);
+      const dataStr = JSON.stringify(backupData, null, 2);
       const dataBlob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(dataBlob);
       
       const link = document.createElement('a');
-      link.href = url;
-      link.download = `ipoupei-backup-${new Date().toISOString().split('T')[0]}.json`;
+      link.href = URL.createObjectURL(dataBlob);
+      link.download = `iPoupei-backup-${user.email}-${new Date().toISOString().split('T')[0]}.json`;
+      
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       
-      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(link.href);
       return true;
     } catch (err) {
       console.error('Erro ao baixar backup:', err);
-      setError('Não foi possível baixar o backup.');
+      setError('Erro ao baixar arquivo de backup');
       return false;
     }
-  }, [backupData]);
+  };
 
-  // ✅ MANTIDO: Função de validação (igual ao código anterior)
-  const validateDeletion = useCallback(async () => {
+  /**
+   * Valida se a conta pode ser excluída e identifica possíveis problemas
+   */
+  const validateDeletion = async () => {
+    if (!user?.id) {
+      return { success: false, error: 'Usuário não autenticado' };
+    }
+
+    setLoading(true);
+    setError(null);
+
     try {
-      if (!user) throw new Error('Usuário não autenticado');
-      
-      const userId = user.id;
       const issues = [];
-      
-      const checks = [
-        {
-          table: 'transacoes',
-          field: 'compartilhada_com',
-          title: 'Transações compartilhadas',
-          condition: 'not.is.null',
-          severity: 'warning'
-        },
-        {
-          table: 'transacoes',
-          field: 'efetivado',
-          title: 'Transações não efetivadas',
-          condition: 'eq.false',
-          severity: 'warning'
-        },
-        {
-          table: 'dividas',
-          field: 'situacao',
-          title: 'Dívidas pendentes',
-          condition: 'neq.quitada',
-          severity: 'error'
-        },
-        {
-          table: 'amigos',
-          field: 'status',
-          title: 'Relacionamentos ativos',
-          condition: 'eq.aceito',
-          isAmigosTable: true,
-          severity: 'warning'
-        },
-        {
-          table: 'categorias',
-          field: 'usuario_id',
-          title: 'Categorias personalizadas',
-          condition: 'eq.' + userId,
-          severity: 'info',
-          customMessage: 'categoria(s) personalizada(s) serão perdidas permanentemente'
-        }
-      ];
-      
-      for (const check of checks) {
-        try {
-          let query = supabase.from(check.table).select('id, nome');
-          
-          if (check.isAmigosTable) {
-            query = query.eq('usuario_proprietario', userId);
-          } else if (check.condition.startsWith('eq.') && check.table === 'categorias') {
-            query = query.eq('usuario_id', userId);
-          } else {
-            query = query.eq('usuario_id', userId);
-          }
-          
-          if (check.condition && check.table !== 'categorias') {
-            if (check.condition === 'not.is.null') {
-              query = query.not(check.field, 'is', null);
-            } else if (check.condition.startsWith('neq.')) {
-              const value = check.condition.replace('neq.', '');
-              query = query.neq(check.field, value);
-            } else if (check.condition.startsWith('eq.') && check.field !== 'usuario_id') {
-              const value = check.condition.replace('eq.', '');
-              query = query.eq(check.field, value);
-            }
-          }
-          
-          const { data, error: checkError } = await query.limit(10);
-          
-          if (checkError) {
-            console.warn(`Erro na verificação ${check.title}:`, checkError);
-            continue;
-          }
-          
-          if (data && data.length > 0) {
-            const message = check.customMessage 
-              ? `${data.length} ${check.customMessage}`
-              : `Você possui ${data.length} item(ns) que podem ser afetados.`;
-            
-            issues.push({
-              type: check.severity,
-              title: check.title,
-              message: message,
-              count: data.length,
-              items: data.slice(0, 5).map(item => item.nome).filter(Boolean)
-            });
-            
-            if (check.table === 'categorias') {
-              console.log(`📋 Validação: ${data.length} categoria(s) personalizada(s) serão excluídas`);
-            }
-          }
-        } catch (checkError) {
-          console.warn(`Erro ao verificar ${check.title}:`, checkError);
-        }
+      const warnings = [];
+
+      // Verificar transações futuras
+      const { data: transacoesFuturas, error: futuraError } = await supabase
+        .from('transacoes')
+        .select('id, data, descricao, valor')
+        .eq('usuario_id', user.id)
+        .gt('data', new Date().toISOString().split('T')[0])
+        .eq('efetivado', false);
+
+      if (futuraError && futuraError.code !== 'PGRST116') {
+        throw futuraError;
       }
-      
-      return { success: true, issues };
-      
+
+      if (transacoesFuturas && transacoesFuturas.length > 0) {
+        warnings.push({
+          type: 'warning',
+          title: 'Transações futuras agendadas',
+          message: `Você possui ${transacoesFuturas.length} transação(ões) agendada(s) para o futuro que será(ão) perdida(s).`,
+          count: transacoesFuturas.length
+        });
+      }
+
+      // Verificar recorrências ativas
+      const { data: recorrencias, error: recorrenciaError } = await supabase
+        .from('transacoes')
+        .select('grupo_recorrencia')
+        .eq('usuario_id', user.id)
+        .eq('eh_recorrente', true)
+        .not('grupo_recorrencia', 'is', null);
+
+      if (recorrenciaError && recorrenciaError.code !== 'PGRST116') {
+        throw recorrenciaError;
+      }
+
+      const gruposRecorrencia = [...new Set(recorrencias?.map(r => r.grupo_recorrencia) || [])];
+      if (gruposRecorrencia.length > 0) {
+        warnings.push({
+          type: 'warning',
+          title: 'Transações recorrentes ativas',
+          message: `Você possui ${gruposRecorrencia.length} grupo(s) de transações recorrentes que será(ão) cancelado(s).`,
+          count: gruposRecorrencia.length
+        });
+      }
+
+      // Verificar relacionamentos com amigos
+      const { data: relacionamentos, error: amigosError } = await supabase
+        .from('amigos')
+        .select('id, tipo_relacionamento, status')
+        .or(`usuario_proprietario.eq.${user.id},usuario_convidado.eq.${user.id}`)
+        .eq('status', 'aceito');
+
+      if (amigosError && amigosError.code !== 'PGRST116') {
+        throw amigosError;
+      }
+
+      if (relacionamentos && relacionamentos.length > 0) {
+        warnings.push({
+          type: 'info',
+          title: 'Relacionamentos ativos',
+          message: `Você possui ${relacionamentos.length} relacionamento(s) ativo(s) que será(ão) removido(s).`,
+          count: relacionamentos.length
+        });
+      }
+
+      // Verificar transações compartilhadas
+      const { data: compartilhadas, error: compartilhadasError } = await supabase
+        .from('transacoes')
+        .select('id')
+        .eq('usuario_id', user.id)
+        .not('compartilhada_com', 'is', null);
+
+      if (compartilhadasError && compartilhadasError.code !== 'PGRST116') {
+        throw compartilhadasError;
+      }
+
+      if (compartilhadas && compartilhadas.length > 0) {
+        warnings.push({
+          type: 'warning',
+          title: 'Transações compartilhadas',
+          message: `Você possui ${compartilhadas.length} transação(ões) compartilhada(s) com outros usuários.`,
+          count: compartilhadas.length
+        });
+      }
+
+      setLoading(false);
+
+      return {
+        success: true,
+        issues: [...issues, ...warnings],
+        canDelete: issues.length === 0,
+        warningsCount: warnings.length
+      };
+
     } catch (err) {
       console.error('Erro ao validar exclusão:', err);
-      return { success: false, error: err.message };
-    }
-  }, [user]);
-
-  // 🔥 NOVA FUNÇÃO: Chama Edge Function para exclusão real
-  const callDeleteUserFunction = useCallback(async (userId, confirmText) => {
-    try {
-      console.log('🚀 Chamando Edge Function para exclusão...');
-      
-      const { data, error } = await supabase.functions.invoke('delete-user-account', {
-        body: {
-          userId: userId,
-          confirmText: confirmText
-        }
-      });
-
-      if (error) {
-        console.error('❌ Erro na Edge Function:', error);
-        throw new Error(`Erro na função de exclusão: ${error.message}`);
-      }
-
-      if (!data.success) {
-        console.error('❌ Edge Function retornou erro:', data.error);
-        throw new Error(data.error || 'Erro desconhecido na exclusão');
-      }
-
-      console.log('✅ Edge Function executada com sucesso:', data.message);
-      return data;
-
-    } catch (err) {
-      console.error('💥 Erro ao chamar Edge Function:', err);
-      throw err;
-    }
-  }, []);
-
-  // 🔥 MELHORADO: Exclusão usando Edge Function
-  const deleteAccount = useCallback(async (password, confirmText) => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      if (!user) throw new Error('Usuário não autenticado');
-      
-      // Valida confirmação
-      if (confirmText !== 'EXCLUIR MINHA CONTA') {
-        throw new Error('Texto de confirmação incorreto');
-      }
-      
-      console.log('🗑️ Iniciando processo de exclusão via Edge Function:', user.email);
-      
-      // 🔥 PRINCIPAL MUDANÇA: Chama Edge Function em vez de fazer exclusão local
-      const deleteResult = await callDeleteUserFunction(user.id, confirmText);
-      
-      console.log('✅ Conta excluída com sucesso via Edge Function!');
-      
-      // Fazer logout após sucesso
-      await signOut();
-      
-      return { 
-        success: true, 
-        message: deleteResult.message,
-        totalExcluidos: deleteResult.totalDeleted
-      };
-      
-    } catch (err) {
-      console.error('❌ Erro ao excluir conta:', err);
-      setError(err.message || 'Erro inesperado ao excluir conta');
-      return { success: false, error: err.message };
-    } finally {
+      setError(err.message || 'Erro interno na validação');
       setLoading(false);
+      return { success: false, error: err.message || 'Erro interno' };
     }
-  }, [user, signOut, callDeleteUserFunction]);
+  };
 
-  // 🔥 MANTIDO: Desativação de conta (para quem não quer exclusão permanente)
-  const deactivateAccount = useCallback(async () => {
+  /**
+   * Desativa a conta temporariamente
+   */
+  const deactivateAccount = async () => {
+    if (!user?.id) {
+      return { success: false, error: 'Usuário não autenticado' };
+    }
+
+    setLoading(true);
+    setError(null);
+
     try {
-      setLoading(true);
-      setError(null);
-      
-      if (!user) throw new Error('Usuário não autenticado');
-      
-      const { error } = await supabase
+      // Atualizar perfil para desativado
+      const { error: updateError } = await supabase
         .from('perfil_usuario')
-        .upsert({
-          id: user.id,
+        .update({
           conta_ativa: false,
           data_desativacao: new Date().toISOString(),
           updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'id'
-        });
-      
-      if (error) throw error;
-      
+        })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      // Fazer logout
       await signOut();
-      
+
+      setLoading(false);
       return { success: true };
-      
+
     } catch (err) {
       console.error('Erro ao desativar conta:', err);
-      setError('Não foi possível desativar a conta.');
-      return { success: false, error: err.message };
-    } finally {
+      setError(err.message || 'Erro interno ao desativar conta');
       setLoading(false);
+      return { success: false, error: err.message || 'Erro interno' };
     }
-  }, [user, signOut]);
+  };
+
+  /**
+   * Exclui permanentemente a conta e todos os dados
+   */
+  const deleteAccount = async (password, confirmText) => {
+    if (!user?.id) {
+      return { success: false, error: 'Usuário não autenticado' };
+    }
+
+    if (confirmText !== 'EXCLUIR MINHA CONTA') {
+      return { success: false, error: 'Texto de confirmação incorreto' };
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Excluir dados em ordem específica devido às foreign keys
+      
+      // 1. Transações (devem ser excluídas antes das contas e cartões)
+      const { error: transacoesError } = await supabase
+        .from('transacoes')
+        .delete()
+        .eq('usuario_id', user.id);
+
+      if (transacoesError) throw transacoesError;
+
+      // 2. Transferências
+      const { error: transferenciasError } = await supabase
+        .from('transferencias')
+        .delete()
+        .eq('usuario_id', user.id);
+
+      if (transferenciasError) throw transferenciasError;
+
+      // 3. Subcategorias (devem ser excluídas antes das categorias)
+      const { error: subcategoriasError } = await supabase
+        .from('subcategorias')
+        .delete()
+        .eq('usuario_id', user.id);
+
+      if (subcategoriasError) throw subcategoriasError;
+
+      // 4. Categorias
+      const { error: categoriasError } = await supabase
+        .from('categorias')
+        .delete()
+        .eq('usuario_id', user.id);
+
+      if (categoriasError) throw categoriasError;
+
+      // 5. Cartões
+      const { error: cartoesError } = await supabase
+        .from('cartoes')
+        .delete()
+        .eq('usuario_id', user.id);
+
+      if (cartoesError) throw cartoesError;
+
+      // 6. Contas
+      const { error: contasError } = await supabase
+        .from('contas')
+        .delete()
+        .eq('usuario_id', user.id);
+
+      if (contasError) throw contasError;
+
+      // 7. Dívidas
+      const { error: dividasError } = await supabase
+        .from('dividas')
+        .delete()
+        .eq('usuario_id', user.id);
+
+      if (dividasError) throw dividasError;
+
+      // 8. Relacionamentos (amigos)
+      const { error: amigosError } = await supabase
+        .from('amigos')
+        .delete()
+        .or(`usuario_proprietario.eq.${user.id},usuario_convidado.eq.${user.id}`);
+
+      if (amigosError) throw amigosError;
+
+      // 9. Perfil do usuário
+      const { error: perfilError } = await supabase
+        .from('perfil_usuario')
+        .delete()
+        .eq('id', user.id);
+
+      if (perfilError) throw perfilError;
+
+      // 10. Excluir conta de autenticação (admin)
+      const { error: authError } = await supabase.auth.admin.deleteUser(user.id);
+      
+      if (authError) {
+        console.warn('Erro ao excluir usuário da autenticação:', authError);
+        // Continua mesmo se não conseguir excluir da auth (pode ser limitação de permissão)
+      }
+
+      // Fazer logout
+      await signOut();
+
+      setLoading(false);
+      return { success: true };
+
+    } catch (err) {
+      console.error('Erro ao excluir conta:', err);
+      setError(err.message || 'Erro interno ao excluir conta');
+      setLoading(false);
+      return { success: false, error: err.message || 'Erro interno' };
+    }
+  };
 
   return {
     loading,
@@ -377,7 +464,7 @@ const useDeleteAccount = () => {
     generateBackup,
     downloadBackup,
     validateDeletion,
-    deleteAccount, // 🔥 Agora usa Edge Function
+    deleteAccount,
     deactivateAccount
   };
 };

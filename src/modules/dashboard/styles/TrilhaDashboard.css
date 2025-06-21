@@ -15,6 +15,135 @@
   overflow: visible;
 }
 
+/* ===== ESTILOS PARA "EM BREVE" ===== */
+.trilha-dashboard.trilha-em-breve {
+  overflow: hidden;
+}
+
+.trilha-badge-em-breve {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+  color: #FFFFFF;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+  animation: pulse-badge 2s infinite;
+}
+
+@keyframes pulse-badge {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.trilha-overlay-em-breve {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(30, 30, 30, 0.75);
+  backdrop-filter: blur(2px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0px;
+}
+
+.trilha-preview-content {
+  text-align: center;
+  color: #FFFFFF;
+  max-width: 800px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.trilha-preview-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+
+.trilha-preview-titulo {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+  background: linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.trilha-preview-descricao {
+  font-size: 13px;
+  line-height: 1.4;
+  margin: 0 0 2px 0;
+  opacity: 0.9;
+}
+
+.trilha-preview-features {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.trilha-preview-feature {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  opacity: 0.8;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 4px 8px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.trilha-preview-feature-icon {
+  font-size: 12px;
+}
+
+.trilha-preview-cta {
+  margin-top: 12px;
+}
+
+.trilha-preview-eta {
+  background: rgba(255, 255, 255, 0.1);
+  color: #FFFFFF;
+  padding: 2px 30px;
+  border-radius: 16px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+}
+
+/* Efeito de opacity reduzida no conteúdo de fundo */
+.trilha-em-breve .trilha-header,
+.trilha-em-breve .trilha-horizontal-container {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
 /* ===== CABEÇALHO DA TRILHA ===== */
 .trilha-header {
   display: flex;
@@ -90,7 +219,7 @@
   justify-content: space-between;
   width: 100%;
   gap: 0;
-  padding: 4 16px;
+  padding: 4px 16px;
 }
 
 /* ===== LINHA DE PROGRESSO ===== */
@@ -302,6 +431,16 @@
   opacity: 0.9;
   color: rgba(255, 255, 255, 0.85);
   line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.trilha-tooltip-em-breve {
+  font-size: 10px;
+  color: #FBBF24;
+  font-weight: 600;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 6px;
+  text-align: center;
 }
 
 /* Seta do tooltip */
@@ -380,6 +519,14 @@
   .trilha-linha-progresso {
     left: 40px;
     right: 40px;
+  }
+
+  .trilha-preview-titulo {
+    font-size: 20px;
+  }
+
+  .trilha-preview-icon {
+    font-size: 40px;
   }
 }
 
@@ -472,6 +619,50 @@
     min-width: 140px;
     font-size: 11px;
     padding: 8px 12px;
+  }
+
+  .trilha-preview-content {
+    padding: 12px;
+    max-width: 280px;
+  }
+
+  .trilha-preview-titulo {
+    font-size: 16px;
+  }
+
+  .trilha-preview-descricao {
+    font-size: 12px;
+  }
+
+  .trilha-preview-icon {
+    font-size: 28px;
+    margin-bottom: 8px;
+  }
+
+  .trilha-preview-features {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .trilha-preview-feature {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+
+  .trilha-preview-feature-icon {
+    font-size: 10px;
+  }
+
+  .trilha-preview-eta {
+    font-size: 10px;
+    padding: 5px 10px;
+  }
+
+  .trilha-badge-em-breve {
+    top: 8px;
+    right: 8px;
+    padding: 4px 8px;
+    font-size: 10px;
   }
 }
 

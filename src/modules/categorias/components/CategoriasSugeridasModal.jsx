@@ -16,8 +16,7 @@ const categoriasSugeridasData = {
       subcategorias: [
         { nome: 'Supermercado' },
         { nome: 'Restaurante' },
-        { nome: 'Lanche/Fast Food' },
-        { nome: 'Delivery' },
+        { nome: 'Lanche/Fast Food/Delivery' },
         { nome: 'Açougue/Feira' }
       ]
     },
@@ -54,11 +53,10 @@ const categoriasSugeridasData = {
       cor: '#96CEB4',
       icone: '🏥',
       subcategorias: [
-        { nome: 'Consultas Médicas' },
+        { nome: 'Consultas Médicas/Dentista' },
         { nome: 'Medicamentos' },
         { nome: 'Exames' },
         { nome: 'Plano de Saúde' },
-        { nome: 'Dentista' }
       ]
     },
     {
@@ -81,7 +79,6 @@ const categoriasSugeridasData = {
       subcategorias: [
         { nome: 'Cinema/Teatro' },
         { nome: 'Viagens' },
-        { nome: 'Restaurantes' },
         { nome: 'Hobbies' },
         { nome: 'Streaming' }
       ]
@@ -109,6 +106,8 @@ const categoriasSugeridasData = {
         { nome: 'Acessórios' }
       ]
     }
+
+  
   ],
   receitas: [
     {

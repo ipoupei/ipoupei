@@ -13,7 +13,9 @@ import {
   BarChart3,
   Award,
   Brain,
-  MapPin
+  MapPin,
+  Construction,
+  Zap
 } from 'lucide-react';
 import '../styles/TrilhaDashboard.css';
 
@@ -93,6 +95,7 @@ const TrilhaDashboard = ({
 
   const handlePassoClick = (passo) => {
     console.log('Passo clicado:', passo);
+    // Não executa ação real - apenas mostra que está em desenvolvimento
     if (onPassoClick) {
       onPassoClick(passo);
     }
@@ -102,8 +105,44 @@ const TrilhaDashboard = ({
   const xpDisponivel = 300;
 
   return (
-    <div className={`trilha-dashboard ${className}`}>
-      {/* Cabeçalho da Trilha */}
+    <div className={`trilha-dashboard trilha-em-breve ${className}`}>
+      {/* Badge "Em Breve" */}
+      <div className="trilha-badge-em-breve">
+        <Construction size={14} />
+        <span>Em Desenvolvimento</span>
+        <Zap size={12} />
+      </div>
+
+      {/* Overlay semi-transparente */}
+      <div className="trilha-overlay-em-breve">
+        <div className="trilha-preview-content">
+          <div className="trilha-preview-icon">
+            🚀
+          </div>
+          <h3 className="trilha-preview-titulo">
+            Trilha de Aprendizagem em Breve!
+          </h3>
+          <p className="trilha-preview-descricao">
+            Estamos preparando uma experiência incrível de aprendizagem gamificada para você dominar suas finanças passo a passo.
+          </p>
+          <div className="trilha-preview-features">
+            <div className="trilha-preview-feature">
+              <span className="trilha-preview-feature-icon">🎯</span>
+              <span>Sistema de XP e Níveis</span>
+            </div>
+            <div className="trilha-preview-feature">
+              <span className="trilha-preview-feature-icon">🏆</span>
+              <span>Conquistas e Badges</span>
+            </div>
+            <div className="trilha-preview-feature">
+              <span className="trilha-preview-feature-icon">📚</span>
+              <span>Conteúdo Educativo</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Cabeçalho da Trilha (com opacity reduzida) */}
       <div className="trilha-header">
         <div className="trilha-title-section">
           <h2 className="trilha-title">
@@ -190,6 +229,9 @@ const TrilhaDashboard = ({
                 </div>
                 <div className="trilha-tooltip-descricao">
                   {passo.descricao || "Descrição não disponível"}
+                </div>
+                <div className="trilha-tooltip-em-breve">
+                  🚧 Funcionalidade em desenvolvimento
                 </div>
               </div>
             </div>

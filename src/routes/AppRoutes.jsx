@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from '@modules/auth/pages/Login';
 import Dashboard from '@modules/dashboard/pages/Dashboard';
 import ResetPassword from '@modules/auth/pages/ResetPassword';
-import UserProfile from '@modules/contas/components/UserProfile';
+import UserProfile from '@modules/usuarios/components/UserProfile';
 import TransacoesRouteHandler from '@modules/transacoes/components/TransacoesRouteHandler.jsx';
 import RelatoriosHome from '@modules/relatorios/components/RelatoriosHome.jsx';
 import RelatorioCategoria from '@modules/relatorios/components/RelatorioCategoria.jsx';
