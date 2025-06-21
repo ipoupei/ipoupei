@@ -1,13 +1,12 @@
-// src/shared/components/ui/InputMoney.jsx - VERSÃO SEM TECLAS DIRECIONAIS
+// src/shared/components/ui/InputMoney.jsx - ERRO CORRIGIDO
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 
 /**
  * Componente para campos de entrada monetários
+ * ✅ CORREÇÃO: Removido styled-jsx que causava erro
  * ✅ CORREÇÃO: Formatação de valor mais inteligente
  * ✅ CORREÇÃO: Suporte completo a valores negativos
- * ✅ MELHORIA: Feedback visual e acessibilidade
- * ✅ REMOVIDO: Navegação por teclas direcionais (↑ ↓)
  */
 const InputMoney = ({
   name,
@@ -109,8 +108,6 @@ const InputMoney = ({
   const handleChange = useCallback((e) => {
     const newValue = e.target.value;
     
-    console.log('💰 InputMoney change:', { original: newValue, allowNegative });
-    
     // Se não permite negativo, remove o sinal de menos
     const finalValue = allowNegative ? newValue : newValue.replace('-', '');
     
@@ -119,16 +116,13 @@ const InputMoney = ({
     // Converte e envia o valor numérico
     const numericValue = stringToNumber(finalValue);
     
-    console.log('💰 Valor convertido:', numericValue, 'Válido:', isValid);
-    
     if (onChange) {
       onChange(numericValue);
     }
-  }, [allowNegative, stringToNumber, onChange, isValid]);
+  }, [allowNegative, stringToNumber, onChange]);
   
   // ✅ Handle quando ganha foco
   const handleFocus = useCallback((e) => {
-    console.log('🎯 InputMoney focus');
     setIsFocused(true);
     
     // Converte para formato editável
@@ -146,7 +140,6 @@ const InputMoney = ({
   
   // ✅ Handle quando perde foco
   const handleBlur = useCallback((e) => {
-    console.log('🎯 InputMoney blur');
     setIsFocused(false);
     
     // Pega o valor atual e formata
@@ -163,10 +156,8 @@ const InputMoney = ({
     }
   }, [inputValue, stringToNumber, formatCurrency, onChange, onBlur]);
 
-  // ✅ Navegação por teclado SIMPLIFICADA (sem teclas direcionais)
+  // ✅ Navegação por teclado SIMPLIFICADA
   const handleKeyDown = useCallback((e) => {
-    console.log('⌨️ InputMoney keyDown:', e.key);
-    
     switch (e.key) {
       case 'Enter':
         // Força formatação e validação
@@ -217,18 +208,59 @@ const InputMoney = ({
     }
   }, [inputValue, allowNegative, value, formatCurrency, onKeyDown, handleBlur]);
 
-  // ✅ Classes CSS dinâmicas para feedback visual
+  // ✅ CORREÇÃO: Classes CSS sem styled-jsx
   const inputClasses = [
     'input-money',
     className,
-    isFocused && 'focused',
-    !isValid && 'invalid',
-    disabled && 'disabled',
-    allowNegative && 'allow-negative'
+    isFocused && 'input-money-focused',
+    !isValid && 'input-money-invalid',
+    disabled && 'input-money-disabled',
+    allowNegative && 'input-money-allow-negative'
   ].filter(Boolean).join(' ');
 
+  // ✅ CORREÇÃO: Estilos inline em vez de styled-jsx
+  const containerStyle = {
+    position: 'relative',
+    display: 'inline-block',
+    width: '100%'
+  };
+
+  const inputStyle = {
+    ...style,
+    fontFamily: 'monospace',
+    textAlign: 'right',
+    transition: 'all 0.2s ease',
+    ...(isFocused && { 
+      borderColor: isValid ? '#10b981' : '#ef4444',
+      boxShadow: `0 0 0 2px ${isValid ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`
+    }),
+    ...(isFocused && { transform: 'scale(1.02)' }),
+    ...(!isValid && { 
+      backgroundColor: '#fef2f2',
+      borderColor: '#ef4444'
+    }),
+    ...(disabled && { 
+      opacity: 0.6,
+      cursor: 'not-allowed'
+    })
+  };
+
+  const errorStyle = {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    background: '#fee2e2',
+    color: '#dc2626',
+    fontSize: '0.75rem',
+    padding: '4px 8px',
+    borderRadius: '0 0 4px 4px',
+    border: '1px solid #fecaca',
+    zIndex: 10
+  };
+
   return (
-    <div className="input-money-container">
+    <div style={containerStyle}>
       <input
         ref={inputRef}
         id={id}
@@ -243,66 +275,16 @@ const InputMoney = ({
         disabled={disabled}
         tabIndex={tabIndex}
         className={inputClasses}
-        style={{
-          ...style,
-          fontFamily: 'monospace',
-          textAlign: 'right',
-          ...(isFocused && { 
-            borderColor: isValid ? '#10b981' : '#ef4444',
-            boxShadow: `0 0 0 2px ${isValid ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}` 
-          })
-        }}
+        style={inputStyle}
         {...props}
       />
       
       {/* ✅ Indicador de valor inválido */}
       {!isValid && (
-        <div className="input-money-error" style={{
-          position: 'absolute',
-          top: '100%',
-          left: 0,
-          right: 0,
-          background: '#fee2e2',
-          color: '#dc2626',
-          fontSize: '0.75rem',
-          padding: '4px 8px',
-          borderRadius: '0 0 4px 4px',
-          border: '1px solid #fecaca'
-        }}>
+        <div style={errorStyle}>
           Formato inválido. Use apenas números e vírgula.
         </div>
       )}
-      
-      {/* ✅ CSS interno para estados */}
-      <style jsx>{`
-        .input-money-container {
-          position: relative;
-          display: inline-block;
-          width: 100%;
-        }
-        
-        .input-money {
-          transition: all 0.2s ease;
-        }
-        
-        .input-money.focused {
-          transform: scale(1.02);
-        }
-        
-        .input-money.invalid {
-          background-color: #fef2f2;
-          border-color: #ef4444;
-        }
-        
-        .input-money.disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-        
-        .input-money.allow-negative {
-          border-left: 3px solid #f59e0b;
-        }
-      `}</style>
     </div>
   );
 };

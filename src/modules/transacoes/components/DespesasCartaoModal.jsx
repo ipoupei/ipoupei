@@ -1,4 +1,7 @@
-// src/modules/transacoes/components/DespesasCartaoModal.jsx - OTIMIZADO COM ZUSTAND
+// src/modules/transacoes/components/DespesasCartaoModal.jsx
+// ✅ VERSÃO LIMPA E CORRIGIDA - Com Suporte para Edição
+// ❌ PROIBIDO: Chamadas diretas ao banco, lógica de negócio no componente
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -11,45 +14,48 @@ import {
   Hash, 
   PlusCircle,
   X,
-  Search
+  Search,
+  Edit3
 } from 'lucide-react';
 
-// ✅ OTIMIZAÇÃO: Usar stores e hooks existentes
+// ✅ USAR: Novos hooks refatorados
 import { useAuthStore } from '@modules/auth/store/authStore';
 import { useUIStore } from '@store/uiStore';
-import useCartoesStore from '@modules/cartoes/store/cartoesStore';
+import useCartoesData from '@modules/cartoes/hooks/useCartoesData';
+import useFaturaOperations from '@modules/cartoes/hooks/useFaturaOperations';
 import useCategorias from '@modules/categorias/hooks/useCategorias';
-import useCartoes from '@modules/cartoes/hooks/useCartoes';
 
 import { formatCurrency } from '@utils/formatCurrency';
-import { supabase } from '@lib/supabaseClient';
 import '@shared/styles/FormsModal.css';
 
-/**
- * Modal de Despesas Cartão - OTIMIZADO COM ZUSTAND E HOOKS
- * ✅ MELHORIAS IMPLEMENTADAS:
- * - Usar useCartoesStore para dados dos cartões (cache)
- * - Usar useCategoriasStore para categorias (cache)
- * - Usar useCartoes.adicionarDespesaCartao() para salvar
- * - Calcular fatura_vencimento via RPC existente
- * - Menos fetches diretos, mais reuso de dados
- */
-const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
+const DespesasCartaoModal = ({ 
+  isOpen, 
+  onClose, 
+  onSave, 
+  transacaoEditando = null 
+}) => {
   const { user } = useAuthStore();
   const { showNotification } = useUIStore();
   
-  // ✅ OTIMIZAÇÃO: Usar stores em vez de estado local
+  // ✅ HOOKS
   const { 
-    cartoes, 
-    cartoesAtivos,
-    loading: isLoadingCartoes,
     fetchCartoes,
-    adicionarDespesaCartao 
-  } = useCartoes();
+    calcularFaturaVencimento,
+    loading: cartoesLoading,
+    error: cartoesError
+  } = useCartoesData();
+  
+  const { 
+    criarDespesaCartao,
+    criarDespesaParcelada,
+    editarTransacao,
+    loading: operationLoading,
+    error: operationError
+  } = useFaturaOperations();
   
   const { 
     categorias, 
-    loading: isLoadingCategorias,
+    loading: categoriasLoading,
     addCategoria,
     addSubcategoria,
     getCategoriasPorTipo,
@@ -58,17 +64,14 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
   
   const valorInputRef = useRef(null);
 
-  // Estados reduzidos (apenas o que não está no store)
+  // ✅ ESTADOS
+  const [cartoes, setCartoes] = useState([]);
+  const [opcoesFatura, setOpcoesFatura] = useState([]);
   const [submitting, setSubmitting] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  // Estados para dropdowns (UI local)
   const [categoriaDropdownOpen, setCategoriaDropdownOpen] = useState(false);
   const [subcategoriaDropdownOpen, setSubcategoriaDropdownOpen] = useState(false);
   const [categoriasFiltradas, setCategoriasFiltradas] = useState([]);
   const [subcategoriasFiltradas, setSubcategoriasFiltradas] = useState([]);
-
-  // Estado para confirmação (UI local)
   const [confirmacao, setConfirmacao] = useState({
     show: false,
     type: '',
@@ -76,7 +79,6 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     categoriaId: ''
   });
 
-  // Estado do formulário (local)
   const [formData, setFormData] = useState({
     valorTotal: '',
     dataCompra: new Date().toISOString().split('T')[0],
@@ -93,55 +95,14 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
 
   const [errors, setErrors] = useState({});
 
-  // ✅ OTIMIZAÇÃO: Carregar dados via stores quando modal abre
-  useEffect(() => {
-    if (isOpen && user) {
-      carregarDadosOtimizado();
-    }
-  }, [isOpen, user]);
+  // ✅ MODO DE EDIÇÃO
+  const isEditMode = Boolean(transacaoEditando);
 
-  const carregarDadosOtimizado = async () => {
-    if (!user) return;
-    
-    setLoading(true);
-    try {
-      // ✅ USAR HOOKS: Os dados já estão sendo carregados automaticamente pelos hooks
-      // useCategorias já carrega automaticamente quando o usuário está autenticado
-      // useCartoes já carrega automaticamente quando o usuário está autenticado
-      
-      // Apenas force refresh se necessário
-      if (cartoesAtivos.length === 0) {
-        await fetchCartoes(true); // force refresh
-      }
-      
-      console.log('✅ Dados carregados via hooks:', {
-        cartoes: cartoesAtivos.length,
-        categorias: categoriasDisponiveis.length,
-        subcategorias: todasSubcategorias.length
-      });
-      
-    } catch (error) {
-      console.error('Erro ao carregar dados via hooks:', error);
-      showNotification('Erro ao carregar dados', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ✅ OTIMIZAÇÃO: Dados derivados dos hooks
+  // ✅ DADOS DERIVADOS
   const categoriasDisponiveis = useMemo(() => 
     getCategoriasPorTipo('despesa'), 
     [getCategoriasPorTipo]
   );
-
-  const todasSubcategorias = useMemo(() => {
-    return categorias.reduce((acc, categoria) => {
-      if (categoria.subcategorias && categoria.subcategorias.length > 0) {
-        acc.push(...categoria.subcategorias);
-      }
-      return acc;
-    }, []);
-  }, [categorias]);
 
   const categoriaSelecionada = useMemo(() => 
     categoriasDisponiveis.find(cat => cat.id === formData.categoria), 
@@ -153,28 +114,46 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     [getSubcategoriasPorCategoria, formData.categoria]
   );
 
-  // Opções de parcelamento (mantido)
   const opcoesParcelamento = useMemo(() => 
-    Array.from({ length: 24 }, (_, i) => ({
+    Array.from({ length: isEditMode ? 1 : 24 }, (_, i) => ({
       value: i + 1,
       label: `${i + 1}x${i === 0 ? ' à vista' : ''}`
     })),
-    []
+    [isEditMode]
   );
 
-  // Formatação de valor (mantido)
-  const formatarValor = useCallback((valor) => {
-    const apenasNumeros = valor.toString().replace(/\D/g, '');
-    if (!apenasNumeros || apenasNumeros === '0') return '';
-    const valorEmCentavos = parseInt(apenasNumeros, 10);
-    const valorEmReais = valorEmCentavos / 100;
-    return valorEmReais.toLocaleString('pt-BR', { 
-      minimumFractionDigits: 2, 
-      maximumFractionDigits: 2 
-    });
-  }, []);
+  const cartoesParaEdicao = useMemo(() => {
+    if (!cartoes || cartoes.length === 0) {
+      if (isEditMode && transacaoEditando?.cartao_id) {
+        return [{
+          id: transacaoEditando.cartao_id,
+          nome: 'Carregando cartão...',
+          bandeira: '',
+          ativo: true
+        }];
+      }
+      return [];
+    }
 
-  // Valor numérico (mantido)
+    const cartoesAtivos = cartoes.filter(c => c.ativo !== false);
+    
+    if (isEditMode && transacaoEditando?.cartao_id) {
+      const cartaoAtual = cartoesAtivos.find(c => c.id === transacaoEditando.cartao_id);
+      
+      if (!cartaoAtual) {
+        const cartaoTemporario = {
+          id: transacaoEditando.cartao_id,
+          nome: 'Carregando cartão...',
+          bandeira: '',
+          ativo: true
+        };
+        return [cartaoTemporario, ...cartoesAtivos];
+      }
+    }
+    
+    return cartoesAtivos;
+  }, [cartoes, isEditMode, transacaoEditando]);
+
   const valorNumerico = useMemo(() => {
     if (!formData.valorTotal) return 0;
     const valorString = formData.valorTotal.toString();
@@ -196,114 +175,119 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     [valorNumerico, formData.numeroParcelas]
   );
 
-  // ✅ OTIMIZAÇÃO: Usar RPC existente para calcular fatura
+  // ✅ FUNCTIONS
+  const formatarValor = useCallback((valor) => {
+    const apenasNumeros = valor.toString().replace(/\D/g, '');
+    if (!apenasNumeros || apenasNumeros === '0') return '';
+    const valorEmCentavos = parseInt(apenasNumeros, 10);
+    const valorEmReais = valorEmCentavos / 100;
+    return valorEmReais.toLocaleString('pt-BR', { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    });
+  }, []);
+
+  const calcularDataVencimentoParcela = useCallback((dataBaseVencimento, numeroParcela) => {
+    if (!dataBaseVencimento || numeroParcela < 1) return null;
+    
+    const partes = dataBaseVencimento.split('-');
+    const anoBase = parseInt(partes[0]);
+    const mesBase = parseInt(partes[1]) - 1;
+    const diaBase = parseInt(partes[2]);
+    
+    const novaData = new Date(anoBase, mesBase + (numeroParcela - 1), diaBase);
+    
+    if (novaData.getDate() !== diaBase) {
+      novaData.setDate(0);
+    }
+    
+    const ano = novaData.getFullYear();
+    const mes = String(novaData.getMonth() + 1).padStart(2, '0');
+    const dia = String(novaData.getDate()).padStart(2, '0');
+    
+    return `${ano}-${mes}-${dia}`;
+  }, []);
+
   const calcularOpcoesFatura = useCallback(async () => {
     if (!formData.dataCompra || !formData.cartaoId) return [];
     
     try {
-      console.log('🧮 Calculando opções de fatura via RPC');
+      const faturaCalculada = await calcularFaturaVencimento(formData.cartaoId, formData.dataCompra);
       
-      // ✅ USAR RPC: buscar_opcoes_fatura (se existir) ou calcular_fatura_vencimento
-      const { data: opcoesFatura, error } = await supabase
-        .rpc('buscar_opcoes_fatura', {
-          p_cartao_id: formData.cartaoId,
-          p_data_compra: formData.dataCompra
-        });
-        
-      if (error) {
-        console.warn('RPC buscar_opcoes_fatura não encontrada, usando fallback');
+      if (!faturaCalculada) {
         return calcularOpcoesFaturaFallback();
       }
       
-      return opcoesFatura || [];
+      const opcoes = [];
+      const dataBase = faturaCalculada.data_vencimento;
+      
+      for (let i = -2; i <= 3; i++) {
+        const partes = dataBase.split('-');
+        const ano = parseInt(partes[0]);
+        const mes = parseInt(partes[1]) - 1;
+        const dia = parseInt(partes[2]);
+        
+        const novaData = new Date(ano, mes + i, dia);
+        const dataFormatada = `${novaData.getFullYear()}-${String(novaData.getMonth() + 1).padStart(2, '0')}-${String(novaData.getDate()).padStart(2, '0')}`;
+        
+        opcoes.push({
+          value: dataFormatada,
+          label: `${novaData.toLocaleDateString('pt-BR', { 
+            month: 'short', 
+            year: 'numeric' 
+          }).replace('.', '')} - Venc: ${novaData.toLocaleDateString('pt-BR')}`,
+          isDefault: i === 0
+        });
+      }
+      
+      return opcoes;
       
     } catch (error) {
-      console.error('Erro ao calcular opções via RPC:', error);
+      console.error('Erro ao calcular opções via hook:', error);
       return calcularOpcoesFaturaFallback();
     }
-  }, [formData.dataCompra, formData.cartaoId]);
+  }, [formData.dataCompra, formData.cartaoId, calcularFaturaVencimento]);
 
-  // Fallback para cálculo de fatura (mantido como estava)
   const calcularOpcoesFaturaFallback = useCallback(() => {
     if (!formData.dataCompra || !formData.cartaoId) return [];
     
-    const cartao = cartoesAtivos.find(c => c.id === formData.cartaoId);
+    const cartao = cartoes.find(c => c.id === formData.cartaoId);
     if (!cartao) return [];
     
-    const dataCompra = new Date(formData.dataCompra);
+    const dataCompra = new Date(formData.dataCompra + 'T12:00:00');
     const diaFechamento = cartao.dia_fechamento || 1;
     const diaVencimento = cartao.dia_vencimento || 10;
     
     const opcoes = [];
     
     for (let i = -2; i <= 3; i++) {
-      const dataFechamento = new Date(dataCompra.getFullYear(), dataCompra.getMonth() + i, diaFechamento);
-      const dataVencimento = new Date(dataCompra.getFullYear(), dataCompra.getMonth() + i, diaVencimento);
+      const anoFechamento = dataCompra.getFullYear();
+      const mesFechamento = dataCompra.getMonth() + i;
+      const dataFechamento = new Date(anoFechamento, mesFechamento, diaFechamento, 12, 0, 0);
+      
+      let anoVencimento = dataFechamento.getFullYear();
+      let mesVencimento = dataFechamento.getMonth();
       
       if (diaVencimento <= diaFechamento) {
-        dataVencimento.setMonth(dataVencimento.getMonth() + 1);
+        mesVencimento += 1;
       }
       
-      const isCalculada = i === 0 || (i === 1 && dataCompra.getDate() > diaFechamento);
+      const dataVencimento = new Date(anoVencimento, mesVencimento, diaVencimento, 12, 0, 0);
+      const dataVencimentoString = `${dataVencimento.getFullYear()}-${String(dataVencimento.getMonth() + 1).padStart(2, '0')}-${String(dataVencimento.getDate()).padStart(2, '0')}`;
       
       opcoes.push({
-        value: dataVencimento.toISOString().split('T')[0],
+        value: dataVencimentoString,
         label: `${dataVencimento.toLocaleDateString('pt-BR', { 
           month: 'short', 
           year: 'numeric' 
         }).replace('.', '')} - Venc: ${dataVencimento.toLocaleDateString('pt-BR')}`,
-        isDefault: isCalculada
+        isDefault: i === 0
       });
     }
     
     return opcoes;
-  }, [formData.dataCompra, formData.cartaoId, cartoesAtivos]);
+  }, [formData.dataCompra, formData.cartaoId, cartoes]);
 
-  const [opcoesFatura, setOpcoesFatura] = useState([]);
-
-  // Effect para calcular opções de fatura
-  useEffect(() => {
-    if (formData.cartaoId && formData.dataCompra) {
-      calcularOpcoesFatura().then(setOpcoesFatura);
-    } else {
-      setOpcoesFatura([]);
-    }
-  }, [formData.cartaoId, formData.dataCompra, calcularOpcoesFatura]);
-
-  // Effects para filtros (mantidos)
-  useEffect(() => {
-    if (!categoriasDisponiveis.length) return;
-    const filtradas = formData.categoriaTexto 
-      ? categoriasDisponiveis.filter(cat => cat.nome.toLowerCase().includes(formData.categoriaTexto.toLowerCase()))
-      : categoriasDisponiveis;
-    setCategoriasFiltradas(filtradas);
-  }, [formData.categoriaTexto, categoriasDisponiveis]);
-
-  useEffect(() => {
-    if (!subcategoriasDaCategoria.length) {
-      setSubcategoriasFiltradas([]);
-      return;
-    }
-    const filtradas = formData.subcategoriaTexto 
-      ? subcategoriasDaCategoria.filter(sub => sub.nome.toLowerCase().includes(formData.subcategoriaTexto.toLowerCase()))
-      : subcategoriasDaCategoria;
-    setSubcategoriasFiltradas(filtradas);
-  }, [formData.subcategoriaTexto, subcategoriasDaCategoria]);
-
-  // Efeito para definir fatura padrão
-  useEffect(() => {
-    if (formData.cartaoId && formData.dataCompra && opcoesFatura.length > 0) {
-      const faturaDefault = opcoesFatura.find(opcao => opcao.isDefault);
-      if (faturaDefault && !formData.faturaVencimento) {
-        setFormData(prev => ({
-          ...prev,
-          faturaVencimento: faturaDefault.value
-        }));
-      }
-    }
-  }, [formData.cartaoId, formData.dataCompra, opcoesFatura, formData.faturaVencimento]);
-
-  // Reset form (mantido)
   const resetForm = useCallback(() => {
     const dataAtual = new Date().toISOString().split('T')[0];
     setFormData({
@@ -325,19 +309,125 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
   }, []);
 
+  // ✅ EFFECTS
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && user) {
+      const carregarDados = async () => {
+        try {
+          const cartoesData = await fetchCartoes();
+          setCartoes(cartoesData);
+        } catch (error) {
+          console.error('Erro ao carregar dados:', error);
+          showNotification('Erro ao carregar dados', 'error');
+        }
+      };
+      carregarDados();
+    }
+  }, [isOpen, user, fetchCartoes, showNotification]);
+
+  useEffect(() => {
+    if (isEditMode && transacaoEditando && categorias.length > 0) {
+      console.log('🔄 Carregando dados para edição:', transacaoEditando);
+      
+      const valorFormatado = (transacaoEditando.valor || 0).toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+      
+      const categoria = categorias.find(c => c.id === transacaoEditando.categoria_id);
+      
+      let subcategoria = null;
+      let subcategoriasDisponiveis = [];
+      
+      if (transacaoEditando.subcategoria_id) {
+        try {
+          subcategoriasDisponiveis = getSubcategoriasPorCategoria(transacaoEditando.categoria_id);
+          subcategoria = subcategoriasDisponiveis.find(s => s.id === transacaoEditando.subcategoria_id);
+        } catch (error) {
+          console.warn('⚠️ Erro ao buscar subcategorias:', error);
+        }
+        
+        if (!subcategoria && categoria?.subcategorias) {
+          subcategoria = categoria.subcategorias.find(s => s.id === transacaoEditando.subcategoria_id);
+        }
+      }
+      
+      const dadosFormulario = {
+        valorTotal: valorFormatado,
+        dataCompra: transacaoEditando.data ? transacaoEditando.data.split('T')[0] : new Date().toISOString().split('T')[0],
+        descricao: transacaoEditando.descricao || '',
+        categoria: transacaoEditando.categoria_id || '',
+        categoriaTexto: categoria?.nome || '',
+        subcategoria: transacaoEditando.subcategoria_id || '',
+        subcategoriaTexto: subcategoria?.nome || '',
+        cartaoId: transacaoEditando.cartao_id || '',
+        numeroParcelas: transacaoEditando.numero_parcelas || 1,
+        faturaVencimento: transacaoEditando.fatura_vencimento || '',
+        observacoes: transacaoEditando.observacoes || ''
+      };
+      
+      console.log('📝 DADOS FINAIS DO FORMULÁRIO:', dadosFormulario);
+      
+      setFormData(dadosFormulario);
+      
+      if (subcategoria && subcategoriasDisponiveis.length > 0) {
+        setSubcategoriasFiltradas(subcategoriasDisponiveis);
+      }
+    }
+  }, [isEditMode, transacaoEditando, categorias, getSubcategoriasPorCategoria]);
+
+  useEffect(() => {
+    if (!isEditMode && formData.cartaoId && formData.dataCompra) {
+      calcularOpcoesFatura().then(setOpcoesFatura);
+    } else if (isEditMode) {
+      setOpcoesFatura([{
+        value: formData.faturaVencimento,
+        label: `Fatura Atual - ${formData.faturaVencimento ? new Date(formData.faturaVencimento + 'T12:00:00').toLocaleDateString('pt-BR') : 'N/A'}`,
+        isDefault: true
+      }]);
+    } else {
+      setOpcoesFatura([]);
+    }
+  }, [formData.cartaoId, formData.dataCompra, calcularOpcoesFatura, isEditMode, formData.faturaVencimento]);
+
+  useEffect(() => {
+    if (!categoriasDisponiveis.length) return;
+    const filtradas = formData.categoriaTexto 
+      ? categoriasDisponiveis.filter(cat => cat.nome.toLowerCase().includes(formData.categoriaTexto.toLowerCase()))
+      : categoriasDisponiveis;
+    setCategoriasFiltradas(filtradas);
+  }, [formData.categoriaTexto, categoriasDisponiveis]);
+
+  useEffect(() => {
+    if (!subcategoriasDaCategoria.length) {
+      setSubcategoriasFiltradas([]);
+      return;
+    }
+    const filtradas = formData.subcategoriaTexto 
+      ? subcategoriasDaCategoria.filter(sub => sub.nome.toLowerCase().includes(formData.subcategoriaTexto.toLowerCase()))
+      : subcategoriasDaCategoria;
+    setSubcategoriasFiltradas(filtradas);
+  }, [formData.subcategoriaTexto, subcategoriasDaCategoria]);
+
+  useEffect(() => {
+    if (!isEditMode && formData.cartaoId && formData.dataCompra && opcoesFatura.length > 0) {
+      const faturaDefault = opcoesFatura.find(opcao => opcao.isDefault);
+      if (faturaDefault && !formData.faturaVencimento) {
+        setFormData(prev => ({
+          ...prev,
+          faturaVencimento: faturaDefault.value
+        }));
+      }
+    }
+  }, [formData.cartaoId, formData.dataCompra, opcoesFatura, formData.faturaVencimento, isEditMode]);
+
+  useEffect(() => {
+    if (isOpen && !isEditMode) {
       resetForm();
       const timer = setTimeout(() => valorInputRef.current?.focus(), 150);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, resetForm]);
-
-  // Handler para ESC e cancelar (mantido)
-  const handleCancelar = useCallback(() => {
-    resetForm();
-    onClose();
-  }, [resetForm, onClose]);
+  }, [isOpen, resetForm, isEditMode]);
 
   useEffect(() => {
     const handleEscape = (e) => {
@@ -350,9 +440,16 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
       document.addEventListener('keydown', handleEscape);
       return () => document.removeEventListener('keydown', handleEscape);
     }
-  }, [isOpen, handleCancelar]);
+  }, [isOpen]);
 
-  // Handlers de input (mantidos)
+  // ✅ HANDLERS
+  const handleCancelar = useCallback(() => {
+    if (!isEditMode) {
+      resetForm();
+    }
+    onClose();
+  }, [resetForm, onClose, isEditMode]);
+
   const handleInputChange = useCallback((e) => {
     const { name, value } = e.target;
     
@@ -373,13 +470,13 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
       setFormData(prev => ({
         ...prev,
         [name]: value,
-        faturaVencimento: ''
+        faturaVencimento: isEditMode ? prev.faturaVencimento : ''
       }));
     } else if (name === 'dataCompra') {
       setFormData(prev => ({
         ...prev,
         [name]: value,
-        faturaVencimento: ''
+        faturaVencimento: isEditMode ? prev.faturaVencimento : ''
       }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
@@ -388,9 +485,8 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: null }));
     }
-  }, [errors]);
+  }, [errors, isEditMode]);
 
-  // Handler de valor (mantido)
   const handleValorChange = useCallback((e) => {
     const valorFormatado = formatarValor(e.target.value);
     setFormData(prev => ({ ...prev, valorTotal: valorFormatado }));
@@ -399,7 +495,6 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     }
   }, [formatarValor, errors.valorTotal]);
 
-  // Handlers de categoria (mantidos)
   const handleCategoriaChange = useCallback((e) => {
     const { value } = e.target;
     setFormData(prev => ({
@@ -446,7 +541,6 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     return () => clearTimeout(timer);
   }, [formData.categoriaTexto, formData.categoria, categoriasDisponiveis]);
 
-  // Handlers de subcategoria (mantidos)
   const handleSubcategoriaChange = useCallback((e) => {
     const { value } = e.target;
     setFormData(prev => ({ 
@@ -488,7 +582,6 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     return () => clearTimeout(timer);
   }, [formData.subcategoriaTexto, formData.subcategoria, formData.categoria, categoriaSelecionada, subcategoriasDaCategoria]);
 
-  // ✅ OTIMIZAÇÃO: Usar hook para criar categoria/subcategoria
   const handleConfirmarCriacao = useCallback(async () => {
     try {
       if (confirmacao.type === 'categoria') {
@@ -533,7 +626,6 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
   }, [confirmacao, addCategoria, addSubcategoria, showNotification]);
 
-  // Validação (mantida)
   const validateForm = useCallback(() => {
     const newErrors = {};
     
@@ -555,11 +647,13 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     if (!formData.faturaVencimento) {
       newErrors.faturaVencimento = "Fatura é obrigatória";
     }
-    if (formData.numeroParcelas < 1) {
-      newErrors.numeroParcelas = "Número de parcelas deve ser pelo menos 1";
-    }
-    if (formData.numeroParcelas > 1 && valorNumerico < 10) {
-      newErrors.numeroParcelas = "Para parcelar, valor mínimo deve ser R$ 10,00";
+    if (!isEditMode) {
+      if (formData.numeroParcelas < 1) {
+        newErrors.numeroParcelas = "Número de parcelas deve ser pelo menos 1";
+      }
+      if (formData.numeroParcelas > 1 && valorNumerico < 10) {
+        newErrors.numeroParcelas = "Para parcelar, valor mínimo deve ser R$ 10,00";
+      }
     }
     if (formData.observacoes && formData.observacoes.length > 300) {
       newErrors.observacoes = "Máximo de 300 caracteres";
@@ -567,61 +661,78 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [formData, valorNumerico]);
+  }, [formData, valorNumerico, isEditMode]);
 
-  // ✅ OTIMIZAÇÃO: Usar hook useCartoes.adicionarDespesaCartao()
   const salvarDespesaCartao = useCallback(async () => {
     try {
-      // ✅ PREPARAR: Dados para cada parcela
-      const dadosBase = {
-        data: formData.dataCompra,
-        descricao: formData.descricao.trim(),
-        categoria_id: formData.categoria,
-        subcategoria_id: formData.subcategoria || null,
-        observacoes: formData.observacoes.trim() || null,
-        fatura_vencimento: formData.faturaVencimento
-      };
-
-      // ✅ USAR HOOK: Para cada parcela, usar adicionarDespesaCartao do hook
-      const resultados = [];
+      console.log('💾 Iniciando operação via hook:', {
+        isEditMode,
+        valor: valorNumerico,
+        transacaoId: transacaoEditando?.id
+      });
       
-      const valorParcelaCalc = valorNumerico / formData.numeroParcelas;
-      const grupoParcelamento = crypto.randomUUID();
-      
-      for (let i = 1; i <= formData.numeroParcelas; i++) {
-        // Calcular data de vencimento para cada parcela
-        const dataVencimento = new Date(formData.faturaVencimento);
-        dataVencimento.setMonth(dataVencimento.getMonth() + (i - 1));
-        
-        const dadosParcela = {
-          ...dadosBase,
-          descricao: dadosBase.descricao + (formData.numeroParcelas > 1 ? ` (${i}/${formData.numeroParcelas})` : ''),
-          valor: valorParcelaCalc,
-          parcela_atual: i,
-          total_parcelas: formData.numeroParcelas,
-          grupo_parcelamento: grupoParcelamento,
-          fatura_vencimento: dataVencimento.toISOString().split('T')[0]
-        };
-        
-        // ✅ USAR: Função do hook useCartoes
-        const resultado = await adicionarDespesaCartao(formData.cartaoId, dadosParcela);
-        resultados.push(resultado);
+      if (isEditMode) {
+        const resultado = await editarTransacao(transacaoEditando.id, {
+          categoria_id: formData.categoria,
+          subcategoria_id: formData.subcategoria || null,
+          descricao: formData.descricao.trim(),
+          valor: valorNumerico,
+          data: formData.dataCompra,
+          observacoes: formData.observacoes.trim() || null
+        });
         
         if (!resultado.success) {
-          throw new Error(resultado.error || `Erro na parcela ${i}`);
+          throw new Error(resultado.error);
+        }
+        
+        return [resultado];
+        
+      } else {
+        if (formData.numeroParcelas === 1) {
+          const resultado = await criarDespesaCartao({
+            cartao_id: formData.cartaoId,
+            categoria_id: formData.categoria,
+            subcategoria_id: formData.subcategoria || null,
+            descricao: formData.descricao.trim(),
+            valor: valorNumerico,
+            data_compra: formData.dataCompra,
+            fatura_vencimento: formData.faturaVencimento,
+            observacoes: formData.observacoes.trim() || null
+          });
+          
+          if (!resultado.success) {
+            throw new Error(resultado.error);
+          }
+          
+          return [resultado];
+          
+        } else {
+          const resultado = await criarDespesaParcelada({
+            cartao_id: formData.cartaoId,
+            categoria_id: formData.categoria,
+            subcategoria_id: formData.subcategoria || null,
+            descricao: formData.descricao.trim(),
+            valor_total: valorNumerico,
+            numero_parcelas: formData.numeroParcelas,
+            data_compra: formData.dataCompra,
+            fatura_vencimento: formData.faturaVencimento,
+            observacoes: formData.observacoes.trim() || null
+          });
+          
+          if (!resultado.success) {
+            throw new Error(resultado.error);
+          }
+          
+          return [resultado];
         }
       }
-      
-      console.log('✅ Todas as parcelas salvas via hook:', resultados.length);
-      return resultados;
       
     } catch (error) {
       console.error('❌ Erro ao salvar via hook:', error);
       throw error;
     }
-  }, [formData, valorNumerico, adicionarDespesaCartao]);
+  }, [formData, valorNumerico, criarDespesaCartao, criarDespesaParcelada, editarTransacao, isEditMode, transacaoEditando]);
 
-  // ✅ OTIMIZAÇÃO: Submissão usando hook
   const handleSubmit = useCallback(async (e, criarNova = false) => {
     e.preventDefault();
     
@@ -637,7 +748,12 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
       
       if (onSave) onSave();
       
-      if (criarNova) {
+      if (isEditMode) {
+        showNotification('Transação editada com sucesso!', 'success');
+        setTimeout(() => {
+          onClose();
+        }, 1500);
+      } else if (criarNova) {
         showNotification('Despesa de cartão salva! Pronto para a próxima.', 'success');
         setFormData(prev => ({
           ...prev,
@@ -660,16 +776,15 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
       
     } catch (error) {
       console.error('❌ Erro ao salvar despesa de cartão:', error);
-      showNotification(`Erro ao salvar despesa: ${error.message}`, 'error');
+      showNotification(`Erro ao salvar: ${error.message}`, 'error');
     } finally {
       setSubmitting(false);
     }
-  }, [validateForm, salvarDespesaCartao, onSave, showNotification, resetForm, onClose]);
+  }, [validateForm, salvarDespesaCartao, onSave, showNotification, resetForm, onClose, isEditMode]);
 
   if (!isOpen) return null;
 
-  // ✅ LOADING: Mostrar loading enquanto carrega dados dos hooks
-  const isLoadingData = loading || isLoadingCartoes || isLoadingCategorias;
+  const isLoadingData = cartoesLoading || categoriasLoading;
 
   return (
     <div className={`modal-overlay ${isOpen ? 'active' : ''}`}>
@@ -677,12 +792,19 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
         {/* Header */}
         <div className="modal-header">
           <div className="modal-header-content">
-            <div className="modal-icon-container modal-icon-purple">
-              <CreditCard size={18} />
+            <div className={`modal-icon-container ${isEditMode ? 'modal-icon-blue' : 'modal-icon-purple'}`}>
+              {isEditMode ? <Edit3 size={18} /> : <CreditCard size={18} />}
             </div>
             <div>
-              <h2 className="modal-title">Despesa com Cartão</h2>
-              <p className="modal-subtitle">Registre compras no cartão de crédito</p>
+              <h2 className="modal-title">
+                {isEditMode ? 'Editar Despesa do Cartão' : 'Despesa com Cartão'}
+              </h2>
+              <p className="modal-subtitle">
+                {isEditMode 
+                  ? 'Altere os dados da transação do cartão' 
+                  : 'Registre compras no cartão de crédito'
+                }
+              </p>
             </div>
           </div>
           <button className="modal-close" onClick={onClose}>
@@ -700,7 +822,9 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
           ) : (
             <form onSubmit={(e) => handleSubmit(e, false)}>
               
-              <h3 className="section-title">Informações da Compra</h3>
+              <h3 className="section-title">
+                {isEditMode ? 'Dados da Transação' : 'Informações da Compra'}
+              </h3>
               
               {/* Valor e Data */}
               <div className="flex gap-3 row mb-3">
@@ -889,11 +1013,11 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
                       name="cartaoId"
                       value={formData.cartaoId}
                       onChange={handleInputChange}
-                      disabled={submitting}
-                      className={errors.cartaoId ? 'error' : ''}
+                      disabled={submitting || isEditMode}
+                      className={`${errors.cartaoId ? 'error' : ''}`}
                     >
                       <option value="">Selecione um cartão</option>
-                      {cartoesAtivos.map(cartao => (
+                      {cartoesParaEdicao.map(cartao => (
                         <option key={cartao.id} value={cartao.id}>
                           {cartao.nome} ({cartao.bandeira})
                         </option>
@@ -901,30 +1025,36 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
                     </select>
                   </div>
                   {errors.cartaoId && <div className="form-error">{errors.cartaoId}</div>}
+                  {isEditMode && (
+                    <small className="form-help-text">
+                    </small>
+                  )}
                 </div>
                 
-                <div>
-                  <label className="form-label">
-                    <Hash size={14} />
-                    Parcelas *
-                  </label>
-                  <div className="select-search">
-                    <select
-                      name="numeroParcelas"
-                      value={formData.numeroParcelas}
-                      onChange={handleInputChange}
-                      disabled={submitting}
-                      className={errors.numeroParcelas ? 'error' : ''}
-                    >
-                      {opcoesParcelamento.map(opcao => (
-                        <option key={opcao.value} value={opcao.value}>
-                          {opcao.label}
-                        </option>
-                      ))}
-                    </select>
+                {!isEditMode && (
+                  <div>
+                    <label className="form-label">
+                      <Hash size={14} />
+                      Parcelas *
+                    </label>
+                    <div className="select-search">
+                      <select
+                        name="numeroParcelas"
+                        value={formData.numeroParcelas}
+                        onChange={handleInputChange}
+                        disabled={submitting || isEditMode}
+                        className={errors.numeroParcelas ? 'error' : ''}
+                      >
+                        {opcoesParcelamento.map(opcao => (
+                          <option key={opcao.value} value={opcao.value}>
+                            {opcao.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {errors.numeroParcelas && <div className="form-error">{errors.numeroParcelas}</div>}
                   </div>
-                  {errors.numeroParcelas && <div className="form-error">{errors.numeroParcelas}</div>}
-                </div>
+                )}
               </div>
 
               {/* Fatura de Vencimento */}
@@ -932,15 +1062,15 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
                 <label className="form-label">
                   <Calendar size={14} />
                   Fatura de Vencimento *
-                  <small className="form-label-small">(primeira parcela)</small>
+                  {!isEditMode && <small className="form-label-small">(primeira parcela)</small>}
                 </label>
                 <div className="select-search">
                   <select
                     name="faturaVencimento"
                     value={formData.faturaVencimento}
                     onChange={handleInputChange}
-                    disabled={submitting || !formData.cartaoId}
-                    className={`${!formData.cartaoId ? 'input-disabled' : ''} ${errors.faturaVencimento ? 'error' : ''}`}
+                    disabled={submitting || !formData.cartaoId || isEditMode}
+                    className={`${!formData.cartaoId || isEditMode ? 'input-disabled' : ''} ${errors.faturaVencimento ? 'error' : ''}`}
                   >
                     <option value="">
                       {!formData.cartaoId ? "Selecione um cartão primeiro" : "Selecione a fatura"}
@@ -953,16 +1083,49 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
                   </select>
                 </div>
                 {errors.faturaVencimento && <div className="form-error">{errors.faturaVencimento}</div>}
+                {isEditMode && (
+                  <small className="form-help-text">
+                    💡 Fatura não pode ser alterada na edição
+                  </small>
+                )}
               </div>
 
               {/* Preview do Parcelamento */}
-              {valorNumerico > 0 && formData.numeroParcelas > 0 && (
+              {!isEditMode && valorNumerico > 0 && formData.numeroParcelas > 0 && formData.faturaVencimento && (
                 <div className="summary-panel summary-panel-purple mb-3">
                   <div className="parcelamento-preview">
-                    💳 {formData.numeroParcelas}x de {formatCurrency(valorParcela)}
+                    <div className="parcelamento-header">
+                      💳 {formData.numeroParcelas}x de {formatCurrency(valorParcela)}
+                    </div>
+                    
                     {formData.numeroParcelas > 1 && (
-                      <div className="parcelamento-total">
-                        Total: {formatCurrency(valorNumerico)}
+                      <div className="parcelamento-detalhes">
+                        <div className="parcelamento-total">
+                          Total: {formatCurrency(valorNumerico)}
+                        </div>
+                        <div className="parcelamento-cronograma">
+                          <strong>Cronograma: </strong>
+                          {Array.from({ length: Math.min(formData.numeroParcelas, 6) },  (_, i) => {
+                            const dataParcela = calcularDataVencimentoParcela(formData.faturaVencimento, i + 1);
+                            if (!dataParcela) return null;
+                            
+                            const dataFormatada = new Date(dataParcela + 'T12:00:00').toLocaleDateString('pt-BR', {
+                              month: 'short',
+                              year: 'numeric'
+                            }).replace('.', '');
+                            
+                            return (
+                              <span key={i} className="parcela-cronograma">
+                                {i + 1}ª: {dataFormatada}
+                              </span>
+                            );
+                          })}
+                          {formData.numeroParcelas > 6 && (
+                            <span className="parcela-cronograma">
+                              +{formData.numeroParcelas - 6} mais...
+                            </span>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1008,46 +1171,70 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
           >
             Cancelar
           </button>
-          <button
-            type="button"
-            onClick={(e) => handleSubmit(e, true)}
-            disabled={submitting || isLoadingData}
-            className="btn-secondary btn-secondary--success"
-          >
-            {submitting ? (
-              <>
-                <div className="btn-spinner"></div>
-                Salvando...
-              </>
-            ) : (
-              <>
-                <PlusCircle size={14} />
-                Continuar Adicionando
-              </>
-            )}
-          </button>
-          <button
-            type="submit"
-            onClick={(e) => handleSubmit(e, false)}
-            disabled={submitting || isLoadingData}
-            className="btn-primary"
-          >
-            {submitting ? (
-              <>
-                <div className="btn-spinner"></div>
-                {formData.numeroParcelas > 1 ? `Criando ${formData.numeroParcelas} parcelas...` : 'Salvando...'}
-              </>
-            ) : (
-              <>
-                <Plus size={14} />
-                {formData.numeroParcelas > 1 ? `Parcelar em ${formData.numeroParcelas}x` : 'Adicionar no Cartão'}
-              </>
-            )}
-          </button>
+          
+          {isEditMode ? (
+            <button
+              type="submit"
+              onClick={(e) => handleSubmit(e, false)}
+              disabled={submitting || isLoadingData}
+              className="btn-primary"
+            >
+              {submitting ? (
+                <>
+                  <div className="btn-spinner"></div>
+                  Salvando Alterações...
+                </>
+              ) : (
+                <>
+                  <Edit3 size={14} />
+                  Salvar Alterações
+                </>
+              )}
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={(e) => handleSubmit(e, true)}
+                disabled={submitting || isLoadingData}
+                className="btn-secondary btn-secondary--success"
+              >
+                {submitting ? (
+                  <>
+                    <div className="btn-spinner"></div>
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <PlusCircle size={14} />
+                    Continuar Adicionando
+                  </>
+                )}
+              </button>
+              <button
+                type="submit"
+                onClick={(e) => handleSubmit(e, false)}
+                disabled={submitting || isLoadingData}
+                className="btn-primary"
+              >
+                {submitting ? (
+                  <>
+                    <div className="btn-spinner"></div>
+                    {formData.numeroParcelas > 1 ? `Criando ${formData.numeroParcelas} parcelas...` : 'Salvando...'}
+                  </>
+                ) : (
+                  <>
+                    <Plus size={14} />
+                    {formData.numeroParcelas > 1 ? `Parcelar em ${formData.numeroParcelas}x` : 'Adicionar no Cartão'}
+                  </>
+                )}
+              </button>
+            </>
+          )}
         </div>
       </div>
       
-      {/* Modal de Confirmação */}
+      {/* Modal de Confirmação para Criar Categoria/Subcategoria */}
       {confirmacao.show && (
         <div className="modal-overlay-confirmation">
           <div className="forms-modal-container modal-small">
@@ -1079,6 +1266,15 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
           </div>
         </div>
       )}
+
+      {/* Display de Error */}
+      {(cartoesError || operationError) && (
+        <div className="modal-overlay-error">
+          <div className="error-toast">
+            {cartoesError || operationError}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -1086,7 +1282,8 @@ const DespesasCartaoModal = ({ isOpen, onClose, onSave }) => {
 DespesasCartaoModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
-  onSave: PropTypes.func
+  onSave: PropTypes.func,
+  transacaoEditando: PropTypes.object
 };
 
 export default React.memo(DespesasCartaoModal);

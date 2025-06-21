@@ -134,17 +134,8 @@ const Sidebar = ({
           variant: null
         },
         {
-          id: 'gestao-cartoes',
-          label: 'Gestão de Cartões',
-          icon: CreditCard,
-          path: '/cartoes/gestao',
-          modalType: null,
-          comingSoon: false,
-          variant: 'cartao'
-        },
-        {
           id: 'cartoes-modal',
-          label: 'Cadastrar Cartão',
+          label: 'Meus Cartões',
           icon: CreditCard,
           path: null,
           modalType: 'CartoesModal',
@@ -168,6 +159,15 @@ const Sidebar = ({
       title: 'Movimentações',
       icon: Receipt,
       items: [
+        {
+          id: 'faturas-cartoes',
+          label: 'Faturas dos Cartões',
+          icon: CreditCard,
+          path: '/cartoes/faturas',
+          modalType: null,
+          comingSoon: false,
+          variant: 'cartao'
+        },
         {
           id: 'transacoes-todas',
           label: 'Todas as Transações',
@@ -195,24 +195,7 @@ const Sidebar = ({
           comingSoon: false,
           variant: 'despesa'
         },
-        {
-          id: 'transacoes-cartoes',
-          label: 'Cartões',
-          icon: CreditCard,
-          path: '/transacoes?filter=cartoes',
-          modalType: null,
-          comingSoon: false,
-          variant: 'cartao'
-        },
-        {
-          id: 'faturas-cartoes',
-          label: 'Faturas dos Cartões',
-          icon: CreditCard,
-          path: '/cartoes/faturas',
-          modalType: null,
-          comingSoon: false,
-          variant: 'cartao'
-        },
+
         {
           id: 'relatorios',
           label: 'Relatórios',

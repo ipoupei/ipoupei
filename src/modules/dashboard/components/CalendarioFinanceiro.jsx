@@ -192,7 +192,7 @@ const CalendarioFinanceiro = ({ mes = new Date().getMonth(), ano = new Date().ge
             }
           }));
           usouRPC = true;
-          console.log('✅ RPC gpt_transacoes_do_mes funcionou com parâmetros corretos!');
+          console.log('✅ RPC ip_buscar_transacoes_periodo funcionou com parâmetros corretos!');
         } else {
           throw new Error(`RPC falhou: ${transacoesError?.message || 'Erro desconhecido'}`);
         }

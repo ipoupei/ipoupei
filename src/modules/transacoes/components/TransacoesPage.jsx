@@ -156,7 +156,7 @@ const TransacoesPage = () => {
       
       const { default: supabase } = await import('@lib/supabaseClient');
       
-      const { data, error } = await supabase.rpc('gpt_transacoes_do_mes', {
+      const { data, error } = await supabase.rpc('ip_buscar_transacoes_periodo', {
         p_usuario_id: user.id,
         p_data_inicio: format(dataInicio, 'yyyy-MM-dd'),
         p_data_fim: format(dataFim, 'yyyy-MM-dd')
@@ -457,18 +457,36 @@ const TransacoesPage = () => {
 
   // Ações das transações
   const handleToggleEfetivado = (transacao) => {
+    // Bloquear alteração de efetivado para transações de cartão
+    if (transacao.cartao_id) {
+      alert('Transações de cartão de crédito devem ser gerenciadas pela tela de Fatura do Cartão.');
+      return;
+    }
+    
     setTransacaoParaConfirm(transacao);
     setConfirmAction('toggle_efetivado');
     setShowConfirmModal(true);
   };
 
   const handleDeleteTransacao = (transacao) => {
+    // Bloquear exclusão de transações de cartão
+    if (transacao.cartao_id) {
+      alert('Transações de cartão de crédito só podem ser excluídas pela tela de Fatura do Cartão.');
+      return;
+    }
+    
     setTransacaoParaConfirm(transacao);
     setConfirmAction('delete');
     setShowConfirmModal(true);
   };
 
   const handleEditTransacao = (transacao) => {
+    // Bloquear edição de transações de cartão
+    if (transacao.cartao_id) {
+      alert('Transações de cartão de crédito só podem ser editadas pela tela de Fatura do Cartão.');
+      return;
+    }
+    
     setTransacaoEditando(transacao);
     if (transacao.tipo === 'receita') {
       setShowReceitasModal(true);
@@ -527,6 +545,7 @@ const TransacoesPage = () => {
   const TransactionRow = ({ transacao }) => {
     const isReceita = transacao.tipo === 'receita';
     const isFatura = transacao.tipo === 'fatura';
+    const isCartaoTransacao = transacao.cartao_id && !isFatura;
     
     return (
       <tr className={`transaction-row ${!transacao.efetivado ? 'pending' : ''}`}>
@@ -565,19 +584,24 @@ const TransacoesPage = () => {
         <td style={{ textAlign: 'center' }}>
           <button
             className={`status-badge ${transacao.efetivado ? 'efetivado' : 'pendente'}`}
-            onClick={() => !isFatura && handleToggleEfetivado(transacao)}
-            disabled={isFatura}
+            onClick={() => !isFatura && !isCartaoTransacao && handleToggleEfetivado(transacao)}
+            disabled={isFatura || isCartaoTransacao}
+            title={
+              isFatura ? 'Faturas não podem ser alteradas' : 
+              isCartaoTransacao ? 'Esta transação só pode ser editada pela fatura do cartão de crédito.' :
+              transacao.efetivado ? 'Clique para marcar como pendente' : 'Clique para efetivar'
+            }
             style={{
               width: '28px',
               height: '28px',
               borderRadius: '50%',
               border: 'none',
-              cursor: isFatura ? 'not-allowed' : 'pointer',
+              cursor: (isFatura || isCartaoTransacao) ? 'not-allowed' : 'pointer',
               fontSize: '0.75rem',
               fontWeight: 'bold',
               backgroundColor: transacao.efetivado ? '#ecfdf5' : '#fffbeb',
               color: transacao.efetivado ? '#10b981' : '#f59e0b',
-              opacity: isFatura ? 0.6 : 1
+              opacity: (isFatura || isCartaoTransacao) ? 0.6 : 1
             }}
           >
             {transacao.efetivado ? '✓' : '⚠'}
@@ -588,31 +612,35 @@ const TransacoesPage = () => {
             <div className="action-buttons" style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
               <button 
                 onClick={() => handleEditTransacao(transacao)}
+                disabled={isCartaoTransacao}
+                title={isCartaoTransacao ? 'Esta transação só pode ser editada pela fatura do cartão de crédito.' : 'Editar'}
                 style={{
                   width: '28px',
                   height: '28px',
                   border: '1px solid #e5e7eb',
                   borderRadius: '4px',
-                  background: 'white',
-                  cursor: 'pointer',
-                  fontSize: '0.75rem'
+                  background: isCartaoTransacao ? '#f9fafb' : 'white',
+                  cursor: isCartaoTransacao ? 'not-allowed' : 'pointer',
+                  fontSize: '0.75rem',
+                  opacity: isCartaoTransacao ? 0.6 : 1
                 }}
-                title="Editar"
               >
                 ✏️
               </button>
               <button 
                 onClick={() => handleDeleteTransacao(transacao)}
+                disabled={isCartaoTransacao}
+                title={isCartaoTransacao ? 'Exclusão só permitida pela tela de Fatura do Cartão.' : 'Excluir'}
                 style={{
                   width: '28px',
                   height: '28px',
                   border: '1px solid #e5e7eb',
                   borderRadius: '4px',
-                  background: 'white',
-                  cursor: 'pointer',
-                  fontSize: '0.75rem'
+                  background: isCartaoTransacao ? '#f9fafb' : 'white',
+                  cursor: isCartaoTransacao ? 'not-allowed' : 'pointer',
+                  fontSize: '0.75rem',
+                  opacity: isCartaoTransacao ? 0.6 : 1
                 }}
-                title="Excluir"
               >
                 🗑️
               </button>
@@ -623,7 +651,7 @@ const TransacoesPage = () => {
     );
   };
 
-  // Modal de Filtros Avançados - VERSÃO ISOLADA
+  // Modal de Filtros Avançados - VERSÃO ISOLADA (REMOVIDO AGRUPAMENTO POR CARTÃO)
   const FilterModal = () => {
     // Estado LOCAL do modal - completamente isolado
     const [localFilters, setLocalFilters] = useState(filters);
@@ -838,23 +866,6 @@ const TransacoesPage = () => {
                 />
               </div>
             </div>
-
-            <div className="section-title">Opções Especiais</div>
-            
-            <div className="section-block">
-              <label className="form-label" style={{ cursor: 'pointer', margin: 0 }}>
-                <input
-                  type="checkbox"
-                  checked={groupByCard}
-                  onChange={(e) => setGroupByCard(e.target.checked)}
-                  style={{ marginRight: '8px', accentColor: '#008080' }}
-                />
-                💳 Agrupar despesas de cartão por fatura
-                <span className="form-label-small">
-                  Agrupa as despesas do cartão em uma única linha por fatura
-                </span>
-              </label>
-            </div>
           </div>
 
           {/* Footer */}
@@ -1054,6 +1065,73 @@ const TransacoesPage = () => {
     );
   };
 
+  // Modal de Edição com Alerta para Transações de Cartão
+  const EditModalWrapper = ({ children, isOpen, onClose }) => {
+    // Verificar se a transação sendo editada é de cartão
+    if (isOpen && transacaoEditando && transacaoEditando.cartao_id) {
+      return (
+        <div className="modal-overlay active">
+          <div className="forms-modal-container">
+            <div className="modal-header">
+              <div className="modal-header-content">
+                <div className="modal-icon-container modal-icon-warning">
+                  ⚠️
+                </div>
+                <div>
+                  <h2 className="modal-title">Transação de Cartão de Crédito</h2>
+                  <p className="modal-subtitle">
+                    Esta transação não pode ser editada aqui
+                  </p>
+                </div>
+              </div>
+              <button onClick={onClose} className="modal-close">×</button>
+            </div>
+
+            <div className="modal-body">
+              <div className="confirmation-warning">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+                </svg>
+                <p>
+                  <strong>Transações de cartão de crédito devem ser editadas diretamente na tela de Fatura do Cartão.</strong>
+                </p>
+                <p style={{ marginTop: '12px', fontSize: '0.875rem', color: '#6b7280' }}>
+                  Para editar esta transação, navegue até a seção de Cartões → Faturas e localize a fatura correspondente.
+                </p>
+              </div>
+
+              <div className="confirmation-info">
+                <div className="confirmation-item">
+                  <strong>Descrição:</strong> {transacaoEditando.descricao}
+                </div>
+                <div className="confirmation-item">
+                  <strong>Valor:</strong> {formatCurrency(Math.abs(transacaoEditando.valor))}
+                </div>
+                <div className="confirmation-item">
+                  <strong>Cartão:</strong> {transacaoEditando.cartao_nome || 'N/A'}
+                </div>
+                <div className="confirmation-item">
+                  <strong>Data:</strong> {format(new Date(transacaoEditando.data), 'dd/MM/yyyy')}
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <div className="footer-right">
+                <button onClick={onClose} className="btn-primary">
+                  Entendi
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Se não for transação de cartão, renderiza o modal normal
+    return children;
+  };
+
   // ========== RENDER PRINCIPAL ==========
 
   if (error) {
@@ -1147,6 +1225,7 @@ const TransacoesPage = () => {
           <button
             className={`group-toggle ${groupByCard ? 'active' : ''}`}
             onClick={() => setGroupByCard(!groupByCard)}
+            title={groupByCard ? 'Desagrupar despesas de cartão' : 'Agrupar despesas de cartão por fatura'}
             style={{
               padding: '8px 16px',
               border: '1px solid #e5e7eb',
@@ -1450,29 +1529,45 @@ const TransacoesPage = () => {
       <FilterModal />
       <ConfirmModal />
 
-      {showDespesasModal && (
-        <DespesasModal
-          isOpen={showDespesasModal}
-          onClose={() => {
-            setShowDespesasModal(false);
-            setTransacaoEditando(null);
-          }}
-          onSave={fetchTransacoes}
-          transacaoEditando={transacaoEditando}
-        />
-      )}
+      <EditModalWrapper
+        isOpen={showDespesasModal}
+        onClose={() => {
+          setShowDespesasModal(false);
+          setTransacaoEditando(null);
+        }}
+      >
+        {showDespesasModal && !transacaoEditando?.cartao_id && (
+          <DespesasModal
+            isOpen={showDespesasModal}
+            onClose={() => {
+              setShowDespesasModal(false);
+              setTransacaoEditando(null);
+            }}
+            onSave={fetchTransacoes}
+            transacaoEditando={transacaoEditando}
+          />
+        )}
+      </EditModalWrapper>
 
-      {showReceitasModal && (
-        <ReceitasModal
-          isOpen={showReceitasModal}
-          onClose={() => {
-            setShowReceitasModal(false);
-            setTransacaoEditando(null);
-          }}
-          onSave={fetchTransacoes}
-          transacaoEditando={transacaoEditando}
-        />
-      )}
+      <EditModalWrapper
+        isOpen={showReceitasModal}
+        onClose={() => {
+          setShowReceitasModal(false);
+          setTransacaoEditando(null);
+        }}
+      >
+        {showReceitasModal && !transacaoEditando?.cartao_id && (
+          <ReceitasModal
+            isOpen={showReceitasModal}
+            onClose={() => {
+              setShowReceitasModal(false);
+              setTransacaoEditando(null);
+            }}
+            onSave={fetchTransacoes}
+            transacaoEditando={transacaoEditando}
+          />
+        )}
+      </EditModalWrapper>
     </PageContainer>
   );
 };

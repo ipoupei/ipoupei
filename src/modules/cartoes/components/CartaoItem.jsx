@@ -1,3 +1,5 @@
+// src/modules/cartoes/components/CartaoItem.jsx
+// ✅ AJUSTES MÍNIMOS: Pequenas melhorias, funcionalidade preservada
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Edit, Archive, Trash2, CreditCard } from 'lucide-react';
@@ -6,7 +8,7 @@ import '@shared/styles/FormsModal.css';
 
 /**
  * Componente para exibir item de cartão
- * Versão migrada para FormsModal.css
+ * ✅ AJUSTADO: Melhorias mínimas, estrutura preservada
  */
 const CartaoItem = ({ cartao, onEdit, onArchive, onDelete }) => {
   // Função para obter o ícone da bandeira baseado no tipo
@@ -26,8 +28,11 @@ const CartaoItem = ({ cartao, onEdit, onArchive, onDelete }) => {
     return icons[bandeira?.toLowerCase()] || '💳';
   };
 
-  // Função para determinar se o cartão está arquivado
-  const isArchived = !cartao.ativo;
+  // ✅ MELHORIA: Verificação mais robusta de status
+  const isArchived = cartao.ativo === false;
+
+  // ✅ MELHORIA: Formatação de cores mais consistente
+  const corCartao = cartao.cor || '#8b5cf6';
 
   return (
     <div className={`credit-card-item ${isArchived ? 'archived' : ''}`}>
@@ -36,7 +41,7 @@ const CartaoItem = ({ cartao, onEdit, onArchive, onDelete }) => {
         <div 
           className="account-icon"
           style={{ 
-            backgroundColor: cartao.cor || '#8b5cf6',
+            backgroundColor: corCartao,
             color: 'white'
           }}
         >
@@ -80,7 +85,7 @@ const CartaoItem = ({ cartao, onEdit, onArchive, onDelete }) => {
           <div className="account-balance">
             {/* Limite */}
             <div className="balance-current positive">
-              {formatCurrency(cartao.limite || 0)}
+              Limite: {formatCurrency(cartao.limite || 0)}
             </div>
             
             {/* Datas importantes */}
@@ -100,8 +105,23 @@ const CartaoItem = ({ cartao, onEdit, onArchive, onDelete }) => {
             </div>
           </div>
           
-          {/* Conta de Pagamento */}
-          {cartao.conta_pagamento_nome && (
+          {/* ✅ MELHORIA: Conta de débito vinculada (padrão do sistema) */}
+          {cartao.conta_debito_id && (
+            <div style={{ 
+              fontSize: '0.75rem', 
+              color: '#6b7280',
+              marginTop: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}>
+              <CreditCard size={12} />
+              <span>Conta vinculada: {cartao.conta_debito_nome || 'Configurada'}</span>
+            </div>
+          )}
+          
+          {/* ✅ COMPATIBILIDADE: Campo antigo ainda suportado */}
+          {!cartao.conta_debito_id && cartao.conta_pagamento_nome && (
             <div style={{ 
               fontSize: '0.75rem', 
               color: '#6b7280',
@@ -123,6 +143,7 @@ const CartaoItem = ({ cartao, onEdit, onArchive, onDelete }) => {
           onClick={() => onEdit(cartao)}
           className="card-action-btn edit"
           title="Editar cartão"
+          disabled={false} // ✅ Sempre permitir edição
         >
           <Edit size={16} />
         </button>
@@ -138,7 +159,7 @@ const CartaoItem = ({ cartao, onEdit, onArchive, onDelete }) => {
         <button
           onClick={() => onDelete(cartao.id)}
           className="card-action-btn delete"
-          title="Excluir cartão"
+          title="Remover cartão"
         >
           <Trash2 size={16} />
         </button>
@@ -158,7 +179,9 @@ CartaoItem.propTypes = {
     dia_vencimento: PropTypes.number,
     cor: PropTypes.string,
     ativo: PropTypes.bool,
-    conta_pagamento_nome: PropTypes.string
+    conta_debito_id: PropTypes.string, // ✅ NOVO: Campo padrão do sistema
+    conta_debito_nome: PropTypes.string, // ✅ NOVO: Nome da conta vinculada
+    conta_pagamento_nome: PropTypes.string // ✅ COMPATIBILIDADE: Campo antigo
   }).isRequired,
   onEdit: PropTypes.func.isRequired,
   onArchive: PropTypes.func.isRequired,

@@ -3,8 +3,8 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import DiagnosticoEtapaLayout from '@modules/diagnostico/styles/DiagnosticoEtapaLayout';
 import DespesasCartaoModal from '@modules/transacoes/components/DespesasCartaoModal';
-import useCartoes from '@modules/cartoes/hooks/useCartoes';
-import useTransacoes from '@modules/transacoes/hooks/useTransacoes';
+//import useCartoes from '@modules/cartoes/hooks/useCartoesdata';
+//import useTransacoes from '@modules/transacoes/hooks/useTransacoes';
 import { formatCurrency } from '@utils/formatCurrency';
 
 const DespesasCartaoEtapa = ({ 

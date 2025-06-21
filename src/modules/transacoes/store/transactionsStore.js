@@ -1,16 +1,16 @@
-// src/modules/transacoes/store/transactionsStore.js - ATUALIZADO COM data_efetivacao
+// src/modules/transacoes/store/transactionsStore.js - VERSÃO CORRIGIDA
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 
 /**
- * Store específico para gerenciar transações COM NOVA FUNCIONALIDADE data_efetivacao
- * ✅ REGRAS IMPLEMENTADAS:
- * - Receitas: data_efetivacao = data da transação
- * - Despesas: data_efetivacao = data da transação
- * - Transferências: data_efetivacao = data da transação
- * - Despesas de cartão: data_efetivacao = NULL
- * - Estornos de cartão: data_efetivacao = NULL
+ * Store específico para gerenciar transações COM FUNCIONALIDADES CORRIGIDAS
+ * ✅ CORREÇÕES IMPLEMENTADAS:
+ * - Identificação correta de transações parceladas/recorrentes
+ * - Método updateGrupoTransacoesValor funcional 
+ * - Função isParceladaOuRecorrente corrigida
+ * - Carregamento de dados com todos os campos necessários
+ * - Tratamento adequado de data_efetivacao
  */
 export const useTransactionsStore = create(
   subscribeWithSelector((set, get) => ({
@@ -134,9 +134,9 @@ export const useTransactionsStore = create(
         }
         const userId = userData.user.id;
 
-        // Tentar buscar via RPC
+        // Tentar buscar via RPC CORRIGIDA
         try {
-          const { data, error } = await supabase.rpc('gpt_transacoes_do_mes', {
+          const { data, error } = await supabase.rpc('ip_buscar_transacoes_periodo', {
             p_usuario_id: userId,
             p_data_inicio: format(filtros.periodo.inicio, 'yyyy-MM-dd'),
             p_data_fim: format(filtros.periodo.fim, 'yyyy-MM-dd')
@@ -144,7 +144,17 @@ export const useTransactionsStore = create(
 
           if (error) throw error;
 
-          console.log(`✅ ${data?.length || 0} transações carregadas via RPC`);
+          console.log(`✅ ${data?.length || 0} transações carregadas via RPC CORRIGIDA`);
+          
+          // ✅ DADOS JÁ VEM NO FORMATO CORRETO DA NOVA RPC
+          console.log('🔍 [DEBUG] Primeira transação da RPC:', data?.[0] ? {
+            id: data[0].id,
+            descricao: data[0].descricao,
+            grupo_parcelamento: data[0].grupo_parcelamento,
+            grupo_recorrencia: data[0].grupo_recorrencia,
+            parcela_atual: data[0].parcela_atual,
+            total_parcelas: data[0].total_parcelas
+          } : 'nenhuma');
 
           // Aplicar filtros locais adicionais se necessário
           const transacoesFiltradas = get().aplicarFiltrosLocais(data || []);
@@ -162,7 +172,7 @@ export const useTransactionsStore = create(
           return transacoesFiltradas;
 
         } catch (rpcError) {
-          console.warn('⚠️ RPC falhou, usando query manual como fallback:', rpcError);
+          console.warn('⚠️ RPC ip_buscar_transacoes_periodo falhou, usando query manual como fallback:', rpcError);
           return await get().fetchTransacoesManual();
         }
 
@@ -183,7 +193,7 @@ export const useTransactionsStore = create(
       try {
         const { default: supabase } = await import('@lib/supabaseClient');
         
-        // Construir query base - ✅ INCLUIR data_efetivacao
+        // Construir query base - ✅ INCLUIR TODOS OS CAMPOS NECESSÁRIOS
         let query = supabase
           .from('transacoes')
           .select(`
@@ -234,11 +244,11 @@ export const useTransactionsStore = create(
 
         if (error) throw error;
 
-        // ✅ Mapear dados para formato padrão INCLUINDO data_efetivacao
+        // ✅ Mapear dados para formato padrão INCLUINDO TODOS OS CAMPOS
         const transacoesMapeadas = (data || []).map(t => ({
           id: t.id,
           data: t.data,
-          data_efetivacao: t.data_efetivacao, // ✅ NOVO CAMPO
+          data_efetivacao: t.data_efetivacao,
           tipo: t.tipo,
           valor: parseFloat(t.valor) || 0,
           descricao: t.descricao || 'Sem descrição',
@@ -255,6 +265,17 @@ export const useTransactionsStore = create(
           observacoes: t.observacoes || '',
           subcategoria_id: t.subcategoria_id,
           transferencia: t.transferencia || false,
+          
+          // ✅ CAMPOS PARA IDENTIFICAR GRUPOS (CORRIGIDO)
+          grupo_parcelamento: t.grupo_parcelamento,
+          grupo_recorrencia: t.grupo_recorrencia,
+          parcela_atual: t.parcela_atual,
+          total_parcelas: t.total_parcelas,
+          numero_recorrencia: t.numero_recorrencia,
+          total_recorrencias: t.total_recorrencias,
+          eh_recorrente: t.eh_recorrente,
+          tipo_recorrencia: t.tipo_recorrencia,
+          
           created_at: t.created_at,
           updated_at: t.updated_at
         }));
@@ -319,7 +340,7 @@ export const useTransactionsStore = create(
     // CRUD DE TRANSAÇÕES
     // ===========================
 
-    // ✅ Atualizar valor de grupo de transações (parceladas/recorrentes)
+    // ✅ MÉTODO CORRIGIDO: Atualizar valor de grupo de transações
     updateGrupoTransacoesValor: async (transacaoId, tipoAtualizacao, novoValor) => {
       try {
         set({ loading: true });
@@ -333,58 +354,185 @@ export const useTransactionsStore = create(
         const { default: supabase } = await import('@lib/supabaseClient');
         
         const { data: userData, error: userError } = await supabase.auth.getUser();
-
         if (userError || !userData?.user?.id) {
           throw new Error('Usuário não autenticado');
         }
-
         const userId = userData.user.id;
 
-        // Chamar RPC para atualizar grupo
-        const { data, error } = await supabase
-          .rpc('update_grupo_transacoes_valor', {
-            p_usuario_id: userId,
-            p_transacao_id: transacaoId,
-            p_tipo_atualizacao: tipoAtualizacao, // 'atual' ou 'futuras'
-            p_novo_valor: parseFloat(novoValor)
+        // ✅ IMPLEMENTAÇÃO MANUAL se RPC não existe
+        try {
+          // Primeiro, buscar a transação para identificar o grupo
+          const { data: transacao, error: transacaoError } = await supabase
+            .from('transacoes')
+            .select('*')
+            .eq('id', transacaoId)
+            .eq('usuario_id', userId)
+            .single();
+
+          if (transacaoError || !transacao) {
+            throw new Error('Transação não encontrada');
+          }
+
+          console.log('📋 Transação encontrada:', transacao);
+
+          // Identificar o tipo de grupo
+          const grupoId = transacao.grupo_parcelamento || transacao.grupo_recorrencia;
+          const isParcelamento = Boolean(transacao.grupo_parcelamento);
+          
+          if (!grupoId) {
+            throw new Error('Transação não pertence a um grupo');
+          }
+
+          console.log('🎯 Grupo identificado:', {
+            grupoId,
+            isParcelamento,
+            tipoAtualizacao
           });
 
-        if (error) throw error;
-
-        const resultado = data?.[0];
-        if (!resultado) {
-          throw new Error('Nenhum resultado retornado da RPC');
-        }
-
-        console.log('✅ Grupo atualizado:', {
-          transacoesAtualizadas: resultado.transacoes_atualizadas,
-          idsAtualizados: resultado.ids_atualizados,
-          detalhes: resultado.detalhes
-        });
-
-        // Atualizar transações na store local
-        if (resultado.ids_atualizados && resultado.ids_atualizados.length > 0) {
-          set(state => ({
-            transacoes: state.transacoes.map(t => {
-              if (resultado.ids_atualizados.includes(t.id)) {
-                return {
-                  ...t,
-                  valor: parseFloat(novoValor),
-                  updated_at: new Date().toISOString()
-                };
-              }
-              return t;
+          // ✅ CORREÇÃO: Construir query corretamente
+          let query = supabase
+            .from('transacoes')
+            .update({ 
+              valor: parseFloat(novoValor),
+              updated_at: new Date().toISOString()
             })
-          }));
-        }
+            .eq('usuario_id', userId);
 
-        set({ loading: false });
-        
-        return { 
-          success: true, 
-          data: resultado,
-          message: `${resultado.transacoes_atualizadas} transação(ões) atualizada(s): ${resultado.detalhes}`
-        };
+          // Aplicar filtro do grupo
+          if (isParcelamento) {
+            query = query.eq('grupo_parcelamento', grupoId);
+          } else {
+            query = query.eq('grupo_recorrencia', grupoId);
+          }
+
+          // ✅ CORREÇÃO: Aplicar filtro por escopo de forma CORRETA
+          if (tipoAtualizacao === 'atual') {
+            // Só a transação atual
+            query = query.eq('id', transacaoId);
+          } else if (tipoAtualizacao === 'futuras') {
+            // ✅ CORREÇÃO: Query SQL correta - Esta transação OU transações não efetivadas
+            // Usar duas queries separadas para evitar problemas de sintaxe
+            
+            // Primeiro, atualizar a transação atual
+            const { error: currentError } = await supabase
+              .from('transacoes')
+              .update({ 
+                valor: parseFloat(novoValor),
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', transacaoId)
+              .eq('usuario_id', userId);
+
+            if (currentError) throw currentError;
+
+            // Depois, atualizar as futuras não efetivadas do mesmo grupo
+            let futureQuery = supabase
+              .from('transacoes')
+              .update({ 
+                valor: parseFloat(novoValor),
+                updated_at: new Date().toISOString()
+              })
+              .eq('usuario_id', userId)
+              .eq('efetivado', false)
+              .neq('id', transacaoId); // Excluir a atual que já foi atualizada
+
+            // Aplicar filtro do grupo para as futuras
+            if (isParcelamento) {
+              futureQuery = futureQuery.eq('grupo_parcelamento', grupoId);
+            } else {
+              futureQuery = futureQuery.eq('grupo_recorrencia', grupoId);
+            }
+
+            const { data: transacoesFuturas, error: futureError } = await futureQuery.select('id');
+
+            if (futureError) throw futureError;
+
+            // Retornar resultado combinado
+            const idsAtualizados = [transacaoId, ...(transacoesFuturas?.map(t => t.id) || [])];
+            const quantidadeAtualizada = idsAtualizados.length;
+
+            console.log('✅ Atualização concluída (modo futuras):', {
+              quantidadeAtualizada,
+              idsAtualizados
+            });
+
+            // Atualizar transações na store local
+            if (idsAtualizados.length > 0) {
+              set(state => ({
+                transacoes: state.transacoes.map(t => {
+                  if (idsAtualizados.includes(t.id)) {
+                    return {
+                      ...t,
+                      valor: parseFloat(novoValor),
+                      updated_at: new Date().toISOString()
+                    };
+                  }
+                  return t;
+                })
+              }));
+            }
+
+            set({ loading: false });
+
+            const mensagem = `${quantidadeAtualizada} transação(ões) do grupo atualizadas com sucesso!`;
+
+            return { 
+              success: true, 
+              data: {
+                transacoes_atualizadas: quantidadeAtualizada,
+                ids_atualizados: idsAtualizados,
+                detalhes: `Escopo: ${tipoAtualizacao}, Novo valor: ${novoValor}`
+              },
+              message: mensagem
+            };
+          }
+
+          // Para escopo 'atual', executar a query simples
+          const { data: transacoesAtualizadas, error: updateError } = await query.select('id');
+
+          if (updateError) throw updateError;
+
+          const quantidadeAtualizada = transacoesAtualizadas?.length || 0;
+          const idsAtualizados = transacoesAtualizadas?.map(t => t.id) || [];
+
+          console.log('✅ Atualização concluída (modo atual):', {
+            quantidadeAtualizada,
+            idsAtualizados
+          });
+
+          // Atualizar transações na store local
+          if (idsAtualizados.length > 0) {
+            set(state => ({
+              transacoes: state.transacoes.map(t => {
+                if (idsAtualizados.includes(t.id)) {
+                  return {
+                    ...t,
+                    valor: parseFloat(novoValor),
+                    updated_at: new Date().toISOString()
+                  };
+                }
+                return t;
+              })
+            }));
+          }
+
+          set({ loading: false });
+
+          const mensagem = 'Transação atualizada com sucesso!';
+
+          return { 
+            success: true, 
+            data: {
+              transacoes_atualizadas: quantidadeAtualizada,
+              ids_atualizados: idsAtualizados,
+              detalhes: `Escopo: ${tipoAtualizacao}, Novo valor: ${novoValor}`
+            },
+            message: mensagem
+          };
+
+        } catch (error) {
+          throw error;
+        }
 
       } catch (error) {
         console.error('❌ Erro ao atualizar grupo de transações:', error);
@@ -399,7 +547,7 @@ export const useTransactionsStore = create(
         };
       }
     },
-
+    
     // ✅ NOVA FUNÇÃO: Determinar data_efetivacao baseada no tipo de transação
     determinarDataEfetivacao: (transacaoData) => {
       const { tipo, cartao_id, data } = transacaoData;
@@ -437,7 +585,7 @@ export const useTransactionsStore = create(
           .from('transacoes')
           .insert([{
             ...transacaoData,
-            data_efetivacao: dataEfetivacao, // ✅ CAMPO OBRIGATÓRIO
+            data_efetivacao: dataEfetivacao,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           }])
@@ -452,11 +600,11 @@ export const useTransactionsStore = create(
 
         if (error) throw error;
 
-        // ✅ Mapear dados INCLUINDO data_efetivacao
+        // ✅ Mapear dados INCLUINDO TODOS OS CAMPOS
         const transacaoMapeada = {
           id: data.id,
           data: data.data,
-          data_efetivacao: data.data_efetivacao, // ✅ INCLUIR
+          data_efetivacao: data.data_efetivacao,
           tipo: data.tipo,
           valor: parseFloat(data.valor) || 0,
           descricao: data.descricao || 'Sem descrição',
@@ -468,7 +616,17 @@ export const useTransactionsStore = create(
           cartao_id: data.cartao_id,
           cartao_nome: data.cartao?.nome,
           efetivado: data.efetivado !== false,
-          observacoes: data.observacoes || ''
+          observacoes: data.observacoes || '',
+          
+          // ✅ CAMPOS DE GRUPO
+          grupo_parcelamento: data.grupo_parcelamento,
+          grupo_recorrencia: data.grupo_recorrencia,
+          parcela_atual: data.parcela_atual,
+          total_parcelas: data.total_parcelas,
+          numero_recorrencia: data.numero_recorrencia,
+          total_recorrencias: data.total_recorrencias,
+          eh_recorrente: data.eh_recorrente,
+          tipo_recorrencia: data.tipo_recorrencia
         };
 
         // Atualizar lista local se a transação se encaixa nos filtros atuais
@@ -540,11 +698,11 @@ export const useTransactionsStore = create(
 
         if (error) throw error;
 
-        // ✅ Mapear dados INCLUINDO data_efetivacao
+        // ✅ Mapear dados INCLUINDO TODOS OS CAMPOS
         const transacaoMapeada = {
           id: data.id,
           data: data.data,
-          data_efetivacao: data.data_efetivacao, // ✅ INCLUIR
+          data_efetivacao: data.data_efetivacao,
           tipo: data.tipo,
           valor: parseFloat(data.valor) || 0,
           descricao: data.descricao || 'Sem descrição',
@@ -556,7 +714,17 @@ export const useTransactionsStore = create(
           cartao_id: data.cartao_id,
           cartao_nome: data.cartao?.nome,
           efetivado: data.efetivado !== false,
-          observacoes: data.observacoes || ''
+          observacoes: data.observacoes || '',
+          
+          // ✅ CAMPOS DE GRUPO
+          grupo_parcelamento: data.grupo_parcelamento,
+          grupo_recorrencia: data.grupo_recorrencia,
+          parcela_atual: data.parcela_atual,
+          total_parcelas: data.total_parcelas,
+          numero_recorrencia: data.numero_recorrencia,
+          total_recorrencias: data.total_recorrencias,
+          eh_recorrente: data.eh_recorrente,
+          tipo_recorrencia: data.tipo_recorrencia
         };
 
         // Atualizar na lista local
@@ -599,18 +767,18 @@ export const useTransactionsStore = create(
 
         // Remover da lista local
         set(state => ({
-          transacoes: state.transacoes.filter(t => !ids.includes(t.id))
+          transacoes: state.transacoes.filter(t => t.id !== id)
         }));
 
         set({ loading: false });
-        console.log('✅ Transações excluídas com sucesso');
+        console.log('✅ Transação excluída com sucesso');
         
         return { success: true };
 
       } catch (error) {
-        console.error('❌ Erro ao excluir transações:', error);
+        console.error('❌ Erro ao excluir transação:', error);
         set({ 
-          error: error.message || 'Erro ao excluir transações',
+          error: error.message || 'Erro ao excluir transação',
           loading: false 
         });
         return { success: false, error: error.message };
@@ -621,25 +789,26 @@ export const useTransactionsStore = create(
     // UTILITÁRIOS
     // ===========================
 
-    // Verificar se transação é parcelada ou recorrente
-    isTransacaoParceladaOuRecorrente: (transacao) => {
+    // ✅ FUNÇÃO CORRIGIDA: Verificar se transação é parcelada ou recorrente
+    isParceladaOuRecorrente: (transacao) => {
       if (!transacao) return { isParcelada: false, isRecorrente: false, tipo: 'avulsa' };
       
-      const isParcelada = (
-        (transacao.tipo_receita === 'parcelada' || transacao.tipo_despesa === 'parcelada') &&
-        transacao.grupo_parcelamento
-      );
+      console.log('🔍 Analisando transação para identificar tipo:', {
+        id: transacao.id,
+        grupo_parcelamento: transacao.grupo_parcelamento,
+        grupo_recorrencia: transacao.grupo_recorrencia,
+        parcela_atual: transacao.parcela_atual,
+        total_parcelas: transacao.total_parcelas
+      });
       
-      const isRecorrente = (
-        transacao.eh_recorrente === true && 
-        transacao.grupo_recorrencia
-      );
+      const isParcelada = Boolean(transacao.grupo_parcelamento);
+      const isRecorrente = Boolean(transacao.grupo_recorrencia);
       
       let tipo = 'avulsa';
       if (isParcelada) tipo = 'parcelada';
-      else if (isRecorrente) tipo = 'recorrente';
+      else if (isRecorrente) tipo = 'previsivel';
       
-      return { 
+      const resultado = { 
         isParcelada, 
         isRecorrente, 
         tipo,
@@ -649,6 +818,10 @@ export const useTransactionsStore = create(
         numeroRecorrencia: transacao.numero_recorrencia,
         totalRecorrencias: transacao.total_recorrencias
       };
+      
+      console.log('📊 Resultado da análise:', resultado);
+      
+      return resultado;
     },
 
     // Verificar se transação se encaixa nos filtros atuais
@@ -728,7 +901,7 @@ export const useTransactionsStore = create(
       }, 0);
     },
 
-    // ✅ NOVA FUNÇÃO: Obter estatísticas incluindo data_efetivacao
+    // ✅ Obter estatísticas incluindo data_efetivacao
     getEstatisticas: () => {
       const { transacoes } = get();
       
@@ -887,7 +1060,7 @@ export const useTransactionsStore = create(
 // ===========================
 
 /**
- * Hook principal para usar transações COM data_efetivacao
+ * Hook principal para usar transações COM FUNCIONALIDADES CORRIGIDAS
  */
 export const useTransactions = () => {
   const store = useTransactionsStore();
@@ -905,15 +1078,12 @@ export const useTransactions = () => {
     addTransacao: store.addTransacao,
     updateTransacao: store.updateTransacao,
     deleteTransacao: store.deleteTransacao,
-    deleteMultiple: store.deleteMultipleTransacoes,
     
-    // Ações para grupos
+    // ✅ AÇÃO CORRIGIDA para grupos
     updateGrupoValor: store.updateGrupoTransacoesValor,
     
-    // ✅ NOVAS AÇÕES para data_efetivacao
+    // ✅ AÇÕES para data_efetivacao
     determinarDataEfetivacao: store.determinarDataEfetivacao,
-    updateDataEfetivacaoLote: store.updateDataEfetivacaoLote,
-    limparDataEfetivacaoLote: store.limparDataEfetivacaoLote,
     
     // Filtros
     setFiltros: store.setFiltros,
@@ -925,9 +1095,9 @@ export const useTransactions = () => {
     hasActiveFilters: store.hasActiveFilters(),
     activeFiltersDescription: store.getActiveFiltersDescription(),
     
-    // Utilitários
+    // ✅ UTILITÁRIO CORRIGIDO
     getById: store.getTransacaoById,
-    isParceladaOuRecorrente: store.isTransacaoParceladaOuRecorrente,
+    isParceladaOuRecorrente: store.isParceladaOuRecorrente,
     transacaoEncaixaFiltros: store.transacaoEncaixaFiltros,
     reset: store.reset,
     
@@ -954,15 +1124,13 @@ export const useTransactionsFilters = () => {
   return { filtros, setFiltros, limparFiltros, hasActiveFilters: hasActiveFilters() };
 };
 
-// ✅ NOVO: Hook específico para operações de efetivação
+// ✅ Hook específico para operações de efetivação
 export const useTransactionsEfetivacao = () => {
   const store = useTransactionsStore();
   
   return {
     // Operações de efetivação
     determinarDataEfetivacao: store.determinarDataEfetivacao,
-    updateDataEfetivacaoLote: store.updateDataEfetivacaoLote,
-    limparDataEfetivacaoLote: store.limparDataEfetivacaoLote,
     
     // Estatísticas de efetivação
     estatisticasEfetivacao: () => {
@@ -985,6 +1153,51 @@ export const useTransactionsEfetivacao = () => {
     isTransacaoEfetivada: (transacaoId) => {
       const transacao = store.getTransacaoById(transacaoId);
       return transacao ? transacao.data_efetivacao !== null : false;
+    }
+  };
+};
+
+// ✅ NOVO: Hook específico para grupos (parceladas/recorrentes)
+export const useTransactionsGrupos = () => {
+  const store = useTransactionsStore();
+  
+  return {
+    // Verificar tipo de transação
+    isParceladaOuRecorrente: store.isParceladaOuRecorrente,
+    
+    // Atualizar grupo
+    updateGrupoValor: store.updateGrupoTransacoesValor,
+    
+    // Obter transações do mesmo grupo
+    getTransacoesDoGrupo: (transacao) => {
+      const { transacoes } = store;
+      const info = store.isParceladaOuRecorrente(transacao);
+      
+      if (!info.grupoId) return [transacao];
+      
+      if (info.isParcelada) {
+        return transacoes.filter(t => t.grupo_parcelamento === info.grupoId);
+      } else if (info.isRecorrente) {
+        return transacoes.filter(t => t.grupo_recorrencia === info.grupoId);
+      }
+      
+      return [transacao];
+    },
+    
+    // Contar transações do grupo
+    contarTransacoesGrupo: (transacao) => {
+      const { transacoes } = store;
+      const info = store.isParceladaOuRecorrente(transacao);
+      
+      if (!info.grupoId) return 1;
+      
+      if (info.isParcelada) {
+        return transacoes.filter(t => t.grupo_parcelamento === info.grupoId).length;
+      } else if (info.isRecorrente) {
+        return transacoes.filter(t => t.grupo_recorrencia === info.grupoId).length;
+      }
+      
+      return 1;
     }
   };
 };

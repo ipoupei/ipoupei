@@ -1,12 +1,14 @@
+// src/modules/cartoes/components/CartaoForm.jsx
+// ✅ AJUSTES FINAIS: Pequenas melhorias, funcionalidade preservada
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { CreditCard, Calendar, DollarSign, Landmark, Check } from 'lucide-react';
+import { CreditCard, Calendar, DollarSign, Landmark, Check, PlusCircle } from 'lucide-react';
 import InputMoney from '@shared/components/ui/InputMoney';
 import '@shared/styles/FormsModal.css';
 
 /**
  * Formulário para cadastro e edição de cartões de crédito
- * VERSÃO SIMPLIFICADA - Apenas conteúdo (sem modal próprio)
+ * ✅ AJUSTADO: Melhorias mínimas, estrutura preservada
  */
 const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
   // Estado do formulário - campos ajustados para o Supabase
@@ -28,14 +30,14 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
   // Estado para loading
   const [loading, setLoading] = useState(false);
   
-  // Bandeiras de cartão disponíveis
+  // ✅ MELHORIA: Bandeiras com ícones visuais
   const BANDEIRAS = [
-    { id: 'visa', nome: 'Visa'},
-    { id: 'mastercard', nome: 'Mastercard' },
-    { id: 'elo', nome: 'Elo'},
-    { id: 'amex', nome: 'American Express'},
-    { id: 'hipercard', nome: 'Hipercard'},
-    { id: 'outros', nome: 'Outros'}
+    { id: 'visa', nome: 'Visa', icon: '💳' },
+    { id: 'mastercard', nome: 'Mastercard', icon: '💳' },
+    { id: 'elo', nome: 'Elo', icon: '💳' },
+    { id: 'amex', nome: 'American Express', icon: '💳' },
+    { id: 'hipercard', nome: 'Hipercard', icon: '💳' },
+    { id: 'outros', nome: 'Outros', icon: '💳' }
   ];
 
   // Cores padrão para cartões - usando as mesmas do sistema
@@ -126,17 +128,21 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
     }
   };
     
-  // Validação do formulário
+  // ✅ MELHORIA: Validação mais robusta
   const validateForm = () => {
     const newErrors = {};
     
     // Validações de campos obrigatórios
     if (!formData.nome.trim()) {
       newErrors.nome = 'Nome do cartão é obrigatório';
+    } else if (formData.nome.trim().length < 2) {
+      newErrors.nome = 'Nome deve ter pelo menos 2 caracteres';
     }
     
     if (!formData.limite && formData.limite !== 0) {
       newErrors.limite = 'Informe um limite válido';
+    } else if (formData.limite < 0) {
+      newErrors.limite = 'Limite não pode ser negativo';
     }
     
     if (!formData.bandeira) {
@@ -150,29 +156,37 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
     if (!formData.dia_vencimento || formData.dia_vencimento < 1 || formData.dia_vencimento > 31) {
       newErrors.dia_vencimento = 'Dia de vencimento inválido';
     }
+
+    // ✅ NOVA VALIDAÇÃO: Fechamento e vencimento não podem ser iguais
+    if (formData.dia_fechamento === formData.dia_vencimento) {
+      newErrors.dia_vencimento = 'Dia de vencimento deve ser diferente do fechamento';
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
   
-  // Handler para salvar o formulário
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // ✅ MELHORIA: Handler para "Continuar Adicionando"
+  const handleSubmit = async (e, criarNovo = false) => {
+    if (e) e.preventDefault();
     
     if (validateForm()) {
       setLoading(true);
       try {
         console.log('📝 CartaoForm - Dados do formulário:', formData);
-        await onSave(formData);
+        await onSave(formData, criarNovo);
       } finally {
         setLoading(false);
       }
     }
   };
 
+  // ✅ MELHORIA: Contas ativas filtradas
+  const contasAtivas = (contas || []).filter(conta => conta.ativo !== false);
+
   return (
     <div className="section-block">
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={(e) => handleSubmit(e, false)}>
         {/* Nome do Cartão */}
         <div className="flex flex-col mb-3">
           <label className="form-label">
@@ -184,7 +198,8 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
             name="nome"
             value={formData.nome}
             onChange={handleChange}
-            placeholder="Ex: Nubank, Itaú Visa"
+            placeholder="Ex: Nubank, Itaú Visa, Inter Gold"
+            maxLength="50"
             className={`input-text ${errors.nome ? 'error' : ''}`}
           />
           {errors.nome && <div className="form-error">{errors.nome}</div>}
@@ -201,7 +216,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
               value={formData.limite}
               onChange={handleLimiteChange}
               placeholder="R$ 0,00"
-              className="input-money input-money-highlight"
+              className={`input-money input-money-highlight ${errors.limite ? 'error' : ''}`}
             />
             {errors.limite && <div className="form-error">{errors.limite}</div>}
           </div>
@@ -216,7 +231,8 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
               name="banco"
               value={formData.banco}
               onChange={handleChange}
-              placeholder="Ex: Nubank, Itaú"
+              placeholder="Ex: Nubank, Itaú, Inter"
+              maxLength="30"
               className="input-text"
             />
           </div>
@@ -295,6 +311,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
             {errors.dia_vencimento && <div className="form-error">{errors.dia_vencimento}</div>}
           </div>
         </div>
+
         {/* Conta para Pagamento */}
         <div className="flex flex-col mb-3">
           <label className="form-label">
@@ -308,13 +325,20 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
               value={formData.conta_debito_id}
               onChange={handleChange}
             >
-              <option value="">Selecione uma conta</option>
-              {contas && contas.map(conta => (
+              <option value="">Nenhuma conta vinculada</option>
+              {contasAtivas.map(conta => (
                 <option key={conta.id} value={conta.id}>
-                  {conta.nome}
+                  {conta.nome} {/* ✅ Mostra saldo se disponível */}
+                  {conta.saldo !== undefined && ` - ${new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL'
+                  }).format(conta.saldo)}`}
                 </option>
               ))}
             </select>
+          </div>
+          <div className="form-hint">
+            <small>💡 A conta selecionada será usada por padrão no pagamento das faturas</small>
           </div>
         </div>
         
@@ -338,8 +362,8 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
         </div>
 
         {/* Status Ativo */}
-        
-          
+        <div className="flex flex-col mb-4">
+          <label className="form-label">Status do Cartão</label>
           <div className="status-selector">
             <button
               type="button"
@@ -349,11 +373,11 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
               <Check size={16} />
               <div>
                 <div>Cartão Ativo</div>
-                <small>Cartão disponível para uso</small>
+                <small>Cartão disponível para uso e lançamentos</small>
               </div>
             </button>
           </div>
-        
+        </div>
 
         {/* Botões de ação */}
         <div className="flex gap-3 row">
@@ -365,6 +389,28 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
           >
             Cancelar
           </button>
+          
+          {/* ✅ MELHORIA: Botão "Continuar Adicionando" para novos cartões */}
+          {!cartao && (
+            <button
+              type="button"
+              className="btn-secondary btn-secondary--success"
+              onClick={(e) => handleSubmit(e, true)}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <span className="btn-spinner"></span>
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  <PlusCircle size={14} />
+                  Continuar Adicionando
+                </>
+              )}
+            </button>
+          )}
           
           <button
             type="submit"
@@ -379,7 +425,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
             ) : (
               <>
                 <CreditCard size={14} />
-                {cartao ? 'Atualizar' : 'Salvar'}
+                {cartao ? 'Atualizar Cartão' : 'Salvar Cartão'}
               </>
             )}
           </button>

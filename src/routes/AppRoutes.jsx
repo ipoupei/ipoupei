@@ -110,27 +110,17 @@ const AppRoutes = () => {
           />
 
           {/* CARTÕES - NOVA IMPLEMENTAÇÃO COMPLETA */}
-          <Route path="/cartoes/*">
-            {/* Rota principal - redireciona para gestão */}
-            <Route index element={<Navigate to="/cartoes/gestao" replace />} />
-            
-            {/* Gestão consolidada de cartões */}
-            <Route path="gestao" element={<GestaoCartoes />} />
-            
-            {/* Alias para faturas - mesmo componente com visualização diferente */}
-            <Route path="faturas" element={<GestaoCartoes />} />
-            
-            {/* Fatura específica de um cartão */}
-            <Route path="faturas/:cartaoId" element={<GestaoCartoes />} />
-            
-            {/* Aliases para compatibilidade */}
-            <Route path="lista" element={<Navigate to="/cartoes/gestao" replace />} />
-            <Route path="minhas-faturas" element={<Navigate to="/cartoes/faturas" replace />} />
-            <Route path="meus-cartoes" element={<Navigate to="/cartoes/gestao" replace />} />
-            
-            {/* Fallback para rotas não encontradas dentro de cartões */}
-            <Route path="*" element={<Navigate to="/cartoes/gestao" replace />} />
-          </Route>
+<Route path="cartoes">
+  <Route index element={<Navigate to="gestao" replace />} />
+  <Route path="gestao" element={<GestaoCartoes />} />
+  <Route path="faturas" element={<GestaoCartoes />} />
+  <Route path="faturas/:cartaoId" element={<GestaoCartoes />} />
+  <Route path="lista" element={<Navigate to="gestao" replace />} />
+  <Route path="minhas-faturas" element={<Navigate to="faturas" replace />} />
+  <Route path="meus-cartoes" element={<Navigate to="gestao" replace />} />
+  <Route path="*" element={<Navigate to="gestao" replace />} />
+</Route>
+
           
           {/* Relatórios */}
           <Route path="relatorios" element={<RelatoriosHome />} />

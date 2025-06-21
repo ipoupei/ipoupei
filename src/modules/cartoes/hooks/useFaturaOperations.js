@@ -1,518 +1,926 @@
-// src/modules/cartoes/hooks/useFaturaOperations.js - ATUALIZADO PARA fatura_vencimento
+// src/modules/cartoes/hooks/useFaturaOperations.js
+// ✅ APENAS OPERAÇÕES DE ESCRITA - SEM LEITURA DE LISTAS
+// ❌ PROIBIDO: SELECT para listas, formatação de UI, texto de exibição
+// ✅ ATUALIZADO: Novas funcionalidades de pagamento parcial e parcelado
+
 import { useState } from 'react';
-import { supabase } from '../../../lib/supabaseClient';
-import useAuth from '../../auth/hooks/useAuth';
+import { supabase } from '@/lib/supabaseClient';
+import useAuth from '@modules/auth/hooks/useAuth';
+import useCategorias from '@modules/categorias/hooks/useCategorias';
 
 /**
- * Hook para operações de fatura COM NOVA ARQUITETURA fatura_vencimento
- * ✅ REFATORADO: Usar fatura_vencimento como chave primária ao invés de mes/ano
- * ✅ REGRAS IMPLEMENTADAS:
- * - Despesas de cartão: data_efetivacao = NULL
- * - Pagamento de fatura: data_efetivacao = data do pagamento
- * - Reabrir fatura: data_efetivacao = NULL
- * - Estorno: data_efetivacao = NULL
+ * Hook para operações de escrita relacionadas a faturas
+ * ✅ Permitido: INSERT, UPDATE, DELETE, RPCs de operação
+ * ❌ Proibido: SELECT de listas, formatação de UI, texto de exibição
  */
-const useFaturaOperations = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
+export const useFaturaOperations = () => {
   const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const { addCategoria, addSubcategoria, getCategoriasPorTipo } = useCategorias();
 
-  // ✅ REFATORADO: Verificar status usando fatura_vencimento
-  const verificarStatusFatura = async (cartaoId, faturaVencimento) => {
+  /**
+   * Garante que a categoria "Dívidas" e subcategoria "Cartão de Crédito" existam
+   */
+  const garantirCategoriaDividas = async () => {
     try {
-      if (!faturaVencimento) {
-        console.warn('faturaVencimento é obrigatório para verificar status');
-        return { faturaEstaPaga: false, totalTransacoes: 0, transacoesEfetivadas: 0 };
+      const categoriasDespesa = getCategoriasPorTipo('despesa');
+      
+      // Procurar categoria "Dívidas" existente
+      let categoriaDividas = categoriasDespesa.find(cat => 
+        cat.nome.toLowerCase().includes('dívida') || 
+        cat.nome.toLowerCase().includes('divida')
+      );
+
+      // Se não existe, criar categoria "Dívidas"
+      if (!categoriaDividas) {
+        const resultadoCategoria = await addCategoria({
+          nome: 'Dívidas',
+          tipo: 'despesa',
+          cor: '#DC2626',
+          icone: 'CreditCard',
+          descricao: 'Categoria para controle de dívidas e financiamentos'
+        });
+
+        if (!resultadoCategoria.success) {
+          throw new Error('Erro ao criar categoria Dívidas');
+        }
+
+        categoriaDividas = resultadoCategoria.data;
       }
 
-      console.log('🔍 Verificando status da fatura:', faturaVencimento);
+      // Procurar subcategoria "Cartão de Crédito"
+      let subcategoriaCartao = categoriaDividas.subcategorias?.find(sub =>
+        sub.nome.toLowerCase().includes('cartão') || 
+        sub.nome.toLowerCase().includes('cartao')
+      );
 
-      const { data, error } = await supabase
-        .from('transacoes')
-        .select('efetivado, conta_id, data_efetivacao') // ✅ INCLUIR data_efetivacao
-        .eq('cartao_id', cartaoId)
-        .eq('usuario_id', user.id)
-        .eq('fatura_vencimento', faturaVencimento); // ✅ USAR fatura_vencimento
+      // Se não existe, criar subcategoria "Cartão de Crédito"
+      if (!subcategoriaCartao) {
+        const resultadoSubcategoria = await addSubcategoria(categoriaDividas.id, {
+          nome: 'Cartão de Crédito',
+          descricao: 'Dívidas relacionadas a cartões de crédito'
+        });
 
-      if (error) throw error;
+        if (!resultadoSubcategoria.success) {
+          throw new Error('Erro ao criar subcategoria Cartão de Crédito');
+        }
 
-      const transacoesEfetivadas = data.filter(t => t.efetivado === true);
-      const faturaEstaPaga = data.length > 0 && 
-                            transacoesEfetivadas.length === data.length; // ✅ TODAS devem estar efetivadas
-
-      console.log('✅ Status da fatura verificado:', {
-        total: data.length,
-        efetivadas: transacoesEfetivadas.length,
-        paga: faturaEstaPaga
-      });
+        subcategoriaCartao = resultadoSubcategoria.data;
+      }
 
       return {
-        faturaEstaPaga,
-        totalTransacoes: data.length,
-        transacoesEfetivadas: transacoesEfetivadas.length,
-        contaPagamento: transacoesEfetivadas[0]?.conta_id || null,
-        dataEfetivacao: transacoesEfetivadas[0]?.data_efetivacao || null // ✅ NOVA INFO
+        categoriaId: categoriaDividas.id,
+        subcategoriaId: subcategoriaCartao.id
       };
+
     } catch (err) {
-      console.error('❌ Erro ao verificar status da fatura:', err);
-      setError(err.message);
-      return { faturaEstaPaga: false, totalTransacoes: 0, transacoesEfetivadas: 0 };
+      console.error('Erro ao garantir categoria de dívidas:', err);
+      throw err;
     }
   };
 
-  // ✅ REFATORADO: Pagar fatura usando fatura_vencimento
-  const pagarFatura = async (cartaoId, contaId, faturaVencimento, dataPagamento = null) => {
-    setIsLoading(true);
+  /**
+   * Calcula a próxima data de vencimento baseada no cartão
+   */
+  const calcularProximaFatura = (cartao) => {
+    const hoje = new Date();
+    const diaVencimento = cartao.dia_vencimento;
+    const diaFechamento = cartao.dia_fechamento;
+    
+    let proximaFatura = new Date(hoje.getFullYear(), hoje.getMonth(), diaVencimento);
+    
+    // Se ainda não passou do fechamento deste mês
+    if (hoje.getDate() <= diaFechamento) {
+      proximaFatura = new Date(hoje.getFullYear(), hoje.getMonth() + 1, diaVencimento);
+    } else {
+      // Se já passou do fechamento, próxima fatura é mês seguinte
+      proximaFatura = new Date(hoje.getFullYear(), hoje.getMonth() + 2, diaVencimento);
+    }
+    
+    return proximaFatura.toISOString().split('T')[0];
+  };
+
+  /**
+   * Gera data de fatura para uma parcela específica
+   * SEMPRE usa o dia de vencimento do cartão, independente da data inicial
+   */
+  const gerarDataFaturaParcela = (faturaInicialString, mesesAFrente, diaVencimento) => {
+    // Converter string para Date e extrair ano/mês
+    const dataInicial = new Date(faturaInicialString + 'T00:00:00');
+    const anoInicial = dataInicial.getFullYear();
+    const mesInicial = dataInicial.getMonth(); // 0-based
+    
+    // Calcular o novo mês/ano
+    const novoAno = anoInicial + Math.floor((mesInicial + mesesAFrente) / 12);
+    const novoMes = (mesInicial + mesesAFrente) % 12;
+    
+    // Criar nova data SEMPRE no dia de vencimento do cartão
+    const novaData = new Date(novoAno, novoMes, diaVencimento);
+    
+    // Verificar se o dia existe no mês (ex: 31 em fevereiro)
+    if (novaData.getDate() !== diaVencimento) {
+      // Se o dia não existe, usar o último dia do mês
+      novaData.setDate(0);
+    }
+    
+    const resultado = novaData.toISOString().split('T')[0];
+    console.log(`  -> Calculando: ${faturaInicialString} + ${mesesAFrente} meses (dia ${diaVencimento}) = ${resultado}`);
+    
+    return resultado;
+  };
+
+  // ✅ PAGAR FATURA - Implementação direta sem RPC
+  const pagarFatura = async (cartaoId, faturaVencimento, valorPago, dataPagamento) => {
+    setLoading(true);
     setError(null);
 
     try {
-      // ✅ DEBUG: Log dos parâmetros recebidos
-      console.log('🔍 Parâmetros recebidos em pagarFatura:', {
-        cartaoId,
-        contaId,
-        faturaVencimento,
-        dataPagamento,
-        tipos: {
-          cartaoId: typeof cartaoId,
-          contaId: typeof contaId,
-          faturaVencimento: typeof faturaVencimento,
-          dataPagamento: typeof dataPagamento
-        }
-      });
+      if (!user?.id) throw new Error('Usuário não autenticado');
+      if (!cartaoId) throw new Error('cartaoId é obrigatório');
+      if (!faturaVencimento) throw new Error('faturaVencimento é obrigatório');
+      if (!valorPago || valorPago <= 0) throw new Error('valorPago deve ser maior que zero');
+      if (!dataPagamento) throw new Error('dataPagamento é obrigatório');
 
-      // ✅ VALIDAÇÕES RIGOROSAS
-      if (!cartaoId) {
-        throw new Error('cartaoId é obrigatório para pagar fatura');
-      }
-
-      if (!contaId) {
-        throw new Error('contaId é obrigatório para pagar fatura');
-      }
-
-      if (!faturaVencimento) {
-        throw new Error('fatura_vencimento é obrigatório para pagar fatura');
-      }
-
-      if (!user?.id) {
-        throw new Error('Usuário não autenticado');
-      }
-
-      // ✅ Data de efetivação = data do pagamento (hoje se não informada)
-      const dataEfetivacao = dataPagamento || new Date().toISOString().split('T')[0];
-      
-      console.log('💳 Pagando fatura com data_efetivacao:', dataEfetivacao);
-      console.log('💳 Fatura vencimento:', faturaVencimento);
-
-      // Buscar todas as transações da fatura que ainda não foram efetivadas
-      const { data: transacoes, error: fetchError } = await supabase
-        .from('transacoes')
-        .select('id, descricao, valor')
-        .eq('cartao_id', cartaoId)
-        .eq('usuario_id', user.id)
-        .eq('efetivado', false)
-        .eq('fatura_vencimento', faturaVencimento); // ✅ USAR fatura_vencimento
-
-      if (fetchError) {
-        console.error('❌ Erro ao buscar transações:', fetchError);
-        throw fetchError;
-      }
-
-      console.log('🔍 Transações encontradas para pagamento:', transacoes?.length || 0);
-      
-      if (!transacoes || transacoes.length === 0) {
-        throw new Error('Nenhuma transação encontrada para esta fatura ou todas já estão pagas');
-      }
-
-      // ✅ Log das transações que serão efetivadas
-      console.log('📝 Transações que serão efetivadas:', transacoes.map(t => ({
-        id: t.id,
-        descricao: t.descricao,
-        valor: t.valor
-      })));
-
-      // ✅ NOVA REGRA: Atualizar todas as transações da fatura COM data_efetivacao
-      const { error: updateError } = await supabase
+      // Marcar todas as transações da fatura como efetivadas
+      const { data, error: updateError } = await supabase
         .from('transacoes')
         .update({ 
-          conta_id: contaId, 
           efetivado: true,
-          data_efetivacao: dataEfetivacao, // ✅ CAMPO OBRIGATÓRIO no pagamento
+          data_efetivacao: dataPagamento,
           updated_at: new Date().toISOString()
         })
-        .in('id', transacoes.map(t => t.id));
-
-      if (updateError) {
-        console.error('❌ Erro ao atualizar transações:', updateError);
-        throw updateError;
-      }
-
-      console.log('✅ Fatura paga com sucesso. Transações atualizadas:', transacoes.length);
-      console.log('✅ Data de efetivação aplicada:', dataEfetivacao);
-
-      setIsLoading(false);
-      return { 
-        success: true, 
-        transacoesAtualizadas: transacoes.length,
-        dataEfetivacao, // ✅ RETORNAR para controle
-        faturaVencimento
-      };
-
-    } catch (err) {
-      console.error('❌ Erro ao pagar fatura:', err);
-      setError(err.message);
-      setIsLoading(false);
-      return { success: false, error: err.message };
-    }
-  };
-
-  // ✅ REFATORADO: Reabrir fatura usando fatura_vencimento
-  const reabrirFatura = async (cartaoId, faturaVencimento) => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      if (!faturaVencimento) {
-        throw new Error('fatura_vencimento é obrigatório para reabrir fatura');
-      }
-
-      console.log('🔓 Reabrindo fatura - limpando data_efetivacao');
-      console.log('🔓 Fatura vencimento:', faturaVencimento);
-
-      // Buscar todas as transações da fatura que foram efetivadas
-      const { data: transacoes, error: fetchError } = await supabase
-        .from('transacoes')
-        .select('id')
-        .eq('cartao_id', cartaoId)
         .eq('usuario_id', user.id)
-        .eq('efetivado', true)
-        .eq('fatura_vencimento', faturaVencimento); // ✅ USAR fatura_vencimento
-
-      if (fetchError) throw fetchError;
-
-      if (transacoes.length === 0) {
-        throw new Error('Nenhuma transação efetivada encontrada para esta fatura');
-      }
-
-      // ✅ NOVA REGRA: Reverter todas as transações da fatura E limpar data_efetivacao
-      const { error: updateError } = await supabase
-        .from('transacoes')
-        .update({ 
-          conta_id: null, 
-          efetivado: false,
-          data_efetivacao: null, // ✅ LIMPAR data_efetivacao
-          updated_at: new Date().toISOString()
-        })
-        .in('id', transacoes.map(t => t.id));
+        .eq('cartao_id', cartaoId)
+        .eq('fatura_vencimento', faturaVencimento)
+        .eq('efetivado', false)
+        .select();
 
       if (updateError) throw updateError;
 
-      console.log('✅ Fatura reaberta com sucesso. Transações revertidas:', transacoes.length);
-      console.log('✅ data_efetivacao limpa para todas as transações');
-
-      setIsLoading(false);
-      return { 
-        success: true, 
-        transacoesRevertidas: transacoes.length,
-        faturaVencimento
+      return {
+        success: true,
+        transacoes_afetadas: data?.length || 0,
+        message: `Fatura paga com sucesso. ${data?.length || 0} transações efetivadas.`
       };
 
     } catch (err) {
-      console.error('❌ Erro ao reabrir fatura:', err);
+      console.error('Erro ao pagar fatura:', err);
       setError(err.message);
-      setIsLoading(false);
       return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
     }
   };
 
-  // ✅ REFATORADO: Lançar estorno usando fatura_vencimento
-  const lancarEstorno = async (cartaoId, valor, descricao, faturaVencimento, categoriaId = null) => {
-    setIsLoading(true);
+  /**
+   * Pagamento parcial da fatura - NOVA FUNCIONALIDADE
+   */
+  const pagarFaturaParcial = async (cartaoId, faturaVencimento, valorTotal, valorPago, faturaDestinoRestante, dataPagamento, cartao) => {
+    if (!user?.id) {
+      setError('Usuário não autenticado');
+      return { success: false };
+    }
+
+    if (valorPago <= 0 || valorPago >= valorTotal) {
+      setError('Valor pago deve ser maior que zero e menor que o total da fatura');
+      return { success: false };
+    }
+
+    if (!faturaDestinoRestante) {
+      setError('Fatura de destino para o saldo restante é obrigatória');
+      return { success: false };
+    }
+
+    if (!dataPagamento) {
+      setError('Data de pagamento é obrigatória');
+      return { success: false };
+    }
+
+    setLoading(true);
     setError(null);
 
     try {
-      if (!faturaVencimento) {
-        throw new Error('fatura_vencimento é obrigatório para lançar estorno');
-      }
-
-      // Verificar se a fatura está aberta (não paga)
-      const statusFatura = await verificarStatusFatura(cartaoId, faturaVencimento);
+      // 1. Marcar fatura como paga (usando função existente)
+      const resultadoPagamento = await pagarFatura(cartaoId, faturaVencimento, valorPago, dataPagamento);
       
-      if (statusFatura.faturaEstaPaga) {
-        throw new Error('Não é possível lançar estorno em fatura que já foi paga');
+      if (!resultadoPagamento.success) {
+        throw new Error(resultadoPagamento.error || 'Erro ao pagar fatura');
       }
 
-      console.log('💸 Lançando estorno - data_efetivacao = NULL');
-      console.log('💸 Fatura vencimento:', faturaVencimento);
+      // 2. Garantir que existem as categorias de dívida
+      const categorias = await garantirCategoriaDividas();
+      if (!categorias) {
+        throw new Error('Erro ao criar categorias necessárias');
+      }
 
-      // ✅ NOVA REGRA: Criar transação de estorno COM data_efetivacao = NULL
-      const { data, error } = await supabase
+      // 3. Calcular valor restante e criar nova transação
+      const valorRestante = valorTotal - valorPago;
+      
+      const dataFaturaOriginal = new Date(faturaVencimento);
+      const mesReferencia = dataFaturaOriginal.toLocaleDateString('pt-BR', { 
+        month: 'long', 
+        year: 'numeric' 
+      });
+
+      // Usar a função de criar despesa existente
+      const resultadoDespesa = await criarDespesaCartao({
+        cartao_id: cartaoId,
+        categoria_id: categorias.categoriaId,
+        subcategoria_id: categorias.subcategoriaId,
+        descricao: `Saldo pendente da fatura de ${mesReferencia}. Atenção: usuário deve editar e incluir os juros.`,
+        valor: valorRestante,
+        data_compra: dataPagamento,
+        fatura_vencimento: faturaDestinoRestante,
+        observacoes: `Saldo remanescente de pagamento parcial. Valor original: R$ ${valorTotal.toFixed(2)}, Valor pago: R$ ${valorPago.toFixed(2)} em ${new Date(dataPagamento).toLocaleDateString('pt-BR')}`
+      });
+
+      if (!resultadoDespesa.success) {
+        throw new Error(resultadoDespesa.error || 'Erro ao criar transação de saldo pendente');
+      }
+
+      return { success: true };
+    } catch (err) {
+      console.error('Erro ao processar pagamento parcial:', err);
+      setError(err.message);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Pagamento parcelado da fatura - NOVA FUNCIONALIDADE
+   */
+  const pagarFaturaParcelado = async (cartaoId, faturaVencimento, valorTotal, numeroParcelas, valorParcela, faturaInicialVencimento, dataPagamento, cartao) => {
+    if (!user?.id) {
+      setError('Usuário não autenticado');
+      return { success: false };
+    }
+
+    if (numeroParcelas <= 0 || numeroParcelas > 60) {
+      setError('Número de parcelas deve ser entre 1 e 60');
+      return { success: false };
+    }
+
+    if (!valorParcela || valorParcela <= 0) {
+      setError('Valor da parcela deve ser maior que zero');
+      return { success: false };
+    }
+
+    if (!faturaInicialVencimento) {
+      setError('Fatura inicial para as parcelas é obrigatória');
+      return { success: false };
+    }
+
+    if (!dataPagamento) {
+      setError('Data de pagamento é obrigatória');
+      return { success: false };
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // 1. Marcar fatura original como paga (usando função existente)
+      const resultadoPagamento = await pagarFatura(cartaoId, faturaVencimento, valorTotal, dataPagamento);
+      
+      if (!resultadoPagamento.success) {
+        throw new Error(resultadoPagamento.error || 'Erro ao pagar fatura');
+      }
+
+      // 2. Garantir que existem as categorias de dívida
+      const categorias = await garantirCategoriaDividas();
+      if (!categorias) {
+        throw new Error('Erro ao criar categorias necessárias');
+      }
+
+      // 3. Criar parcelas com o valor informado pelo banco
+      const valorTotalParcelado = numeroParcelas * valorParcela;
+      const prejuizoParcelamento = valorTotalParcelado - valorTotal;
+
+      const resultadoParcelamento = await criarDespesaParcelada({
+        cartao_id: cartaoId,
+        categoria_id: categorias.categoriaId,
+        subcategoria_id: categorias.subcategoriaId,
+        descricao: 'Parcelamento de fatura do cartão',
+        valor_total: valorTotalParcelado, // Valor total com juros do banco
+        valor_parcela: valorParcela, // Valor informado pelo banco
+        numero_parcelas: numeroParcelas,
+        data_compra: dataPagamento,
+        fatura_vencimento: faturaInicialVencimento,
+        observacoes: `Parcelamento da fatura original de R$ ${valorTotal.toFixed(2)} paga em ${new Date(dataPagamento).toLocaleDateString('pt-BR')}. Prejuízo: R$ ${prejuizoParcelamento.toFixed(2)} (${((prejuizoParcelamento / valorTotal) * 100).toFixed(1)}%)`
+      });
+
+      if (!resultadoParcelamento.success) {
+        throw new Error(resultadoParcelamento.error || 'Erro ao criar parcelamento');
+      }
+
+      return { 
+        success: true, 
+        grupoParcelamento: resultadoParcelamento.grupo_parcelamento,
+        valorTotalParcelado,
+        prejuizoParcelamento
+      };
+    } catch (err) {
+      console.error('Erro ao processar pagamento parcelado:', err);
+      setError(err.message);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Buscar opções de fatura para parcelamento - NOVA FUNCIONALIDADE
+   * Gera opções de fatura baseado nos dias de fechamento e vencimento do cartão
+   */
+  const buscarOpcoesFatura = async (cartaoId, dataCompra) => {
+    if (!user?.id) {
+      setError('Usuário não autenticado');
+      return [];
+    }
+
+    try {
+      // Buscar dados do cartão
+      const { data: cartaoData, error: cartaoError } = await supabase
+        .from('cartoes')
+        .select('dia_fechamento, dia_vencimento, nome')
+        .eq('id', cartaoId)
+        .eq('usuario_id', user.id)
+        .single();
+
+      if (cartaoError) {
+        throw new Error(`Erro ao buscar dados do cartão: ${cartaoError.message}`);
+      }
+
+      const hoje = new Date();
+      const opcoes = [];
+
+      // Gerar 6 opções: 2 antes da atual + atual + 3 depois
+      for (let i = -2; i <= 3; i++) {
+        // Calcular a data base sempre no dia de vencimento do cartão
+        const dataBase = new Date(hoje.getFullYear(), hoje.getMonth() + i, cartaoData.dia_vencimento);
+        
+        // Verificar se o dia existe no mês (ex: 31 em fevereiro)
+        if (dataBase.getDate() !== cartaoData.dia_vencimento) {
+          // Se o dia não existe, usar o último dia do mês
+          dataBase.setDate(0);
+        }
+
+        const valorOpcao = dataBase.toISOString().split('T')[0];
+        const labelOpcao = `${dataBase.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })} - Venc: ${dataBase.toLocaleDateString('pt-BR')}`;
+        
+        // Calcular data de fechamento (sempre um mês antes do vencimento)
+        const dataFechamento = new Date(dataBase.getFullYear(), dataBase.getMonth() - 1, cartaoData.dia_fechamento);
+        
+        opcoes.push({
+          valor_opcao: valorOpcao,
+          label_opcao: labelOpcao,
+          data_fechamento: dataFechamento.toISOString().split('T')[0],
+          data_vencimento: valorOpcao,
+          is_default: i === 0 // A opção atual é o padrão
+        });
+      }
+
+      return opcoes;
+    } catch (err) {
+      console.error('Erro ao buscar opções de fatura:', err);
+      setError(err.message);
+      return [];
+    }
+  };
+
+  // ✅ CRIAR DESPESA NO CARTÃO
+  const criarDespesaCartao = async (dadosDespesa) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (!user?.id) throw new Error('Usuário não autenticado');
+      
+      const {
+        cartao_id,
+        categoria_id,
+        subcategoria_id = null,
+        descricao,
+        valor,
+        data_compra,
+        fatura_vencimento,
+        observacoes = null
+      } = dadosDespesa;
+
+      // Validações
+      if (!cartao_id) throw new Error('cartao_id é obrigatório');
+      if (!categoria_id) throw new Error('categoria_id é obrigatório');
+      if (!descricao) throw new Error('descricao é obrigatória');
+      if (!valor || valor <= 0) throw new Error('valor deve ser maior que zero');
+      if (!data_compra) throw new Error('data_compra é obrigatória');
+      if (!fatura_vencimento) throw new Error('fatura_vencimento é obrigatório');
+
+      const { data, error: insertError } = await supabase
         .from('transacoes')
         .insert([{
           usuario_id: user.id,
-          cartao_id: cartaoId,
-          conta_id: null,
-          categoria_id: categoriaId,
+          cartao_id,
+          categoria_id,
+          subcategoria_id,
           tipo: 'despesa',
-          valor: -Math.abs(valor), // ✅ ESTORNO: Valor negativo
-          descricao: descricao,
-          data: new Date().toISOString().split('T')[0], // ✅ Data de hoje
-          fatura_vencimento: faturaVencimento, // ✅ USAR fatura_vencimento da fatura selecionada
-          data_efetivacao: null, // ✅ ESTORNO = NULL (é despesa de cartão)
+          descricao,
+          valor,
+          data: data_compra,
+          fatura_vencimento,
           efetivado: false,
-          observacoes: 'Estorno/Crédito no cartão',
+          data_efetivacao: null,
+          observacoes,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }])
-        .select();
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (insertError) throw insertError;
 
-      console.log('✅ Estorno lançado com data_efetivacao = NULL');
-
-      setIsLoading(false);
-      return { 
-        success: true, 
-        transacao: data[0],
-        faturaVencimento
+      return {
+        success: true,
+        transacao: data
       };
 
     } catch (err) {
-      console.error('❌ Erro ao lançar estorno:', err);
+      console.error('Erro ao criar despesa no cartão:', err);
       setError(err.message);
-      setIsLoading(false);
       return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
     }
   };
 
-  // ✅ REFATORADO: Buscar faturas abertas usando fatura_vencimento
-  const buscarFaturasAbertas = async (cartaoId) => {
+  // ✅ CRIAR DESPESA PARCELADA - Implementação direta sem RPC
+  const criarDespesaParcelada = async (dadosParcelamento) => {
+    setLoading(true);
+    setError(null);
+
     try {
-      // Buscar transações dos últimos 12 meses para identificar faturas abertas
-      const dataInicio = new Date();
-      dataInicio.setMonth(dataInicio.getMonth() - 12);
-
-      const { data, error } = await supabase
-        .from('transacoes')
-        .select('fatura_vencimento, efetivado, data_efetivacao') // ✅ USAR fatura_vencimento
-        .eq('cartao_id', cartaoId)
-        .eq('usuario_id', user.id)
-        .gte('data', dataInicio.toISOString().split('T')[0])
-        .not('fatura_vencimento', 'is', null); // ✅ Apenas transações com fatura_vencimento
-
-      if (error) throw error;
-
-      // Agrupar por fatura_vencimento e verificar status
-      const faturasPorVencimento = {};
+      if (!user?.id) throw new Error('Usuário não autenticado');
       
-      data.forEach(transacao => {
-        const chave = transacao.fatura_vencimento;
-        
-        if (!faturasPorVencimento[chave]) {
-          const dataVencimento = new Date(transacao.fatura_vencimento);
-          const mesNomeCompleto = dataVencimento.toLocaleDateString('pt-BR', { 
-            month: 'long', 
-            year: 'numeric' 
-          });
+      const {
+        cartao_id,
+        categoria_id,
+        descricao,
+        valor_total,
+        valor_parcela, // NOVO: valor específico da parcela
+        numero_parcelas,
+        data_compra,
+        fatura_vencimento,
+        subcategoria_id = null,
+        observacoes = null
+      } = dadosParcelamento;
 
-          faturasPorVencimento[chave] = {
-            fatura_vencimento: transacao.fatura_vencimento,
-            ano: dataVencimento.getFullYear(),
-            mes: dataVencimento.getMonth() + 1,
-            mesNome: mesNomeCompleto.charAt(0).toUpperCase() + mesNomeCompleto.slice(1),
-            transacoes: [],
-            todasEfetivadas: true,
-            dataEfetivacao: null // ✅ NOVA PROPRIEDADE
-          };
-        }
-        
-        faturasPorVencimento[chave].transacoes.push(transacao);
-        
-        if (!transacao.efetivado) {
-          faturasPorVencimento[chave].todasEfetivadas = false;
-        }
+      // Validações
+      if (!cartao_id) throw new Error('cartao_id é obrigatório');
+      if (!categoria_id) throw new Error('categoria_id é obrigatório');
+      if (!descricao) throw new Error('descricao é obrigatória');
+      if (!valor_total || valor_total <= 0) throw new Error('valor_total deve ser maior que zero');
+      if (!numero_parcelas || numero_parcelas <= 0) throw new Error('numero_parcelas deve ser maior que zero');
+      if (!data_compra) throw new Error('data_compra é obrigatória');
+      if (!fatura_vencimento) throw new Error('fatura_vencimento é obrigatório');
 
-        // ✅ Capturar data de efetivação da primeira transação efetivada
-        if (transacao.efetivado && transacao.data_efetivacao && !faturasPorVencimento[chave].dataEfetivacao) {
-          faturasPorVencimento[chave].dataEfetivacao = transacao.data_efetivacao;
-        }
-      });
+      // Gerar UUID para o grupo de parcelamento
+      const grupoParcelamento = crypto.randomUUID();
+      
+      // Usar valor da parcela informado pelo usuário (do banco) ou calcular
+      // CORREÇÃO: Usar o valor exato informado pelo usuário, sem arredondamento
+      const valorParcelaFinal = valor_parcela || (valor_total / numero_parcelas);
 
-      // Retornar apenas faturas abertas (que têm pelo menos uma transação não efetivada)
-      const faturasAbertas = Object.values(faturasPorVencimento)
-        .filter(fatura => !fatura.todasEfetivadas)
-        // ✅ ORDENAÇÃO: Cronológica crescente (mais antiga primeiro)
-        .sort((a, b) => new Date(a.fatura_vencimento) - new Date(b.fatura_vencimento));
+      // Buscar dados do cartão para calcular próximas faturas
+      const { data: cartaoData, error: cartaoError } = await supabase
+        .from('cartoes')
+        .select('dia_fechamento, dia_vencimento')
+        .eq('id', cartao_id)
+        .eq('usuario_id', user.id)
+        .single();
 
-      console.log('✅ Faturas abertas encontradas:', faturasAbertas.length);
-      return faturasAbertas;
+      if (cartaoError) throw cartaoError;
+
+      // Criar array de parcelas
+      const parcelas = [];
+
+      // Log para debug
+      console.log('=== DEBUG PARCELAMENTO ===');
+      console.log('Fatura vencimento inicial:', fatura_vencimento);
+      console.log('Dia vencimento do cartão:', cartaoData.dia_vencimento);
+      console.log('Valor parcela informado:', valor_parcela);
+      console.log('Valor parcela final:', valorParcelaFinal);
+
+      for (let i = 1; i <= numero_parcelas; i++) {
+        // CORREÇÃO PRINCIPAL: TODAS as parcelas devem usar o dia de vencimento do cartão
+        // Calcular data correta baseada na fatura inicial + meses
+        const dataVencimentoFinal = gerarDataFaturaParcela(fatura_vencimento, i - 1, cartaoData.dia_vencimento);
+
+        console.log(`Parcela ${i}: Data = ${dataVencimentoFinal}, Valor = ${valorParcelaFinal}`);
+
+        parcelas.push({
+          usuario_id: user.id,
+          cartao_id,
+          categoria_id,
+          subcategoria_id,
+          tipo: 'despesa',
+          descricao: `${descricao} (${i}/${numero_parcelas})`,
+          valor: valorParcelaFinal,
+          valor_parcela: valorParcelaFinal,
+          numero_parcelas: numero_parcelas,
+          parcela_atual: i,
+          grupo_parcelamento: grupoParcelamento,
+          data: data_compra,
+          fatura_vencimento: dataVencimentoFinal,
+          efetivado: false,
+          observacoes,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+      }
+
+      // Inserir todas as parcelas
+      const { data, error: insertError } = await supabase
+        .from('transacoes')
+        .insert(parcelas)
+        .select();
+
+      if (insertError) throw insertError;
+
+      return {
+        success: true,
+        grupo_parcelamento: grupoParcelamento,
+        parcelas_criadas: data?.length || 0
+      };
 
     } catch (err) {
-      console.error('❌ Erro ao buscar faturas abertas:', err);
+      console.error('Erro ao criar despesa parcelada:', err);
       setError(err.message);
-      return [];
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
     }
   };
 
-  // ✅ NOVO: Buscar faturas pagas usando fatura_vencimento
-  const buscarFaturasPagas = async (cartaoId, limite = 6) => {
+  // ✅ LANÇAR ESTORNO
+  const lancarEstorno = async (dadosEstorno) => {
+    setLoading(true);
+    setError(null);
+
     try {
-      // Buscar transações dos últimos 12 meses
-      const dataInicio = new Date();
-      dataInicio.setMonth(dataInicio.getMonth() - 12);
-
-      const { data, error } = await supabase
-        .from('transacoes')
-        .select('fatura_vencimento, efetivado, data_efetivacao, valor')
-        .eq('cartao_id', cartaoId)
-        .eq('usuario_id', user.id)
-        .gte('data', dataInicio.toISOString().split('T')[0])
-        .not('fatura_vencimento', 'is', null);
-
-      if (error) throw error;
-
-      // Agrupar por fatura_vencimento
-      const faturasPorVencimento = {};
+      if (!user?.id) throw new Error('Usuário não autenticado');
       
-      data.forEach(transacao => {
-        const chave = transacao.fatura_vencimento;
-        
-        if (!faturasPorVencimento[chave]) {
-          const dataVencimento = new Date(transacao.fatura_vencimento);
-          const mesNomeCompleto = dataVencimento.toLocaleDateString('pt-BR', { 
-            month: 'long', 
-            year: 'numeric' 
-          });
+      const {
+        cartao_id,
+        categoria_id = null,
+        descricao,
+        valor,
+        fatura_vencimento,
+        data_estorno = new Date().toISOString().split('T')[0],
+        observacoes = 'Estorno/Crédito no cartão'
+      } = dadosEstorno;
 
-          faturasPorVencimento[chave] = {
-            fatura_vencimento: transacao.fatura_vencimento,
-            ano: dataVencimento.getFullYear(),
-            mes: dataVencimento.getMonth() + 1,
-            mesNome: mesNomeCompleto.charAt(0).toUpperCase() + mesNomeCompleto.slice(1),
-            transacoes: [],
-            todasEfetivadas: true,
-            valorTotal: 0,
-            dataEfetivacao: null
-          };
-        }
-        
-        faturasPorVencimento[chave].transacoes.push(transacao);
-        faturasPorVencimento[chave].valorTotal += parseFloat(transacao.valor || 0);
-        
-        if (!transacao.efetivado) {
-          faturasPorVencimento[chave].todasEfetivadas = false;
-        }
+      // Validações
+      if (!cartao_id) throw new Error('cartao_id é obrigatório');
+      if (!descricao) throw new Error('descricao é obrigatória');
+      if (!valor || valor <= 0) throw new Error('valor deve ser maior que zero');
+      if (!fatura_vencimento) throw new Error('fatura_vencimento é obrigatório');
 
-        if (transacao.efetivado && transacao.data_efetivacao && !faturasPorVencimento[chave].dataEfetivacao) {
-          faturasPorVencimento[chave].dataEfetivacao = transacao.data_efetivacao;
-        }
-      });
+      const { data, error: insertError } = await supabase
+        .from('transacoes')
+        .insert([{
+          usuario_id: user.id,
+          cartao_id,
+          categoria_id,
+          tipo: 'despesa',
+          descricao,
+          valor: -Math.abs(valor), // Estorno é valor negativo
+          data: data_estorno,
+          fatura_vencimento,
+          efetivado: false,
+          data_efetivacao: null,
+          observacoes,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }])
+        .select()
+        .single();
 
-      // Retornar apenas faturas pagas
-      const faturasPagas = Object.values(faturasPorVencimento)
-        .filter(fatura => fatura.todasEfetivadas && fatura.transacoes.length > 0)
-        .sort((a, b) => new Date(a.fatura_vencimento) - new Date(b.fatura_vencimento))
-        .slice(0, limite);
+      if (insertError) throw insertError;
 
-      console.log('✅ Faturas pagas encontradas:', faturasPagas.length);
-      return faturasPagas;
+      return {
+        success: true,
+        transacao: data
+      };
 
     } catch (err) {
-      console.error('❌ Erro ao buscar faturas pagas:', err);
+      console.error('Erro ao lançar estorno:', err);
       setError(err.message);
-      return [];
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
     }
   };
 
-  // ✅ NOVO: Obter histórico completo de faturas
-  const obterHistoricoFaturas = async (cartaoId, mesesAtras = 12) => {
+  // ✅ EDITAR TRANSAÇÃO DE CARTÃO
+  const editarTransacao = async (transacaoId, dadosAtualizacao) => {
+    setLoading(true);
+    setError(null);
+
     try {
-      const dataInicio = new Date();
-      dataInicio.setMonth(dataInicio.getMonth() - mesesAtras);
+      if (!user?.id) throw new Error('Usuário não autenticado');
+      if (!transacaoId) throw new Error('transacaoId é obrigatório');
 
-      const { data, error } = await supabase
+      const { data, error: updateError } = await supabase
         .from('transacoes')
-        .select('fatura_vencimento, efetivado, data_efetivacao, valor, data')
-        .eq('cartao_id', cartaoId)
+        .update({
+          ...dadosAtualizacao,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', transacaoId)
         .eq('usuario_id', user.id)
-        .gte('data', dataInicio.toISOString().split('T')[0])
-        .not('fatura_vencimento', 'is', null)
-        .order('fatura_vencimento', { ascending: false });
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
-      // Processar histórico
-      const historico = {};
-      
-      data.forEach(transacao => {
-        const chave = transacao.fatura_vencimento;
-        
-        if (!historico[chave]) {
-          const dataVencimento = new Date(transacao.fatura_vencimento);
-          
-          historico[chave] = {
-            fatura_vencimento: transacao.fatura_vencimento,
-            dataVencimento: dataVencimento,
-            mes: dataVencimento.getMonth() + 1,
-            ano: dataVencimento.getFullYear(),
-            mesNome: dataVencimento.toLocaleDateString('pt-BR', { 
-              month: 'long', 
-              year: 'numeric' 
-            }).replace(/^\w/, c => c.toUpperCase()),
-            valorTotal: 0,
-            totalTransacoes: 0,
-            transacoesEfetivadas: 0,
-            status: 'aberta',
-            dataEfetivacao: null
-          };
-        }
-        
-        historico[chave].valorTotal += parseFloat(transacao.valor || 0);
-        historico[chave].totalTransacoes += 1;
-        
-        if (transacao.efetivado) {
-          historico[chave].transacoesEfetivadas += 1;
-          
-          if (transacao.data_efetivacao && !historico[chave].dataEfetivacao) {
-            historico[chave].dataEfetivacao = transacao.data_efetivacao;
-          }
-        }
-      });
-
-      // Definir status final
-      Object.values(historico).forEach(fatura => {
-        if (fatura.totalTransacoes > 0 && fatura.transacoesEfetivadas === fatura.totalTransacoes) {
-          fatura.status = 'paga';
-        } else if (fatura.transacoesEfetivadas > 0) {
-          fatura.status = 'parcial';
-        } else {
-          fatura.status = 'aberta';
-        }
-      });
-
-      const historicoOrdenado = Object.values(historico)
-        .sort((a, b) => new Date(a.fatura_vencimento) - new Date(b.fatura_vencimento));
-
-      console.log('✅ Histórico de faturas processado:', historicoOrdenado.length);
-      return historicoOrdenado;
+      return {
+        success: true,
+        transacao: data
+      };
 
     } catch (err) {
-      console.error('❌ Erro ao obter histórico de faturas:', err);
+      console.error('Erro ao editar transação:', err);
       setError(err.message);
-      return [];
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ EXCLUIR TRANSAÇÃO DE CARTÃO
+  const excluirTransacao = async (transacaoId) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (!user?.id) throw new Error('Usuário não autenticado');
+      if (!transacaoId) throw new Error('transacaoId é obrigatório');
+
+      const { error: deleteError } = await supabase
+        .from('transacoes')
+        .delete()
+        .eq('id', transacaoId)
+        .eq('usuario_id', user.id);
+
+      if (deleteError) throw deleteError;
+
+      return {
+        success: true,
+        transacao_id: transacaoId
+      };
+
+    } catch (err) {
+      console.error('Erro ao excluir transação:', err);
+      setError(err.message);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ EXCLUIR GRUPO DE PARCELAS
+  const excluirGrupoParcelas = async (grupoParcelamento) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (!user?.id) throw new Error('Usuário não autenticado');
+      if (!grupoParcelamento) throw new Error('grupoParcelamento é obrigatório');
+
+      const { error: deleteError } = await supabase
+        .from('transacoes')
+        .delete()
+        .eq('grupo_parcelamento', grupoParcelamento)
+        .eq('usuario_id', user.id);
+
+      if (deleteError) throw deleteError;
+
+      return {
+        success: true,
+        grupo_parcelamento: grupoParcelamento
+      };
+
+    } catch (err) {
+      console.error('Erro ao excluir grupo de parcelas:', err);
+      setError(err.message);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ CRIAR CARTÃO
+  const criarCartao = async (dadosCartao) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (!user?.id) throw new Error('Usuário não autenticado');
+      
+      const {
+        nome,
+        limite,
+        dia_fechamento,
+        dia_vencimento,
+        bandeira,
+        banco = null,
+        conta_debito_id = null,
+        cor = '#1E40AF',
+        observacoes = null
+      } = dadosCartao;
+
+      // Validações
+      if (!nome) throw new Error('nome é obrigatório');
+      if (!limite || limite <= 0) throw new Error('limite deve ser maior que zero');
+      if (!dia_fechamento || dia_fechamento < 1 || dia_fechamento > 31) {
+        throw new Error('dia_fechamento deve estar entre 1 e 31');
+      }
+      if (!dia_vencimento || dia_vencimento < 1 || dia_vencimento > 31) {
+        throw new Error('dia_vencimento deve estar entre 1 e 31');
+      }
+      if (!bandeira) throw new Error('bandeira é obrigatória');
+
+      const { data, error: insertError } = await supabase
+        .from('cartoes')
+        .insert([{
+          usuario_id: user.id,
+          nome,
+          limite,
+          dia_fechamento,
+          dia_vencimento,
+          bandeira,
+          banco,
+          conta_debito_id,
+          cor,
+          observacoes,
+          ativo: true,
+          origem_diagnostico: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }])
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      return {
+        success: true,
+        cartao: data
+      };
+
+    } catch (err) {
+      console.error('Erro ao criar cartão:', err);
+      setError(err.message);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ EDITAR CARTÃO
+  const editarCartao = async (cartaoId, dadosAtualizacao) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (!user?.id) throw new Error('Usuário não autenticado');
+      if (!cartaoId) throw new Error('cartaoId é obrigatório');
+
+      const { data, error: updateError } = await supabase
+        .from('cartoes')
+        .update({
+          ...dadosAtualizacao,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', cartaoId)
+        .eq('usuario_id', user.id)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+
+      return {
+        success: true,
+        cartao: data
+      };
+
+    } catch (err) {
+      console.error('Erro ao editar cartão:', err);
+      setError(err.message);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ ARQUIVAR/DESATIVAR CARTÃO
+  const arquivarCartao = async (cartaoId) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (!user?.id) throw new Error('Usuário não autenticado');
+      if (!cartaoId) throw new Error('cartaoId é obrigatório');
+
+      const { data, error: updateError } = await supabase
+        .from('cartoes')
+        .update({
+          ativo: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', cartaoId)
+        .eq('usuario_id', user.id)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+
+      return {
+        success: true,
+        cartao: data
+      };
+
+    } catch (err) {
+      console.error('Erro ao arquivar cartão:', err);
+      setError(err.message);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ REATIVAR CARTÃO
+  const reativarCartao = async (cartaoId) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (!user?.id) throw new Error('Usuário não autenticado');
+      if (!cartaoId) throw new Error('cartaoId é obrigatório');
+
+      const { data, error: updateError } = await supabase
+        .from('cartoes')
+        .update({
+          ativo: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', cartaoId)
+        .eq('usuario_id', user.id)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+
+      return {
+        success: true,
+        cartao: data
+      };
+
+    } catch (err) {
+      console.error('Erro ao reativar cartão:', err);
+      setError(err.message);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
     }
   };
 
   return {
-    isLoading,
+    loading,
     error,
-    verificarStatusFatura,
+    setError,
+    
+    // ✅ OPERAÇÕES DE FATURA (originais + novas)
     pagarFatura,
-    reabrirFatura,
+    pagarFaturaParcial, // ✅ NOVA
+    pagarFaturaParcelado, // ✅ NOVA
+    buscarOpcoesFatura, // ✅ NOVA
+    
+    // Operações de transação
+    criarDespesaCartao,
+    criarDespesaParcelada,
     lancarEstorno,
-    buscarFaturasAbertas,
-    buscarFaturasPagas, // ✅ NOVA FUNÇÃO
-    obterHistoricoFaturas, // ✅ NOVA FUNÇÃO
-    setError
+    editarTransacao,
+    excluirTransacao,
+    excluirGrupoParcelas,
+    
+    // Operações de cartão
+    criarCartao,
+    editarCartao,
+    arquivarCartao,
+    reativarCartao
   };
 };
 

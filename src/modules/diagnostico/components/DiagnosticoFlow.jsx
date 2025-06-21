@@ -11,7 +11,7 @@ import DespesasModal from '@modules/transacoes/components/DespesasModal';
 // Importar hooks existentes
 import useContas from '@modules/contas/hooks/useContas';
 import useCartoes from '@modules/cartoes/hooks/useCartoes';
-import useTransacoes from '@modules/transacoes/hooks/useTransacoes';
+//import useTransacoes from '@modules/transacoes/hooks/useTransacoes';
 
 // Etapas do diagnóstico
 import IntroEtapa from '@modules/diagnostico/etapas/IntroEtapa';

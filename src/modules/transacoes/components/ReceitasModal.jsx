@@ -1,4 +1,4 @@
-// src/modules/transacoes/components/ReceitasModal.jsx - VERSÃO FINAL CORRIGIDA
+// src/modules/transacoes/components/ReceitasModal.jsx - VERSÃO CORRIGIDA E COMPLETA
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -36,6 +36,8 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   const { user } = useAuthStore();
   const { showNotification } = useUIStore();
   const { contas, recalcularSaldos } = useContas();
+  
+  // ✅ CORREÇÃO: Usar o hook correto para obter a função (nome correto da exportação)
   const { updateGrupoValor, isParceladaOuRecorrente } = useTransactions();
   
   const valorInputRef = useRef(null);
@@ -64,9 +66,11 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     categoriaId: ''
   });
 
-  // Estados para edição de grupos (NOVO)
+  // ✅ CORRIGIDO: Estados para edição de grupos
+  const [mostrarEscopoEdicao, setMostrarEscopoEdicao] = useState(false);
   const [escopoEdicao, setEscopoEdicao] = useState('atual');
   const [transacaoInfo, setTransacaoInfo] = useState(null);
+  const [valorOriginal, setValorOriginal] = useState(0);
 
   // Estado do formulário
   const [formData, setFormData] = useState({
@@ -178,20 +182,55 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     [subcategorias, formData.categoria]
   );
 
-  // ===== VERIFICAR TRANSAÇÃO PARCELADA/RECORRENTE (NOVO) =====
-  useEffect(() => {
-    if (isEditMode && transacaoEditando) {
-      const info = isParceladaOuRecorrente(transacaoEditando);
-      setTransacaoInfo(info);
-      
-      console.log('🔍 Análise da transação para edição:', {
-        transacao: transacaoEditando,
-        analise: info
-      });
-    } else {
-      setTransacaoInfo(null);
+  // ✅ CORREÇÃO: Identificar tipo de transação CORRIGIDO
+  const identificarTipoTransacao = useCallback((transacao) => {
+    if (!transacao) return 'extra';
+
+    console.log('🔍 [CORRIGIDO] Identificando tipo da transação:', {
+      id: transacao.id,
+      grupo_parcelamento: transacao.grupo_parcelamento,
+      grupo_recorrencia: transacao.grupo_recorrencia,
+      parcela_atual: transacao.parcela_atual,
+      total_parcelas: transacao.total_parcelas
+    });
+
+    // ✅ REGRA CORRETA: Se tem grupo_parcelamento, é parcelada
+    if (transacao.grupo_parcelamento) {
+      console.log('✅ Transação é PARCELADA (grupo_parcelamento presente)');
+      return 'parcelada';
     }
-  }, [isEditMode, transacaoEditando, isParceladaOuRecorrente]);
+
+    // ✅ REGRA CORRETA: Se tem grupo_recorrencia, é previsível
+    if (transacao.grupo_recorrencia) {
+      console.log('✅ Transação é PREVISÍVEL (grupo_recorrencia presente)');
+      return 'previsivel';
+    }
+
+    // Senão, é extra
+    console.log('✅ Transação é EXTRA (sem grupos)');
+    return 'extra';
+  }, []);
+
+  // ✅ CORREÇÃO: Carregar subcategorias por categoria CORRIGIDO
+  const getSubcategoriasPorCategoria = useCallback(async (categoriaId) => {
+    if (!categoriaId || !user?.id) return [];
+    
+    try {
+      const { data, error } = await supabase
+        .from('subcategorias')
+        .select('*')
+        .eq('usuario_id', user.id)
+        .eq('categoria_id', categoriaId)
+        .eq('ativo', true)
+        .order('nome');
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('❌ Erro ao carregar subcategorias:', error);
+      return [];
+    }
+  }, [user?.id]);
 
   // Effects para filtros de categoria
   useEffect(() => {
@@ -212,6 +251,39 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       : subcategoriasDaCategoria;
     setSubcategoriasFiltradas(filtradas);
   }, [formData.subcategoriaTexto, subcategoriasDaCategoria]);
+
+  // ✅ CORREÇÃO: Identificar tipo e grupo no modo edição CORRIGIDO
+  useEffect(() => {
+    if (isEditMode && transacaoEditando) {
+      console.log('🔍 [EDIT MODE] Analisando transação para edição:', transacaoEditando);
+      
+      // ✅ Usar a função do store para identificar tipo
+      const infoGrupo = isParceladaOuRecorrente(transacaoEditando);
+      console.log('🎯 [EDIT MODE] Análise do grupo via store:', infoGrupo);
+      
+      // Determinar tipo baseado na análise
+      let tipoIdentificado = 'extra';
+      if (infoGrupo.isParcelada) {
+        tipoIdentificado = 'parcelada';
+      } else if (infoGrupo.isRecorrente) {
+        tipoIdentificado = 'previsivel';
+      }
+      
+      console.log('🎯 [EDIT MODE] Tipo identificado:', tipoIdentificado);
+      setTipoReceita(tipoIdentificado);
+      
+      // Armazenar informações do grupo
+      setTransacaoInfo(infoGrupo);
+      
+      // Armazenar valor original
+      const valorOrig = transacaoEditando.valor || 0;
+      setValorOriginal(valorOrig);
+      console.log('💰 [EDIT MODE] Valor original armazenado:', valorOrig);
+    } else {
+      setTransacaoInfo(null);
+      setValorOriginal(0);
+    }
+  }, [isEditMode, transacaoEditando, isParceladaOuRecorrente]);
 
   // ===== CÁLCULOS PARA PREVIEW =====
   const calculos = useMemo(() => {
@@ -255,21 +327,11 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     }
   }, [tipoReceita, valorNumerico, formData.frequenciaPrevisivel, formData.numeroParcelas, formData.frequenciaParcelada]);
 
-  // ===== PREENCHIMENTO PARA EDIÇÃO =====
-  const preencherFormularioEdicao = useCallback(() => {
-    if (!transacaoEditando) return;
+  // ✅ CORREÇÃO: Preenchimento para edição CORRIGIDO
+  const preencherFormularioEdicao = useCallback(async () => {
+    if (!transacaoEditando || !categorias.length) return;
     
-    console.log('🖊️ Preenchendo formulário para edição:', transacaoEditando);
-    
-    // Determinar tipo de receita baseado na descrição e dados
-    let tipoDetectado = 'extra';
-    if (transacaoEditando.descricao && /\(\d+\/\d+\)/.test(transacaoEditando.descricao)) {
-      if (transacaoEditando.total_parcelas > 1) {
-        tipoDetectado = 'parcelada';
-      } else {
-        tipoDetectado = 'previsivel';
-      }
-    }
+    console.log('🖊️ [CORRIGIDO] Preenchendo formulário para edição:', transacaoEditando);
     
     // Formatar valor para exibição
     const valorFormatado = transacaoEditando.valor ? 
@@ -278,19 +340,48 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
         maximumFractionDigits: 2 
       }) : '';
     
-    // Buscar nomes de categoria e subcategoria
+    // Buscar categoria
     const categoria = categorias.find(c => c.id === transacaoEditando.categoria_id);
-    const subcategoria = subcategorias.find(s => s.id === transacaoEditando.subcategoria_id);
+    let subcategoriaTexto = '';
+    let subcategoriaId = '';
+
+    // ✅ CORREÇÃO: Carregar subcategoria corretamente
+    if (transacaoEditando.subcategoria_id) {
+      console.log('🔍 [CORRIGIDO] Carregando subcategoria:', transacaoEditando.subcategoria_id);
+      
+      try {
+        const { data: subcategoriaData, error } = await supabase
+          .from('subcategorias')
+          .select('*')
+          .eq('id', transacaoEditando.subcategoria_id)
+          .eq('usuario_id', user.id)
+          .single();
+
+        if (!error && subcategoriaData) {
+          subcategoriaTexto = subcategoriaData.nome;
+          subcategoriaId = subcategoriaData.id;
+          console.log('✅ [CORRIGIDO] Subcategoria carregada:', subcategoriaData.nome);
+          
+          // Garantir que as subcategorias da categoria estão carregadas
+          const subcategoriasCarregadas = await getSubcategoriasPorCategoria(transacaoEditando.categoria_id);
+          setSubcategorias(prev => {
+            const semCategoriasAntigas = prev.filter(sub => sub.categoria_id !== transacaoEditando.categoria_id);
+            return [...semCategoriasAntigas, ...subcategoriasCarregadas];
+          });
+        }
+      } catch (error) {
+        console.error('❌ Erro ao carregar subcategoria:', error);
+      }
+    }
     
-    setTipoReceita(tipoDetectado);
     setFormData({
       valor: valorFormatado,
       data: transacaoEditando.data || new Date().toISOString().split('T')[0],
       descricao: transacaoEditando.descricao?.replace(/\s\(\d+\/\d+\)$/, '') || '',
       categoria: transacaoEditando.categoria_id || '',
       categoriaTexto: categoria?.nome || '',
-      subcategoria: transacaoEditando.subcategoria_id || '',
-      subcategoriaTexto: subcategoria?.nome || '',
+      subcategoria: subcategoriaId,
+      subcategoriaTexto: subcategoriaTexto,
       conta: transacaoEditando.conta_id || '',
       efetivado: transacaoEditando.efetivado ?? true,
       observacoes: transacaoEditando.observacoes || '',
@@ -301,7 +392,12 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       tipoRecorrencia: 'mensal',
       primeiroEfetivado: true
     });
-  }, [transacaoEditando, categorias, subcategorias]);
+
+    console.log('✅ [CORRIGIDO] Formulário preenchido com subcategoria:', {
+      subcategoria_id: subcategoriaId,
+      subcategoriaTexto: subcategoriaTexto
+    });
+  }, [transacaoEditando, categorias, user?.id, getSubcategoriasPorCategoria]);
 
   // ===== HANDLERS DE INPUT =====
   const handleInputChange = useCallback((e) => {
@@ -328,13 +424,49 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     }
   }, [errors]);
 
+  // ✅ CORREÇÃO: Handle de valor CORRIGIDO para verificar mudança de valor
   const handleValorChange = useCallback((e) => {
     const valorFormatado = formatarValor(e.target.value);
     setFormData(prev => ({ ...prev, valor: valorFormatado }));
+    
+    // ✅ LÓGICA CORRIGIDA: Verificar se mudou o valor de uma transação de grupo
+    if (isEditMode && transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente)) {
+      console.log('🔄 [CORRIGIDO] Verificando mudança de valor em grupo:', {
+        valorFormatado,
+        valorOriginal,
+        transacaoInfo
+      });
+      
+      // Converter valor formatado para número
+      let novoValor = 0;
+      if (valorFormatado) {
+        const valorLimpo = valorFormatado.replace(/\./g, '').replace(',', '.');
+        novoValor = parseFloat(valorLimpo) || 0;
+      }
+      
+      console.log('💰 [CORRIGIDO] Comparação de valores:', {
+        valorOriginal,
+        novoValor,
+        saoIguais: novoValor === valorOriginal,
+        deveUsoEscopo: novoValor !== valorOriginal && novoValor > 0
+      });
+      
+      if (novoValor !== valorOriginal && novoValor > 0) {
+        console.log('✅ [CORRIGIDO] ATIVANDO escopo de edição');
+        setMostrarEscopoEdicao(true);
+      } else {
+        console.log('❌ [CORRIGIDO] DESATIVANDO escopo de edição');
+        setMostrarEscopoEdicao(false);
+      }
+    } else {
+      console.log('ℹ️ [CORRIGIDO] Não é grupo ou não está editando, escopo desativado');
+      setMostrarEscopoEdicao(false);
+    }
+    
     if (errors.valor) {
       setErrors(prev => ({ ...prev, valor: null }));
     }
-  }, [formatarValor, errors.valor]);
+  }, [formatarValor, errors.valor, isEditMode, transacaoInfo, valorOriginal]);
 
   const handleTipoChange = useCallback((novoTipo) => {
     setTipoReceita(novoTipo);
@@ -362,7 +494,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     }
   }, [errors.categoria]);
 
-  const handleSelecionarCategoria = useCallback((categoria) => {
+  const handleSelecionarCategoria = useCallback(async (categoria) => {
     setFormData(prev => ({
       ...prev,
       categoria: categoria.id,
@@ -371,7 +503,15 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       subcategoriaTexto: ''
     }));
     setCategoriaDropdownOpen(false);
-  }, []);
+    
+    // Carregar subcategorias da categoria selecionada
+    const subcategoriasCarregadas = await getSubcategoriasPorCategoria(categoria.id);
+    setSubcategorias(prev => {
+      // Remover subcategorias antigas da categoria anterior e adicionar as novas
+      const semCategoriasAntigas = prev.filter(sub => sub.categoria_id !== categoria.id);
+      return [...semCategoriasAntigas, ...subcategoriasCarregadas];
+    });
+  }, [getSubcategoriasPorCategoria]);
 
   const handleCategoriaBlur = useCallback(() => {
     const timer = setTimeout(() => {
@@ -542,7 +682,9 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     setErrors({});
     setTipoReceita('extra');
     setEscopoEdicao('atual');
+    setMostrarEscopoEdicao(false);
     setTransacaoInfo(null);
+    setValorOriginal(0);
     setCategoriaDropdownOpen(false);
     setSubcategoriaDropdownOpen(false);
     setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
@@ -571,6 +713,11 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       newErrors.observacoes = "Máximo de 300 caracteres";
     }
     
+    // ✅ CORREÇÃO: Validação para transações de grupo que mudaram valor
+    if (isEditMode && transacaoInfo && mostrarEscopoEdicao && !escopoEdicao) {
+      newErrors.escopoEdicao = "Escolha o escopo da alteração";
+    }
+    
     if (tipoReceita === 'parcelada') {
       if (formData.numeroParcelas < 1) {
         newErrors.numeroParcelas = "Número de parcelas deve ser pelo menos 1";
@@ -591,28 +738,14 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [formData, tipoReceita, valorNumerico]);
+  }, [formData, tipoReceita, valorNumerico, isEditMode, transacaoInfo, mostrarEscopoEdicao, escopoEdicao]);
 
-  // ===== ATUALIZAR TRANSAÇÃO (MODIFICADO) =====
+  // ✅ CORREÇÃO: Atualizar transação CORRIGIDO
   const atualizarTransacao = useCallback(async () => {
     try {
-      // Verificar se é parcelada/recorrente e se só está mudando o valor
-      const isParceladaOuRecorrenteAtual = transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente);
-      const valorOriginal = transacaoEditando?.valor || 0;
-      const somenteValorMudou = (
-        formData.data === (transacaoEditando?.data || '') &&
-        formData.descricao.trim() === (transacaoEditando?.descricao?.replace(/\s\(\d+\/\d+\)$/, '') || '') &&
-        formData.categoria === (transacaoEditando?.categoria_id || '') &&
-        formData.subcategoria === (transacaoEditando?.subcategoria_id || '') &&
-        formData.conta === (transacaoEditando?.conta_id || '') &&
-        formData.efetivado === (transacaoEditando?.efetivado ?? true) &&
-        formData.observacoes.trim() === (transacaoEditando?.observacoes || '') &&
-        valorNumerico !== valorOriginal
-      );
-
-      // Se for parcelada/recorrente e só mudou o valor, usar RPC de grupo
-      if (isParceladaOuRecorrenteAtual && somenteValorMudou) {
-        console.log('🔄 Atualizando grupo de transações via RPC:', {
+      // ✅ CORREÇÃO: Se é transação de grupo e o valor mudou, usar updateGrupoTransacoesValor
+      if (transacaoInfo && mostrarEscopoEdicao && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente)) {
+        console.log('🔄 [CORRIGIDO] Atualizando grupo de transações via hook correto:', {
           transacaoId: transacaoEditando.id,
           escopoEdicao,
           valorNumerico,
@@ -660,7 +793,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       console.error('❌ Erro ao atualizar receita:', error);
       throw error;
     }
-  }, [formData, valorNumerico, transacaoEditando, user.id, showNotification, transacaoInfo, escopoEdicao, updateGrupoValor]);
+  }, [formData, valorNumerico, transacaoEditando, user.id, showNotification, transacaoInfo, mostrarEscopoEdicao, escopoEdicao, updateGrupoValor]);
 
   // ===== CRIAR RECEITAS =====
   const criarReceitas = useCallback(async () => {
@@ -740,7 +873,12 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
               descricao: dadosBase.descricao + sufixo,
               efetivado: efetivoStatus,
               recorrente: true,
-              grupo_recorrencia: grupoId
+              grupo_recorrencia: tipoReceita === 'previsivel' ? grupoId : null,
+              grupo_parcelamento: tipoReceita === 'parcelada' ? grupoId : null,
+              parcela_atual: tipoReceita === 'parcelada' ? i + 1 : null,
+              total_parcelas: tipoReceita === 'parcelada' ? totalRecorrencias : null,
+              numero_recorrencia: tipoReceita === 'previsivel' ? i + 1 : null,
+              total_recorrencias: tipoReceita === 'previsivel' ? totalRecorrencias : null
             });
           }
           break;
@@ -901,26 +1039,24 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
           ) : (
             <form onSubmit={(e) => handleSubmit(e, false)}>
               
-              {/* ESCOPO DE EDIÇÃO - Só aparece quando editando parcelada/recorrente */}
-              {isEditMode && transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && (
-                <div className="section-header-warning">
-                  <div className="warning-icon">
-                    <AlertCircle size={16} />
-                  </div>
-                  <div className="warning-content">
-                    <h4 className="warning-title">
-                      Receita {transacaoInfo.tipo === 'parcelada' ? 'Parcelada' : 'Recorrente'} Detectada
+              {/* ✅ CORREÇÃO: ESCOPO DE EDIÇÃO MELHORADO */}
+              {isEditMode && transacaoInfo && mostrarEscopoEdicao && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && (
+                <div className="confirmation-warning mb-3">
+                  <AlertCircle size={16} />
+                  <div>
+                    <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>
+                      {transacaoInfo.isParcelada ? 'Receita Parcelada Detectada' : 'Receita Previsível Detectada'}
                     </h4>
-                    <p className="warning-description">
-                      {transacaoInfo.tipo === 'parcelada' 
-                        ? `Esta é a parcela ${transacaoInfo.parcelaAtual} de ${transacaoInfo.totalParcelas}. ` 
-                        : `Esta é uma receita recorrente. `
+                    <p style={{ margin: '0 0 12px 0', fontSize: '13px', lineHeight: '1.4' }}>
+                      {transacaoInfo.isParcelada 
+                        ? `Esta é a parcela ${transacaoInfo.parcelaAtual} de ${transacaoInfo.totalParcelas}. Você alterou o valor.` 
+                        : `Esta é uma receita que se repete automaticamente. Você alterou o valor.`
                       }
-                      Escolha o escopo da alteração:
+                      <br />Escolha o escopo da alteração:
                     </p>
                     
-                    <div className="scope-selector">
-                      <label className={`scope-option ${escopoEdicao === 'atual' ? 'active' : ''}`}>
+                    <div className="confirmation-options" style={{ gap: '8px' }}>
+                      <label className={`confirmation-option ${escopoEdicao === 'atual' ? 'active' : ''}`}>
                         <input
                           type="radio"
                           name="escopoEdicao"
@@ -929,13 +1065,26 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                           onChange={(e) => setEscopoEdicao(e.target.value)}
                           disabled={submitting}
                         />
-                        <div className="scope-content">
-                          <strong>Alterar apenas esta {transacaoInfo.tipo === 'parcelada' ? 'parcela' : 'ocorrência'}</strong>
-                          <small>Modifica somente esta transação específica</small>
+                        <div className="confirmation-option-content">
+                          <div className="confirmation-option-header">
+                            <CheckCircle size={16} />
+                            <span>
+                              {transacaoInfo.isParcelada 
+                                ? 'Alterar apenas esta parcela' 
+                                : 'Alterar apenas esta ocorrência'
+                              }
+                            </span>
+                          </div>
+                          <p className="confirmation-option-description">
+                            {transacaoInfo.isParcelada
+                              ? 'Modifica somente a parcela atual, mantendo as demais com o valor original'
+                              : 'Modifica somente esta ocorrência específica da receita recorrente'
+                            }
+                          </p>
                         </div>
                       </label>
                       
-                      <label className={`scope-option ${escopoEdicao === 'futuras' ? 'active' : ''}`}>
+                      <label className={`confirmation-option ${escopoEdicao === 'futuras' ? 'active' : ''}`}>
                         <input
                           type="radio"
                           name="escopoEdicao"
@@ -944,19 +1093,27 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                           onChange={(e) => setEscopoEdicao(e.target.value)}
                           disabled={submitting}
                         />
-                        <div className="scope-content">
-                          <strong>Alterar esta e todas as futuras</strong>
-                          <small>Modifica esta e todas as {transacaoInfo.tipo === 'parcelada' ? 'parcelas' : 'ocorrências'} não efetivadas</small>
+                        <div className="confirmation-option-content">
+                          <div className="confirmation-option-header">
+                            <AlertCircle size={16} />
+                            <span>
+                              {transacaoInfo.isParcelada
+                                ? 'Alterar esta e todas as parcelas futuras'
+                                : 'Alterar esta e todas as ocorrências futuras'
+                              }
+                            </span>
+                          </div>
+                          <p className="confirmation-option-description">
+                            {transacaoInfo.isParcelada
+                              ? 'Modifica esta parcela e todas as parcelas ainda não efetivadas'
+                              : 'Modifica esta e todas as ocorrências futuras não efetivadas da receita'
+                            }
+                          </p>
                         </div>
                       </label>
                     </div>
                     
-                    {escopoEdicao === 'futuras' && (
-                      <div className="scope-note">
-                        <strong>Nota:</strong> Apenas o <em>valor</em> pode ser alterado em grupos. 
-                        Para outras modificações, edite individualmente.
-                      </div>
-                    )}
+                    {errors.escopoEdicao && <div className="form-error">{errors.escopoEdicao}</div>}
                   </div>
                 </div>
               )}
@@ -993,15 +1150,65 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                     name="data"
                     value={formData.data}
                     onChange={handleInputChange}
-                    disabled={submitting || (isEditMode && transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && escopoEdicao === 'futuras')}
+                    disabled={submitting}
                     className={`input-date ${errors.data ? 'error' : ''}`}
                   />
                   {errors.data && <div className="form-error">{errors.data}</div>}
                 </div>
               </div>
 
-              {/* ESCOLHA DO TIPO - Só mostra se não está editando */}
-              {!isEditMode && (
+              {/* ESCOLHA DO TIPO - Mostra o tipo identificado quando editando */}
+              {isEditMode ? (
+                <div className="flex flex-col mb-3">
+                  <h3 className="section-title">Tipo de Receita Detectado</h3>
+                  <div className="type-selector mb-2" style={{ 
+                    background: '#f8fafc', 
+                    border: '1px solid #e2e8f0', 
+                    borderRadius: '8px', 
+                    padding: '0px' 
+                  }}>
+                    {tiposReceita.map((tipo) => (
+                      <div
+                        key={tipo.id}
+                        className={`type-option ${tipoReceita === tipo.id ? 'active' : 'inactive'}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          background: tipoReceita === tipo.id ? tipo.cor + '15' : 'transparent',
+                          border: tipoReceita === tipo.id ? `1px solid ${tipo.cor}` : '1px solid transparent',
+                          opacity: tipoReceita === tipo.id ? 1 : 0.4,
+                          marginBottom: '0px'
+                        }}
+                        title={tipo.tooltip}
+                      >
+                        <div style={{ color: tipo.cor, marginRight: '8px' }}>{tipo.icone}</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: '500', fontSize: '14px' }}>{tipo.nome}</div>
+                          <div style={{ fontSize: '12px', color: '#6b7280' }}>{tipo.descricao}</div>
+                        </div>
+                        {tipoReceita === tipo.id && (
+                          <div style={{ color: tipo.cor, fontWeight: 'bold' }}>✓</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && (
+                    <div className="confirmation-info-box" style={{ marginTop: '4px' }}>
+                      <HelpCircle size={16} />
+                      <p>
+                        {transacaoInfo.isParcelada && (
+                          <>📦 Parcela {transacaoInfo.parcelaAtual} de {transacaoInfo.totalParcelas}</>
+                        )}
+                        {transacaoInfo.isRecorrente && (
+                          <>🔄 Ocorrência {transacaoInfo.numeroRecorrencia}{transacaoInfo.totalRecorrencias ? ` de ${transacaoInfo.totalRecorrencias}` : ''}</>
+                        )}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
                 <div className="flex flex-col mb-3">
                   <h3 className="section-title">Tipo de Receita</h3>
                   <div className="type-selector mb-2">
@@ -1038,7 +1245,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                     type="button"
                     className={`status-option ${formData.efetivado ? 'active' : ''}`}
                     onClick={() => setFormData(prev => ({ ...prev, efetivado: true }))}
-                    disabled={submitting || (isEditMode && transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && escopoEdicao === 'futuras')}
+                    disabled={submitting}
                   >
                     <CheckCircle size={16} />
                     <div>
@@ -1050,7 +1257,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                     type="button"
                     className={`status-option ${!formData.efetivado ? 'active' : ''}`}
                     onClick={() => setFormData(prev => ({ ...prev, efetivado: false }))}
-                    disabled={submitting || (isEditMode && transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && escopoEdicao === 'futuras')}
+                    disabled={submitting}
                   >
                     <Clock size={16} />
                     <div>
@@ -1161,7 +1368,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                   }
                   value={formData.descricao}
                   onChange={handleInputChange}
-                  disabled={submitting || (isEditMode && transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && escopoEdicao === 'futuras')}
+                  disabled={submitting}
                   className={`input-text ${errors.descricao ? 'error' : ''}`}
                 />
                 {errors.descricao && <div className="form-error">{errors.descricao}</div>}
@@ -1182,7 +1389,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                       onBlur={handleCategoriaBlur}
                       onFocus={() => setCategoriaDropdownOpen(true)}
                       placeholder="Digite ou selecione uma categoria"
-                      disabled={submitting || (isEditMode && transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && escopoEdicao === 'futuras')}
+                      disabled={submitting}
                       autoComplete="off"
                       className={`input-text input-with-icon ${!formData.categoria ? 'input-muted' : ''} ${errors.categoria ? 'error' : ''}`}
                       style={{
@@ -1234,228 +1441,227 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                   <label className="form-label">
                     <Tag size={14} />
                     Subcategoria <span className="form-label-small">({subcategoriasDaCategoria.length} disponíveis)</span>
-                  </label>
-                  <div className="dropdown-container">
-                    <div style={{position: 'relative'}}>
-                      <input
-                        type="text"
-                        value={formData.subcategoriaTexto}
-                        onChange={handleSubcategoriaChange}
-                        onBlur={handleSubcategoriaBlur}
-                        onFocus={() => setSubcategoriaDropdownOpen(true)}
-                        placeholder="Digite ou selecione uma subcategoria"
-                        disabled={submitting || (isEditMode && transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && escopoEdicao === 'futuras')}
-                        autoComplete="off"
-                        className="input-text input-with-icon"
-                        style={{
-                          paddingLeft: '28px'
-                        }}
-                      />
-                      <div
-                        style={{
-                          position: 'absolute',
-                          left: '8px',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          width: '12px',
-                          height: '12px',
-                          borderRadius: '50%',
-                          backgroundColor: categoriaSelecionada.cor || '#10b981',
-                          pointerEvents: 'none'
-                        }}
-                      />
-                      <Search size={14} className="input-search-icon" />
-                    </div>
-                    
-                    {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
-                      <div className="dropdown-options">
-                        {subcategoriasFiltradas.map(subcategoria => (
-                          <div
-                            key={subcategoria.id}
-                            onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
-                            className="dropdown-option"
-                          >
-                            <div 
-                              className="category-color-tag"
-                              style={{backgroundColor: categoriaSelecionada.cor || '#10b981'}}
-                            ></div>
-                            {subcategoria.nome}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+                 </label>
+                 <div className="dropdown-container">
+                   <div style={{position: 'relative'}}>
+                     <input
+                       type="text"
+                       value={formData.subcategoriaTexto}
+                       onChange={handleSubcategoriaChange}
+                       onBlur={handleSubcategoriaBlur}
+                       onFocus={() => setSubcategoriaDropdownOpen(true)}
+                       placeholder="Digite ou selecione uma subcategoria"
+                       disabled={submitting}
+                       autoComplete="off"
+                       className="input-text input-with-icon"
+                       style={{
+                         paddingLeft: '28px'
+                       }}
+                     />
+                     <div
+                       style={{
+                         position: 'absolute',
+                         left: '8px',
+                         top: '50%',
+                         transform: 'translateY(-50%)',
+                         width: '12px',
+                         height: '12px',
+                         borderRadius: '50%',
+                         backgroundColor: categoriaSelecionada.cor || '#10b981',
+                         pointerEvents: 'none'
+                       }}
+                     />
+                     <Search size={14} className="input-search-icon" />
+                   </div>
+                   
+                   {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
+                     <div className="dropdown-options">
+                       {subcategoriasFiltradas.map(subcategoria => (
+                         <div
+                           key={subcategoria.id}
+                           onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
+                           className="dropdown-option"
+                         >
+                           <div 
+                             className="category-color-tag"
+                             style={{backgroundColor: categoriaSelecionada.cor || '#10b981'}}
+                           ></div>
+                           {subcategoria.nome}
+                         </div>
+                       ))}
+                     </div>
+                   )}
+                 </div>
+               </div>
+             )}
 
-              {/* CONTA DE DESTINO */}
-              <div className="flex flex-col mb-3">
-                <label className="form-label">
-                  <Building size={14} />
-                  Conta de Destino *
-                </label>
-                <div className="select-search">
-                  <select
-                    name="conta"
-                    value={formData.conta}
-                    onChange={handleInputChange}
-                    disabled={submitting || (isEditMode && transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && escopoEdicao === 'futuras')}
-                    className={errors.conta ? 'error' : ''}
-                  >
-                    <option value="">Selecione uma conta</option>
-                    {contasAtivas.map(conta => (
-                      <option key={conta.id} value={conta.id}>
-                        {conta.nome} - {formatCurrency(conta.saldo || 0)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {errors.conta && <div className="form-error">{errors.conta}</div>}
-                
-                {contasAtivas.length === 0 && (
-                  <div className="form-info">
-                    Nenhuma conta ativa encontrada. Crie uma conta primeiro.
-                  </div>
-                )}
-              </div>
+             {/* CONTA DE DESTINO */}
+             <div className="flex flex-col mb-3">
+               <label className="form-label">
+                 <Building size={14} />
+                 Conta de Destino *
+               </label>
+               <div className="select-search">
+                 <select
+                   name="conta"
+                   value={formData.conta}
+                   onChange={handleInputChange}
+                   disabled={submitting}
+                   className={errors.conta ? 'error' : ''}
+                 >
+                   <option value="">Selecione uma conta</option>
+                   {contasAtivas.map(conta => (
+                     <option key={conta.id} value={conta.id}>
+                       {conta.nome} - {formatCurrency(conta.saldo || 0)}
+                     </option>
+                   ))}
+                 </select>
+               </div>
+               {errors.conta && <div className="form-error">{errors.conta}</div>}
+               
+               {contasAtivas.length === 0 && (
+                 <div className="form-info">
+                   Nenhuma conta ativa encontrada. Crie uma conta primeiro.
+                 </div>
+               )}
+             </div>
 
-              {/* OBSERVAÇÕES */}
-              <div className="flex flex-col mb-3">
-                <label className="form-label">
-                  <FileText size={14} />
-                  Observações <span className="form-label-small">(máx. 300)</span>
-                </label>
-                <textarea
-                  name="observacoes"
-                  value={formData.observacoes}
-                  onChange={handleInputChange}
-                  placeholder="Observações adicionais (opcional)..."
-                  rows="2"
-                  disabled={submitting || (isEditMode && transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && escopoEdicao === 'futuras')}
-                  maxLength="300"
-                  className={`textarea-observations ${errors.observacoes ? 'error' : ''}`}
-                />
-                <div className="char-counter">
-                  <span></span>
-                  <span className={formData.observacoes.length > 250 ? 'char-counter-warning' : ''}>
-                    {formData.observacoes.length}/300
-                  </span>
-                </div>
-                {errors.observacoes && <div className="form-error">{errors.observacoes}</div>}
-              </div>
+             {/* OBSERVAÇÕES */}
+             <div className="flex flex-col mb-3">
+               <label className="form-label">
+                 <FileText size={14} />
+                 Observações <span className="form-label-small">(máx. 300)</span>
+               </label>
+               <textarea
+                 name="observacoes"
+                 value={formData.observacoes}
+                 onChange={handleInputChange}
+                 placeholder="Observações adicionais (opcional)..."
+                 rows="2"
+                 disabled={submitting}
+                 maxLength="300"
+                 className={`textarea-observations ${errors.observacoes ? 'error' : ''}`}
+               />
+               <div className="char-counter">
+                 <span></span>
+                 <span className={formData.observacoes.length > 250 ? 'char-counter-warning' : ''}>
+                   {formData.observacoes.length}/300
+                 </span>
+               </div>
+               {errors.observacoes && <div className="form-error">{errors.observacoes}</div>}
+             </div>
 
-            </form>
-          )}
-        </div>
+           </form>
+         )}
+       </div>
 
-        {/* AÇÕES */}
-        <div className="modal-footer">
-          <button
-            type="button"
-            onClick={handleCancelar}
-            disabled={submitting}
-            className="btn-cancel"
-          >
-            Cancelar
-          </button>
-          
-          {!isEditMode && (
-            <button
-              type="button"
-              onClick={(e) => handleSubmit(e, true)}
-              disabled={submitting}
-              className="btn-secondary btn-secondary--success"
-            >
-              {submitting ? (
-                <>
-                  <span className="btn-spinner"></span>
-                  Salvando...
-                </>
-              ) : (
-                <>
-                  <PlusCircle size={14} />
-                  Continuar Adicionando
-                </>
-              )}
-            </button>
-          )}
-          
-          <button
-            type="submit"
-            onClick={(e) => handleSubmit(e, false)}
-            disabled={submitting}
-            className="btn-primary"
-          >
-            {submitting ? (
-              <>
-                <span className="btn-spinner"></span>
-                {isEditMode ? 'Atualizando...' :
-                 tipoReceita === 'previsivel' ? `Criando receitas para o futuro...` :
-                 tipoReceita === 'parcelada' ? `Criando ${formData.numeroParcelas} parcelas...` :
-                 'Salvando...'}
-              </>
-            ) : (
-              <>
-                {isEditMode ? <Edit size={14} /> : <Plus size={14} />}
-                {isEditMode ? 
-                  (transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && escopoEdicao === 'futuras' ? 
-                    'Atualizar Grupo' : 'Atualizar Receita') :
-                 tipoReceita === 'previsivel' ? `Criar Receitas Futuras` :
-                 tipoReceita === 'parcelada' ? `Parcelar em ${formData.numeroParcelas}x` :
-                 'Adicionar Receita Extra'}
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-      
-      {/* Modal de Confirmação */}
-      {confirmacao.show && (
-        <div className="modal-overlay-confirmation">
-          <div className="forms-modal-container modal-small">
-            <div className="modal-header">
-              <div className="modal-header-content">
-                <div className="modal-icon-container modal-icon-primary">
-                  <Plus size={18} />
-                </div>
-                <div>
-                  <h2 className="modal-title">
-                    Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
-                  </h2>
-                  <p className="modal-subtitle">
-                    {confirmacao.type === 'categoria' ? 'A categoria' : 'A subcategoria'}{' '}
-                    <strong>"{confirmacao.nome}"</strong> não existe. Deseja criá-la?
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="modal-footer">
-              <button 
-                onClick={() => setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' })}
-                className="btn-cancel"
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={handleConfirmarCriacao}
-                className="btn-primary"
-              >
-                Criar {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+       {/* AÇÕES */}
+       <div className="modal-footer">
+         <button
+           type="button"
+           onClick={handleCancelar}
+           disabled={submitting}
+           className="btn-cancel"
+         >
+           Cancelar
+         </button>
+         
+         {!isEditMode && (
+           <button
+             type="button"
+             onClick={(e) => handleSubmit(e, true)}
+             disabled={submitting}
+             className="btn-secondary btn-secondary--success"
+           >
+             {submitting ? (
+               <>
+                 <span className="btn-spinner"></span>
+                 Salvando...
+               </>
+             ) : (
+               <>
+                 <PlusCircle size={14} />
+                 Continuar Adicionando
+               </>
+             )}
+           </button>
+         )}
+         
+         <button
+           type="submit"
+           onClick={(e) => handleSubmit(e, false)}
+           disabled={submitting}
+           className="btn-primary"
+         >
+           {submitting ? (
+             <>
+               <span className="btn-spinner"></span>
+               {isEditMode ? 'Atualizando...' :
+                tipoReceita === 'previsivel' ? `Criando receitas para o futuro...` :
+                tipoReceita === 'parcelada' ? `Criando ${formData.numeroParcelas} parcelas...` :
+                'Salvando...'}
+             </>
+           ) : (
+             <>
+               {isEditMode ? <Edit size={14} /> : <Plus size={14} />}
+               {isEditMode ? 
+                 (mostrarEscopoEdicao ? 'Atualizar Grupo' : 'Atualizar Receita') :
+                tipoReceita === 'previsivel' ? `Criar Receitas Futuras` :
+                tipoReceita === 'parcelada' ? `Parcelar em ${formData.numeroParcelas}x` :
+                'Adicionar Receita Extra'}
+             </>
+           )}
+         </button>
+       </div>
+     </div>
+     
+     {/* Modal de Confirmação */}
+     {confirmacao.show && (
+       <div className="modal-overlay-confirmation">
+         <div className="forms-modal-container modal-small">
+           <div className="modal-header">
+             <div className="modal-header-content">
+               <div className="modal-icon-container modal-icon-primary">
+                 <Plus size={18} />
+               </div>
+               <div>
+                 <h2 className="modal-title">
+                   Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
+                 </h2>
+                 <p className="modal-subtitle">
+                   {confirmacao.type === 'categoria' ? 'A categoria' : 'A subcategoria'}{' '}
+                   <strong>"{confirmacao.nome}"</strong> não existe. Deseja criá-la?
+                 </p>
+               </div>
+             </div>
+           </div>
+           
+           <div className="modal-footer">
+             <button 
+               onClick={() => setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' })}
+               className="btn-cancel"
+             >
+               Cancelar
+             </button>
+             <button 
+               onClick={handleConfirmarCriacao}
+               className="btn-primary"
+             >
+               Criar {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
+             </button>
+           </div>
+         </div>
+       </div>
+     )}
+   </div>
+ );
 };
 
 ReceitasModal.propTypes = {
-  isOpen: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired,
-  onSave: PropTypes.func,
-  transacaoEditando: PropTypes.object
+ isOpen: PropTypes.bool.isRequired,
+ onClose: PropTypes.func.isRequired,
+ onSave: PropTypes.func,
+ transacaoEditando: PropTypes.object
 };
 
 export default React.memo(ReceitasModal);

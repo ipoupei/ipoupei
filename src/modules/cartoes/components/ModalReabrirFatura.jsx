@@ -1,4 +1,5 @@
 // src/modules/cartoes/components/ModalReabrirFatura.jsx
+// ✅ APENAS: Hooks corrigidos para usar faturaVencimento
 import React, { useState, useEffect } from 'react';
 import { RotateCcw, AlertTriangle, Check } from 'lucide-react';
 import { formatCurrency } from '../../../shared/utils/formatCurrency';
@@ -8,14 +9,15 @@ const ModalReabrirFatura = ({
   isOpen, 
   onClose, 
   cartao, 
-  valorFatura, 
-  mesReferencia, 
-  anoReferencia,
+  valorFatura,
+  faturaVencimento, // ✅ NOVO: Parâmetro principal
+  mesReferencia,   // ✅ MANTIDO: Para compatibilidade
+  anoReferencia,   // ✅ MANTIDO: Para compatibilidade
   onSuccess 
 }) => {
   const [confirmacao, setConfirmacao] = useState(false);
   
-  const { reabrirFatura, isLoading, error, setError } = useFaturaOperations();
+  const { reabrirFatura, loading, error, setError } = useFaturaOperations();
 
   useEffect(() => {
     if (isOpen) {
@@ -30,11 +32,22 @@ const ModalReabrirFatura = ({
       return;
     }
 
-    const resultado = await reabrirFatura(
-      cartao.id, 
-      mesReferencia, 
-      anoReferencia
-    );
+    // ✅ CORREÇÃO: Usar faturaVencimento se disponível, senão fallback para mes/ano
+    let parametroFatura = faturaVencimento;
+    
+    if (!parametroFatura && mesReferencia && anoReferencia) {
+      // Construir faturaVencimento a partir de mes/ano para compatibilidade
+      const dia = cartao?.dia_vencimento || 15; // Usar dia de vencimento do cartão ou 15 como padrão
+      parametroFatura = `${anoReferencia}-${String(mesReferencia).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+    }
+
+    if (!parametroFatura) {
+      setError('Dados da fatura inválidos');
+      return;
+    }
+
+    // ✅ CORREÇÃO: Usar parâmetros corretos do hook
+    const resultado = await reabrirFatura(cartao.id, parametroFatura);
 
     if (resultado.success) {
       onSuccess && onSuccess();
@@ -42,10 +55,29 @@ const ModalReabrirFatura = ({
     }
   };
 
-  const mesNome = new Date(anoReferencia, mesReferencia - 1).toLocaleDateString('pt-BR', { 
-    month: 'long', 
-    year: 'numeric' 
-  });
+  // Formatação do período para exibição (compatibilidade)
+  const mesNome = React.useMemo(() => {
+    if (mesReferencia && anoReferencia) {
+      return new Date(anoReferencia, mesReferencia - 1).toLocaleDateString('pt-BR', { 
+        month: 'long', 
+        year: 'numeric' 
+      });
+    }
+    
+    if (faturaVencimento) {
+      try {
+        const data = new Date(faturaVencimento + 'T00:00:00');
+        return data.toLocaleDateString('pt-BR', {
+          month: 'long',
+          year: 'numeric'
+        });
+      } catch (err) {
+        return 'Data inválida';
+      }
+    }
+    
+    return 'Período não informado';
+  }, [mesReferencia, anoReferencia, faturaVencimento]);
 
   if (!isOpen) return null;
 
@@ -117,7 +149,7 @@ const ModalReabrirFatura = ({
               id="confirmacao-reabrir"
               checked={confirmacao}
               onChange={(e) => setConfirmacao(e.target.checked)}
-              disabled={isLoading}
+              disabled={loading}
               style={{ marginTop: '2px' }}
             />
             <div>
@@ -146,16 +178,16 @@ const ModalReabrirFatura = ({
           <button
             className="btn-cancel"
             onClick={onClose}
-            disabled={isLoading}
+            disabled={loading}
           >
             Cancelar
           </button>
           <button
             className="btn-secondary--warning"
             onClick={handleConfirmar}
-            disabled={isLoading || !confirmacao}
+            disabled={loading || !confirmacao}
           >
-            {isLoading ? (
+            {loading ? (
               <>
                 <div className="btn-spinner"></div>
                 Reabrindo...
