@@ -4,7 +4,7 @@ import PropTypes from 'prop-types';
 import { CreditCard } from 'lucide-react';
 import DiagnosticoEtapaLayout from '@modules/diagnostico/styles/DiagnosticoEtapaLayout';
 import CartoesModal from '@modules/cartoes/components/CartoesModal';
-import useCartoes from '@modules/cartoes/hooks/useCartoesdata';
+import useCartoes from '@modules/cartoes/hooks/useCartoesData';
 import { formatCurrency } from '@utils/formatCurrency';
 
 const CartoesEtapa = ({ 
