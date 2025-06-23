@@ -1,4 +1,4 @@
-// src/modules/transacoes/components/DespesasModal.jsx - VERSÃO CORRIGIDA
+// src/modules/transacoes/components/DespesasModal.jsx - VERSÃO CORRIGIDA E COMPLETA
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -18,10 +18,11 @@ import {
   Search,
   Edit,
   ShoppingBag,
-  CreditCard,
   Receipt,
   HelpCircle,
-  AlertCircle
+  AlertCircle,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 
 import { useAuthStore } from '@modules/auth/store/authStore';
@@ -51,7 +52,6 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   // Estados para dados
   const [categorias, setCategorias] = useState([]);
   const [subcategorias, setSubcategorias] = useState([]);
-  const [cartoes, setCartoes] = useState([]);
 
   // Estados para dropdowns
   const [categoriaDropdownOpen, setCategoriaDropdownOpen] = useState(false);
@@ -67,7 +67,7 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     categoriaId: ''
   });
 
-  // ✅ CORREÇÃO: Estados para edição de grupos (igual ao ReceitasModal)
+  // ✅ CORREÇÃO: Estados para edição de grupos
   const [mostrarEscopoEdicao, setMostrarEscopoEdicao] = useState(false);
   const [escopoEdicao, setEscopoEdicao] = useState('atual');
   const [transacaoInfo, setTransacaoInfo] = useState(null);
@@ -83,17 +83,14 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     subcategoria: '',
     subcategoriaTexto: '',
     conta: '',
-    cartao: '',
     efetivado: true,
     observacoes: '',
     frequenciaPrevisivel: 'mensal',
     numeroParcelas: 12,
     frequenciaParcelada: 'mensal',
-    usarCartao: false,
     totalRecorrencias: 12,
     tipoRecorrencia: 'mensal',
-    primeiroEfetivado: true,
-    primeiraParcela: new Date().toISOString().split('T')[0]
+    primeiroEfetivado: true
   });
 
   const [errors, setErrors] = useState({});
@@ -119,7 +116,7 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     { 
       id: 'parcelada', 
       nome: 'Parcelada', 
-      icone: <CreditCard size={16} />, 
+      icone: <Receipt size={16} />, 
       descricao: 'Em parcelas', 
       cor: '#8B5CF6',
       tooltip: 'Compras divididas em várias parcelas: eletrodomésticos, viagens, cursos.'
@@ -132,61 +129,6 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     { value: 'mensal', label: 'Mensal' },
     { value: 'anual', label: 'Anual' }
   ];
-
-  const opcoesParcelas = Array.from({ length: 60 }, (_, i) => ({
-    value: i + 1,
-    label: `${i + 1} ${i === 0 ? 'parcela' : 'parcelas'}`
-  }));
-
-  // ✅ CORREÇÃO: Identificar tipo de transação CORRIGIDO
-  const identificarTipoTransacao = useCallback((transacao) => {
-    if (!transacao) return 'extra';
-
-    console.log('🔍 [CORRIGIDO] Identificando tipo da transação:', {
-      id: transacao.id,
-      grupo_parcelamento: transacao.grupo_parcelamento,
-      grupo_recorrencia: transacao.grupo_recorrencia,
-      parcela_atual: transacao.parcela_atual,
-      total_parcelas: transacao.total_parcelas
-    });
-
-    // ✅ REGRA CORRETA: Se tem grupo_parcelamento, é parcelada
-    if (transacao.grupo_parcelamento) {
-      console.log('✅ Transação é PARCELADA (grupo_parcelamento presente)');
-      return 'parcelada';
-    }
-
-    // ✅ REGRA CORRETA: Se tem grupo_recorrencia, é previsível
-    if (transacao.grupo_recorrencia) {
-      console.log('✅ Transação é PREVISÍVEL (grupo_recorrencia presente)');
-      return 'previsivel';
-    }
-
-    // Senão, é extra
-    console.log('✅ Transação é EXTRA (sem grupos)');
-    return 'extra';
-  }, []);
-
-  // ✅ CORREÇÃO: Carregar subcategorias por categoria CORRIGIDO
-  const getSubcategoriasPorCategoria = useCallback(async (categoriaId) => {
-    if (!categoriaId || !user?.id) return [];
-    
-    try {
-      const { data, error } = await supabase
-        .from('subcategorias')
-        .select('*')
-        .eq('usuario_id', user.id)
-        .eq('categoria_id', categoriaId)
-        .eq('ativo', true)
-        .order('nome');
-
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('❌ Erro ao carregar subcategorias:', error);
-      return [];
-    }
-  }, [user?.id]);
 
   // ===== FUNÇÕES UTILITÁRIAS =====
   const formatarValor = useCallback((valor) => {
@@ -221,11 +163,6 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     [contas]
   );
 
-  const cartoesAtivos = useMemo(() => 
-    cartoes.filter(cartao => cartao.ativo !== false), 
-    [cartoes]
-  );
-
   const categoriaSelecionada = useMemo(() => 
     categorias.find(cat => cat.id === formData.categoria), 
     [categorias, formData.categoria]
@@ -235,6 +172,47 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     subcategorias.filter(sub => sub.categoria_id === formData.categoria), 
     [subcategorias, formData.categoria]
   );
+
+  // ✅ CORREÇÃO: Carregar subcategorias por categoria CORRIGIDO
+  const getSubcategoriasPorCategoria = useCallback(async (categoriaId) => {
+    if (!categoriaId || !user?.id) return [];
+    
+    try {
+      const { data, error } = await supabase
+        .from('subcategorias')
+        .select('*')
+        .eq('usuario_id', user.id)
+        .eq('categoria_id', categoriaId)
+        .eq('ativo', true)
+        .order('nome');
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('❌ Erro ao carregar subcategorias:', error);
+      return [];
+    }
+  }, [user?.id]);
+
+  // Effects para filtros de categoria
+  useEffect(() => {
+    if (!categorias.length) return;
+    const filtradas = formData.categoriaTexto 
+      ? categorias.filter(cat => cat.nome.toLowerCase().includes(formData.categoriaTexto.toLowerCase()))
+      : categorias;
+    setCategoriasFiltradas(filtradas);
+  }, [formData.categoriaTexto, categorias]);
+
+  useEffect(() => {
+    if (!subcategoriasDaCategoria.length) {
+      setSubcategoriasFiltradas([]);
+      return;
+    }
+    const filtradas = formData.subcategoriaTexto 
+      ? subcategoriasDaCategoria.filter(sub => sub.nome.toLowerCase().includes(formData.subcategoriaTexto.toLowerCase()))
+      : subcategoriasDaCategoria;
+    setSubcategoriasFiltradas(filtradas);
+  }, [formData.subcategoriaTexto, subcategoriasDaCategoria]);
 
   // ✅ CORREÇÃO: Identificar tipo e grupo no modo edição CORRIGIDO
   useEffect(() => {
@@ -268,26 +246,6 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       setValorOriginal(0);
     }
   }, [isEditMode, transacaoEditando, isParceladaOuRecorrente]);
-
-  // Effects para filtros de categoria
-  useEffect(() => {
-    if (!categorias.length) return;
-    const filtradas = formData.categoriaTexto 
-      ? categorias.filter(cat => cat.nome.toLowerCase().includes(formData.categoriaTexto.toLowerCase()))
-      : categorias;
-    setCategoriasFiltradas(filtradas);
-  }, [formData.categoriaTexto, categorias]);
-
-  useEffect(() => {
-    if (!subcategoriasDaCategoria.length) {
-      setSubcategoriasFiltradas([]);
-      return;
-    }
-    const filtradas = formData.subcategoriaTexto 
-      ? subcategoriasDaCategoria.filter(sub => sub.nome.toLowerCase().includes(formData.subcategoriaTexto.toLowerCase()))
-      : subcategoriasDaCategoria;
-    setSubcategoriasFiltradas(filtradas);
-  }, [formData.subcategoriaTexto, subcategoriasDaCategoria]);
 
   // ===== CÁLCULOS PARA PREVIEW =====
   const calculos = useMemo(() => {
@@ -387,17 +345,14 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       subcategoria: subcategoriaId,
       subcategoriaTexto: subcategoriaTexto,
       conta: transacaoEditando.conta_id || '',
-      cartao: transacaoEditando.cartao_id || '',
       efetivado: transacaoEditando.efetivado ?? true,
       observacoes: transacaoEditando.observacoes || '',
       frequenciaPrevisivel: 'mensal',
       numeroParcelas: transacaoEditando.total_parcelas || 12,
       frequenciaParcelada: 'mensal',
-      usarCartao: Boolean(transacaoEditando.cartao_id),
       totalRecorrencias: 12,
       tipoRecorrencia: 'mensal',
-      primeiroEfetivado: true,
-      primeiraParcela: transacaoEditando.data || new Date().toISOString().split('T')[0]
+      primeiroEfetivado: true
     });
 
     console.log('✅ [CORRIGIDO] Formulário preenchido com subcategoria:', {
@@ -412,17 +367,10 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     let inputValue = type === 'checkbox' ? checked : value;
     
     if (name === 'numeroParcelas' || name === 'totalRecorrencias') {
-      inputValue = parseFloat(value) || 1;
+      inputValue = parseInt(value) || 1;
     }
     
-    if (name === 'usarCartao') {
-      setFormData(prev => ({ 
-        ...prev, 
-        [name]: inputValue,
-        conta: inputValue ? '' : prev.conta,
-        cartao: inputValue ? prev.cartao : ''
-      }));
-    } else if (name === 'categoria') {
+    if (name === 'categoria') {
       setFormData(prev => ({ 
         ...prev, 
         [name]: inputValue, 
@@ -490,6 +438,31 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       delete newErrors.totalRecorrencias;
       return newErrors;
     });
+  }, []);
+
+  // ✅ CORREÇÃO: Handlers para input numérico com incremento/decremento
+  const handleNumeroParcelasChange = useCallback((e) => {
+    const valor = parseInt(e.target.value) || 1;
+    const valorLimitado = Math.max(1, Math.min(60, valor));
+    setFormData(prev => ({ ...prev, numeroParcelas: valorLimitado }));
+    
+    if (errors.numeroParcelas) {
+      setErrors(prev => ({ ...prev, numeroParcelas: null }));
+    }
+  }, [errors.numeroParcelas]);
+
+  const handleIncrementoParcelas = useCallback(() => {
+    setFormData(prev => ({ 
+      ...prev, 
+      numeroParcelas: Math.min(60, prev.numeroParcelas + 1) 
+    }));
+  }, []);
+
+  const handleDecrementoParcelas = useCallback(() => {
+    setFormData(prev => ({ 
+      ...prev, 
+      numeroParcelas: Math.max(1, prev.numeroParcelas - 1) 
+    }));
   }, []);
 
   // ===== HANDLERS DE CATEGORIA =====
@@ -657,15 +630,13 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     
     setLoading(true);
     try {
-      const [categoriasRes, subcategoriasRes, cartoesRes] = await Promise.all([
+      const [categoriasRes, subcategoriasRes] = await Promise.all([
         supabase.from('categorias').select('*').eq('usuario_id', user.id).eq('tipo', 'despesa').eq('ativo', true).order('nome'),
-        supabase.from('subcategorias').select('*').eq('usuario_id', user.id).eq('ativo', true).order('nome'),
-        supabase.from('cartoes').select('*').eq('usuario_id', user.id).eq('ativo', true).order('nome')
+        supabase.from('subcategorias').select('*').eq('usuario_id', user.id).eq('ativo', true).order('nome')
       ]);
 
       setCategorias(categoriasRes.data || []);
       setSubcategorias(subcategoriasRes.data || []);
-      setCartoes(cartoesRes.data || []);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       showNotification('Erro ao carregar dados', 'error');
@@ -686,17 +657,14 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       subcategoria: '',
       subcategoriaTexto: '',
       conta: '',
-      cartao: '',
       efetivado: true,
       observacoes: '',
       frequenciaPrevisivel: 'mensal',
       numeroParcelas: 12,
       frequenciaParcelada: 'mensal',
-      usarCartao: false,
       totalRecorrencias: 12,
       tipoRecorrencia: 'mensal',
-      primeiroEfetivado: true,
-      primeiraParcela: dataAtual
+      primeiroEfetivado: true
     });
     setErrors({});
     setTipoDespesa('extra');
@@ -725,10 +693,7 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     if (!formData.categoria && !formData.categoriaTexto.trim()) {
       newErrors.categoria = "Categoria é obrigatória";
     }
-    if (formData.usarCartao && !formData.cartao) {
-      newErrors.cartao = "Cartão é obrigatório quando selecionado";
-    }
-    if (!formData.usarCartao && !formData.conta) {
+    if (!formData.conta) {
       newErrors.conta = "Conta é obrigatória";
     }
     if (formData.observacoes && formData.observacoes.length > 300) {
@@ -794,8 +759,7 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
         descricao: formData.descricao.trim(),
         categoria_id: formData.categoria,
         subcategoria_id: formData.subcategoria || null,
-        conta_id: formData.usarCartao ? null : formData.conta,
-        cartao_id: formData.usarCartao ? formData.cartao : null,
+        conta_id: formData.conta,
         valor: valorNumerico,
         efetivado: formData.efetivado,
         observacoes: formData.observacoes.trim() || null,
@@ -826,8 +790,7 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
         descricao: formData.descricao.trim(),
         categoria_id: formData.categoria,
         subcategoria_id: formData.subcategoria || null,
-        conta_id: formData.usarCartao ? null : formData.conta,
-        cartao_id: formData.usarCartao ? formData.cartao : null,
+        conta_id: formData.conta,
         valor: valorNumerico,
         tipo: 'despesa',
         tipo_despesa: tipoDespesa,
@@ -1286,7 +1249,10 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                   >
                     <Clock size={16} />
                     <div>
-                      <div>Todas planejadas</div>
+                      <div>
+                        {/* ✅ CORREÇÃO: Pluralização correta */}
+                        {tipoDespesa === 'extra' ? 'Planejada' : 'Todas planejadas'}
+                      </div>
                       <small>A pagar</small>
                     </div>
                   </button>
@@ -1345,20 +1311,35 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                       <Hash size={14} />
                       Número de Parcelas *
                     </label>
-                    <div className="select-search">
-                      <select
-                        name="numeroParcelas"
+                    {/* ✅ CORREÇÃO: Input numérico com botões de incremento/decremento */}
+                    <div className="input-number-container">
+                      <input
+                        type="number"
+                        min="1"
+                        max="60"
                         value={formData.numeroParcelas}
-                        onChange={handleInputChange}
+                        onChange={handleNumeroParcelasChange}
                         disabled={submitting}
-                        className={errors.numeroParcelas ? 'error' : ''}
-                      >
-                        {opcoesParcelas.map(opcao => (
-                          <option key={opcao.value} value={opcao.value}>
-                            {opcao.label}
-                          </option>
-                        ))}
-                      </select>
+                        className={`input-number ${errors.numeroParcelas ? 'error' : ''}`}
+                      />
+                      <div className="input-number-controls">
+                        <button
+                          type="button"
+                          onClick={handleIncrementoParcelas}
+                          disabled={submitting || formData.numeroParcelas >= 60}
+                          className="input-number-btn"
+                        >
+                          <ChevronUp size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDecrementoParcelas}
+                          disabled={submitting || formData.numeroParcelas <= 1}
+                          className="input-number-btn"
+                        >
+                          <ChevronDown size={12} />
+                        </button>
+                      </div>
                     </div>
                     {errors.numeroParcelas && <div className="form-error">{errors.numeroParcelas}</div>}
                   </div>
@@ -1520,93 +1501,36 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                 </div>
               )}
 
-              {/* COMO VAI PAGAR */}
+              {/* ✅ CORREÇÃO: REMOVER BOTÕES DE PAGAMENTO - APENAS CONTA */}
               <div className="flex flex-col mb-3">
-                <label className="form-label">Como vai pagar?</label>
-                <div className="payment-selector">
-                  <button
-                    type="button"
-                    className={`payment-option ${!formData.usarCartao ? 'active' : ''}`}
-                    onClick={() => setFormData(prev => ({ ...prev, usarCartao: false, cartao: '' }))}
+                <label className="form-label">
+                  <Building size={14} />
+                  Conta de Débito *
+                </label>
+                <div className="select-search">
+                  <select
+                    name="conta"
+                    value={formData.conta}
+                    onChange={handleInputChange}
                     disabled={submitting}
+                    className={errors.conta ? 'error' : ''}
                   >
-                    <Building size={16} />
-                    <span>Conta Bancária</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`payment-option ${formData.usarCartao ? 'active' : ''}`}
-                    onClick={() => setFormData(prev => ({ ...prev, usarCartao: true, conta: '' }))}
-                    disabled={submitting}
-                  >
-                    <CreditCard size={16} />
-                    <span>Cartão de Crédito</span>
-                  </button>
+                    <option value="">Selecione uma conta</option>
+                    {contasAtivas.map(conta => (
+                      <option key={conta.id} value={conta.id}>
+                        {conta.nome} - {formatCurrency(conta.saldo || 0)}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+                {errors.conta && <div className="form-error">{errors.conta}</div>}
+                
+                {contasAtivas.length === 0 && (
+                  <div className="form-info">
+                    Nenhuma conta ativa encontrada. Crie uma conta primeiro.
+                  </div>
+                )}
               </div>
-
-              {/* CONTA OU CARTÃO ESPECÍFICO */}
-              {!formData.usarCartao ? (
-                <div className="flex flex-col mb-3">
-                  <label className="form-label">
-                    <Building size={14} />
-                    Conta de Débito *
-                  </label>
-                  <div className="select-search">
-                    <select
-                      name="conta"
-                      value={formData.conta}
-                      onChange={handleInputChange}
-                      disabled={submitting}
-                      className={errors.conta ? 'error' : ''}
-                    >
-                      <option value="">Selecione uma conta</option>
-                      {contasAtivas.map(conta => (
-                        <option key={conta.id} value={conta.id}>
-                          {conta.nome} - {formatCurrency(conta.saldo || 0)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {errors.conta && <div className="form-error">{errors.conta}</div>}
-                  
-                  {contasAtivas.length === 0 && (
-                    <div className="form-info">
-                      Nenhuma conta ativa encontrada. Crie uma conta primeiro.
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex flex-col mb-3">
-                  <label className="form-label">
-                    <CreditCard size={14} />
-                    Cartão de Crédito *
-                  </label>
-                  <div className="select-search">
-                    <select
-                      name="cartao"
-                      value={formData.cartao}
-                      onChange={handleInputChange}
-                      disabled={submitting}
-                      className={errors.cartao ? 'error' : ''}
-                    >
-                      <option value="">Selecione um cartão</option>
-                      {cartoesAtivos.map(cartao => (
-                        <option key={cartao.id} value={cartao.id}>
-                          {cartao.nome} - Limite: {formatCurrency(cartao.limite || 0)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {errors.cartao && <div className="form-error">{errors.cartao}</div>}
-                  
-                  {cartoesAtivos.length === 0 && (
-                    <div className="form-info">
-                      Nenhum cartão ativo encontrado. Crie um cartão primeiro.
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* OBSERVAÇÕES */}
               <div className="flex flex-col mb-3">
