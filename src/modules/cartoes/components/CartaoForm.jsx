@@ -244,7 +244,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
             <CreditCard size={14} />
             Bandeira *
           </label>
-          <div className="status-selector">
+          <div className="bandeiras-scroll-container">
             {BANDEIRAS.map(bandeira => (
               <button
                 key={bandeira.id}
@@ -252,7 +252,7 @@ const CartaoForm = ({ cartao, contas, onSave, onCancel }) => {
                 className={`status-option ${formData.bandeira === bandeira.id ? 'active' : ''}`}
                 onClick={() => handleBandeiraSelect(bandeira.id)}
               >
-                <span>{bandeira.icon}</span>
+                
                 <div>
                   <div>{bandeira.nome}</div>
                 </div>

@@ -466,7 +466,7 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
                 <div className={`summary-panel ${avisoSaldoNegativo ? 'warning' : 'success'} mb-3`}>
                   <div className="summary-header">
                     <ArrowLeftRight size={16} />
-                    <strong>Preview da Transferência</strong>
+                    <strong>Resumo da Transferência</strong>
                   </div>
                   <div className="transfer-preview">
                     <div className="transfer-from">

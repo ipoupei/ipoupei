@@ -3887,3 +3887,197 @@
     height: 80px;
   }
 }
+
+/* ========================================
+   SCROLL HORIZONTAL PARA BANDEIRAS DE CARTÃO
+   ======================================== */
+
+.bandeiras-scroll-container {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  margin: 2px 0;
+  scroll-snap-type: x mandatory;
+}
+
+.bandeiras-scroll-container .status-option {
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  white-space: nowrap;
+  padding: 8px 12px; /* Sobrescreve o padding padrão de 2px 70px */
+}
+
+.bandeiras-scroll-container::-webkit-scrollbar {
+  height: 6px;
+}
+
+.bandeiras-scroll-container::-webkit-scrollbar-track {
+  background: #F8F9FA;
+  border-radius: 3px;
+}
+
+.bandeiras-scroll-container::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
+  border-radius: 3px;
+}
+
+.bandeiras-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #9CA3AF;
+}
+
+/* Mobile: manter scroll suave */
+@media (max-width: 768px) {
+  .bandeiras-scroll-container {
+    gap: 6px;
+    padding-bottom: 8px;
+  }
+}
+/* ========================================
+   ADIÇÕES CSS PARA INPUT NUMÉRICO COM BOTÕES
+   Adicionar ao final do FormsModal.css existente
+   ======================================== */
+
+/* Container do input numérico */
+.input-number-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+/* Input numérico base */
+.input-number {
+  width: 100%;
+  padding: 6px 36px 6px 10px;
+  border: 1px solid #D1D5DB;
+  border-radius: 4px;
+  font-family: 'Roboto', sans-serif;
+  font-size: 13px;
+  color: #333333;
+  background-color: white;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  font-weight: 500;
+}
+
+.input-number:focus {
+  outline: none;
+  border-color: #008080;
+  box-shadow: 0 0 0 2px rgba(0, 128, 128, 0.15);
+}
+
+.input-number::placeholder {
+  color: #9CA3AF;
+}
+
+.input-number.error {
+  border-color: #DC3545;
+}
+
+/* Remover setas padrão do navegador */
+.input-number::-webkit-outer-spin-button,
+.input-number::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.input-number[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Container dos botões de controle */
+.input-number-controls {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* Botões de incremento/decremento */
+.input-number-btn {
+  width: 20px;
+  height: 14px;
+  border: none;
+  background: #f3f4f6;
+  color: #6b7280;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  border-radius: 2px;
+  padding: 0;
+  margin: 0;
+}
+
+.input-number-btn:hover:not(:disabled) {
+  background: #e5e7eb;
+  color: #374151;
+  transform: scale(1.05);
+}
+
+.input-number-btn:active:not(:disabled) {
+  background: #d1d5db;
+  transform: scale(0.95);
+}
+
+.input-number-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.input-number-btn svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* Estilo especial quando o input tem foco */
+.input-number:focus + .input-number-controls .input-number-btn {
+  background: rgba(0, 128, 128, 0.1);
+  color: #008080;
+}
+
+.input-number:focus + .input-number-controls .input-number-btn:hover:not(:disabled) {
+  background: rgba(0, 128, 128, 0.2);
+  color: #006666;
+}
+
+/* Responsividade mobile */
+@media (max-width: 768px) {
+  .input-number-controls {
+    right: 6px;
+  }
+  
+  .input-number-btn {
+    width: 24px;
+    height: 16px;
+  }
+  
+  .input-number-btn svg {
+    width: 12px;
+    height: 12px;
+  }
+  
+  .input-number {
+    padding-right: 42px;
+  }
+}
+
+@media (max-width: 480px) {
+  .input-number-btn {
+    width: 28px;
+    height: 18px;
+  }
+  
+  .input-number {
+    padding-right: 46px;
+    font-size: 14px;
+  }
+}

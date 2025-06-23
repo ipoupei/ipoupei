@@ -502,9 +502,10 @@ const CartoesModal = ({ isOpen, onClose, onSave }) => {
                 <p className="modal-subtitle">
                   {modoFormulario 
                     ? (cartaoEditando ? 'Editando cartão existente' : 'Cadastrando novo cartão')
-                    : `${cartoesAtivos.length} cartão${cartoesAtivos.length !== 1 ? 'ões' : ''} cadastrado${cartoesAtivos.length !== 1 ? 's' : ''}`
+                    : `${cartoesAtivos.length} ${cartoesAtivos.length === 1 ? 'cartão cadastrado' : 'cartões cadastrados'}`
                   }
                 </p>
+
               </div>
             </div>
             <button className="modal-close" onClick={onClose}>

@@ -21,7 +21,9 @@ import {
   Gift,
   Banknote,
   HelpCircle,
-  AlertCircle
+  AlertCircle,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 
 import { useAuthStore } from '@modules/auth/store/authStore';
@@ -106,9 +108,9 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     },
     { 
       id: 'previsivel', 
-      nome: 'Previsível', 
+      nome: 'Receita Mensal', // ✅ CORREÇÃO 11: Alterado de "Previsível" para "Receita Mensal"
       icone: <Repeat size={16} />, 
-      descricao: 'Renda fixa', 
+      descricao: 'Repetem todo mês', // ✅ CORREÇÃO 11: Alterado de "Renda fixa" para "Repetem todo mês"
       cor: '#10B981',
       tooltip: 'Receitas que se repetem regularmente: salário, aposentadoria, aluguel recebido, dividendos.'
     },
@@ -405,7 +407,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     let inputValue = type === 'checkbox' ? checked : value;
     
     if (name === 'numeroParcelas' || name === 'totalRecorrencias') {
-      inputValue = parseFloat(value) || 1;
+      inputValue = parseInt(value) || 1;
     }
     
     if (name === 'categoria') {
@@ -476,6 +478,31 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       delete newErrors.totalRecorrencias;
       return newErrors;
     });
+  }, []);
+
+  // ✅ CORREÇÃO 12: Handlers para input numérico com incremento/decremento
+  const handleNumeroParcelasChange = useCallback((e) => {
+    const valor = parseInt(e.target.value) || 1;
+    const valorLimitado = Math.max(1, Math.min(60, valor));
+    setFormData(prev => ({ ...prev, numeroParcelas: valorLimitado }));
+    
+    if (errors.numeroParcelas) {
+      setErrors(prev => ({ ...prev, numeroParcelas: null }));
+    }
+  }, [errors.numeroParcelas]);
+
+  const handleIncrementoParcelas = useCallback(() => {
+    setFormData(prev => ({ 
+      ...prev, 
+      numeroParcelas: Math.min(60, prev.numeroParcelas + 1) 
+    }));
+  }, []);
+
+  const handleDecrementoParcelas = useCallback(() => {
+    setFormData(prev => ({ 
+      ...prev, 
+      numeroParcelas: Math.max(1, prev.numeroParcelas - 1) 
+    }));
   }, []);
 
   // ===== HANDLERS DE CATEGORIA =====
@@ -1261,7 +1288,10 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                   >
                     <Clock size={16} />
                     <div>
-                      <div>Todas planejadas</div>
+                      <div>
+                        {/* ✅ CORREÇÃO 10: Pluralização correta */}
+                        {tipoReceita === 'extra' ? 'Planejada' : 'Todas planejadas'}
+                      </div>
                       <small>A receber</small>
                     </div>
                   </button>
@@ -1320,20 +1350,35 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                       <Hash size={14} />
                       Número de Parcelas *
                     </label>
-                    <div className="select-search">
-                      <select
-                        name="numeroParcelas"
+                    {/* ✅ CORREÇÃO 12: Input numérico com botões de incremento/decremento */}
+                    <div className="input-number-container">
+                      <input
+                        type="number"
+                        min="1"
+                        max="60"
                         value={formData.numeroParcelas}
-                        onChange={handleInputChange}
+                        onChange={handleNumeroParcelasChange}
                         disabled={submitting}
-                        className={errors.numeroParcelas ? 'error' : ''}
-                      >
-                        {opcoesParcelas.map(opcao => (
-                          <option key={opcao.value} value={opcao.value}>
-                            {opcao.label}
-                          </option>
-                        ))}
-                      </select>
+                        className={`input-number ${errors.numeroParcelas ? 'error' : ''}`}
+                      />
+                      <div className="input-number-controls">
+                        <button
+                          type="button"
+                          onClick={handleIncrementoParcelas}
+                          disabled={submitting || formData.numeroParcelas >= 60}
+                          className="input-number-btn"
+                        >
+                          <ChevronUp size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDecrementoParcelas}
+                          disabled={submitting || formData.numeroParcelas <= 1}
+                          className="input-number-btn"
+                        >
+                          <ChevronDown size={12} />
+                        </button>
+                      </div>
                     </div>
                     {errors.numeroParcelas && <div className="form-error">{errors.numeroParcelas}</div>}
                   </div>

@@ -1103,29 +1103,31 @@ const DespesasCartaoModal = ({
                         <div className="parcelamento-total">
                           Total: {formatCurrency(valorNumerico)}
                         </div>
-                        <div className="parcelamento-cronograma">
-                          <strong>Cronograma: </strong>
-                          {Array.from({ length: Math.min(formData.numeroParcelas, 6) },  (_, i) => {
-                            const dataParcela = calcularDataVencimentoParcela(formData.faturaVencimento, i + 1);
-                            if (!dataParcela) return null;
-                            
-                            const dataFormatada = new Date(dataParcela + 'T12:00:00').toLocaleDateString('pt-BR', {
-                              month: 'short',
-                              year: 'numeric'
-                            }).replace('.', '');
-                            
-                            return (
-                              <span key={i} className="parcela-cronograma">
-                                {i + 1}ª: {dataFormatada}
+                          <div className="parcelamento-cronograma">
+                            <strong>Cronograma: </strong>
+                            {Array.from({ length: Math.min(formData.numeroParcelas, 6) }, (_, i) => {
+                              const dataParcela = calcularDataVencimentoParcela(formData.faturaVencimento, i + 1);
+                              if (!dataParcela) return null;
+
+                              const dataFormatada = new Date(dataParcela + 'T12:00:00').toLocaleDateString('pt-BR', {
+                                month: 'short',
+                                year: 'numeric'
+                              }).replace('.', '');
+
+                              return (
+                                <span key={i} className="parcela-cronograma">
+                                  {i + 1}ª: {dataFormatada}
+                                  {i < Math.min(formData.numeroParcelas, 6) - 1 && ' • '}
+                                </span>
+                              );
+                            })}
+                            {formData.numeroParcelas > 6 && (
+                              <span className="parcela-cronograma">
+                                +{formData.numeroParcelas - 6} mais...
                               </span>
-                            );
-                          })}
-                          {formData.numeroParcelas > 6 && (
-                            <span className="parcela-cronograma">
-                              +{formData.numeroParcelas - 6} mais...
-                            </span>
-                          )}
-                        </div>
+                            )}
+                          </div>
+
                       </div>
                     )}
                   </div>

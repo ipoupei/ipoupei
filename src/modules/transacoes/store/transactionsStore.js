@@ -11,6 +11,8 @@ import { startOfMonth, endOfMonth, format } from 'date-fns';
  * - Função isParceladaOuRecorrente corrigida
  * - Carregamento de dados com todos os campos necessários
  * - Tratamento adequado de data_efetivacao
+ * - BUG FIX 22: Lógica corrigida para exibir parcelas no mês de vencimento da fatura
+ * - BUG FIX 2: Modal de edição de ajuste de saldo preenchido corretamente
  */
 export const useTransactionsStore = create(
   subscribeWithSelector((set, get) => ({
@@ -156,20 +158,23 @@ export const useTransactionsStore = create(
             total_parcelas: data[0].total_parcelas
           } : 'nenhuma');
 
+          // ===== BUG FIX 22: Filtrar parcelas de cartão para mostrar apenas no mês de vencimento =====
+          const transacoesFiltradas = get().aplicarFiltrosCartaoParcelas(data || []);
+
           // Aplicar filtros locais adicionais se necessário
-          const transacoesFiltradas = get().aplicarFiltrosLocais(data || []);
+          const transacoesFinais = get().aplicarFiltrosLocais(transacoesFiltradas);
 
           set({
-            transacoes: transacoesFiltradas,
+            transacoes: transacoesFinais,
             loading: false,
             paginacao: {
               ...paginacao,
-              total: transacoesFiltradas.length,
-              totalPaginas: Math.ceil(transacoesFiltradas.length / paginacao.itensPorPagina)
+              total: transacoesFinais.length,
+              totalPaginas: Math.ceil(transacoesFinais.length / paginacao.itensPorPagina)
             }
           });
 
-          return transacoesFiltradas;
+          return transacoesFinais;
 
         } catch (rpcError) {
           console.warn('⚠️ RPC ip_buscar_transacoes_periodo falhou, usando query manual como fallback:', rpcError);
@@ -184,6 +189,67 @@ export const useTransactionsStore = create(
         });
         throw error;
       }
+    },
+
+    // ===== BUG FIX 22: Nova função para filtrar parcelas de cartão =====
+    aplicarFiltrosCartaoParcelas: (transacoes) => {
+      const { filtros } = get();
+      
+      // Obter período atual de forma mais explícita
+      const periodoInicio = new Date(filtros.periodo.inicio);
+      const periodoFim = new Date(filtros.periodo.fim);
+      
+      console.log('🔍 [DEBUG] Período atual (store):', {
+        inicio: periodoInicio.toISOString(),
+        fim: periodoFim.toISOString(),
+        mes: periodoInicio.getMonth() + 1,
+        ano: periodoInicio.getFullYear()
+      });
+      
+      return transacoes.filter(transacao => {
+        // Se não é transação de cartão, manter sempre
+        if (!transacao.cartao_id || transacao.tipo !== 'despesa') {
+          return true;
+        }
+
+        // ✅ REGRA CORRIGIDA: Para parcelas de cartão, verificar fatura_vencimento
+        if (transacao.fatura_vencimento) {
+          // Converter data de vencimento para Date
+          const dataVencimento = new Date(transacao.fatura_vencimento + 'T00:00:00');
+          
+          // Verificar se a data de vencimento está no período atual
+          const vencimentoNoPeriodo = dataVencimento >= periodoInicio && dataVencimento <= periodoFim;
+          
+          console.log('💳 [DEBUG] Verificando parcela de cartão (store):', {
+            descricao: transacao.descricao,
+            dataCompra: transacao.data,
+            faturaVencimento: transacao.fatura_vencimento,
+            dataVencimentoParsed: dataVencimento.toISOString(),
+            periodoInicio: periodoInicio.toISOString(),
+            periodoFim: periodoFim.toISOString(),
+            vencimentoNoPeriodo,
+            mesVencimento: dataVencimento.getMonth() + 1,
+            anoVencimento: dataVencimento.getFullYear(),
+            mesPeriodo: periodoInicio.getMonth() + 1,
+            anoPeriodo: periodoInicio.getFullYear()
+          });
+          
+          return vencimentoNoPeriodo;
+        }
+
+        // Se é transação de cartão mas não tem fatura_vencimento, 
+        // tratar como transação avulsa (usar data da compra)
+        const dataTransacao = new Date(transacao.data);
+        const transacaoNoPeriodo = dataTransacao >= periodoInicio && dataTransacao <= periodoFim;
+        
+        console.log('💳 [DEBUG] Transação de cartão sem fatura_vencimento (store):', {
+          descricao: transacao.descricao,
+          dataCompra: transacao.data,
+          transacaoNoPeriodo
+        });
+        
+        return transacaoNoPeriodo;
+      });
     },
 
     // Fallback: busca manual via query SQL
@@ -275,19 +341,23 @@ export const useTransactionsStore = create(
           total_recorrencias: t.total_recorrencias,
           eh_recorrente: t.eh_recorrente,
           tipo_recorrencia: t.tipo_recorrencia,
+          fatura_vencimento: t.fatura_vencimento, // ✅ CAMPO NECESSÁRIO PARA BUG FIX 22
           
           created_at: t.created_at,
           updated_at: t.updated_at
         }));
 
+        // ===== BUG FIX 22: Aplicar filtro de parcelas de cartão =====
+        const transacoesFiltradas = get().aplicarFiltrosCartaoParcelas(transacoesMapeadas);
+
         // Aplicar filtros adicionais
-        const transacoesFiltradas = get().aplicarFiltrosLocais(transacoesMapeadas);
+        const transacoesFinais = get().aplicarFiltrosLocais(transacoesFiltradas);
 
         // Atualizar estado
         const totalPaginas = Math.ceil((count || 0) / paginacao.itensPorPagina);
         
         set({
-          transacoes: transacoesFiltradas,
+          transacoes: transacoesFinais,
           loading: false,
           paginacao: {
             ...paginacao,
@@ -296,8 +366,8 @@ export const useTransactionsStore = create(
           }
         });
 
-        console.log(`✅ ${transacoesFiltradas?.length || 0} transações carregadas (${count} total)`);
-        return transacoesFiltradas;
+        console.log(`✅ ${transacoesFinais?.length || 0} transações carregadas (${count} total)`);
+        return transacoesFinais;
 
       } catch (error) {
         console.error('❌ Erro na busca manual:', error);
@@ -626,7 +696,8 @@ export const useTransactionsStore = create(
           numero_recorrencia: data.numero_recorrencia,
           total_recorrencias: data.total_recorrencias,
           eh_recorrente: data.eh_recorrente,
-          tipo_recorrencia: data.tipo_recorrencia
+          tipo_recorrencia: data.tipo_recorrencia,
+          fatura_vencimento: data.fatura_vencimento // ✅ CAMPO NECESSÁRIO PARA BUG FIX 22
         };
 
         // Atualizar lista local se a transação se encaixa nos filtros atuais
@@ -660,7 +731,8 @@ export const useTransactionsStore = create(
 
         const { default: supabase } = await import('@lib/supabaseClient');
         
-        // ✅ Se está atualizando dados que afetam data_efetivacao, recalcular
+        // ===== BUG FIX 2: Garantir que campos sejam preenchidos corretamente no modal =====
+        // Se está atualizando dados que afetam data_efetivacao, recalcular
         let updateData = { ...transacaoData };
         if (transacaoData.tipo || transacaoData.cartao_id || transacaoData.data) {
           // Buscar dados atuais da transação
@@ -724,7 +796,8 @@ export const useTransactionsStore = create(
           numero_recorrencia: data.numero_recorrencia,
           total_recorrencias: data.total_recorrencias,
           eh_recorrente: data.eh_recorrente,
-          tipo_recorrencia: data.tipo_recorrencia
+          tipo_recorrencia: data.tipo_recorrencia,
+          fatura_vencimento: data.fatura_vencimento // ✅ CAMPO NECESSÁRIO PARA BUG FIX 22
         };
 
         // Atualizar na lista local
@@ -885,10 +958,55 @@ export const useTransactionsStore = create(
     // SELECTORS/GETTERS
     // ===========================
 
-    // Obter transação por ID
+    // ===== BUG FIX 2: Função melhorada para obter transação por ID com todos os campos =====
     getTransacaoById: (id) => {
       const { transacoes } = get();
-      return transacoes.find(t => t.id === id) || null;
+      const transacao = transacoes.find(t => t.id === id);
+      
+      if (!transacao) {
+        console.warn('⚠️ Transação não encontrada no store local:', id);
+        return null;
+      }
+
+      // ✅ Garantir que todos os campos necessários estão presentes
+      const transacaoCompleta = {
+        id: transacao.id,
+        data: transacao.data,
+        data_efetivacao: transacao.data_efetivacao,
+        tipo: transacao.tipo,
+        valor: transacao.valor,
+        descricao: transacao.descricao || '',
+        categoria_id: transacao.categoria_id,
+        categoria_nome: transacao.categoria_nome || 'Sem categoria',
+        categoria_cor: transacao.categoria_cor || '#6B7280',
+        conta_id: transacao.conta_id,
+        conta_nome: transacao.conta_nome || 'Conta não informada',
+        conta_destino_id: transacao.conta_destino_id,
+        conta_destino_nome: transacao.conta_destino_nome,
+        cartao_id: transacao.cartao_id,
+        cartao_nome: transacao.cartao_nome,
+        efetivado: transacao.efetivado !== false,
+        observacoes: transacao.observacoes || '',
+        subcategoria_id: transacao.subcategoria_id,
+        transferencia: transacao.transferencia || false,
+        
+        // ✅ CAMPOS DE GRUPO
+        grupo_parcelamento: transacao.grupo_parcelamento,
+        grupo_recorrencia: transacao.grupo_recorrencia,
+        parcela_atual: transacao.parcela_atual,
+        total_parcelas: transacao.total_parcelas,
+        numero_recorrencia: transacao.numero_recorrencia,
+        total_recorrencias: transacao.total_recorrencias,
+        eh_recorrente: transacao.eh_recorrente,
+        tipo_recorrencia: transacao.tipo_recorrencia,
+        fatura_vencimento: transacao.fatura_vencimento,
+        
+        created_at: transacao.created_at,
+        updated_at: transacao.updated_at
+      };
+
+      console.log('📋 Transação encontrada com todos os campos:', transacaoCompleta);
+      return transacaoCompleta;
     },
 
     // Obter total das transações filtradas

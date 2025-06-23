@@ -164,8 +164,11 @@ const TransacoesPage = () => {
 
       if (error) throw error;
       
+      // ===== BUG FIX 22: Aplicar filtro de parcelas de cartão AQUI TAMBÉM =====
+      const transacoesFiltradas = aplicarFiltroParcelasCartao(data || []);
+      
       useTransactionsStore.setState({ 
-        transacoes: data || [], 
+        transacoes: transacoesFiltradas, 
         loading: false 
       });
       
@@ -176,6 +179,80 @@ const TransacoesPage = () => {
         loading: false 
       });
     }
+  };
+
+  // ===== BUG FIX 22: Função para filtrar parcelas de cartão na página =====
+  const aplicarFiltroParcelasCartao = (transacoes) => {
+    console.log('🔍 [DEBUG] Aplicando filtro de parcelas de cartão na página');
+    console.log('🔍 [DEBUG] Período atual:', {
+      inicio: dataInicio.toISOString(),
+      fim: dataFim.toISOString(),
+      mes: dataInicio.getMonth() + 1,
+      ano: dataInicio.getFullYear()
+    });
+    
+    // ✅ DEBUG: Ver quantas transações chegaram
+    console.log('📊 [DEBUG] Total de transações recebidas:', transacoes.length);
+    
+    // ✅ DEBUG: Ver quantas são de cartão
+    const transacoesCartao = transacoes.filter(t => t.cartao_id && t.tipo === 'despesa');
+    console.log('💳 [DEBUG] Transações de cartão encontradas:', transacoesCartao.length);
+    
+    // ✅ DEBUG: Mostrar detalhes das transações de cartão
+    transacoesCartao.forEach((t, index) => {
+      console.log(`💳 [DEBUG] Transação cartão ${index + 1}:`, {
+        descricao: t.descricao,
+        dataCompra: t.data,
+        faturaVencimento: t.fatura_vencimento,
+        cartaoId: t.cartao_id,
+        cartaoNome: t.cartao_nome
+      });
+    });
+    
+    return transacoes.filter(transacao => {
+      // Se não é transação de cartão, manter sempre
+      if (!transacao.cartao_id || transacao.tipo !== 'despesa') {
+        return true;
+      }
+
+      // ✅ REGRA CORRIGIDA: Para parcelas de cartão, verificar fatura_vencimento
+      if (transacao.fatura_vencimento) {
+        // Converter data de vencimento para Date
+        const dataVencimento = new Date(transacao.fatura_vencimento + 'T00:00:00');
+        
+        // Verificar se a data de vencimento está no período atual
+        const vencimentoNoPeriodo = dataVencimento >= dataInicio && dataVencimento <= dataFim;
+        
+        console.log('💳 [DEBUG] Verificando parcela de cartão na página:', {
+          descricao: transacao.descricao,
+          dataCompra: transacao.data,
+          faturaVencimento: transacao.fatura_vencimento,
+          dataVencimentoParsed: dataVencimento.toISOString(),
+          periodoInicio: dataInicio.toISOString(),
+          periodoFim: dataFim.toISOString(),
+          vencimentoNoPeriodo,
+          mesVencimento: dataVencimento.getMonth() + 1,
+          anoVencimento: dataVencimento.getFullYear(),
+          mesPeriodo: dataInicio.getMonth() + 1,
+          anoPeriodo: dataInicio.getFullYear()
+        });
+        
+        return vencimentoNoPeriodo;
+      }
+
+      // Se é transação de cartão mas não tem fatura_vencimento, 
+      // tratar como transação avulsa (usar data da compra)
+      const dataTransacao = new Date(transacao.data);
+      const transacaoNoPeriodo = dataTransacao >= dataInicio && dataTransacao <= dataFim;
+      
+      console.log('💳 [DEBUG] Transação de cartão sem fatura_vencimento na página:', {
+        descricao: transacao.descricao,
+        dataCompra: transacao.data,
+        transacaoNoPeriodo
+      });
+      
+      return transacaoNoPeriodo;
+    });
   };
 
   // Aplicar filtros da URL na inicialização
@@ -378,10 +455,18 @@ const TransacoesPage = () => {
   const endIndex = startIndex + itemsPerPage;
   const transacoesPaginadas = transacoesProcessadas.slice(startIndex, endIndex);
 
-  // Estatísticas
+  // ===== BUG FIX 27: Ajustar cálculo do resumo financeiro considerando agrupamento =====
   const estatisticas = useMemo(() => {
-    const receitas = transacoesProcessadas.filter(t => t.tipo === 'receita');
-    const despesas = transacoesProcessadas.filter(t => t.tipo === 'despesa');
+    // Se está agrupado por cartão, usar apenas transações não agrupadas + faturas efetivadas
+    const transacoesParaCalculo = groupByCard ? 
+      transacoesProcessadas.filter(t => 
+        (t.tipo === 'fatura' && t.efetivado) || // Faturas efetivadas
+        (t.tipo !== 'fatura' && !t.cartao_id) // Transações não de cartão
+      ) : 
+      transacoesProcessadas;
+
+    const receitas = transacoesParaCalculo.filter(t => t.tipo === 'receita');
+    const despesas = transacoesParaCalculo.filter(t => t.tipo === 'despesa' || t.tipo === 'fatura');
     
     const totalReceitas = receitas.reduce((acc, t) => acc + Math.abs(t.valor), 0);
     const totalDespesas = despesas.reduce((acc, t) => acc + Math.abs(t.valor), 0);
@@ -390,9 +475,9 @@ const TransacoesPage = () => {
       receitas: { total: totalReceitas, quantidade: receitas.length },
       despesas: { total: totalDespesas, quantidade: despesas.length },
       saldo: totalReceitas - totalDespesas,
-      totalTransacoes: transacoesProcessadas.length
+      totalTransacoes: transacoesParaCalculo.length
     };
-  }, [transacoesProcessadas]);
+  }, [transacoesProcessadas, groupByCard]);
 
   // ========== HANDLERS ==========
 
@@ -453,7 +538,9 @@ const TransacoesPage = () => {
     setCurrentPage(1);
   };
 
-  const hasActiveFilters = Object.values(filters).some(value => value !== '') || groupByCard;
+  // ===== BUG FIX 28: Corrigir contador de filtros (não incluir agrupamento) =====
+  const filtrosAtivos = Object.values(filters).filter(value => value !== '').length;
+  const hasActiveFilters = filtrosAtivos > 0;
 
   // Ações das transações
   const handleToggleEfetivado = (transacao) => {
@@ -569,7 +656,12 @@ const TransacoesPage = () => {
             <span style={{ fontSize: '0.875rem' }}>{transacao.categoria_nome}</span>
           </div>
         </td>
-        <td>{isFatura ? '-' : transacao.conta_nome}</td>
+        <td>
+          {/* ===== BUG FIX 23: Exibir nome do cartão quando for despesa de cartão ===== */}
+          {isFatura ? '-' : (
+            isCartaoTransacao ? (transacao.cartao_nome || 'Cartão não informado') : transacao.conta_nome
+          )}
+        </td>
         <td style={{ textAlign: 'right' }}>
           <span 
             className={`valor ${isReceita ? 'receita' : 'despesa'}`}
@@ -1219,9 +1311,10 @@ const TransacoesPage = () => {
               fontWeight: hasActiveFilters ? '600' : '400'
             }}
           >
-            🔍 Filtros Avançados {hasActiveFilters && `(${Object.values(filters).filter(v => v !== '').length + (groupByCard ? 1 : 0)})`}
+            🔍 Filtros Avançados {hasActiveFilters && `(${filtrosAtivos})`}
           </Button>
           
+          {/* ===== BUG FIX 26: Melhorar texto do botão de agrupamento ===== */}
           <button
             className={`group-toggle ${groupByCard ? 'active' : ''}`}
             onClick={() => setGroupByCard(!groupByCard)}
@@ -1237,13 +1330,13 @@ const TransacoesPage = () => {
               fontWeight: groupByCard ? '600' : '400'
             }}
           >
-            💳 {groupByCard ? 'Desagrupar' : 'Agrupar'}
+            💳 {groupByCard ? 'Desagrupar despesas de cartão' : 'Agrupar despesas de cartão'}
           </button>
         </div>
       </div>
 
       {/* Indicador de filtros ativos */}
-      {hasActiveFilters && (
+      {(hasActiveFilters || groupByCard) && (
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -1460,7 +1553,10 @@ const TransacoesPage = () => {
                   <div className="stat-content">
                     <span className="stat-label">Receitas</span>
                     <span className="stat-value">{formatCurrency(estatisticas.receitas.total)}</span>
-                    <span className="stat-count">{estatisticas.receitas.quantidade} transações</span>
+                    {/* ===== BUG FIX 20: Corrigir plural do contador ===== */}
+                    <span className="stat-count">
+                      {estatisticas.receitas.quantidade} {estatisticas.receitas.quantidade === 1 ? 'transação' : 'transações'}
+                    </span>
                   </div>
                 </div>
 
@@ -1469,7 +1565,10 @@ const TransacoesPage = () => {
                   <div className="stat-content">
                     <span className="stat-label">Despesas</span>
                     <span className="stat-value">{formatCurrency(estatisticas.despesas.total)}</span>
-                    <span className="stat-count">{estatisticas.despesas.quantidade} transações</span>
+                    {/* ===== BUG FIX 20: Corrigir plural do contador ===== */}
+                    <span className="stat-count">
+                      {estatisticas.despesas.quantidade} {estatisticas.despesas.quantidade === 1 ? 'transação' : 'transações'}
+                    </span>
                   </div>
                 </div>
 
@@ -1480,27 +1579,39 @@ const TransacoesPage = () => {
                     <span className={`stat-value ${estatisticas.saldo >= 0 ? 'positive' : 'negative'}`}>
                       {formatCurrency(estatisticas.saldo)}
                     </span>
+                    {/* ===== BUG FIX 25: Corrigir texto quando saldo é zero ===== */}
                     <span className="stat-count">
-                      {estatisticas.saldo >= 0 ? 'Resultado positivo' : 'Resultado negativo'}
+                      {estatisticas.saldo > 0 ? 'Resultado positivo' : 
+                       estatisticas.saldo < 0 ? 'Resultado negativo' : 'Resultado neutro'}
                     </span>
                   </div>
                 </div>
               </div>
             </Card>
 
+            {/* ===== BUG FIX 24: Substituir "Estatísticas do Período" por informações mais educativas ===== */}
             <Card>
-              <h3>Estatísticas do Período</h3>
+              <h3>Resumo do Período</h3>
               <div className="extra-stats">
                 <div className="extra-stat">
                   <span className="extra-stat-label">Total de Transações</span>
                   <span className="extra-stat-value">{estatisticas.totalTransacoes}</span>
                 </div>
                 
-                {estatisticas.totalTransacoes > 0 && (
+                {estatisticas.receitas.quantidade > 0 && (
                   <div className="extra-stat">
-                    <span className="extra-stat-label">Valor Médio</span>
+                    <span className="extra-stat-label">Receita Média</span>
                     <span className="extra-stat-value">
-                      {formatCurrency((estatisticas.receitas.total + estatisticas.despesas.total) / estatisticas.totalTransacoes)}
+                      {formatCurrency(estatisticas.receitas.total / estatisticas.receitas.quantidade)}
+                    </span>
+                  </div>
+                )}
+                
+                {estatisticas.despesas.quantidade > 0 && (
+                  <div className="extra-stat">
+                    <span className="extra-stat-label">Despesa Média</span>
+                    <span className="extra-stat-value">
+                      {formatCurrency(estatisticas.despesas.total / estatisticas.despesas.quantidade)}
                     </span>
                   </div>
                 )}
@@ -1516,7 +1627,7 @@ const TransacoesPage = () => {
                   <div className="extra-stat">
                     <span className="extra-stat-label">Filtros Aplicados</span>
                     <span className="extra-stat-value">
-                      {Object.values(filters).filter(v => v !== '').length + (groupByCard ? 1 : 0)} ativo(s)
+                      {filtrosAtivos} ativo{filtrosAtivos === 1 ? '' : 's'}
                     </span>
                   </div>
                 )}
