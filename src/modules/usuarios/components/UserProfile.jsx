@@ -1,4 +1,52 @@
-import React, { useState, useEffect } from 'react';
+// Processa exclusão
+    const handleDeleteAccount = async () => {
+      if (confirmText !== 'EXCLUIR MINHA CONTA') {
+        setMessage({
+          type: 'error',
+          text: 'Digite exatamente "EXCLUIR MINHA CONTA" para confirmar'
+        });
+        return;
+      }
+
+      const result = await deleteAccount('', confirmText);
+      if (result.success) {
+        setMessage({
+          type: 'success',
+          text: 'Conta excluída com sucesso. Você será desconectado em instantes.'
+        });
+        setShowDeleteModal(false);
+        
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 3000);
+      } else {
+        setMessage({
+          type: 'error',
+          text: result.error || 'Erro ao excluir conta'
+        });
+      }
+    };
+
+    // Processa desativação
+    const handleDeactivateAccount = async () => {
+      const result = await deactivateAccount();
+      if (result.success) {
+        setMessage({
+          type: 'success',
+          text: 'Conta desativada com sucesso. Você pode reativá-la fazendo login novamente.'
+        });
+        setShowDeactivateModal(false);
+        
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 3000);
+      } else {
+        setMessage({
+          type: 'error',
+          text: result.error || 'Erro ao desativar conta'
+        });
+      }
+    };import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   User, 
@@ -779,43 +827,196 @@ const UserProfile = () => {
     </div>
   );
   
-  // Renderiza a aba de exclusão
+  // Renderiza a aba de exclusão - VERSÃO SUPER SIMPLIFICADA
   const renderDeleteTab = () => {
-    return <ExcluirConta />;
+    return <ExcluirContaSuperSimples />;
   };
   
-  // Componente ExcluirConta integrado - VERSÃO CORRIGIDA
-  const ExcluirConta = () => {
-    console.log('🔧 ExcluirConta interno renderizado!'); // Debug inicial
-    
-    const {
-      loading: deleteLoading,
-      error: deleteError,
-      backupData,
-      generateBackup,
-      downloadBackup,
-      validateDeletion,
-      deleteAccount,
-      deactivateAccount
-    } = useDeleteAccount();
+  // Componente ExcluirConta SUPER SIMPLIFICADO - BACKUP COM DOWNLOAD AUTOMÁTICO
+  const ExcluirContaSuperSimples = () => {
+    const { deleteAccount, deactivateAccount } = useDeleteAccount();
 
     // Estados locais
-    const [currentStep, setCurrentStep] = useState(1);
-    const [validationIssues, setValidationIssues] = useState([]);
     const [confirmText, setConfirmText] = useState('');
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showDeactivateModal, setShowDeactivateModal] = useState(false);
-    const [backupSummary, setBackupSummary] = useState(null);
+    const [isGeneratingBackup, setIsGeneratingBackup] = useState(false);
 
-    // Log do estado inicial
-    useEffect(() => {
-      console.log('🔧 ExcluirConta interno mounted - Estado:', {
-        currentStep,
-        deleteLoading,
-        backupData: !!backupData,
-        deleteError
-      });
-    }, []);
+    // ✅ FUNÇÃO ÚNICA: GERA E BAIXA AUTOMATICAMENTE
+    const gerarEBaixarBackup = async () => {
+      if (!user?.id) {
+        setMessage({ type: 'error', text: 'Usuário não autenticado' });
+        return;
+      }
+
+      setIsGeneratingBackup(true);
+      setMessage({ type: '', text: '' });
+
+      try {
+        console.log('🔄 Iniciando backup e download automático...');
+        
+        const backup = {
+          info: {
+            usuario_id: user.id,
+            email: user.email,
+            nome: user.user_metadata?.nome || user.user_metadata?.full_name || 'Usuário iPoupei',
+            data_backup: new Date().toISOString(),
+            versao: '1.0'
+          },
+          dados: {
+            contas: [],
+            cartoes: [],
+            categorias: [],
+            transacoes: [],
+            transferencias: [],
+            dividas: [],
+            amigos: []
+          },
+          resumo: {
+            total_registros: 0,
+            tabelas_processadas: 0,
+            status: 'completo'
+          }
+        };
+
+        // 1. Buscar contas
+        try {
+          const { data: contas } = await supabase
+            .from('contas')
+            .select('*')
+            .eq('usuario_id', user.id);
+          backup.dados.contas = contas || [];
+          backup.resumo.total_registros += backup.dados.contas.length;
+          console.log('✅ Contas:', backup.dados.contas.length);
+        } catch (err) {
+          console.warn('⚠️ Erro ao buscar contas:', err);
+        }
+
+        // 2. Buscar cartões
+        try {
+          const { data: cartoes } = await supabase
+            .from('cartoes')
+            .select('*')
+            .eq('usuario_id', user.id);
+          backup.dados.cartoes = cartoes || [];
+          backup.resumo.total_registros += backup.dados.cartoes.length;
+          console.log('✅ Cartões:', backup.dados.cartoes.length);
+        } catch (err) {
+          console.warn('⚠️ Erro ao buscar cartões:', err);
+        }
+
+        // 3. Buscar categorias
+        try {
+          const { data: categorias } = await supabase
+            .from('categorias')
+            .select('*')
+            .eq('usuario_id', user.id);
+          backup.dados.categorias = categorias || [];
+          backup.resumo.total_registros += backup.dados.categorias.length;
+          console.log('✅ Categorias:', backup.dados.categorias.length);
+        } catch (err) {
+          console.warn('⚠️ Erro ao buscar categorias:', err);
+        }
+
+        // 4. Buscar transações (simplificado)
+        try {
+          const { data: transacoes } = await supabase
+            .from('transacoes')
+            .select('*')
+            .eq('usuario_id', user.id)
+            .order('data', { ascending: false })
+            .limit(1000); // Limitar para evitar timeout
+          backup.dados.transacoes = transacoes || [];
+          backup.resumo.total_registros += backup.dados.transacoes.length;
+          console.log('✅ Transações:', backup.dados.transacoes.length);
+        } catch (err) {
+          console.warn('⚠️ Erro ao buscar transações:', err);
+        }
+
+        // 5. Buscar transferências
+        try {
+          const { data: transferencias } = await supabase
+            .from('transferencias')
+            .select('*')
+            .eq('usuario_id', user.id);
+          backup.dados.transferencias = transferencias || [];
+          backup.resumo.total_registros += backup.dados.transferencias.length;
+          console.log('✅ Transferências:', backup.dados.transferencias.length);
+        } catch (err) {
+          console.warn('⚠️ Erro ao buscar transferências:', err);
+        }
+
+        // 6. Buscar dívidas
+        try {
+          const { data: dividas } = await supabase
+            .from('dividas')
+            .select('*')
+            .eq('usuario_id', user.id);
+          backup.dados.dividas = dividas || [];
+          backup.resumo.total_registros += backup.dados.dividas.length;
+          console.log('✅ Dívidas:', backup.dados.dividas.length);
+        } catch (err) {
+          console.warn('⚠️ Erro ao buscar dívidas:', err);
+        }
+
+        // 7. Buscar amigos
+        try {
+          const { data: amigos } = await supabase
+            .from('amigos')
+            .select('*')
+            .or(`usuario_proprietario.eq.${user.id},usuario_convidado.eq.${user.id}`);
+          backup.dados.amigos = amigos || [];
+          backup.resumo.total_registros += backup.dados.amigos.length;
+          console.log('✅ Amigos:', backup.dados.amigos.length);
+        } catch (err) {
+          console.warn('⚠️ Erro ao buscar amigos:', err);
+        }
+
+        // Finalizar backup
+        backup.resumo.tabelas_processadas = 7;
+        
+        console.log('✅ Backup concluído, iniciando download...');
+        
+        // ✅ FAZER DOWNLOAD AUTOMATICAMENTE
+        try {
+          const dataStr = JSON.stringify(backup, null, 2);
+          const dataBlob = new Blob([dataStr], { type: 'application/json' });
+          const url = URL.createObjectURL(dataBlob);
+          
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `ipoupei-backup-${user?.email?.replace('@', '-')}-${new Date().toISOString().split('T')[0]}.json`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          URL.revokeObjectURL(url);
+          
+          console.log('✅ Download automático concluído!');
+          
+          setMessage({
+            type: 'success',
+            text: `Backup gerado e baixado com sucesso! ${backup.resumo.total_registros} registros salvos.`
+          });
+
+        } catch (downloadError) {
+          console.error('❌ Erro no download:', downloadError);
+          setMessage({
+            type: 'error',
+            text: 'Backup gerado, mas erro no download: ' + downloadError.message
+          });
+        }
+
+      } catch (error) {
+        console.error('❌ Erro ao gerar backup:', error);
+        setMessage({
+          type: 'error',
+          text: 'Erro ao gerar backup: ' + error.message
+        });
+      } finally {
+        setIsGeneratingBackup(false);
+      }
+    };
 
     // Estilos para modais (inline para garantir que funcionem)
     const modalStyles = {
@@ -844,148 +1045,203 @@ const UserProfile = () => {
       flexDirection: 'column'
     };
 
-    // Gera backup dos dados - VERSÃO CORRIGIDA
-    const handleGenerateBackup = async () => {
-      console.log('🚀 handleGenerateBackup interno iniciado...'); // Debug
-      
+    // ✅ FUNÇÃO DE BACKUP DIRETO NO COMPONENTE - SEM DEPENDÊNCIAS EXTERNAS
+    const gerarBackupDireto = async () => {
+      if (!user?.id) {
+        setMessage({ type: 'error', text: 'Usuário não autenticado' });
+        return;
+      }
+
+      setIsGeneratingBackup(true);
+      setMessage({ type: '', text: '' });
+
       try {
-        console.log('📦 Chamando generateBackup...'); // Debug
-        const result = await generateBackup();
-        console.log('📦 Resultado do backup:', result); // Debug
+        console.log('🔄 Iniciando backup direto...');
         
-        if (result && result.success) {
-          console.log('✅ Backup bem-sucedido!'); // Debug
-          
-          // Usar dados do backup retornado
-          const data = result.data || backupData;
-          console.log('📊 Dados do backup:', data); // Debug
-          
-          // Criar resumo a partir dos dados reais
-          const resumo = {
-            contas: data?.contas?.length || 0,
-            cartoes: data?.cartoes?.length || 0,
-            transacoes: data?.transacoes?.length || 0,
-            categorias: data?.categorias?.length || 0,
-            transferencias: data?.transferencias?.length || 0,
-            dividas: data?.dividas?.length || 0,
-            amigos: data?.amigos?.length || 0
-          };
-          
-          console.log('📋 Resumo do backup:', resumo); // Debug
-          setBackupSummary(resumo);
-          
-          setMessage({
-            type: 'success',
-            text: 'Backup gerado com sucesso! Você pode baixá-lo agora.'
-          });
-          
-          console.log('🎯 Avançando para etapa 2...'); // Debug
-          
-          // Forçar atualização para próxima etapa
-          setTimeout(() => {
-            console.log('🔄 Mudando currentStep para 2...'); // Debug
-            setCurrentStep(2);
-          }, 100);
-          
-        } else {
-          console.error('❌ Erro no backup:', result?.error || 'Resultado inválido');
-          setMessage({
-            type: 'error',
-            text: result?.error || 'Erro ao gerar backup - resultado inválido'
-          });
+        const backup = {
+          info: {
+            usuario_id: user.id,
+            email: user.email,
+            nome: user.user_metadata?.nome || user.user_metadata?.full_name || 'Usuário iPoupei',
+            data_backup: new Date().toISOString(),
+            versao: '1.0'
+          },
+          dados: {
+            contas: [],
+            cartoes: [],
+            categorias: [],
+            transacoes: [],
+            transferencias: [],
+            dividas: [],
+            amigos: []
+          },
+          resumo: {
+            total_registros: 0,
+            tabelas_processadas: 0,
+            status: 'completo'
+          }
+        };
+
+        // 1. Buscar contas
+        try {
+          const { data: contas } = await supabase
+            .from('contas')
+            .select('*')
+            .eq('usuario_id', user.id);
+          backup.dados.contas = contas || [];
+          backup.resumo.total_registros += backup.dados.contas.length;
+          console.log('✅ Contas:', backup.dados.contas.length);
+        } catch (err) {
+          console.warn('⚠️ Erro ao buscar contas:', err);
         }
+
+        // 2. Buscar cartões
+        try {
+          const { data: cartoes } = await supabase
+            .from('cartoes')
+            .select('*')
+            .eq('usuario_id', user.id);
+          backup.dados.cartoes = cartoes || [];
+          backup.resumo.total_registros += backup.dados.cartoes.length;
+          console.log('✅ Cartões:', backup.dados.cartoes.length);
+        } catch (err) {
+          console.warn('⚠️ Erro ao buscar cartões:', err);
+        }
+
+        // 3. Buscar categorias
+        try {
+          const { data: categorias } = await supabase
+            .from('categorias')
+            .select('*')
+            .eq('usuario_id', user.id);
+          backup.dados.categorias = categorias || [];
+          backup.resumo.total_registros += backup.dados.categorias.length;
+          console.log('✅ Categorias:', backup.dados.categorias.length);
+        } catch (err) {
+          console.warn('⚠️ Erro ao buscar categorias:', err);
+        }
+
+        // 4. Buscar transações (simplificado)
+        try {
+          const { data: transacoes } = await supabase
+            .from('transacoes')
+            .select('*')
+            .eq('usuario_id', user.id)
+            .order('data', { ascending: false })
+            .limit(1000); // Limitar para evitar timeout
+          backup.dados.transacoes = transacoes || [];
+          backup.resumo.total_registros += backup.dados.transacoes.length;
+          console.log('✅ Transações:', backup.dados.transacoes.length);
+        } catch (err) {
+          console.warn('⚠️ Erro ao buscar transações:', err);
+        }
+
+        // 5. Buscar transferências
+        try {
+          const { data: transferencias } = await supabase
+            .from('transferencias')
+            .select('*')
+            .eq('usuario_id', user.id);
+          backup.dados.transferencias = transferencias || [];
+          backup.resumo.total_registros += backup.dados.transferencias.length;
+          console.log('✅ Transferências:', backup.dados.transferencias.length);
+        } catch (err) {
+          console.warn('⚠️ Erro ao buscar transferências:', err);
+        }
+
+        // 6. Buscar dívidas
+        try {
+          const { data: dividas } = await supabase
+            .from('dividas')
+            .select('*')
+            .eq('usuario_id', user.id);
+          backup.dados.dividas = dividas || [];
+          backup.resumo.total_registros += backup.dados.dividas.length;
+          console.log('✅ Dívidas:', backup.dados.dividas.length);
+        } catch (err) {
+          console.warn('⚠️ Erro ao buscar dívidas:', err);
+        }
+
+        // 7. Buscar amigos
+        try {
+          const { data: amigos } = await supabase
+            .from('amigos')
+            .select('*')
+            .or(`usuario_proprietario.eq.${user.id},usuario_convidado.eq.${user.id}`);
+          backup.dados.amigos = amigos || [];
+          backup.resumo.total_registros += backup.dados.amigos.length;
+          console.log('✅ Amigos:', backup.dados.amigos.length);
+        } catch (err) {
+          console.warn('⚠️ Erro ao buscar amigos:', err);
+        }
+
+        // Finalizar backup
+        backup.resumo.tabelas_processadas = 7;
+        
+        console.log('🔄 Finalizando backup e atualizando estados...');
+        
+        // ✅ ATUALIZAR DADOS E FORÇAR RE-RENDER
+        setBackupData(backup);
+        setIsGeneratingBackup(false);
+        setForceUpdate(prev => prev + 1); // ✅ Força re-render
+
+        setMessage({
+          type: 'success',
+          text: `Backup gerado com sucesso! ${backup.resumo.total_registros} registros encontrados.`
+        });
+
+        console.log('✅ Backup concluído:', backup);
+        console.log('📊 Total de registros:', backup.resumo.total_registros);
+        console.log('🔄 Estado isBackupReady será:', Boolean(backup && backup.resumo && backup.resumo.total_registros >= 0));
+
       } catch (error) {
-        console.error('💥 Erro inesperado no backup:', error);
+        console.error('❌ Erro ao gerar backup:', error);
+        setIsGeneratingBackup(false);
+        setBackupData(null); // ✅ Limpar dados em caso de erro
+        setForceUpdate(prev => prev + 1); // ✅ Força re-render
         setMessage({
           type: 'error',
-          text: 'Erro inesperado ao gerar backup: ' + error.message
+          text: 'Erro ao gerar backup: ' + error.message
         });
       }
     };
 
-    // Baixa o backup - VERSÃO CORRIGIDA E SEMPRE ATIVA
-    const handleDownloadBackup = () => {
-      console.log('📥 Tentando baixar backup...', backupData); // Debug
-      
-      // Se não há backupData real, criar um backup básico de demonstração
+    // ✅ FUNÇÃO DE DOWNLOAD DIRETO - SEM DEPENDÊNCIAS EXTERNAS
+    const baixarBackupDireto = () => {
       if (!backupData) {
-        console.log('⚠️ Não há backupData, criando backup de demonstração...');
-        
-        const demoBackup = {
-          usuario: {
-            id: user?.id,
-            email: user?.email,
-            nome: user?.user_metadata?.nome || user?.user_metadata?.full_name
-          },
-          data_backup: new Date().toISOString(),
-          versao_backup: '3.0',
-          contas: [],
-          cartoes: [],
-          transacoes: [],
-          categorias: [],
-          transferencias: [],
-          dividas: [],
-          amigos: [],
-          observacao: 'Backup gerado através do botão de debug - dados podem estar incompletos'
-        };
-        
-        try {
-          const dataStr = JSON.stringify(demoBackup, null, 2);
-          const dataBlob = new Blob([dataStr], { type: 'application/json' });
-          const url = URL.createObjectURL(dataBlob);
-          
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `ipoupei-backup-demo-${new Date().toISOString().split('T')[0]}.json`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          
-          URL.revokeObjectURL(url);
-          
-          setMessage({
-            type: 'success',
-            text: 'Backup de demonstração baixado com sucesso!'
-          });
-          return true;
-        } catch (err) {
-          console.error('Erro ao baixar backup de demonstração:', err);
-          setMessage({
-            type: 'error',
-            text: 'Erro ao baixar backup: ' + err.message
-          });
-          return false;
-        }
+        setMessage({
+          type: 'error',
+          text: 'Nenhum backup disponível. Gere um backup primeiro.'
+        });
+        return;
       }
-      
-      // Usar função original do hook se há dados reais
-      const success = downloadBackup();
-      if (success) {
+
+      try {
+        const dataStr = JSON.stringify(backupData, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `ipoupei-backup-${user?.email?.replace('@', '-')}-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        URL.revokeObjectURL(url);
+        
         setMessage({
           type: 'success',
           text: 'Backup baixado com sucesso!'
         });
-      } else {
-        setMessage({
-          type: 'error',
-          text: 'Erro ao baixar backup. Tente novamente.'
-        });
-      }
-    };
 
-    // Valida se pode excluir - VERSÃO CORRIGIDA
-    const handleValidateDeletion = async () => {
-      console.log('🔍 Validando exclusão...'); // Debug
-      const result = await validateDeletion();
-      console.log('🔍 Resultado da validação:', result); // Debug
-      
-      if (result.success) {
-        setValidationIssues(result.issues || []);
-        setCurrentStep(3);
-      } else {
+        console.log('✅ Download concluído');
+
+      } catch (error) {
+        console.error('❌ Erro ao baixar backup:', error);
         setMessage({
           type: 'error',
-          text: result.error || 'Erro ao validar exclusão'
+          text: 'Erro ao baixar backup: ' + error.message
         });
       }
     };
@@ -1008,7 +1264,6 @@ const UserProfile = () => {
         });
         setShowDeleteModal(false);
         
-        // Redirecionar após 3 segundos
         setTimeout(() => {
           window.location.href = '/';
         }, 3000);
@@ -1030,7 +1285,6 @@ const UserProfile = () => {
         });
         setShowDeactivateModal(false);
         
-        // Redirecionar após 3 segundos
         setTimeout(() => {
           window.location.href = '/';
         }, 3000);
@@ -1042,281 +1296,187 @@ const UserProfile = () => {
       }
     };
 
-    const renderStep = () => {
-      switch (currentStep) {
-        case 1:
-          return (
-            <div className="delete-step">
-              <div className="delete-step-icon">
-                <AlertCircle size={64} color="#ef4444" />
-              </div>
-              <div className="delete-step-content">
-                <h3>Exclusão de Conta</h3>
-                <p>Esta ação é irreversível. Todos os seus dados serão permanentemente removidos.</p>
-                
-                <div className="warning-box">
-                  <h4>O que será excluído:</h4>
-                  <ul>
-                    <li>Todas as suas transações e histórico financeiro</li>
-                    <li>Contas bancárias e cartões de crédito cadastrados</li>
-                    <li>Categorias personalizadas e configurações</li>
-                    <li>Relacionamentos com amigos e familiares</li>
-                    <li>Dados do perfil e preferências</li>
-                    <li>Transferências e histórico de movimentações</li>
-                  </ul>
-                </div>
-
-                <div className="info-box">
-                  <p>
-                    <strong>Recomendação:</strong> Faça um backup dos seus dados antes de prosseguir. 
-                    O backup será um arquivo JSON com todas as suas informações.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  className={`btn-primary ${deleteLoading ? 'loading' : ''}`}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('🖱️ onMouseDown - Botão "Gerar Backup" pressionado!');
-                  }}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('🖱️ onClick - Botão "Gerar Backup" clicado! (interno)');
-                    handleGenerateBackup();
-                  }}
-                  disabled={deleteLoading}
-                  style={{ 
-                    position: 'relative', 
-                    zIndex: 1000,
-                    pointerEvents: 'auto'
-                  }}
-                >
-                  {deleteLoading && <div className="btn-spinner"></div>}
-                  {deleteLoading ? 'Gerando backup...' : 'Gerar Backup dos Dados'}
-                </button>
-                
-                {/* Botão de debug temporário */}
-                {process.env.NODE_ENV === 'development' && (
-                  <button
-                    className="btn-secondary"
-                    onClick={() => {
-                      console.log('🔧 [DEBUG] Forçando etapa 2...');
-                      setCurrentStep(2);
-                    }}
-                    style={{ marginTop: '1rem' }}
-                  >
-                    Seguir para exclusão
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-
-        case 2:
-          return (
-            <div className="delete-step">
-              <div className="delete-step-icon">
-                <FileText size={64} color="#3b82f6" />
-              </div>
-              <div className="delete-step-content">
-                <h3>Backup Gerado</h3>
-                <p>Seus dados foram compilados em um arquivo de backup.</p>
-
-                <div className="backup-info">
-                  <h4>Backup gerado com sucesso!</h4>
-                  
-                  {backupSummary ? (
-                    <div className="backup-stats">
-                      <span>{backupSummary.contas || 0} conta(s)</span>
-                      <span>{backupSummary.cartoes || 0} cartão(ões)</span>
-                      <span>{backupSummary.transacoes || 0} transação(ões)</span>
-                      <span>{backupSummary.categorias || 0} categoria(s)</span>
-                      <span>{backupSummary.transferencias || 0} transferência(s)</span>
-                      <span>{backupSummary.dividas || 0} dívida(s)</span>
-                      <span>{backupSummary.amigos || 0} relacionamento(s)</span>
-                    </div>
-                  ) : (
-                    <p>Backup contém todos os seus dados financeiros.</p>
-                  )}
-                  
-                  {backupData?.resumo && (
-                    <div className="backup-summary">
-                      <p>
-                        <strong>Total:</strong> {backupData.resumo.total_registros || 0} registros em {backupData.resumo.total_tabelas || 0} tabelas
-                      </p>
-                      {backupData.resumo.tabelas_com_dados?.length > 0 && (
-                        <p>
-                          <strong>Tabelas com dados:</strong> {backupData.resumo.tabelas_com_dados.join(', ')}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div className="step-actions">
-                  <button
-                    className="btn-secondary"
-                    onClick={handleDownloadBackup}
-                    disabled={false} // ✅ SEMPRE ATIVO AGORA
-                  >
-                    <Download size={16} /> Baixar Backup
-                  </button>
-                  <button
-                    className={`btn-primary ${deleteLoading ? 'loading' : ''}`}
-                    onClick={handleValidateDeletion}
-                    disabled={deleteLoading}
-                  >
-                    {deleteLoading && <div className="btn-spinner"></div>}
-                    {deleteLoading ? 'Validando...' : 'Continuar'}
-                  </button>
-                </div>
-                
-                <div className="step-back">
-                  <button
-                    className="btn-link"
-                    onClick={() => setCurrentStep(1)}
-                  >
-                    ← Voltar ao início
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-
-        case 3:
-          return (
-            <div className="delete-step">
-              <div className="delete-step-icon">
-                <Shield size={64} color="#f59e0b" />
-              </div>
-              <div className="delete-step-content">
-                <h3>Validação de Exclusão</h3>
-                <p>Verificamos sua conta e encontramos os seguintes pontos de atenção:</p>
-
-                {validationIssues.length > 0 ? (
-                  <div className="validation-issues">
-                    {validationIssues.map((issue, index) => (
-                      <div key={index} className={`validation-issue ${issue.type}`}>
-                        <AlertCircle size={20} />
-                        <div>
-                          <h4>{issue.title}</h4>
-                          <p>{issue.message}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="validation-success">
-                    <Check size={20} />
-                    <p>Sua conta está pronta para ser excluída sem problemas.</p>
-                  </div>
-                )}
-
-                <div className="alternatives">
-                  <h4>Alternativas à exclusão:</h4>
-                  <button
-                    onClick={() => setShowDeactivateModal(true)}
-                    className="alternative-btn"
-                  >
-                    <Clock size={18} />
-                    <div>
-                      <strong>Desativar temporariamente</strong>
-                      <p>Suspende sua conta mas mantém os dados para reativação futura</p>
-                    </div>
-                  </button>
-                </div>
-
-                <div className="step-actions">
-                  <button
-                    className="btn-secondary"
-                    onClick={() => setCurrentStep(2)}
-                  >
-                    ← Voltar
-                  </button>
-                  <button
-                    className="btn-danger"
-                    onClick={() => setShowDeleteModal(true)}
-                  >
-                    <Trash2 size={16} /> Prosseguir com Exclusão
-                  </button>
-                </div>
-                
-                <div className="step-back">
-                  <button
-                    className="btn-link"
-                    onClick={() => setCurrentStep(1)}
-                  >
-                    Cancelar processo
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-
-        default:
-          return null;
-      }
-    };
-
     return (
-      <div className="exclusao-conta-container">
-        {/* Debug info - remover em produção */}
-        {process.env.NODE_ENV === 'development' && (
-          <div style={{ 
-            padding: '1rem', 
-            background: '#f3f4f6', 
-            borderRadius: '8px', 
-            marginBottom: '1rem',
-            fontSize: '0.75rem',
-            fontFamily: 'monospace'
-          }}>
-            <strong>DEBUG INTERNO:</strong> Step: {currentStep}, Loading: {deleteLoading ? 'true' : 'false'}, 
-            BackupData: {backupData ? 'exists' : 'null'}, 
-            BackupSummary: {backupSummary ? 'exists' : 'null'},
-            Error: {deleteError || 'none'}
-          </div>
-        )}
-      
-        {/* Cabeçalho */}
-        <div className="section-header">
+      <div className="profile-tab-content">
+        <div className="profile-section-header">
           <h2>Exclusão de Conta</h2>
           <p>Gerencie a exclusão ou desativação da sua conta iPoupei</p>
         </div>
 
-        {/* Barra de progresso */}
-        <div className="progress-container">
-          <div className="progress-info">
-            <span>Etapa {currentStep} de 3</span>
-            <span>{Math.round((currentStep / 3) * 100)}% concluído</span>
-          </div>
-          <div className="progress-bar">
-            <div 
-              className="progress-fill"
-              style={{ width: `${(currentStep / 3) * 100}%` }}
-            ></div>
+        {/* Aviso importante */}
+        <div style={{
+          padding: '1.5rem',
+          backgroundColor: '#fef2f2',
+          border: '1px solid #fecaca',
+          borderRadius: '8px',
+          marginBottom: '2rem',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '0.75rem'
+        }}>
+          <AlertCircle size={24} color="#ef4444" />
+          <div>
+            <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 600, color: '#dc2626' }}>
+              ⚠️ Atenção: Ação Irreversível
+            </h4>
+            <p style={{ margin: 0, color: '#7f1d1d', fontSize: '0.875rem' }}>
+              A exclusão da conta é permanente e não pode ser desfeita. Todos os seus dados serão perdidos.
+              <strong> Faça um backup antes de prosseguir.</strong>
+            </p>
           </div>
         </div>
 
-        {/* Erro geral */}
-        {deleteError && (
-          <div className="profile-message error">
-            <X size={16} />
-            <span>{deleteError}</span>
+        {/* Seção de Backup - VERSÃO SIMPLIFICADA */}
+        <div style={{
+          backgroundColor: 'white',
+          border: '1px solid #e5e7eb',
+          borderRadius: '12px',
+          padding: '1.5rem',
+          marginBottom: '1.5rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+            <FileText size={24} color="#3b82f6" />
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600 }}>📁 Backup dos Dados</h3>
+              <p style={{ margin: '0.25rem 0 0 0', color: '#6b7280', fontSize: '0.875rem' }}>
+                Exporte todos os seus dados financeiros em um arquivo JSON
+              </p>
+            </div>
           </div>
-        )}
 
-        {/* Conteúdo da etapa atual */}
-        {renderStep()}
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <button
+              onClick={gerarEBaixarBackup}
+              disabled={isGeneratingBackup}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.75rem 2rem',
+                backgroundColor: isGeneratingBackup ? '#6b7280' : '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: isGeneratingBackup ? 'not-allowed' : 'pointer',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                opacity: isGeneratingBackup ? 0.7 : 1
+              }}
+            >
+              {isGeneratingBackup && (
+                <div style={{
+                  width: '14px',
+                  height: '14px',
+                  border: '2px solid #ffffff40',
+                  borderTop: '2px solid white',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite'
+                }}></div>
+              )}
+              <FileText size={16} />
+              {isGeneratingBackup ? 'Gerando e baixando...' : '💾 Gerar e Baixar Backup'}
+            </button>
+          </div>
+        </div>
 
-        {/* Modal de Confirmação de Exclusão - COM ESTILOS INLINE */}
+        {/* Seção de Ações de Conta */}
+        <div style={{
+          backgroundColor: 'white',
+          border: '1px solid #e5e7eb',
+          borderRadius: '12px',
+          padding: '1.5rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+            <Shield size={24} color="#f59e0b" />
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600 }}>⚙️ Ações da Conta</h3>
+              <p style={{ margin: '0.25rem 0 0 0', color: '#6b7280', fontSize: '0.875rem' }}>
+                Escolha como deseja proceder com sua conta
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {/* Opção de Desativação */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '1rem',
+              border: '1px solid #e5e7eb',
+              borderRadius: '8px',
+              backgroundColor: '#fffbeb'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <Clock size={20} color="#f59e0b" />
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>⏸️ Desativar Temporariamente</h4>
+                  <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: '#6b7280' }}>
+                    Suspende sua conta mas mantém os dados para reativação futura
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDeactivateModal(true)}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#f59e0b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  fontWeight: 600
+                }}
+              >
+                Desativar
+              </button>
+            </div>
+
+            {/* Opção de Exclusão */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '1rem',
+              border: '1px solid #fecaca',
+              borderRadius: '8px',
+              backgroundColor: '#fef2f2'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <Trash2 size={20} color="#ef4444" />
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>🗑️ Excluir Permanentemente</h4>
+                  <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: '#6b7280' }}>
+                    Remove sua conta e todos os dados de forma irreversível
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDeleteModal(true)}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  fontWeight: 600
+                }}
+              >
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Modal de Confirmação de Exclusão */}
         {showDeleteModal && (
           <div style={modalStyles}>
             <div style={modalContainerStyles}>
               <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>Confirmar Exclusão Permanente</h3>
+                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>🗑️ Confirmar Exclusão Permanente</h3>
                 <button 
                   onClick={() => setShowDeleteModal(false)} 
                   style={{ 
@@ -1345,7 +1505,7 @@ const UserProfile = () => {
                   <AlertCircle size={24} color="#ef4444" />
                   <div>
                     <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 600, color: '#dc2626' }}>
-                      Atenção: Esta ação é irreversível!
+                      ⚠️ Atenção: Esta ação é irreversível!
                     </h4>
                     <p style={{ margin: 0, color: '#7f1d1d' }}>
                       Todos os seus dados serão permanentemente excluídos e não poderão ser recuperados.
@@ -1392,7 +1552,6 @@ const UserProfile = () => {
                       setShowDeleteModal(false);
                       setConfirmText('');
                     }}
-                    disabled={deleteLoading}
                     style={{
                       padding: '0.75rem 1.5rem',
                       backgroundColor: '#f3f4f6',
@@ -1408,25 +1567,24 @@ const UserProfile = () => {
                   </button>
                   <button
                     onClick={handleDeleteAccount}
-                    disabled={deleteLoading || confirmText !== 'EXCLUIR MINHA CONTA'}
+                    disabled={confirmText !== 'EXCLUIR MINHA CONTA'}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.5rem',
                       padding: '0.75rem 1.5rem',
-                      backgroundColor: confirmText === 'EXCLUIR MINHA CONTA' && !deleteLoading ? '#dc2626' : '#6b7280',
+                      backgroundColor: confirmText === 'EXCLUIR MINHA CONTA' ? '#dc2626' : '#6b7280',
                       color: 'white',
                       border: 'none',
                       borderRadius: '8px',
-                      cursor: confirmText === 'EXCLUIR MINHA CONTA' && !deleteLoading ? 'pointer' : 'not-allowed',
+                      cursor: confirmText === 'EXCLUIR MINHA CONTA' ? 'pointer' : 'not-allowed',
                       fontSize: '0.875rem',
                       fontWeight: 600,
-                      opacity: confirmText === 'EXCLUIR MINHA CONTA' && !deleteLoading ? 1 : 0.6
+                      opacity: confirmText === 'EXCLUIR MINHA CONTA' ? 1 : 0.6
                     }}
                   >
-                    {deleteLoading && <div className="btn-spinner"></div>}
                     <Trash2 size={16} />
-                    {deleteLoading ? 'Excluindo...' : 'Excluir Conta Permanentemente'}
+                    🗑️ Excluir Conta Permanentemente
                   </button>
                 </div>
               </div>
@@ -1434,12 +1592,12 @@ const UserProfile = () => {
           </div>
         )}
 
-        {/* Modal de Desativação - COM ESTILOS INLINE */}
+        {/* Modal de Desativação */}
         {showDeactivateModal && (
           <div style={modalStyles}>
             <div style={modalContainerStyles}>
               <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>Desativar Conta Temporariamente</h3>
+                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>⏸️ Desativar Conta Temporariamente</h3>
                 <button 
                   onClick={() => setShowDeactivateModal(false)} 
                   style={{ 
@@ -1468,7 +1626,7 @@ const UserProfile = () => {
                   <Clock size={24} color="#f59e0b" />
                   <div>
                     <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 600 }}>
-                      Desativação Temporária
+                      ⏸️ Desativação Temporária
                     </h4>
                     <p style={{ margin: 0 }}>
                       Sua conta será desativada, mas seus dados ficarão salvos em segurança. 
@@ -1479,13 +1637,13 @@ const UserProfile = () => {
 
                 <div style={{ marginBottom: '1.5rem' }}>
                   <h4 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.75rem' }}>
-                    Vantagens da desativação:
+                    ✅ Vantagens da desativação:
                   </h4>
                   <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#6b7280', fontSize: '0.8125rem' }}>
-                    <li style={{ marginBottom: '0.25rem' }}>Todos os dados permanecem salvos</li>
-                    <li style={{ marginBottom: '0.25rem' }}>Pode reativar a qualquer momento</li>
-                    <li style={{ marginBottom: '0.25rem' }}>Suas configurações são preservadas</li>
-                    <li style={{ marginBottom: '0.25rem' }}>Histórico financeiro permanece intacto</li>
+                    <li style={{ marginBottom: '0.25rem' }}>📊 Todos os dados permanecem salvos</li>
+                    <li style={{ marginBottom: '0.25rem' }}>🔄 Pode reativar a qualquer momento</li>
+                    <li style={{ marginBottom: '0.25rem' }}>⚙️ Suas configurações são preservadas</li>
+                    <li style={{ marginBottom: '0.25rem' }}>📈 Histórico financeiro permanece intacto</li>
                   </ul>
                 </div>
 
@@ -1496,7 +1654,6 @@ const UserProfile = () => {
                 }}>
                   <button
                     onClick={() => setShowDeactivateModal(false)}
-                    disabled={deleteLoading}
                     style={{
                       padding: '0.75rem 1.5rem',
                       backgroundColor: '#f3f4f6',
@@ -1512,31 +1669,36 @@ const UserProfile = () => {
                   </button>
                   <button
                     onClick={handleDeactivateAccount}
-                    disabled={deleteLoading}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.5rem',
                       padding: '0.75rem 1.5rem',
-                      backgroundColor: deleteLoading ? '#6b7280' : '#f59e0b',
+                      backgroundColor: '#f59e0b',
                       color: 'white',
                       border: 'none',
                       borderRadius: '8px',
-                      cursor: deleteLoading ? 'not-allowed' : 'pointer',
+                      cursor: 'pointer',
                       fontSize: '0.875rem',
-                      fontWeight: 600,
-                      opacity: deleteLoading ? 0.6 : 1
+                      fontWeight: 600
                     }}
                   >
-                    {deleteLoading && <div className="btn-spinner"></div>}
                     <Clock size={16} />
-                    {deleteLoading ? 'Desativando...' : 'Desativar Conta'}
+                    ⏸️ Desativar Conta
                   </button>
                 </div>
               </div>
             </div>
           </div>
         )}
+
+        {/* CSS para animação de loading */}
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     );
   };

@@ -1,5 +1,5 @@
 // src/modules/cartoes/components/ModalPagamentoFatura.jsx
-// ✅ COMPLETO: Pagamento Integral + Parcial + Parcelado
+// ✅ REFATORADO: Ajustado para trabalhar com a nova lógica de pagamento
 
 import React, { useState, useEffect } from 'react';
 import { 
@@ -120,6 +120,7 @@ const ModalPagamentoFatura = ({
 
   const contasAtivas = contas.filter(conta => conta.ativo);
 
+  // ✅ FUNÇÃO REFATORADA: handleConfirmar - Nova lógica de pagamento
   const handleConfirmar = async () => {
     if (!faturaVencimento) {
       setError('Data de vencimento da fatura não encontrada');
@@ -136,7 +137,14 @@ const ModalPagamentoFatura = ({
 
       switch (tipoPagamento) {
         case 'integral':
-          resultado = await pagarFatura(cartao.id, faturaVencimento, valorFatura || 0, dataPagamento);
+          // ✅ NOVA LÓGICA: Passa conta selecionada para efetivação
+          resultado = await pagarFatura(
+            cartao.id, 
+            faturaVencimento, 
+            valorFatura || 0, 
+            dataPagamento,
+            contaSelecionada // ✅ Conta que fará o pagamento
+          );
           break;
           
         case 'parcial':
@@ -148,6 +156,7 @@ const ModalPagamentoFatura = ({
             setError('Selecione a fatura de destino para o saldo restante');
             return;
           }
+          // ✅ NOVA LÓGICA: Estorno + efetivação + nova despesa
           resultado = await pagarFaturaParcial(
             cartao.id, 
             faturaVencimento, 
@@ -155,6 +164,7 @@ const ModalPagamentoFatura = ({
             valorPagar,
             faturaDestinoRestante,
             dataPagamento,
+            contaSelecionada, // ✅ Conta que fará o pagamento
             cartao
           );
           break;
@@ -168,6 +178,7 @@ const ModalPagamentoFatura = ({
             setError('Número de parcelas deve ser entre 2 e 60');
             return;
           }
+          // ✅ NOVA LÓGICA: Estorno + efetivação + parcelas
           resultado = await pagarFaturaParcelado(
             cartao.id,
             faturaVencimento,
@@ -176,6 +187,7 @@ const ModalPagamentoFatura = ({
             valorParcela,
             faturaInicialVencimento,
             dataPagamento,
+            contaSelecionada, // ✅ Conta que fará o pagamento
             cartao
           );
           break;
@@ -186,16 +198,47 @@ const ModalPagamentoFatura = ({
       }
 
       if (resultado.success) {
+        // ✅ NOVA LÓGICA: Diferentes tipos de sucesso
+        let mensagemSucesso = '';
+        
+        switch (tipoPagamento) {
+          case 'integral':
+            mensagemSucesso = `Fatura paga integralmente! ${resultado.transacoes_afetadas} transações efetivadas.`;
+            break;
+          case 'parcial':
+            mensagemSucesso = `Pagamento parcial realizado! Valor pago: ${formatCurrency(valorPagar)}. Saldo restante transferido para próxima fatura.`;
+            break;
+          case 'parcelado':
+            mensagemSucesso = `Fatura parcelada em ${numeroParcelas}x! Parcelas criadas nas próximas faturas.`;
+            break;
+        }
+        
+        console.log('✅ Pagamento realizado com nova lógica:', {
+          tipo: tipoPagamento,
+          resultado,
+          mensagem: mensagemSucesso
+        });
+        
         onSuccess && onSuccess();
         onClose();
+      } else {
+        throw new Error(resultado.error || 'Erro desconhecido no pagamento');
       }
     } catch (err) {
+      console.error('❌ Erro no pagamento:', err);
       setError(`Erro inesperado: ${err.message}`);
     }
   };
 
   const contaEscolhida = contasAtivas.find(c => c.id === contaSelecionada);
+
+  // ✅ CÁLCULOS AJUSTADOS PARA NOVA LÓGICA
   const valorPagarFinal = tipoPagamento === 'parcial' ? valorPagar : (valorFatura || 0);
+  
+  // Para pagamento parcial: mostrar que o valor total será efetivado, mas só o valor parcial sairá da conta
+  const valorRealDebito = tipoPagamento === 'parcial' ? valorPagar : 
+                         tipoPagamento === 'parcelado' ? 0 : // Parcelado = 0 (estorno total)
+                         valorFatura || 0; // Integral = valor total
 
   // Formatação do período para exibição
   const periodoExibicao = React.useMemo(() => {
@@ -239,7 +282,7 @@ const ModalPagamentoFatura = ({
             </div>
             <div>
               <h2 className="modal-title">Pagar Fatura</h2>
-              <p className="modal-subtitle">Efetive o pagamento da fatura do cartão</p>
+              <p className="modal-subtitle">✅ Nova lógica: Efetivação + Estornos de balanceamento</p>
             </div>
           </div>
           <button className="modal-close" onClick={onClose}>×</button>
@@ -348,9 +391,11 @@ const ModalPagamentoFatura = ({
                   <div className="confirmation-item">
                     <AlertTriangle size={16} style={{ color: '#F59E0B', marginRight: '8px' }} />
                     <div>
-                      <strong>⚠️ Atenção: Juros de cartão de crédito podem ser devastadores. O ideal é pagar o total.</strong>
+                      <strong>✅ Nova lógica aplicada:</strong>
                       <p style={{ marginTop: '4px', fontSize: '14px' }}>
-                        Saldo restante: {formatCurrency((valorFatura || 0) - valorPagar)} será transferido para a fatura selecionada.
+                        • Todas as transações serão efetivadas ({formatCurrency(valorFatura || 0)})<br/>
+                        • Estorno automático será criado ({formatCurrency((valorFatura || 0) - valorPagar)})<br/>
+                        • Saldo real debitado da conta: {formatCurrency(valorPagar)}
                       </p>
                     </div>
                   </div>
@@ -378,7 +423,7 @@ const ModalPagamentoFatura = ({
                   </select>
                 </div>
                 <p className="form-hint">
-                  O saldo de {formatCurrency((valorFatura || 0) - valorPagar)} será adicionado à fatura selecionada
+                  Nova despesa de {formatCurrency((valorFatura || 0) - valorPagar)} será criada na fatura selecionada
                 </p>
               </div>
             </div>
@@ -421,50 +466,42 @@ const ModalPagamentoFatura = ({
                 <p className="form-hint">Digite o valor exato oferecido pelo banco para cada parcela</p>
               </div>
 
-              {/* Análise de Impacto Financeiro */}
+              {/* Nova explicação da lógica parcelada */}
               {valorParcela > 0 && numeroParcelas > 0 && (
                 <div className="summary-panel warning">
-                  <h4 style={{ color: '#DC2626', marginBottom: '12px', fontSize: '16px' }}>
-                    📊 Análise de Impacto Financeiro
+                  <h4 style={{ color: '#10B981', marginBottom: '12px', fontSize: '16px' }}>
+                    ✅ Nova Lógica de Parcelamento
                   </h4>
                   <div className="confirmation-info">
                     <div className="confirmation-item">
-                      <strong>Sua fatura original:</strong> {formatCurrency(valorFatura || 0)} (pagamento à vista)
+                      <strong>1. Efetivação:</strong> Todas as transações da fatura ({formatCurrency(valorFatura || 0)}) serão efetivadas
                     </div>
                     <div className="confirmation-item">
-                      <strong>Parcelamento escolhido:</strong> {numeroParcelas}x de {formatCurrency(valorParcela)}
+                      <strong>2. Estorno:</strong> Valor total ({formatCurrency(valorFatura || 0)}) será estornado
                     </div>
                     <div className="confirmation-item">
-                      <strong>Valor total a pagar:</strong> 
-                      <span style={{ color: '#DC2626', fontWeight: 'bold', marginLeft: '8px' }}>
-                        {formatCurrency(valorTotalParcelado)}
-                      </span>
+                      <strong>3. Parcelas:</strong> {numeroParcelas}x de {formatCurrency(valorParcela)} nas próximas faturas
                     </div>
                     <div className="confirmation-item">
-                      <strong>Prejuízo total:</strong> 
-                      <span style={{ color: '#DC2626', fontWeight: 'bold', marginLeft: '8px' }}>
-                        {formatCurrency(prejuizoParcelamento)} ({percentualPrejuizo.toFixed(1)}% a mais)
-                      </span>
+                      <strong>4. Resultado:</strong> R$ 0,00 será debitado da conta hoje
                     </div>
                   </div>
                   
-                  {prejuizoParcelamento > 0 && (
-                    <div style={{ 
-                      marginTop: '12px', 
-                      padding: '12px', 
-                      backgroundColor: '#FEF2F2', 
-                      borderRadius: '8px',
-                      border: '1px solid #FECACA' 
-                    }}>
-                      <AlertTriangle size={16} style={{ color: '#DC2626', marginBottom: '8px' }} />
-                      <p style={{ fontSize: '14px', color: '#DC2626', fontWeight: '600', marginBottom: '4px' }}>
-                        ⚠️ ATENÇÃO: Você pagará {formatCurrency(prejuizoParcelamento)} a mais!
-                      </p>
-                      <p style={{ fontSize: '13px', color: '#991B1B' }}>
-                        Parcelar a fatura pode levar a um ciclo de dívidas. Se possível, quite o valor à vista de {formatCurrency(valorFatura || 0)}.
-                      </p>
-                    </div>
-                  )}
+                  <div style={{ 
+                    marginTop: '12px', 
+                    padding: '12px', 
+                    backgroundColor: '#FEF2F2', 
+                    borderRadius: '8px',
+                    border: '1px solid #FECACA' 
+                  }}>
+                    <AlertTriangle size={16} style={{ color: '#DC2626', marginBottom: '8px' }} />
+                    <p style={{ fontSize: '14px', color: '#DC2626', fontWeight: '600', marginBottom: '4px' }}>
+                      ⚠️ ATENÇÃO: Você pagará {formatCurrency(prejuizoParcelamento)} a mais!
+                    </p>
+                    <p style={{ fontSize: '13px', color: '#991B1B' }}>
+                      Total a pagar: {formatCurrency(valorTotalParcelado)} vs. Valor original: {formatCurrency(valorFatura || 0)}
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -487,18 +524,6 @@ const ModalPagamentoFatura = ({
                       </option>
                     ))}
                   </select>
-                </div>
-              </div>
-
-              <div className="summary-panel warning">
-                <div className="confirmation-item">
-                  <AlertTriangle size={16} style={{ color: '#F59E0B', marginRight: '8px' }} />
-                  <div>
-                    <strong>⚠️ Confirme os dados do parcelamento antes de prosseguir.</strong>
-                    <p style={{ marginTop: '4px', fontSize: '14px' }}>
-                      As {numeroParcelas} parcelas de {formatCurrency(valorParcela)} serão criadas como novas despesas no cartão.
-                    </p>
-                  </div>
                 </div>
               </div>
             </>
@@ -526,126 +551,27 @@ const ModalPagamentoFatura = ({
               </select>
             </div>
             
-            {contaEscolhida && tipoPagamento !== 'parcelado' && (
+            {/* ✅ NOVA INFORMAÇÃO: Saldo após pagamento com nova lógica */}
+            {contaEscolhida && (
               <div className="confirmation-info-box">
                 <AlertCircle size={16} />
                 <div>
-                  <p><strong>Saldo após pagamento:</strong> {formatCurrency(contaEscolhida.saldo - valorPagarFinal)}</p>
-                  {(contaEscolhida.saldo - valorPagarFinal) < 0 && (
+                  <p><strong>Valor que será debitado:</strong> {formatCurrency(valorRealDebito)}</p>
+                  <p><strong>Saldo após pagamento:</strong> {formatCurrency(contaEscolhida.saldo - valorRealDebito)}</p>
+                  {(contaEscolhida.saldo - valorRealDebito) < 0 && (
                     <p style={{ color: '#DC2626', fontWeight: 600, marginTop: '4px' }}>
                       ⚠️ Atenção: Saldo ficará negativo
+                    </p>
+                  )}
+                  {tipoPagamento === 'parcelado' && (
+                    <p style={{ color: '#10B981', fontSize: '14px', marginTop: '4px' }}>
+                      ✅ Parcelado: R$ 0,00 será debitado hoje
                     </p>
                   )}
                 </div>
               </div>
             )}
-
-            {contaEscolhida && tipoPagamento === 'parcelado' && (
-              <div className="confirmation-info-box">
-                <AlertCircle size={16} />
-                <div>
-                  <p><strong>Informação:</strong> O parcelamento será criado como novas despesas no cartão.</p>
-                  <p style={{ fontSize: '14px', marginTop: '4px' }}>
-                    A conta selecionada será utilizada apenas para referência do pagamento da fatura atual.
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
-
-          {/* Resumo do Pagamento */}
-          {(tipoPagamento === 'parcial' || tipoPagamento === 'parcelado') && (
-            <div className="summary-panel">
-              <h3 className="summary-title">Resumo do Pagamento</h3>
-              <div className="confirmation-info">
-                {tipoPagamento === 'parcial' && (
-                  <>
-                    <div className="confirmation-item">
-                      <strong>Data do pagamento:</strong> {new Date(dataPagamento).toLocaleDateString('pt-BR')}
-                    </div>
-                    <div className="confirmation-item">
-                      <strong>Valor a pagar agora:</strong> {formatCurrency(valorPagar)}
-                    </div>
-                    <div className="confirmation-item">
-                      <strong>Saldo restante:</strong> 
-                      <span style={{ color: '#DC3545' }}>
-                        {formatCurrency((valorFatura || 0) - valorPagar)}
-                      </span>
-                    </div>
-                    <div className="confirmation-item">
-                      <strong>Fatura de destino:</strong> {faturaDestinoRestante ? 
-                        new Date(faturaDestinoRestante).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }) : 
-                        'Não selecionada'
-                      }
-                    </div>
-                    <div className="confirmation-item" style={{ fontSize: '14px', color: '#666' }}>
-                      O saldo restante será automaticamente transferido para a fatura selecionada.
-                    </div>
-                  </>
-                )}
-                
-                {tipoPagamento === 'parcelado' && (
-                  <>
-                    <div className="confirmation-item">
-                      <strong>Data do pagamento:</strong> {new Date(dataPagamento).toLocaleDateString('pt-BR')}
-                    </div>
-                    <div className="confirmation-item">
-                      <strong>Valor total:</strong> {formatCurrency(valorFatura || 0)}
-                    </div>
-                    <div className="confirmation-item">
-                      <strong>Parcelas:</strong> {numeroParcelas}x de {formatCurrency(valorParcela)}
-                    </div>
-                    <div className="confirmation-item">
-                      <strong>Total a pagar:</strong> 
-                      <span style={{ color: '#DC3545' }}>
-                        {formatCurrency(valorTotalParcelado)}
-                      </span>
-                    </div>
-                    <div className="confirmation-item">
-                      <strong>Prejuízo:</strong> 
-                      <span style={{ color: '#DC3545', fontWeight: 'bold' }}>
-                        {formatCurrency(prejuizoParcelamento)} (+{percentualPrejuizo.toFixed(1)}%)
-                      </span>
-                    </div>
-                    <div className="confirmation-item">
-                      <strong>Primeira parcela:</strong> {faturaInicialVencimento ? 
-                        new Date(faturaInicialVencimento).toLocaleDateString('pt-BR') : 
-                        'Não selecionada'
-                      }
-                    </div>
-                    <div className="confirmation-item" style={{ fontSize: '14px', color: '#666' }}>
-                      As parcelas serão criadas como novas despesas no cartão.
-                    </div>
-                  </>
-                )}
-
-                {tipoPagamento === 'integral' && (
-                  <>
-                    <div className="confirmation-item">
-                      <strong>Data do pagamento:</strong> {new Date(dataPagamento).toLocaleDateString('pt-BR')}
-                    </div>
-                    <div className="confirmation-item">
-                      <strong>Valor total:</strong> {formatCurrency(valorFatura || 0)}
-                    </div>
-                    <div className="confirmation-item" style={{ fontSize: '14px', color: '#666' }}>
-                      Todas as transações da fatura serão marcadas como efetivadas.
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Erro crítico se faturaVencimento não foi fornecido */}
-          {!faturaVencimento && (
-            <div className="summary-panel danger">
-              <div className="confirmation-item">
-                <AlertCircle size={16} style={{ color: '#DC3545', marginRight: '8px' }} />
-                <strong>Erro:</strong> Data de vencimento da fatura não encontrada. 
-                Feche este modal e tente novamente.
-              </div>
-            </div>
-          )}
 
           {/* Erro */}
           {error && (
@@ -682,7 +608,7 @@ const ModalPagamentoFatura = ({
             {loading ? (
               <>
                 <div className="btn-spinner"></div>
-                {tipoPagamento === 'integral' && 'Pagando...'}
+                {tipoPagamento === 'integral' && 'Efetivando...'}
                 {tipoPagamento === 'parcial' && 'Processando Pagamento Parcial...'}
                 {tipoPagamento === 'parcelado' && 'Criando Parcelamento...'}
               </>

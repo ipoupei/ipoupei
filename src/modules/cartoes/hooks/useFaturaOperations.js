@@ -1,17 +1,15 @@
 // src/modules/cartoes/hooks/useFaturaOperations.js
-// ✅ APENAS OPERAÇÕES DE ESCRITA - SEM LEITURA DE LISTAS
-// ❌ PROIBIDO: SELECT para listas, formatação de UI, texto de exibição
-// ✅ ATUALIZADO: Novas funcionalidades de pagamento parcial e parcelado
+// ✅ REFATORADO: Nova lógica de pagamento - Efetivar transações + Estornos para balanceamento
 
 import { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import useAuth from '@modules/auth/hooks/useAuth';
 import useCategorias from '@modules/categorias/hooks/useCategorias';
+import { formatCurrency } from '@shared/utils/formatCurrency';
 
 /**
  * Hook para operações de escrita relacionadas a faturas
- * ✅ Permitido: INSERT, UPDATE, DELETE, RPCs de operação
- * ❌ Proibido: SELECT de listas, formatação de UI, texto de exibição
+ * ✅ NOVA LÓGICA: Efetivar transações existentes + Estornos para balanceamento
  */
 export const useFaturaOperations = () => {
   const { user } = useAuth();
@@ -81,57 +79,107 @@ export const useFaturaOperations = () => {
   };
 
   /**
-   * Calcula a próxima data de vencimento baseada no cartão
+   * Calcular fatura alvo baseada na data de fechamento
    */
-  const calcularProximaFatura = (cartao) => {
-    const hoje = new Date();
-    const diaVencimento = cartao.dia_vencimento;
-    const diaFechamento = cartao.dia_fechamento;
-    
-    let proximaFatura = new Date(hoje.getFullYear(), hoje.getMonth(), diaVencimento);
-    
-    // Se ainda não passou do fechamento deste mês
-    if (hoje.getDate() <= diaFechamento) {
-      proximaFatura = new Date(hoje.getFullYear(), hoje.getMonth() + 1, diaVencimento);
-    } else {
-      // Se já passou do fechamento, próxima fatura é mês seguinte
-      proximaFatura = new Date(hoje.getFullYear(), hoje.getMonth() + 2, diaVencimento);
+  const calcularFaturaAlvo = (cartao, dataCompra) => {
+    try {
+      const dataCompraUTC = new Date(dataCompra + 'T12:00:00.000Z');
+      const diaFechamento = cartao.dia_fechamento || 1;
+      const diaVencimento = cartao.dia_vencimento || 10;
+      
+      const anoCompra = dataCompraUTC.getUTCFullYear();
+      const mesCompra = dataCompraUTC.getUTCMonth();
+      const diaCompra = dataCompraUTC.getUTCDate();
+      
+      let anoFaturaAlvo = anoCompra;
+      let mesFaturaAlvo = mesCompra;
+      
+      // Se a compra foi APÓS o fechamento, vai para próxima fatura
+      if (diaCompra > diaFechamento) {
+        mesFaturaAlvo = mesCompra + 1;
+        if (mesFaturaAlvo > 11) {
+          mesFaturaAlvo = 0;
+          anoFaturaAlvo = anoCompra + 1;
+        }
+      }
+      
+      // Calcular data de vencimento da fatura alvo
+      let dataVencimentoFinal = new Date(Date.UTC(anoFaturaAlvo, mesFaturaAlvo, diaVencimento));
+      
+      // Se vencimento é antes ou igual ao fechamento, a fatura vence no mês seguinte
+      if (diaVencimento <= diaFechamento) {
+        const novoMes = mesFaturaAlvo + 1;
+        if (novoMes > 11) {
+          dataVencimentoFinal = new Date(Date.UTC(anoFaturaAlvo + 1, 0, diaVencimento));
+        } else {
+          dataVencimentoFinal = new Date(Date.UTC(anoFaturaAlvo, novoMes, diaVencimento));
+        }
+      }
+      
+      // Verificar se o dia existe no mês
+      if (dataVencimentoFinal.getUTCDate() !== diaVencimento) {
+        dataVencimentoFinal = new Date(Date.UTC(
+          dataVencimentoFinal.getUTCFullYear(), 
+          dataVencimentoFinal.getUTCMonth() + 1, 
+          0
+        ));
+      }
+      
+      return dataVencimentoFinal.toISOString().split('T')[0];
+      
+    } catch (err) {
+      console.error('❌ Erro ao calcular fatura alvo:', err);
+      const hoje = new Date();
+      const proximoMes = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth() + 1, cartao.dia_vencimento || 10));
+      return proximoMes.toISOString().split('T')[0];
     }
-    
-    return proximaFatura.toISOString().split('T')[0];
   };
 
   /**
-   * Gera data de fatura para uma parcela específica
-   * SEMPRE usa o dia de vencimento do cartão, independente da data inicial
+   * ✅ NOVA LÓGICA: Criar estorno para balanceamento
    */
-  const gerarDataFaturaParcela = (faturaInicialString, mesesAFrente, diaVencimento) => {
-    // Converter string para Date e extrair ano/mês
-    const dataInicial = new Date(faturaInicialString + 'T00:00:00');
-    const anoInicial = dataInicial.getFullYear();
-    const mesInicial = dataInicial.getMonth(); // 0-based
-    
-    // Calcular o novo mês/ano
-    const novoAno = anoInicial + Math.floor((mesInicial + mesesAFrente) / 12);
-    const novoMes = (mesInicial + mesesAFrente) % 12;
-    
-    // Criar nova data SEMPRE no dia de vencimento do cartão
-    const novaData = new Date(novoAno, novoMes, diaVencimento);
-    
-    // Verificar se o dia existe no mês (ex: 31 em fevereiro)
-    if (novaData.getDate() !== diaVencimento) {
-      // Se o dia não existe, usar o último dia do mês
-      novaData.setDate(0);
+  const criarEstornoBalanceamento = async (cartaoId, faturaVencimento, valorEstorno, descricaoEstorno) => {
+    try {
+      const { data, error } = await supabase
+        .from('transacoes')
+        .insert([{
+          usuario_id: user.id,
+          cartao_id: cartaoId,
+          categoria_id: null, // Estorno não tem categoria específica
+          subcategoria_id: null,
+          tipo: 'receita',
+          descricao: descricaoEstorno,
+          valor: -Math.abs(valorEstorno), //  estorno
+          data: new Date().toISOString().split('T')[0],
+          fatura_vencimento: faturaVencimento,
+          efetivado: false, // Será efetivado junto com as outras transações
+          data_efetivacao: null,
+          observacoes: 'Estorno automático para balanceamento do pagamento da fatura',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      console.log('✅ Estorno de balanceamento criado:', {
+        id: data.id,
+        valor: data.valor,
+        descricao: data.descricao
+      });
+
+      return { success: true, estorno: data };
+    } catch (err) {
+      console.error('❌ Erro ao criar estorno de balanceamento:', err);
+      throw err;
     }
-    
-    const resultado = novaData.toISOString().split('T')[0];
-    console.log(`  -> Calculando: ${faturaInicialString} + ${mesesAFrente} meses (dia ${diaVencimento}) = ${resultado}`);
-    
-    return resultado;
   };
 
-  // ✅ PAGAR FATURA - Implementação direta sem RPC
-  const pagarFatura = async (cartaoId, faturaVencimento, valorPago, dataPagamento) => {
+  /**
+   * ✅ NOVA LÓGICA: Pagar Fatura - Efetivar transações com conta selecionada
+   */
+  const pagarFatura = async (cartaoId, faturaVencimento, valorPago, dataPagamento, contaSelecionadaId) => {
     setLoading(true);
     setError(null);
 
@@ -141,31 +189,45 @@ export const useFaturaOperations = () => {
       if (!faturaVencimento) throw new Error('faturaVencimento é obrigatório');
       if (!valorPago || valorPago <= 0) throw new Error('valorPago deve ser maior que zero');
       if (!dataPagamento) throw new Error('dataPagamento é obrigatório');
+      if (!contaSelecionadaId) throw new Error('contaSelecionadaId é obrigatório');
 
-      // Marcar todas as transações da fatura como efetivadas
-      const { data, error: updateError } = await supabase
+      console.log('💳 NOVA LÓGICA - Efetivando pagamento da fatura:', {
+        cartaoId,
+        faturaVencimento,
+        valorPago,
+        dataPagamento,
+        contaSelecionadaId
+      });
+
+      // ✅ NOVA LÓGICA: Efetivar todas as transações da fatura com a conta selecionada
+      const { data: transacoesEfetivadas, error: updateError } = await supabase
         .from('transacoes')
         .update({ 
           efetivado: true,
           data_efetivacao: dataPagamento,
+          conta_id: contaSelecionadaId, // ✅ ADICIONAR conta que fez o pagamento
           updated_at: new Date().toISOString()
         })
         .eq('usuario_id', user.id)
         .eq('cartao_id', cartaoId)
         .eq('fatura_vencimento', faturaVencimento)
         .eq('efetivado', false)
-        .select();
+        .select('id, descricao, valor');
 
       if (updateError) throw updateError;
 
+      console.log('✅ Transações efetivadas com nova lógica:', transacoesEfetivadas?.length || 0);
+
       return {
         success: true,
-        transacoes_afetadas: data?.length || 0,
-        message: `Fatura paga com sucesso. ${data?.length || 0} transações efetivadas.`
+        transacoes_afetadas: transacoesEfetivadas?.length || 0,
+        valor_efetivado: valorPago,
+        conta_utilizada_id: contaSelecionadaId,
+        message: `Fatura paga com sucesso. ${transacoesEfetivadas?.length || 0} transações efetivadas.`
       };
 
     } catch (err) {
-      console.error('Erro ao pagar fatura:', err);
+      console.error('❌ Erro ao pagar fatura:', err);
       setError(err.message);
       return { success: false, error: err.message };
     } finally {
@@ -174,9 +236,9 @@ export const useFaturaOperations = () => {
   };
 
   /**
-   * Pagamento parcial da fatura - NOVA FUNCIONALIDADE
+   * ✅ NOVA LÓGICA: Pagamento parcial com estorno
    */
-  const pagarFaturaParcial = async (cartaoId, faturaVencimento, valorTotal, valorPago, faturaDestinoRestante, dataPagamento, cartao) => {
+  const pagarFaturaParcial = async (cartaoId, faturaVencimento, valorTotal, valorPago, faturaDestinoRestante, dataPagamento, contaSelecionadaId, cartao) => {
     if (!user?.id) {
       setError('Usuário não autenticado');
       return { success: false };
@@ -192,8 +254,8 @@ export const useFaturaOperations = () => {
       return { success: false };
     }
 
-    if (!dataPagamento) {
-      setError('Data de pagamento é obrigatória');
+    if (!contaSelecionadaId) {
+      setError('Conta para débito é obrigatória');
       return { success: false };
     }
 
@@ -201,21 +263,32 @@ export const useFaturaOperations = () => {
     setError(null);
 
     try {
-      // 1. Marcar fatura como paga (usando função existente)
-      const resultadoPagamento = await pagarFatura(cartaoId, faturaVencimento, valorPago, dataPagamento);
+      const valorRestante = valorTotal - valorPago;
+      
+      console.log('💳 NOVA LÓGICA - Pagamento parcial:', {
+        valorTotal,
+        valorPago,
+        valorRestante,
+        contaSelecionadaId
+      });
+
+      // ✅ ETAPA 1: Criar estorno ANTES de efetivar (faz parte da mesma fatura)
+      await criarEstornoBalanceamento(
+        cartaoId,
+        faturaVencimento,
+        valorRestante,
+        'Empréstimo para cobertura do cartão'
+      );
+
+      // ✅ ETAPA 2: Efetivar todas as transações da fatura (incluindo o estorno)
+      const resultadoPagamento = await pagarFatura(cartaoId, faturaVencimento, valorTotal, dataPagamento, contaSelecionadaId);
       
       if (!resultadoPagamento.success) {
-        throw new Error(resultadoPagamento.error || 'Erro ao pagar fatura');
+        throw new Error(resultadoPagamento.error || 'Erro ao efetivar fatura');
       }
 
-      // 2. Garantir que existem as categorias de dívida
+      // ✅ ETAPA 3: Criar nova despesa na fatura de destino
       const categorias = await garantirCategoriaDividas();
-      if (!categorias) {
-        throw new Error('Erro ao criar categorias necessárias');
-      }
-
-      // 3. Calcular valor restante e criar nova transação
-      const valorRestante = valorTotal - valorPago;
       
       const dataFaturaOriginal = new Date(faturaVencimento);
       const mesReferencia = dataFaturaOriginal.toLocaleDateString('pt-BR', { 
@@ -223,25 +296,33 @@ export const useFaturaOperations = () => {
         year: 'numeric' 
       });
 
-      // Usar a função de criar despesa existente
       const resultadoDespesa = await criarDespesaCartao({
         cartao_id: cartaoId,
         categoria_id: categorias.categoriaId,
         subcategoria_id: categorias.subcategoriaId,
-        descricao: `Saldo pendente da fatura de ${mesReferencia}. Atenção: usuário deve editar e incluir os juros.`,
+        descricao: `Saldo pendente da fatura de ${mesReferencia}. Editar para incluir juros.`,
         valor: valorRestante,
         data_compra: dataPagamento,
         fatura_vencimento: faturaDestinoRestante,
-        observacoes: `Saldo remanescente de pagamento parcial. Valor original: R$ ${valorTotal.toFixed(2)}, Valor pago: R$ ${valorPago.toFixed(2)} em ${new Date(dataPagamento).toLocaleDateString('pt-BR')}`
+        observacoes: `Saldo remanescente de pagamento parcial. Valor original: ${formatCurrency(valorTotal)}, Valor pago: ${formatCurrency(valorPago)} em ${new Date(dataPagamento).toLocaleDateString('pt-BR')}`
       });
 
       if (!resultadoDespesa.success) {
         throw new Error(resultadoDespesa.error || 'Erro ao criar transação de saldo pendente');
       }
 
-      return { success: true };
+      console.log('✅ Pagamento parcial concluído - Nova lógica aplicada');
+
+      return { 
+        success: true,
+        valor_efetivado: valorTotal,
+        valor_pago_conta: valorPago,
+        valor_estornado: valorRestante,
+        nova_despesa_id: resultadoDespesa.transacao.id
+      };
+
     } catch (err) {
-      console.error('Erro ao processar pagamento parcial:', err);
+      console.error('❌ Erro no pagamento parcial:', err);
       setError(err.message);
       return { success: false, error: err.message };
     } finally {
@@ -250,9 +331,9 @@ export const useFaturaOperations = () => {
   };
 
   /**
-   * Pagamento parcelado da fatura - NOVA FUNCIONALIDADE
+   * ✅ NOVA LÓGICA: Pagamento parcelado com estorno
    */
-  const pagarFaturaParcelado = async (cartaoId, faturaVencimento, valorTotal, numeroParcelas, valorParcela, faturaInicialVencimento, dataPagamento, cartao) => {
+  const pagarFaturaParcelado = async (cartaoId, faturaVencimento, valorTotal, numeroParcelas, valorParcela, faturaInicialVencimento, dataPagamento, contaSelecionadaId, cartao) => {
     if (!user?.id) {
       setError('Usuário não autenticado');
       return { success: false };
@@ -268,13 +349,8 @@ export const useFaturaOperations = () => {
       return { success: false };
     }
 
-    if (!faturaInicialVencimento) {
-      setError('Fatura inicial para as parcelas é obrigatória');
-      return { success: false };
-    }
-
-    if (!dataPagamento) {
-      setError('Data de pagamento é obrigatória');
+    if (!contaSelecionadaId) {
+      setError('Conta para débito é obrigatória');
       return { success: false };
     }
 
@@ -282,21 +358,33 @@ export const useFaturaOperations = () => {
     setError(null);
 
     try {
-      // 1. Marcar fatura original como paga (usando função existente)
-      const resultadoPagamento = await pagarFatura(cartaoId, faturaVencimento, valorTotal, dataPagamento);
+      const valorTotalParcelado = numeroParcelas * valorParcela;
+      
+      console.log('💳 NOVA LÓGICA - Pagamento parcelado:', {
+        valorTotal,
+        numeroParcelas,
+        valorParcela,
+        valorTotalParcelado,
+        contaSelecionadaId
+      });
+
+      // ✅ ETAPA 1: Criar estorno ANTES de efetivar (valor total volta como "empréstimo")
+      await criarEstornoBalanceamento(
+        cartaoId,
+        faturaVencimento,
+        valorTotal,
+        'Empréstimo para cobertura do cartão'
+      );
+
+      // ✅ ETAPA 2: Efetivar todas as transações da fatura (resultado líquido = 0 na conta)
+      const resultadoPagamento = await pagarFatura(cartaoId, faturaVencimento, valorTotal, dataPagamento, contaSelecionadaId);
       
       if (!resultadoPagamento.success) {
-        throw new Error(resultadoPagamento.error || 'Erro ao pagar fatura');
+        throw new Error(resultadoPagamento.error || 'Erro ao efetivar fatura');
       }
 
-      // 2. Garantir que existem as categorias de dívida
+      // ✅ ETAPA 3: Criar parcelas nas próximas faturas
       const categorias = await garantirCategoriaDividas();
-      if (!categorias) {
-        throw new Error('Erro ao criar categorias necessárias');
-      }
-
-      // 3. Criar parcelas com o valor informado pelo banco
-      const valorTotalParcelado = numeroParcelas * valorParcela;
       const prejuizoParcelamento = valorTotalParcelado - valorTotal;
 
       const resultadoParcelamento = await criarDespesaParcelada({
@@ -304,26 +392,31 @@ export const useFaturaOperations = () => {
         categoria_id: categorias.categoriaId,
         subcategoria_id: categorias.subcategoriaId,
         descricao: 'Parcelamento de fatura do cartão',
-        valor_total: valorTotalParcelado, // Valor total com juros do banco
-        valor_parcela: valorParcela, // Valor informado pelo banco
+        valor_total: valorTotalParcelado,
+        valor_parcela: valorParcela,
         numero_parcelas: numeroParcelas,
         data_compra: dataPagamento,
         fatura_vencimento: faturaInicialVencimento,
-        observacoes: `Parcelamento da fatura original de R$ ${valorTotal.toFixed(2)} paga em ${new Date(dataPagamento).toLocaleDateString('pt-BR')}. Prejuízo: R$ ${prejuizoParcelamento.toFixed(2)} (${((prejuizoParcelamento / valorTotal) * 100).toFixed(1)}%)`
+        observacoes: `Parcelamento da fatura original de ${formatCurrency(valorTotal)} paga em ${new Date(dataPagamento).toLocaleDateString('pt-BR')}. Prejuízo: ${formatCurrency(prejuizoParcelamento)} (${((prejuizoParcelamento / valorTotal) * 100).toFixed(1)}%)`
       });
 
       if (!resultadoParcelamento.success) {
         throw new Error(resultadoParcelamento.error || 'Erro ao criar parcelamento');
       }
 
+      console.log('✅ Pagamento parcelado concluído - Nova lógica aplicada');
+
       return { 
-        success: true, 
+        success: true,
+        valor_efetivado: valorTotal,
+        valor_estornado: valorTotal,
         grupoParcelamento: resultadoParcelamento.grupo_parcelamento,
         valorTotalParcelado,
         prejuizoParcelamento
       };
+
     } catch (err) {
-      console.error('Erro ao processar pagamento parcelado:', err);
+      console.error('❌ Erro no pagamento parcelado:', err);
       setError(err.message);
       return { success: false, error: err.message };
     } finally {
@@ -332,9 +425,57 @@ export const useFaturaOperations = () => {
   };
 
   /**
-   * Buscar opções de fatura para parcelamento - NOVA FUNCIONALIDADE
-   * Gera opções de fatura baseado nos dias de fechamento e vencimento do cartão
+   * ✅ NOVA LÓGICA: Reabrir fatura - Reverter efetivação
    */
+  const reabrirFatura = async (cartaoId, faturaVencimento) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (!user?.id) throw new Error('Usuário não autenticado');
+      if (!cartaoId) throw new Error('cartaoId é obrigatório');
+      if (!faturaVencimento) throw new Error('faturaVencimento é obrigatório');
+
+      console.log('🔄 NOVA LÓGICA - Reabrindo fatura:', {
+        cartaoId,
+        faturaVencimento
+      });
+
+      // ✅ NOVA LÓGICA: Remover efetivação E conta_id das transações
+      const { data: transacoesReabertas, error: updateError } = await supabase
+        .from('transacoes')
+        .update({ 
+          efetivado: false,
+          data_efetivacao: null,
+          conta_id: null, // ✅ REMOVER referência da conta
+          updated_at: new Date().toISOString()
+        })
+        .eq('usuario_id', user.id)
+        .eq('cartao_id', cartaoId)
+        .eq('fatura_vencimento', faturaVencimento)
+        .eq('efetivado', true)
+        .select('id, descricao, valor');
+
+      if (updateError) throw updateError;
+
+      console.log('✅ Fatura reaberta com nova lógica:', transacoesReabertas?.length || 0);
+
+      return {
+        success: true,
+        transacoes_afetadas: transacoesReabertas?.length || 0,
+        message: `Fatura reaberta com sucesso. ${transacoesReabertas?.length || 0} transações marcadas como pendentes.`
+      };
+
+    } catch (err) {
+      console.error('❌ Erro ao reabrir fatura:', err);
+      setError(err.message);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ Buscar opções de fatura para parcelamento
   const buscarOpcoesFatura = async (cartaoId, dataCompra) => {
     if (!user?.id) {
       setError('Usuário não autenticado');
@@ -342,7 +483,6 @@ export const useFaturaOperations = () => {
     }
 
     try {
-      // Buscar dados do cartão
       const { data: cartaoData, error: cartaoError } = await supabase
         .from('cartoes')
         .select('dia_fechamento, dia_vencimento, nome')
@@ -354,32 +494,28 @@ export const useFaturaOperations = () => {
         throw new Error(`Erro ao buscar dados do cartão: ${cartaoError.message}`);
       }
 
-      const hoje = new Date();
       const opcoes = [];
 
       // Gerar 6 opções: 2 antes da atual + atual + 3 depois
       for (let i = -2; i <= 3; i++) {
-        // Calcular a data base sempre no dia de vencimento do cartão
-        const dataBase = new Date(hoje.getFullYear(), hoje.getMonth() + i, cartaoData.dia_vencimento);
+        const dataBaseTeste = new Date();
+        dataBaseTeste.setMonth(dataBaseTeste.getMonth() + i);
+        const dataBaseString = dataBaseTeste.toISOString().split('T')[0];
         
-        // Verificar se o dia existe no mês (ex: 31 em fevereiro)
-        if (dataBase.getDate() !== cartaoData.dia_vencimento) {
-          // Se o dia não existe, usar o último dia do mês
-          dataBase.setDate(0);
-        }
-
-        const valorOpcao = dataBase.toISOString().split('T')[0];
-        const labelOpcao = `${dataBase.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })} - Venc: ${dataBase.toLocaleDateString('pt-BR')}`;
+        const faturaCalculada = calcularFaturaAlvo(cartaoData, dataBaseString);
+        const dataFatura = new Date(faturaCalculada + 'T12:00:00');
         
-        // Calcular data de fechamento (sempre um mês antes do vencimento)
-        const dataFechamento = new Date(dataBase.getFullYear(), dataBase.getMonth() - 1, cartaoData.dia_fechamento);
+        const valorOpcao = faturaCalculada;
+        const labelOpcao = `${dataFatura.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })} - Venc: ${dataFatura.toLocaleDateString('pt-BR')}`;
+        
+        const dataFechamento = new Date(dataFatura.getFullYear(), dataFatura.getMonth() - 1, cartaoData.dia_fechamento);
         
         opcoes.push({
           valor_opcao: valorOpcao,
           label_opcao: labelOpcao,
           data_fechamento: dataFechamento.toISOString().split('T')[0],
           data_vencimento: valorOpcao,
-          is_default: i === 0 // A opção atual é o padrão
+          is_default: i === 0
         });
       }
 
@@ -391,7 +527,7 @@ export const useFaturaOperations = () => {
     }
   };
 
-  // ✅ CRIAR DESPESA NO CARTÃO
+  // ✅ CRIAR DESPESA NO CARTÃO (mantida como estava)
   const criarDespesaCartao = async (dadosDespesa) => {
     setLoading(true);
     setError(null);
@@ -410,13 +546,25 @@ export const useFaturaOperations = () => {
         observacoes = null
       } = dadosDespesa;
 
-      // Validações
       if (!cartao_id) throw new Error('cartao_id é obrigatório');
       if (!categoria_id) throw new Error('categoria_id é obrigatório');
       if (!descricao) throw new Error('descricao é obrigatória');
       if (!valor || valor <= 0) throw new Error('valor deve ser maior que zero');
       if (!data_compra) throw new Error('data_compra é obrigatória');
-      if (!fatura_vencimento) throw new Error('fatura_vencimento é obrigatório');
+
+      let faturaVencimentoFinal = fatura_vencimento;
+
+      if (!faturaVencimentoFinal) {
+        const { data: cartaoData, error: cartaoError } = await supabase
+          .from('cartoes')
+          .select('dia_fechamento, dia_vencimento')
+          .eq('id', cartao_id)
+          .eq('usuario_id', user.id)
+          .single();
+
+        if (cartaoError) throw cartaoError;
+        faturaVencimentoFinal = calcularFaturaAlvo(cartaoData, data_compra);
+      }
 
       const { data, error: insertError } = await supabase
         .from('transacoes')
@@ -429,7 +577,7 @@ export const useFaturaOperations = () => {
           descricao,
           valor,
           data: data_compra,
-          fatura_vencimento,
+          fatura_vencimento: faturaVencimentoFinal,
           efetivado: false,
           data_efetivacao: null,
           observacoes,
@@ -455,7 +603,7 @@ export const useFaturaOperations = () => {
     }
   };
 
-  // ✅ CRIAR DESPESA PARCELADA - Implementação direta sem RPC
+  // ✅ CRIAR DESPESA PARCELADA (mantida como estava)
   const criarDespesaParcelada = async (dadosParcelamento) => {
     setLoading(true);
     setError(null);
@@ -468,7 +616,7 @@ export const useFaturaOperations = () => {
         categoria_id,
         descricao,
         valor_total,
-        valor_parcela, // NOVO: valor específico da parcela
+        valor_parcela,
         numero_parcelas,
         data_compra,
         fatura_vencimento,
@@ -476,23 +624,16 @@ export const useFaturaOperations = () => {
         observacoes = null
       } = dadosParcelamento;
 
-      // Validações
       if (!cartao_id) throw new Error('cartao_id é obrigatório');
       if (!categoria_id) throw new Error('categoria_id é obrigatório');
       if (!descricao) throw new Error('descricao é obrigatória');
       if (!valor_total || valor_total <= 0) throw new Error('valor_total deve ser maior que zero');
       if (!numero_parcelas || numero_parcelas <= 0) throw new Error('numero_parcelas deve ser maior que zero');
       if (!data_compra) throw new Error('data_compra é obrigatória');
-      if (!fatura_vencimento) throw new Error('fatura_vencimento é obrigatório');
 
-      // Gerar UUID para o grupo de parcelamento
       const grupoParcelamento = crypto.randomUUID();
-      
-      // Usar valor da parcela informado pelo usuário (do banco) ou calcular
-      // CORREÇÃO: Usar o valor exato informado pelo usuário, sem arredondamento
       const valorParcelaFinal = valor_parcela || (valor_total / numero_parcelas);
 
-      // Buscar dados do cartão para calcular próximas faturas
       const { data: cartaoData, error: cartaoError } = await supabase
         .from('cartoes')
         .select('dia_fechamento, dia_vencimento')
@@ -502,22 +643,16 @@ export const useFaturaOperations = () => {
 
       if (cartaoError) throw cartaoError;
 
-      // Criar array de parcelas
+      let faturaVencimentoInicial = fatura_vencimento;
+      
+      if (!faturaVencimentoInicial) {
+        faturaVencimentoInicial = calcularFaturaAlvo(cartaoData, data_compra);
+      }
+
       const parcelas = [];
 
-      // Log para debug
-      console.log('=== DEBUG PARCELAMENTO ===');
-      console.log('Fatura vencimento inicial:', fatura_vencimento);
-      console.log('Dia vencimento do cartão:', cartaoData.dia_vencimento);
-      console.log('Valor parcela informado:', valor_parcela);
-      console.log('Valor parcela final:', valorParcelaFinal);
-
       for (let i = 1; i <= numero_parcelas; i++) {
-        // CORREÇÃO PRINCIPAL: TODAS as parcelas devem usar o dia de vencimento do cartão
-        // Calcular data correta baseada na fatura inicial + meses
-        const dataVencimentoFinal = gerarDataFaturaParcela(fatura_vencimento, i - 1, cartaoData.dia_vencimento);
-
-        console.log(`Parcela ${i}: Data = ${dataVencimentoFinal}, Valor = ${valorParcelaFinal}`);
+        const dataVencimentoFinal = gerarDataFaturaParcela(faturaVencimentoInicial, i - 1, cartaoData.dia_vencimento);
 
         parcelas.push({
           usuario_id: user.id,
@@ -540,7 +675,6 @@ export const useFaturaOperations = () => {
         });
       }
 
-      // Inserir todas as parcelas
       const { data, error: insertError } = await supabase
         .from('transacoes')
         .insert(parcelas)
@@ -563,6 +697,24 @@ export const useFaturaOperations = () => {
     }
   };
 
+  // Função auxiliar para gerar data de parcela
+  const gerarDataFaturaParcela = (faturaInicialString, mesesAFrente, diaVencimento) => {
+    const dataInicial = new Date(faturaInicialString + 'T00:00:00');
+    const anoInicial = dataInicial.getFullYear();
+    const mesInicial = dataInicial.getMonth();
+    
+    const novoAno = anoInicial + Math.floor((mesInicial + mesesAFrente) / 12);
+    const novoMes = (mesInicial + mesesAFrente) % 12;
+    
+    const novaData = new Date(novoAno, novoMes, diaVencimento);
+    
+    if (novaData.getDate() !== diaVencimento) {
+      novaData.setDate(0);
+    }
+    
+    return novaData.toISOString().split('T')[0];
+  };
+
   // ✅ LANÇAR ESTORNO
   const lancarEstorno = async (dadosEstorno) => {
     setLoading(true);
@@ -581,11 +733,27 @@ export const useFaturaOperations = () => {
         observacoes = 'Estorno/Crédito no cartão'
       } = dadosEstorno;
 
-      // Validações
       if (!cartao_id) throw new Error('cartao_id é obrigatório');
       if (!descricao) throw new Error('descricao é obrigatória');
       if (!valor || valor <= 0) throw new Error('valor deve ser maior que zero');
-      if (!fatura_vencimento) throw new Error('fatura_vencimento é obrigatório');
+
+      let faturaVencimentoFinal = fatura_vencimento;
+
+      if (!faturaVencimentoFinal) {
+        const { data: cartaoData, error: cartaoError } = await supabase
+          .from('cartoes')
+          .select('dia_fechamento, dia_vencimento')
+          .eq('id', cartao_id)
+          .eq('usuario_id', user.id)
+          .single();
+
+        if (cartaoError) throw cartaoError;
+        faturaVencimentoFinal = calcularFaturaAlvo(cartaoData, data_estorno);
+      }
+
+      if (!faturaVencimentoFinal) {
+        throw new Error('Não foi possível determinar a fatura de vencimento para o estorno');
+      }
 
       const { data, error: insertError } = await supabase
         .from('transacoes')
@@ -593,11 +761,11 @@ export const useFaturaOperations = () => {
           usuario_id: user.id,
           cartao_id,
           categoria_id,
-          tipo: 'despesa',
+          tipo: 'receita',
           descricao,
-          valor: -Math.abs(valor), // Estorno é valor negativo
+          valor: -Math.abs(valor),
           data: data_estorno,
-          fatura_vencimento,
+          fatura_vencimento: faturaVencimentoFinal,
           efetivado: false,
           data_efetivacao: null,
           observacoes,
@@ -691,7 +859,7 @@ export const useFaturaOperations = () => {
   };
 
   // ✅ EXCLUIR GRUPO DE PARCELAS
-  const excluirGrupoParcelas = async (grupoParcelamento) => {
+  const excluirParcelamento = async (grupoParcelamento, parcelaAtual) => {
     setLoading(true);
     setError(null);
 
@@ -699,11 +867,18 @@ export const useFaturaOperations = () => {
       if (!user?.id) throw new Error('Usuário não autenticado');
       if (!grupoParcelamento) throw new Error('grupoParcelamento é obrigatório');
 
-      const { error: deleteError } = await supabase
+      // Se parcelaAtual for fornecida, excluir apenas essa e as futuras
+      let query = supabase
         .from('transacoes')
         .delete()
         .eq('grupo_parcelamento', grupoParcelamento)
         .eq('usuario_id', user.id);
+
+      if (parcelaAtual) {
+        query = query.gte('parcela_atual', parcelaAtual);
+      }
+
+      const { error: deleteError } = await query;
 
       if (deleteError) throw deleteError;
 
@@ -741,7 +916,6 @@ export const useFaturaOperations = () => {
         observacoes = null
       } = dadosCartao;
 
-      // Validações
       if (!nome) throw new Error('nome é obrigatório');
       if (!limite || limite <= 0) throw new Error('limite deve ser maior que zero');
       if (!dia_fechamento || dia_fechamento < 1 || dia_fechamento > 31) {
@@ -902,25 +1076,30 @@ export const useFaturaOperations = () => {
     error,
     setError,
     
-    // ✅ OPERAÇÕES DE FATURA (originais + novas)
+    // ✅ OPERAÇÕES DE FATURA - NOVA LÓGICA
     pagarFatura,
-    pagarFaturaParcial, // ✅ NOVA
-    pagarFaturaParcelado, // ✅ NOVA
-    buscarOpcoesFatura, // ✅ NOVA
+    pagarFaturaParcial,
+    pagarFaturaParcelado,
+    reabrirFatura,
+    buscarOpcoesFatura,
     
-    // Operações de transação
+    // ✅ OPERAÇÕES DE TRANSAÇÃO
     criarDespesaCartao,
     criarDespesaParcelada,
     lancarEstorno,
     editarTransacao,
     excluirTransacao,
-    excluirGrupoParcelas,
+    excluirParcelamento,
     
     // Operações de cartão
     criarCartao,
     editarCartao,
     arquivarCartao,
-    reativarCartao
+    reativarCartao,
+    
+    // ✅ FUNÇÃO EXPORTADA PARA USO EXTERNO
+    calcularFaturaAlvo,
+    criarEstornoBalanceamento
   };
 };
 

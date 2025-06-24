@@ -813,18 +813,7 @@ const TransacoesPage = () => {
                 </select>
               </div>
 
-              <div>
-                <label className="form-label">Recorrente</label>
-                <select
-                  value={localFilters.recorrente}
-                  onChange={(e) => handleLocalChange('recorrente', e.target.value)}
-                  className="input-base"
-                >
-                  <option value="">Todas</option>
-                  <option value="true">🔄 Recorrentes</option>
-                  <option value="false">📅 Não Recorrentes</option>
-                </select>
-              </div>
+              
             </div>
 
             <div className="flex gap-3 row">
@@ -1302,32 +1291,45 @@ const TransacoesPage = () => {
         </div>
 
         <div className="header-controls">
-          <Button
+          <button
             onClick={() => setShowFilterModal(true)}
             style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '40px',
+              padding: '0 16px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '6px',
               backgroundColor: hasActiveFilters ? '#eff6ff' : '#f3f4f6',
               color: hasActiveFilters ? '#3b82f6' : '#374151',
-              border: hasActiveFilters ? '1px solid #93c5fd' : '1px solid #e5e7eb',
+              cursor: 'pointer',
+              fontSize: '0.875rem',
+              lineHeight: '1rem',
               fontWeight: hasActiveFilters ? '600' : '400'
             }}
           >
             🔍 Filtros Avançados {hasActiveFilters && `(${filtrosAtivos})`}
-          </Button>
-          
+          </button>          
           {/* ===== BUG FIX 26: Melhorar texto do botão de agrupamento ===== */}
           <button
             className={`group-toggle ${groupByCard ? 'active' : ''}`}
             onClick={() => setGroupByCard(!groupByCard)}
             title={groupByCard ? 'Desagrupar despesas de cartão' : 'Agrupar despesas de cartão por fatura'}
             style={{
-              padding: '8px 16px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '40px',
+              padding: '0 16px',
               border: '1px solid #e5e7eb',
               borderRadius: '6px',
-              backgroundColor: groupByCard ? '#eff6ff' : '#f3f4f6',
-              color: groupByCard ? '#3b82f6' : '#374151',
+              backgroundColor: hasActiveFilters ? '#eff6ff' : '#f3f4f6',
+              color: hasActiveFilters ? '#3b82f6' : '#374151',
               cursor: 'pointer',
               fontSize: '0.875rem',
-              fontWeight: groupByCard ? '600' : '400'
+              lineHeight: '1rem',
+              fontWeight: hasActiveFilters ? '600' : '400'
             }}
           >
             💳 {groupByCard ? 'Desagrupar despesas de cartão' : 'Agrupar despesas de cartão'}

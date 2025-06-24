@@ -1,5 +1,5 @@
 // src/modules/cartoes/hooks/useCartoesData.js
-// ✅ HOOK CORRIGIDO - Query SQL válida
+// ✅ AJUSTADO: Para trabalhar com a nova lógica de efetivação + conta_id
 
 import { useState, useCallback } from 'react';
 import { supabase } from '@lib/supabaseClient';
@@ -7,13 +7,101 @@ import useAuth from '@modules/auth/hooks/useAuth';
 
 /**
  * Hook para leitura de dados relacionados a cartões
- * ✅ Permitido: SELECT, consultas, cálculos derivados
- * ❌ Proibido: INSERT, UPDATE, DELETE, formatação de UI, texto de exibição
+ * ✅ AJUSTADO: Considera campo conta_id nas transações efetivadas
  */
 export const useCartoesData = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  /**
+   * ✅ FUNÇÃO MANTIDA: Lógica corrigida para calcular fatura alvo
+   */
+  const calcularFaturaAlvoCorreto = (cartao, dataCompra) => {
+    try {
+      const dataCompraUTC = new Date(dataCompra + 'T12:00:00.000Z');
+      const diaFechamento = cartao.dia_fechamento || 1;
+      const diaVencimento = cartao.dia_vencimento || 10;
+      
+      console.log('🎯 CALCULANDO FATURA ALVO (useCartoesData):');
+      console.log('  Data da compra:', dataCompra);
+      console.log('  Dia fechamento:', diaFechamento);
+      console.log('  Dia vencimento:', diaVencimento);
+      
+      const anoCompra = dataCompraUTC.getUTCFullYear();
+      const mesCompra = dataCompraUTC.getUTCMonth();
+      const diaCompra = dataCompraUTC.getUTCDate();
+      
+      console.log('  Dia da compra:', diaCompra);
+      
+      let anoFaturaAlvo = anoCompra;
+      let mesFaturaAlvo = mesCompra;
+      
+      // Se a compra foi APÓS o fechamento, vai para próxima fatura
+      if (diaCompra > diaFechamento) {
+        console.log('  ✅ COMPRA APÓS FECHAMENTO - Indo para próxima fatura');
+        mesFaturaAlvo = mesCompra + 1;
+        
+        if (mesFaturaAlvo > 11) {
+          mesFaturaAlvo = 0;
+          anoFaturaAlvo = anoCompra + 1;
+        }
+      } else {
+        console.log('  ✅ COMPRA ANTES/NO FECHAMENTO - Indo para fatura atual');
+      }
+      
+      // Calcular data de vencimento da fatura alvo
+      let dataVencimentoFinal = new Date(Date.UTC(anoFaturaAlvo, mesFaturaAlvo, diaVencimento));
+      
+      // Se vencimento é antes ou igual ao fechamento, a fatura vence no mês seguinte
+      if (diaVencimento <= diaFechamento) {
+        console.log('  ⚠️ VENCIMENTO ≤ FECHAMENTO - Ajustando para mês seguinte');
+        const novoMes = mesFaturaAlvo + 1;
+        if (novoMes > 11) {
+          dataVencimentoFinal = new Date(Date.UTC(anoFaturaAlvo + 1, 0, diaVencimento));
+        } else {
+          dataVencimentoFinal = new Date(Date.UTC(anoFaturaAlvo, novoMes, diaVencimento));
+        }
+      }
+      
+      // Verificar se o dia existe no mês
+      if (dataVencimentoFinal.getUTCDate() !== diaVencimento) {
+        dataVencimentoFinal = new Date(Date.UTC(
+          dataVencimentoFinal.getUTCFullYear(), 
+          dataVencimentoFinal.getUTCMonth() + 1, 
+          0
+        ));
+        console.log('  ⚠️ DIA AJUSTADO para último dia do mês');
+      }
+      
+      const faturaVencimentoString = dataVencimentoFinal.toISOString().split('T')[0];
+      
+      console.log('  🎯 RESULTADO FINAL (useCartoesData):');
+      console.log('    Fatura vencimento:', faturaVencimentoString);
+      
+      return {
+        data_fechamento: new Date(Date.UTC(anoFaturaAlvo, mesFaturaAlvo, diaFechamento)).toISOString().split('T')[0],
+        data_vencimento: faturaVencimentoString,
+        mes_referencia: dataVencimentoFinal.toLocaleDateString('pt-BR', { 
+          month: 'long', 
+          year: 'numeric' 
+        })
+      };
+      
+    } catch (err) {
+      console.error('❌ Erro ao calcular fatura alvo:', err);
+      const hoje = new Date();
+      const proximoMes = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth() + 1, cartao.dia_vencimento || 10));
+      return {
+        data_fechamento: new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth() + 1, cartao.dia_fechamento || 1)).toISOString().split('T')[0],
+        data_vencimento: proximoMes.toISOString().split('T')[0],
+        mes_referencia: proximoMes.toLocaleDateString('pt-BR', { 
+          month: 'long', 
+          year: 'numeric' 
+        })
+      };
+    }
+  };
 
   // ✅ BUSCAR CARTÕES ATIVOS COM DADOS CALCULADOS
   const fetchCartoes = useCallback(async () => {
@@ -49,7 +137,7 @@ export const useCartoesData = () => {
       // Para cada cartão, calcular dados adicionais
       const cartoesEnriquecidos = await Promise.all(
         cartoes.map(async (cartao) => {
-          // Buscar gasto atual (transações não efetivadas)
+          // ✅ AJUSTADO: Buscar gasto atual (transações não efetivadas)
           const { data: gastoAtual } = await supabase
             .from('transacoes')
             .select('valor')
@@ -115,7 +203,7 @@ export const useCartoesData = () => {
       // Calcular totais
       const limite_total = cartoes.reduce((total, c) => total + (c.limite || 0), 0);
 
-      // Buscar gastos do período
+      // ✅ AJUSTADO: Buscar gastos do período (todos, não apenas não efetivados)
       const { data: transacoesPeriodo } = await supabase
         .from('transacoes')
         .select('valor, efetivado')
@@ -162,7 +250,7 @@ export const useCartoesData = () => {
     }
   }, [user?.id]);
 
-  // ✅ BUSCAR TRANSAÇÕES DE FATURA - QUERY CORRIGIDA
+  // ✅ AJUSTADO: BUSCAR TRANSAÇÕES DE FATURA com informações da conta
   const fetchTransacoesFatura = useCallback(async (cartaoId, faturaVencimento, incluirTodas = true) => {
     if (!user?.id || !cartaoId || !faturaVencimento) return [];
 
@@ -170,14 +258,14 @@ export const useCartoesData = () => {
       setLoading(true);
       setError(null);
 
-      console.log('🎯 Buscando transações - QUERY CORRIGIDA:', {
+      console.log('🎯 Buscando transações com nova lógica:', {
         cartaoId,
         faturaVencimento,
         faturaVencimentoType: typeof faturaVencimento,
         user: user.id
       });
 
-      // ✅ QUERY CORRIGIDA SEM CARACTERES INVÁLIDOS
+      // ✅ AJUSTADO: Query incluindo conta_id para transações efetivadas
       let query = supabase
         .from('transacoes')
         .select(`
@@ -190,6 +278,7 @@ export const useCartoesData = () => {
           data,
           efetivado,
           data_efetivacao,
+          conta_id,
           parcela_atual,
           total_parcelas,
           numero_parcelas,
@@ -209,7 +298,7 @@ export const useCartoesData = () => {
 
       const { data: transacoes, error: supabaseError } = await query;
 
-      console.log('📦 Resultado da query corrigida:', { 
+      console.log('📦 Resultado da query ajustada:', { 
         transacoes, 
         error: supabaseError, 
         count: transacoes?.length 
@@ -217,11 +306,13 @@ export const useCartoesData = () => {
 
       if (supabaseError) throw supabaseError;
 
-      // ✅ Buscar categorias separadamente para evitar problemas de join
-      const transacoesComCategorias = await Promise.all(
+      // ✅ AJUSTADO: Buscar categorias E contas separadamente
+      const transacoesComDados = await Promise.all(
         (transacoes || []).map(async (transacao) => {
           let categoria = null;
+          let conta = null;
           
+          // Buscar categoria
           if (transacao.categoria_id) {
             const { data: catData } = await supabase
               .from('categorias')
@@ -232,17 +323,32 @@ export const useCartoesData = () => {
             categoria = catData;
           }
 
+          // ✅ NOVO: Buscar informações da conta se transação foi efetivada
+          if (transacao.conta_id) {
+            const { data: contaData } = await supabase
+              .from('contas')
+              .select('nome, tipo, banco')
+              .eq('id', transacao.conta_id)
+              .single();
+            
+            conta = contaData;
+          }
+
           return {
             ...transacao,
             categoria_nome: categoria?.nome || 'Sem categoria',
             categoria_cor: categoria?.cor || '#6B7280',
-            categoria_icone: categoria?.icone || 'help'
+            categoria_icone: categoria?.icone || 'help',
+            // ✅ NOVO: Informações da conta que pagou (se efetivada)
+            conta_pagamento_nome: conta?.nome || null,
+            conta_pagamento_tipo: conta?.tipo || null,
+            conta_pagamento_banco: conta?.banco || null
           };
         })
       );
 
-      console.log('✅ Transações processadas:', transacoesComCategorias);
-      return transacoesComCategorias;
+      console.log('✅ Transações processadas com nova lógica:', transacoesComDados);
+      return transacoesComDados;
     } catch (err) {
       setError(err.message);
       console.error('❌ Erro ao buscar transações da fatura:', err);
@@ -252,7 +358,7 @@ export const useCartoesData = () => {
     }
   }, [user?.id]);
 
-  // ✅ BUSCAR FATURAS DISPONÍVEIS POR CARTÃO ORDENADAS
+  // ✅ AJUSTADO: BUSCAR FATURAS DISPONÍVEIS com informações de pagamento
   const fetchFaturasDisponiveis = useCallback(async (cartaoId) => {
     if (!user?.id || !cartaoId) return [];
 
@@ -260,15 +366,16 @@ export const useCartoesData = () => {
       setLoading(true);
       setError(null);
 
-      console.log('💳 Buscando faturas reais para cartão:', cartaoId);
+      console.log('💳 Buscando faturas com informações de pagamento:', cartaoId);
 
-      // ✅ Buscar faturas baseadas nos vencimentos REAIS das transações
+      // ✅ AJUSTADO: Query incluindo conta_id para identificar como foi pago
       const { data, error: supabaseError } = await supabase
         .from('transacoes')
         .select(`
           fatura_vencimento,
           efetivado,
           data_efetivacao,
+          conta_id,
           valor
         `)
         .eq('usuario_id', user.id)
@@ -280,7 +387,7 @@ export const useCartoesData = () => {
 
       console.log('📊 Transações encontradas para agrupamento:', data);
 
-      // Agrupar por fatura_vencimento REAL
+      // Agrupar por fatura_vencimento
       const faturasPorVencimento = {};
       
       data.forEach(transacao => {
@@ -293,7 +400,11 @@ export const useCartoesData = () => {
             total_transacoes: 0,
             transacoes_efetivadas: 0,
             data_efetivacao: null,
-            status_paga: false
+            status_paga: false,
+            // ✅ NOVO: Informações de pagamento
+            conta_pagamento_id: null,
+            conta_pagamento_nome: null,
+            formas_pagamento: new Set() // Para casos de múltiplas contas
           };
         }
         
@@ -306,20 +417,53 @@ export const useCartoesData = () => {
           if (transacao.data_efetivacao && !faturasPorVencimento[chave].data_efetivacao) {
             faturasPorVencimento[chave].data_efetivacao = transacao.data_efetivacao;
           }
+
+          // ✅ NOVO: Registrar conta de pagamento
+          if (transacao.conta_id) {
+            faturasPorVencimento[chave].formas_pagamento.add(transacao.conta_id);
+            
+            // Usar a primeira conta encontrada como principal
+            if (!faturasPorVencimento[chave].conta_pagamento_id) {
+              faturasPorVencimento[chave].conta_pagamento_id = transacao.conta_id;
+            }
+          }
         }
       });
 
-      // Determinar status_paga
-      Object.values(faturasPorVencimento).forEach(fatura => {
-        fatura.status_paga = fatura.total_transacoes > 0 && 
-                            fatura.transacoes_efetivadas === fatura.total_transacoes;
-      });
+      // ✅ NOVO: Buscar nomes das contas de pagamento
+      const resultado = await Promise.all(
+        Object.values(faturasPorVencimento).map(async (fatura) => {
+          // Determinar status_paga
+          fatura.status_paga = fatura.total_transacoes > 0 && 
+                              fatura.transacoes_efetivadas === fatura.total_transacoes;
+          
+          // Converter Set para array
+          fatura.formas_pagamento = Array.from(fatura.formas_pagamento);
+          
+          // Buscar nome da conta principal de pagamento
+          if (fatura.conta_pagamento_id) {
+            const { data: contaData } = await supabase
+              .from('contas')
+              .select('nome, tipo')
+              .eq('id', fatura.conta_pagamento_id)
+              .single();
+            
+            if (contaData) {
+              fatura.conta_pagamento_nome = contaData.nome;
+              fatura.conta_pagamento_tipo = contaData.tipo;
+            }
+          }
 
-      const resultado = Object.values(faturasPorVencimento)
-        .sort((a, b) => new Date(a.fatura_vencimento) - new Date(b.fatura_vencimento));
+          return fatura;
+        })
+      );
 
-      console.log('✅ Faturas processadas:', resultado);
-      return resultado;
+      const resultadoOrdenado = resultado.sort((a, b) => 
+        new Date(a.fatura_vencimento) - new Date(b.fatura_vencimento)
+      );
+
+      console.log('✅ Faturas processadas com informações de pagamento:', resultadoOrdenado);
+      return resultadoOrdenado;
 
     } catch (err) {
       setError(err.message);
@@ -330,7 +474,7 @@ export const useCartoesData = () => {
     }
   }, [user?.id]);
 
-  // ✅ BUSCAR GASTOS POR CATEGORIA EM FATURA
+  // ✅ BUSCAR GASTOS POR CATEGORIA EM FATURA (mantida)
   const fetchGastosPorCategoria = useCallback(async (cartaoId, faturaVencimento) => {
     if (!user?.id || !cartaoId || !faturaVencimento) {
       return [];
@@ -397,14 +541,18 @@ export const useCartoesData = () => {
     }
   }, [user?.id]);
 
-  // ✅ VERIFICAR STATUS DE FATURA
+  // ✅ AJUSTADO: VERIFICAR STATUS DE FATURA com informações de pagamento
   const verificarStatusFatura = useCallback(async (cartaoId, faturaVencimento) => {
     if (!user?.id || !cartaoId || !faturaVencimento) {
       return { 
         status_paga: false, 
         total_transacoes: 0, 
         transacoes_efetivadas: 0,
-        data_efetivacao: null 
+        data_efetivacao: null,
+        // ✅ NOVO: Informações de pagamento
+        conta_pagamento_id: null,
+        conta_pagamento_nome: null,
+        formas_pagamento: []
       };
     }
 
@@ -412,9 +560,10 @@ export const useCartoesData = () => {
       setLoading(true);
       setError(null);
 
+      // ✅ AJUSTADO: Incluir conta_id na consulta
       const { data, error: supabaseError } = await supabase
         .from('transacoes')
-        .select('efetivado, data_efetivacao')
+        .select('efetivado, data_efetivacao, conta_id')
         .eq('usuario_id', user.id)
         .eq('cartao_id', cartaoId)
         .eq('fatura_vencimento', faturaVencimento);
@@ -425,11 +574,30 @@ export const useCartoesData = () => {
       const status_paga = data.length > 0 && transacoes_efetivadas === data.length;
       const data_efetivacao = data.find(t => t.data_efetivacao)?.data_efetivacao || null;
 
+      // ✅ NOVO: Identificar contas de pagamento
+      const contasPagamento = [...new Set(data.filter(t => t.conta_id).map(t => t.conta_id))];
+      const contaPrincipal = contasPagamento[0] || null;
+
+      let contaPagamentoNome = null;
+      if (contaPrincipal) {
+        const { data: contaData } = await supabase
+          .from('contas')
+          .select('nome')
+          .eq('id', contaPrincipal)
+          .single();
+        
+        contaPagamentoNome = contaData?.nome || null;
+      }
+
       return {
         status_paga,
         total_transacoes: data.length,
         transacoes_efetivadas,
-        data_efetivacao
+        data_efetivacao,
+        // ✅ NOVO: Informações de pagamento
+        conta_pagamento_id: contaPrincipal,
+        conta_pagamento_nome: contaPagamentoNome,
+        formas_pagamento: contasPagamento
       };
     } catch (err) {
       setError(err.message);
@@ -438,19 +606,21 @@ export const useCartoesData = () => {
         status_paga: false, 
         total_transacoes: 0, 
         transacoes_efetivadas: 0,
-        data_efetivacao: null 
+        data_efetivacao: null,
+        conta_pagamento_id: null,
+        conta_pagamento_nome: null,
+        formas_pagamento: []
       };
     } finally {
       setLoading(false);
     }
   }, [user?.id]);
 
-  // ✅ CALCULAR FATURA VENCIMENTO PARA O MODAL
+  // ✅ CALCULAR FATURA VENCIMENTO PARA O MODAL (mantida)
   const calcularFaturaVencimento = useCallback(async (cartaoId, dataCompra) => {
     if (!user?.id || !cartaoId || !dataCompra) return null;
 
     try {
-      // Buscar dados do cartão
       const { data: cartao, error: cartaoError } = await supabase
         .from('cartoes')
         .select('dia_fechamento, dia_vencimento')
@@ -460,34 +630,12 @@ export const useCartoesData = () => {
 
       if (cartaoError) throw cartaoError;
 
-      const dataCompraObj = new Date(dataCompra + 'T12:00:00');
-      const diaFechamento = cartao.dia_fechamento || 1;
-      const diaVencimento = cartao.dia_vencimento || 10;
+      const resultado = calcularFaturaAlvoCorreto(cartao, dataCompra);
+      
+      console.log('🎯 Fatura calculada no useCartoesData:', resultado);
+      
+      return resultado;
 
-      // Calcular data de fechamento do mês da compra
-      let dataFechamento = new Date(dataCompraObj.getFullYear(), dataCompraObj.getMonth(), diaFechamento);
-      
-      // Se a compra foi após o fechamento, considerar próximo mês
-      if (dataCompraObj > dataFechamento) {
-        dataFechamento = new Date(dataCompraObj.getFullYear(), dataCompraObj.getMonth() + 1, diaFechamento);
-      }
-      
-      // Calcular data de vencimento
-      let dataVencimentoCalculada = new Date(dataFechamento.getFullYear(), dataFechamento.getMonth(), diaVencimento);
-      
-      // Se vencimento é antes ou igual ao fechamento, é do próximo mês
-      if (diaVencimento <= diaFechamento) {
-        dataVencimentoCalculada = new Date(dataFechamento.getFullYear(), dataFechamento.getMonth() + 1, diaVencimento);
-      }
-
-      return {
-        data_fechamento: dataFechamento.toISOString().slice(0, 10),
-        data_vencimento: dataVencimentoCalculada.toISOString().slice(0, 10),
-        mes_referencia: dataVencimentoCalculada.toLocaleDateString('pt-BR', { 
-          month: 'long', 
-          year: 'numeric' 
-        })
-      };
     } catch (err) {
       setError(err.message);
       console.error('Erro ao calcular fatura vencimento:', err);
@@ -502,10 +650,8 @@ export const useCartoesData = () => {
       const mesAtual = hoje.getMonth();
       const anoAtual = hoje.getFullYear();
       
-      // Calcular próximo vencimento
       let proximoVencimento = new Date(anoAtual, mesAtual, cartao.dia_vencimento);
       
-      // Se já passou do vencimento deste mês, calcular próximo mês
       if (proximoVencimento <= hoje) {
         proximoVencimento = new Date(anoAtual, mesAtual + 1, cartao.dia_vencimento);
       }
@@ -529,10 +675,8 @@ export const useCartoesData = () => {
       const mesAtual = hoje.getMonth();
       const anoAtual = hoje.getFullYear();
       
-      // Calcular próximo vencimento
       let proximoVencimento = new Date(anoAtual, mesAtual, cartao.dia_vencimento);
       
-      // Se já passou do vencimento deste mês, calcular próximo mês
       if (proximoVencimento <= hoje) {
         proximoVencimento = new Date(anoAtual, mesAtual + 1, cartao.dia_vencimento);
       }
@@ -554,14 +698,17 @@ export const useCartoesData = () => {
     loading,
     error,
     
-    // Funções de leitura corrigidas
+    // Funções de leitura ajustadas para nova lógica
     fetchCartoes,
-    fetchTransacoesFatura,
-    fetchFaturasDisponiveis,
+    fetchTransacoesFatura, // ✅ AJUSTADO: Inclui informações da conta
+    fetchFaturasDisponiveis, // ✅ AJUSTADO: Inclui informações de pagamento
     fetchResumoConsolidado,
     fetchGastosPorCategoria,
-    verificarStatusFatura,
-    calcularFaturaVencimento
+    verificarStatusFatura, // ✅ AJUSTADO: Inclui informações de pagamento
+    calcularFaturaVencimento,
+    
+    // ✅ FUNÇÃO EXPORTADA
+    calcularFaturaAlvoCorreto
   };
 };
 

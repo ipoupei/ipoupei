@@ -1,5 +1,5 @@
 // src/modules/cartoes/store/useCartoesStore.js
-// ✅ APENAS ESTADO DE UI - SEM CHAMADAS AO SUPABASE
+// ✅ REFATORADO: Ajustado para nova estrutura de dados (categoria_nome)
 // ❌ PROIBIDO: Chamadas ao banco, lógica de negócio, formatação
 
 import { create } from 'zustand';
@@ -20,19 +20,19 @@ export const useCartoesStore = create(
         cartoes: [],
         transacoesFatura: [],
         faturasDisponiveis: [],
-        resumoConsolidado: null, // ✅ CORREÇÃO 2: Para dados consolidados
+        resumoConsolidado: null,
         
         // ===============================
         // ESTADO DE UI
         // ===============================
         
-        // ✅ CORREÇÃO 1: Visualização sempre inicia consolidada
+        // Visualização sempre inicia consolidada
         visualizacao: 'consolidada', // 'consolidada' | 'detalhada'
         cartaoSelecionado: null,
         faturaAtual: null,
         modalAberto: null, // 'criar-cartao' | 'editar-cartao' | 'despesa' | 'parcelamento' | 'estorno'
         
-        // ✅ CORREÇÃO 3: Mês selecionado para visão consolidada
+        // Mês selecionado para visão consolidada
         mesSelecionado: null, // Formato: YYYY-MM
         
         // Filtros
@@ -95,13 +95,18 @@ export const useCartoesStore = create(
           }), false, 'removeCartao'),
 
         setTransacoesFatura: (transacoes) => {
-            console.log('🏪 STORE: Recebendo transações:', {
+          console.log('🏪 STORE: Recebendo transações com nova estrutura:', {
             transacoes,
-            length: transacoes?.length || 0
+            length: transacoes?.length || 0,
+            primeiraTransacao: transacoes?.[0] ? {
+              id: transacoes[0].id,
+              descricao: transacoes[0].descricao,
+              categoria_nome: transacoes[0].categoria_nome, // ✅ Nova estrutura
+              conta_pagamento_nome: transacoes[0].conta_pagamento_nome // ✅ Nova informação
+            } : 'nenhuma'
           });
           set({ transacoesFatura: transacoes }, false, 'setTransacoesFatura');
         },
-       
 
         addTransacao: (transacao) => 
           set((state) => ({ 
@@ -125,7 +130,6 @@ export const useCartoesStore = create(
         setFaturasDisponiveis: (faturas) => 
           set({ faturasDisponiveis: faturas }, false, 'setFaturasDisponiveis'),
 
-        // ✅ CORREÇÃO 2: Actions para resumo consolidado
         setResumoConsolidado: (resumo) => 
           set({ resumoConsolidado: resumo }, false, 'setResumoConsolidado'),
 
@@ -149,7 +153,6 @@ export const useCartoesStore = create(
         fecharModal: () => 
           set({ modalAberto: null }, false, 'fecharModal'),
 
-        // ✅ CORREÇÃO 3: Actions para mês selecionado
         setMesSelecionado: (mes) => 
           set({ mesSelecionado: mes }, false, 'setMesSelecionado'),
 
@@ -431,58 +434,73 @@ export const useCartoesStore = create(
           return cartoesFiltrados;
         },
 
-getTransacoesFiltradas: () => {
-  const { 
-    transacoesFatura, 
-    filtroCategoria,
-    filtroTexto 
-  } = get();
-  
-  console.log('🔍 GETTER: Filtrando transações:', {
-    original: transacoesFatura,
-    originalLength: transacoesFatura?.length || 0,
-    filtroCategoria,
-    filtroTexto
-  });
-  
-  let transacoesFiltradas = [...(transacoesFatura || [])];
+        // ✅ FUNÇÃO CORRIGIDA: getTransacoesFiltradas - Nova estrutura de dados
+        getTransacoesFiltradas: () => {
+          const { 
+            transacoesFatura, 
+            filtroCategoria,
+            filtroTexto 
+          } = get();
+          
+          console.log('🔍 GETTER: Filtrando transações com nova estrutura:', {
+            original: transacoesFatura,
+            originalLength: transacoesFatura?.length || 0,
+            filtroCategoria,
+            filtroTexto,
+            primeiraTransacao: transacoesFatura?.[0] ? {
+              categoria_nome: transacoesFatura[0].categoria_nome,
+              conta_pagamento_nome: transacoesFatura[0].conta_pagamento_nome
+            } : 'nenhuma'
+          });
+          
+          let transacoesFiltradas = [...(transacoesFatura || [])];
 
-  // Filtro por categoria - compatível com estrutura corrigida
-  if (filtroCategoria !== 'todas' && filtroCategoria !== 'Todas') {
-    console.log('🔍 GETTER: Aplicando filtro de categoria:', filtroCategoria);
-    transacoesFiltradas = transacoesFiltradas.filter(t => 
-      t.categorias?.nome === filtroCategoria
-    );
-  }
+          // ✅ CORRIGIDO: Filtro por categoria - nova estrutura
+          if (filtroCategoria !== 'todas' && filtroCategoria !== 'Todas') {
+            console.log('🔍 GETTER: Aplicando filtro de categoria:', filtroCategoria);
+            transacoesFiltradas = transacoesFiltradas.filter(t => 
+              t.categoria_nome === filtroCategoria // ✅ USAR categoria_nome
+            );
+          }
 
-  // Filtro por texto
-  if (filtroTexto) {
-    console.log('🔍 GETTER: Aplicando filtro de texto:', filtroTexto);
-    const texto = filtroTexto.toLowerCase();
-    transacoesFiltradas = transacoesFiltradas.filter(transacao => 
-      transacao.descricao?.toLowerCase().includes(texto) ||
-      transacao.categorias?.nome?.toLowerCase().includes(texto)
-    );
-  }
+          // ✅ CORRIGIDO: Filtro por texto - nova estrutura
+          if (filtroTexto) {
+            console.log('🔍 GETTER: Aplicando filtro de texto:', filtroTexto);
+            const texto = filtroTexto.toLowerCase();
+            transacoesFiltradas = transacoesFiltradas.filter(transacao => 
+              transacao.descricao?.toLowerCase().includes(texto) ||
+              transacao.categoria_nome?.toLowerCase().includes(texto) || // ✅ USAR categoria_nome
+              transacao.conta_pagamento_nome?.toLowerCase().includes(texto) // ✅ NOVO: buscar por conta
+            );
+          }
 
-  console.log('✅ GETTER: Resultado filtrado:', {
-    filtradas: transacoesFiltradas,
-    length: transacoesFiltradas.length
-  });
+          console.log('✅ GETTER: Resultado filtrado:', {
+            filtradas: transacoesFiltradas,
+            length: transacoesFiltradas.length
+          });
 
-  return transacoesFiltradas;
-},
+          return transacoesFiltradas;
+        },
+
+        // ✅ FUNÇÃO CORRIGIDA: getCategoriasUnicas - Nova estrutura de dados
         getCategoriasUnicas: () => {
           const { transacoesFatura } = get();
           const categorias = new Set();
           
           transacoesFatura.forEach(transacao => {
-            if (transacao.categorias?.nome) {
-              categorias.add(transacao.categorias.nome);
+            if (transacao.categoria_nome) { // ✅ USAR categoria_nome
+              categorias.add(transacao.categoria_nome);
             }
           });
           
-          return Array.from(categorias).sort();
+          const resultado = Array.from(categorias).sort();
+          
+          console.log('📋 CATEGORIAS ÚNICAS encontradas:', {
+            categorias: resultado,
+            total: resultado.length
+          });
+          
+          return resultado;
         },
 
         getTotalCartoesAtivos: () => {
@@ -515,7 +533,7 @@ getTransacoesFiltradas: () => {
         
         resetVisualizacao: () => 
           set({ 
-            visualizacao: 'consolidada', // ✅ CORREÇÃO 1: Sempre volta para consolidada
+            visualizacao: 'consolidada',
             cartaoSelecionado: null,
             faturaAtual: null,
             modalAberto: null
@@ -571,7 +589,7 @@ getTransacoesFiltradas: () => {
           exibirModoCompacto: state.exibirModoCompacto,
           ordenacao: state.ordenacao,
           direcaoOrdenacao: state.direcaoOrdenacao,
-          mesSelecionado: state.mesSelecionado // ✅ Persistir mês selecionado
+          mesSelecionado: state.mesSelecionado
         })
       }
     ),
