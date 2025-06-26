@@ -1,5 +1,6 @@
 // src/modules/cartoes/components/GestaoCartoes.jsx
 // ✅ VERSÃO REFATORADA E CORRIGIDA
+// ✅ ADICIONADO: Controle inteligente de exclusão de parcelas
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { 
@@ -56,6 +57,7 @@ const GestaoCartoes = () => {
   const {
     excluirTransacao,
     excluirParcelamento,
+    excluirParcelasFuturas, // ✅ NOVA FUNÇÃO
     loading: loadingOperations,
     error: errorOperations
   } = useFaturaOperations();
@@ -105,9 +107,11 @@ const GestaoCartoes = () => {
   const [modalEstorno, setModalEstorno] = useState(false);
   const [modalEdicao, setModalEdicao] = useState(false);
   const [transacaoEditando, setTransacaoEditando] = useState(null);
+  
+  // ✅ NOVOS ESTADOS PARA CONTROLE DE EXCLUSÃO DE PARCELAS
   const [modalConfirmacao, setModalConfirmacao] = useState(false);
-  const [transacaoParaExcluir, setTransacaoParaExcluir] = useState(null);
   const [modalConfirmacaoParcelamento, setModalConfirmacaoParcelamento] = useState(false);
+  const [transacaoParaExcluir, setTransacaoParaExcluir] = useState(null);
   const [excluirTodasParcelas, setExcluirTodasParcelas] = useState(false);
 
   // ✅ INICIALIZAÇÃO
@@ -318,14 +322,29 @@ const GestaoCartoes = () => {
     setMesSelecionado(novoMes);
   };
 
+  // ✅ FUNÇÃO DE REFRESH GLOBAL (para bug 33/34)
+  const refreshAll = async () => {
+    console.log('🔄 Iniciando refresh global após operação');
+    
+    if (visualizacao === 'consolidada') {
+      await carregarResumoConsolidado();
+    } else if (visualizacao === 'detalhada') {
+      await Promise.all([
+        carregarDetalhesFatura(),
+        carregarFaturasDisponiveis()
+      ]);
+    }
+    
+    // Recarregar cartões também
+    const cartoesAtualizados = await fetchCartoes();
+    setCartoes(cartoesAtualizados);
+    
+    console.log('✅ Refresh global concluído');
+  };
+
   // ✅ CORREÇÕES ID 33 e 34
   const handleSuccessOperacao = () => {
-    if (visualizacao === 'consolidada') {
-      carregarResumoConsolidado();
-    } else {
-      carregarDetalhesFatura();
-      carregarFaturasDisponiveis();
-    }
+    refreshAll();
   };
 
   // ✅ HANDLERS DE EDIÇÃO E EXCLUSÃO
@@ -336,7 +355,7 @@ const GestaoCartoes = () => {
       categoria_id: transacao.categoria_id,
       subcategoria_id: transacao.subcategoria_id,
       fatura_vencimento: transacao.fatura_vencimento || faturaAtual?.fatura_vencimento,
-      numero_parcelas: transacao.numero_parcelas || transacao.total_parcelas || 1,
+      numero_parcelas: transacao.numero_parcelas || transacao.numero_parcelas || 1,
       categoria_nome: transacao.categoria_nome,
       conta_nome: transacao.conta_nome,
       cartao_nome: transacao.cartao_nome
@@ -351,38 +370,84 @@ const GestaoCartoes = () => {
     setModalEdicao(true);
   };
 
-  // ✅ CORREÇÃO ID 35
+  // ✅ NOVA LÓGICA: Handler para exclusão inteligente de parcelas
   const handleExcluirTransacao = (transacao) => {
+    console.log('🗑️ Iniciando processo de exclusão:', {
+      id: transacao.id,
+      descricao: transacao.descricao,
+      grupoParcelamento: transacao.grupo_parcelamento,
+      parcelaAtual: transacao.parcela_atual,
+      totalParcelas: transacao.numero_parcelas
+    });
+
     setTransacaoParaExcluir(transacao);
     
-    if (transacao.grupo_parcelamento && transacao.parcela_atual && transacao.total_parcelas > 1) {
+    // ✅ LÓGICA INTELIGENTE: Verificar se é parte de um parcelamento
+    if (transacao.grupo_parcelamento && 
+        transacao.parcela_atual && 
+        transacao.numero_parcelas > 1) {
+      
+      console.log('💳 Transação faz parte de parcelamento - Abrindo modal de confirmação');
       setModalConfirmacaoParcelamento(true);
     } else {
+      console.log('💰 Transação individual - Abrindo confirmação simples');
       setModalConfirmacao(true);
     }
   };
 
+  // ✅ NOVA FUNÇÃO: Confirmar exclusão com lógica inteligente
   const confirmarExclusao = async () => {
-    if (!transacaoParaExcluir) return;
+    if (!transacaoParaExcluir) {
+      console.error('❌ Nenhuma transação selecionada para exclusão');
+      return;
+    }
 
     try {
+      console.log('⚡ Executando exclusão:', {
+        transacao: transacaoParaExcluir.id,
+        excluirTodas: excluirTodasParcelas,
+        grupoParcelamento: transacaoParaExcluir.grupo_parcelamento
+      });
+
       let resultado;
       
       if (excluirTodasParcelas && transacaoParaExcluir.grupo_parcelamento) {
-        resultado = await excluirParcelamento(
+        // ✅ EXCLUIR TODAS AS PARCELAS FUTURAS (incluindo a atual)
+        console.log('🗑️ Excluindo parcelas futuras do grupo:', {
+          grupo: transacaoParaExcluir.grupo_parcelamento,
+          apartirDa: transacaoParaExcluir.parcela_atual
+        });
+        
+        resultado = await excluirParcelasFuturas(
           transacaoParaExcluir.grupo_parcelamento,
           transacaoParaExcluir.parcela_atual
         );
       } else {
+        // ✅ EXCLUIR APENAS A TRANSAÇÃO INDIVIDUAL
+        console.log('🗑️ Excluindo transação individual:', transacaoParaExcluir.id);
+        
         resultado = await excluirTransacao(transacaoParaExcluir.id);
       }
       
       if (resultado.success) {
+        console.log('✅ Exclusão realizada com sucesso:', resultado);
+        
+        // Fechar modais
         setModalConfirmacao(false);
         setModalConfirmacaoParcelamento(false);
         setTransacaoParaExcluir(null);
         setExcluirTodasParcelas(false);
-        handleSuccessOperacao();
+        
+        // ✅ DISPARAR REFRESH GLOBAL
+        await refreshAll();
+        
+        // Mostrar mensagem de sucesso
+        const mensagem = excluirTodasParcelas 
+          ? `${resultado.parcelas_excluidas || 'Múltiplas'} parcela(s) excluída(s) com sucesso`
+          : 'Transação excluída com sucesso';
+        
+        console.log('🎉', mensagem);
+        
       } else {
         throw new Error(resultado.error || 'Erro ao excluir transação');
       }
@@ -392,7 +457,9 @@ const GestaoCartoes = () => {
     }
   };
 
+  // ✅ FUNÇÃO: Cancelar exclusão
   const cancelarExclusao = () => {
+    console.log('❌ Cancelando exclusão');
     setModalConfirmacao(false);
     setModalConfirmacaoParcelamento(false);
     setTransacaoParaExcluir(null);
@@ -405,7 +472,7 @@ const GestaoCartoes = () => {
   };
 
   const handleSalvarEdicao = () => {
-    handleSuccessOperacao();
+    refreshAll();
   };
 
   const calcularTotaisConsolidado = () => {
@@ -519,7 +586,7 @@ const GestaoCartoes = () => {
         onAbrirModalEstorno={() => setModalEstorno(true)}
       />
 
-      {/* Modais */}
+      {/* ✅ MODAIS EXISTENTES */}
       <ModalPagamentoFatura
         isOpen={modalPagamento}
         onClose={() => setModalPagamento(false)}
@@ -555,6 +622,7 @@ const GestaoCartoes = () => {
         transacaoEditando={transacaoEditando}
       />
 
+      {/* ✅ NOVO MODAL: Confirmação inteligente de exclusão de parcelas */}
       <ModalConfirmacaoParcelamento
         isOpen={modalConfirmacaoParcelamento}
         onClose={cancelarExclusao}
@@ -562,8 +630,10 @@ const GestaoCartoes = () => {
         excluirTodasParcelas={excluirTodasParcelas}
         onChangeExcluirTodas={setExcluirTodasParcelas}
         onConfirmar={confirmarExclusao}
+        loading={loadingOperations}
       />
 
+      {/* ✅ MODAL: Confirmação simples para transações individuais */}
       <ModalConfirmacaoSimples
         isOpen={modalConfirmacao && !modalConfirmacaoParcelamento}
         onClose={cancelarExclusao}

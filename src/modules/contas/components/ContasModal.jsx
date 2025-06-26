@@ -1,4 +1,4 @@
-// src/modules/contas/components/ContasModal.jsx - Z-INDEX CORRIGIDO + CLASSES CSS LIMPAS
+// src/modules/contas/components/ContasModal.jsx - VERSÃO CORRIGIDA COM STORE
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -13,41 +13,41 @@ import {
   Palette,
   FileText,
   Eye,
-  EyeOff
+  EyeOff,
+  Lock,
+  AlertCircle
 } from 'lucide-react';
 
 import { useAuthStore } from '@modules/auth/store/authStore';
 import { useUIStore } from '@store/uiStore';
 import { formatCurrency } from '@utils/formatCurrency';
-import { supabase } from '@lib/supabaseClient';
 import useContas from '@modules/contas/hooks/useContas';
 import '@shared/styles/FormsModal.css';
+import useContasStore from '@/modules/contas/store/contasStore';
+
 
 /**
- * Modal de Gerenciamento de Contas - Z-INDEX CORRIGIDO + CLASSES CSS LIMPAS
- * Funcionalidades:
- * - Criar/editar contas
- * - Arquivar/desarquivar 
- * - Corrigir saldo (2 métodos)
- * - Visualizar saldo inicial vs atual
- * 
- * Z-INDEX HIERARCHY:
- * - Modal principal: z-index: 1000
- * - Modais aninhados: z-index: 1100
+ * Modal de Gerenciamento de Contas - VERSÃO CORRIGIDA COM STORE
+ * ✅ Usa useContas que agora funciona com store
+ * ✅ Elimina dependências diretas do Supabase
+ * ✅ Interface limpa e consistente
  */
 const ContasModal = ({ isOpen, onClose, onSave }) => {
   const { user } = useAuthStore();
   const { showNotification } = useUIStore();
   
+  // ✅ USAR HOOK REFATORADO COM STORE
   const {
     contas,
     contasArquivadas,
     loading,
+    addConta,
+    updateConta,
     arquivarConta,
     desarquivarConta,
     corrigirSaldoConta,
     fetchContasArquivadas,
-    recalcularSaldos
+    // ✅ REMOVIDO: recalcularSaldos - não existe mais, pois store gerencia automaticamente
   } = useContas();
   
   const nomeInputRef = useRef(null);
@@ -157,9 +157,9 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
   // =============================================================================
   
   const resumo = React.useMemo(() => {
-    const saldoTotal = contas.reduce((sum, conta) => sum + (conta.saldo_atual || 0), 0);
-    const contasPositivas = contas.filter(conta => (conta.saldo_atual || 0) > 0).length;
-    const contasNegativas = contas.filter(conta => (conta.saldo_atual || 0) < 0).length;
+    const saldoTotal = contas.reduce((sum, conta) => sum + (conta.saldo_atual || conta.saldo || 0), 0);
+    const contasPositivas = contas.filter(conta => (conta.saldo_atual || conta.saldo || 0) > 0).length;
+    const contasNegativas = contas.filter(conta => (conta.saldo_atual || conta.saldo || 0) < 0).length;
     
     return { 
       saldoTotal, 
@@ -256,16 +256,11 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
   }, [resetFormulario]);
 
   const iniciarEdicaoConta = useCallback((conta) => {
-    const saldoFormatado = (conta.saldo_inicial || 0).toLocaleString('pt-BR', { 
-      minimumFractionDigits: 2, 
-      maximumFractionDigits: 2 
-    });
-    
     setFormData({
       nome: conta.nome,
       tipo: conta.tipo,
       banco: conta.banco || '',
-      saldoInicial: saldoFormatado,
+      saldoInicial: '', // ✅ Não preenchemos para edição
       cor: conta.cor || '#3B82F6'
     });
     setContaEditando(conta);
@@ -283,10 +278,16 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
       erros.tipo = "Tipo é obrigatório";
     }
     
+    // ✅ Saldo inicial obrigatório apenas na criação
+    if (modoFormulario === 'criar' && !formData.saldoInicial) {
+      erros.saldoInicial = "Saldo inicial é obrigatório";
+    }
+    
     setFormErrors(erros);
     return Object.keys(erros).length === 0;
-  }, [formData]);
+  }, [formData, modoFormulario]);
 
+  // ✅ FUNÇÃO CORRIGIDA - Usa hooks em vez de Supabase direto
   const submeterFormulario = useCallback(async (e) => {
     e.preventDefault();
     
@@ -298,48 +299,35 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
     try {
       setSubmitting(true);
       
-      const saldoInicial = parseValorInput(formData.saldoInicial);
-      
       if (modoFormulario === 'editar' && contaEditando) {
-        // Atualizar conta existente
-        const { error } = await supabase
-          .from('contas')
-          .update({
-            nome: formData.nome.trim(),
-            tipo: formData.tipo,
-            banco: formData.banco.trim(),
-            saldo_inicial: saldoInicial,
-            cor: formData.cor,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', contaEditando.id);
+        // ✅ USAR HOOK EM VEZ DE SUPABASE DIRETO
+        await updateConta(contaEditando.id, {
+          nome: formData.nome.trim(),
+          tipo: formData.tipo,
+          banco: formData.banco.trim(),
+          cor: formData.cor
+        });
         
-        if (error) throw error;
         showNotification('Conta atualizada com sucesso!', 'success');
         
       } else {
-        // Criar nova conta
-        const { error } = await supabase
-          .from('contas')
-          .insert([{
-            usuario_id: user.id,
-            nome: formData.nome.trim(),
-            tipo: formData.tipo,
-            banco: formData.banco.trim(),
-            saldo_inicial: saldoInicial,
-            cor: formData.cor,
-            ativo: true,
-            incluir_soma_total: true,
-            ordem: 1,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }]);
+        // ✅ USAR HOOK EM VEZ DE SUPABASE DIRETO
+        const saldoInicial = parseValorInput(formData.saldoInicial);
         
-        if (error) throw error;
+        await addConta({
+          nome: formData.nome.trim(),
+          tipo: formData.tipo,
+          banco: formData.banco.trim(),
+          saldoInicial: saldoInicial,
+          cor: formData.cor
+        });
+        
+        const { forceRefreshContas } = useContasStore.getState();
+        forceRefreshContas(); // 🔁
         showNotification('Conta criada com sucesso!', 'success');
       }
       
-      await recalcularSaldos();
+      // ✅ NÃO PRECISA MAIS recalcularSaldos - store atualiza automaticamente
       resetFormulario();
       if (onSave) onSave();
       
@@ -349,7 +337,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
     } finally {
       setSubmitting(false);
     }
-  }, [validarFormulario, modoFormulario, contaEditando, formData, parseValorInput, user.id, recalcularSaldos, resetFormulario, onSave, showNotification]);
+  }, [validarFormulario, modoFormulario, contaEditando, formData, parseValorInput, updateConta, addConta, resetFormulario, onSave, showNotification]);
 
   // =============================================================================
   // AÇÕES DE CORREÇÃO DE SALDO
@@ -359,10 +347,10 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
     setModalCorrigirSaldo({
       ativo: true,
       conta,
-      novoSaldo: conta.saldo_atual?.toLocaleString('pt-BR', { 
+      novoSaldo: (conta.saldo_atual || conta.saldo || 0).toLocaleString('pt-BR', { 
         minimumFractionDigits: 2, 
         maximumFractionDigits: 2 
-      }) || '0,00',
+      }),
       metodo: 'ajuste',
       motivo: ''
     });
@@ -382,6 +370,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
 
     setSubmitting(true);
     try {
+      // ✅ USAR HOOK EM VEZ DE LÓGICA PRÓPRIA
       const resultado = await corrigirSaldoConta(
         modalCorreirSaldo.conta.id,
         novoSaldoNumerico,
@@ -413,6 +402,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
     
     setSubmitting(true);
     try {
+      // ✅ USAR HOOK EM VEZ DE LÓGICA PRÓPRIA
       const resultado = await arquivarConta(modalArquivar.conta.id, modalArquivar.motivo);
       
       if (resultado.success) {
@@ -435,6 +425,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
     
     setSubmitting(true);
     try {
+      // ✅ USAR HOOK EM VEZ DE LÓGICA PRÓPRIA
       const resultado = await desarquivarConta(modalDesarquivar.conta.id);
       
       if (resultado.success) {
@@ -453,7 +444,9 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
   // =============================================================================
 
   const renderConta = useCallback((conta, isArquivada = false) => {
-    const temDiferenca = Math.abs((conta.saldo_atual || 0) - (conta.saldo_inicial || 0)) > 0.01;
+    const saldoAtual = conta.saldo_atual || conta.saldo || 0;
+    const saldoInicial = conta.saldo_inicial || 0;
+    const temDiferenca = Math.abs(saldoAtual - saldoInicial) > 0.01;
     
     return (
       <div 
@@ -475,12 +468,12 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
               {conta.banco && ` • ${conta.banco}`}
             </div>
             <div className="account-balance">
-              <div className={`balance-current ${(conta.saldo_atual || 0) >= 0 ? 'positive' : 'negative'}`}>
-                {formatCurrency(conta.saldo_atual || 0)}
+              <div className={`balance-current ${saldoAtual >= 0 ? 'positive' : 'negative'}`}>
+                {formatCurrency(saldoAtual)}
               </div>
               {temDiferenca && (
                 <div className="balance-initial">
-                  (inicial: {formatCurrency(conta.saldo_inicial || 0)})
+                  (inicial: {formatCurrency(saldoInicial)})
                 </div>
               )}
             </div>
@@ -700,21 +693,81 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
                         </div>
                         
                         <div className="flex flex-col">
-                          <label className="form-label">
-                            <DollarSign size={14} />
-                            Saldo
-                            <span className="form-label-small">(Ex: 1000 ou -500,00)</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={formData.saldoInicial}
-                            onChange={handleSaldoChange}
-                            placeholder="0,00"
-                            disabled={submitting}
-                            className={`input-money ${parseValorInput(formData.saldoInicial) >= 0 ? 'positive' : 'negative'}`}
-                          />
+                          {modoFormulario === 'criar' ? (
+                            <>
+                              <label className="form-label">
+                                <DollarSign size={14} />
+                                Saldo Inicial *
+                                <span className="form-label-small">(Ex: 1000 ou -500,00)</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={formData.saldoInicial}
+                                onChange={handleSaldoChange}
+                                placeholder="0,00"
+                                disabled={submitting}
+                                className={`input-money ${parseValorInput(formData.saldoInicial) >= 0 ? 'positive' : 'negative'} ${formErrors.saldoInicial ? 'error' : ''}`}
+                              />
+                              {formErrors.saldoInicial && <div className="form-error">{formErrors.saldoInicial}</div>}
+                            </>
+                          ) : (
+                            <>
+                              <label className="form-label">
+                                <Lock size={14} />
+                                Saldo Inicial
+                                <span className="form-label-small">(somente leitura)</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={formatCurrency(contaEditando?.saldo_inicial || 0)}
+                                disabled={true}
+                                className="input-money input-disabled"
+                                readOnly
+                              />
+                              <div className="confirmation-info-box" style={{ marginTop: '8px' }}>
+                                <AlertCircle size={16} />
+                                <p>Para alterar o saldo, use a opção <strong>"Corrigir Saldo"</strong> na lista de contas.</p>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
+
+                      {/* Informações adicionais na edição */}
+                      {modoFormulario === 'editar' && contaEditando && (
+                        <div className="summary-panel" style={{ marginBottom: '16px' }}>
+                          <div className="summary-header">
+                            <Calculator size={16} />
+                            <strong>Informações da Conta</strong>
+                          </div>
+                          <div style={{ 
+                            display: 'grid', 
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', 
+                            gap: '12px', 
+                            fontSize: '0.9rem',
+                            marginTop: '12px'
+                          }}>
+                            <div>
+                              <div style={{ color: '#6b7280', marginBottom: '4px', fontSize: '0.8rem' }}>Saldo Inicial:</div>
+                              <div style={{ fontWeight: '600', color: '#1f2937' }}>
+                                {formatCurrency(contaEditando.saldo_inicial || 0)}
+                              </div>
+                            </div>
+                            <div>
+                              <div style={{ color: '#6b7280', marginBottom: '4px', fontSize: '0.8rem' }}>Saldo Atual:</div>
+                              <div className={`summary-value ${(contaEditando.saldo_atual || contaEditando.saldo || 0) >= 0 ? 'positive' : 'negative'}`}>
+                                {formatCurrency(contaEditando.saldo_atual || contaEditando.saldo || 0)}
+                              </div>
+                            </div>
+                            <div>
+                              <div style={{ color: '#6b7280', marginBottom: '4px', fontSize: '0.8rem' }}>Diferença:</div>
+                              <div className={`summary-value ${((contaEditando.saldo_atual || contaEditando.saldo || 0) - (contaEditando.saldo_inicial || 0)) >= 0 ? 'positive' : 'negative'}`}>
+                                {formatCurrency((contaEditando.saldo_atual || contaEditando.saldo || 0) - (contaEditando.saldo_inicial || 0))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Seletor de Cor */}
                       <div className="flex flex-col mb-3">
@@ -849,7 +902,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
                 <h4>{modalCorreirSaldo.conta?.nome}</h4>
                 <div className="account-balances">
                   <div>Saldo inicial: <strong>{formatCurrency(modalCorreirSaldo.conta?.saldo_inicial || 0)}</strong></div>
-                  <div>Saldo atual: <strong>{formatCurrency(modalCorreirSaldo.conta?.saldo_atual || 0)}</strong></div>
+                  <div>Saldo atual: <strong>{formatCurrency(modalCorreirSaldo.conta?.saldo_atual || modalCorreirSaldo.conta?.saldo || 0)}</strong></div>
                 </div>
               </div>
               
@@ -978,7 +1031,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
                 </div>
                 <p className="summary-value">
                   Você está arquivando esta conta. O saldo de{' '}
-                  <strong>{formatCurrency(modalArquivar.conta?.saldo_atual || 0)}</strong>{' '}
+                  <strong>{formatCurrency(modalArquivar.conta?.saldo_atual || modalArquivar.conta?.saldo || 0)}</strong>{' '}
                   será removido do dashboard. As transações continuarão visíveis nos relatórios.
                 </p>
               </div>
@@ -1059,7 +1112,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
                 </div>
                 <p className="summary-value">
                   Esta conta será reativada e voltará a aparecer no dashboard. O saldo de{' '}
-                  <strong>{formatCurrency(modalDesarquivar.conta?.saldo_atual || 0)}</strong>{' '}
+                  <strong>{formatCurrency(modalDesarquivar.conta?.saldo_atual || modalDesarquivar.conta?.saldo || 0)}</strong>{' '}
                   será incluído nos cálculos totais novamente.
                 </p>
               </div>

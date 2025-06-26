@@ -789,6 +789,39 @@ const DespesasCartaoModal = ({
   return (
     <div className={`modal-overlay ${isOpen ? 'active' : ''}`}>
       <div className="forms-modal-container">
+              {/* Modal de Confirmação para Criar Categoria/Subcategoria */}
+      {confirmacao.show && (
+        <div className="modal-overlay-confirmation">
+          <div className="forms-modal-container modal-small">
+            <div className="modal-header">
+              <h3 className="modal-title">
+                Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
+              </h3>
+            </div>
+            <div className="modal-body">
+              <p className="confirmation-message">
+                {confirmacao.type === 'categoria' ? 'A categoria' : 'A subcategoria'}{' '}
+                <strong className="confirmation-name">"{confirmacao.nome}"</strong> não existe. Deseja criá-la?
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button 
+                onClick={() => setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' })}
+                className="btn-cancel"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleConfirmarCriacao}
+                className="btn-primary"
+              >
+                Criar {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
         {/* Header */}
         <div className="modal-header">
           <div className="modal-header-content">
@@ -1236,38 +1269,6 @@ const DespesasCartaoModal = ({
         </div>
       </div>
       
-      {/* Modal de Confirmação para Criar Categoria/Subcategoria */}
-      {confirmacao.show && (
-        <div className="modal-overlay-confirmation">
-          <div className="forms-modal-container modal-small">
-            <div className="modal-header">
-              <h3 className="modal-title">
-                Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
-              </h3>
-            </div>
-            <div className="modal-body">
-              <p className="confirmation-message">
-                {confirmacao.type === 'categoria' ? 'A categoria' : 'A subcategoria'}{' '}
-                <strong className="confirmation-name">"{confirmacao.nome}"</strong> não existe. Deseja criá-la?
-              </p>
-            </div>
-            <div className="modal-footer">
-              <button 
-                onClick={() => setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' })}
-                className="btn-cancel"
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={handleConfirmarCriacao}
-                className="btn-primary"
-              >
-                Criar {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Display de Error */}
       {(cartoesError || operationError) && (

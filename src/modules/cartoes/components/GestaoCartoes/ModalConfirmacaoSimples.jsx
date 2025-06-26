@@ -1,13 +1,14 @@
 // src/modules/cartoes/components/GestaoCartoes/ModalConfirmacaoSimples.jsx
 import React from 'react';
-import { Trash2 } from 'lucide-react';
+import { Trash2, AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '@shared/utils/formatCurrency';
 
 const ModalConfirmacaoSimples = ({
   isOpen,
   onClose,
   transacao,
-  onConfirmar
+  onConfirmar,
+  loading = false
 }) => {
   if (!isOpen || !transacao) return null;
 
@@ -24,7 +25,7 @@ const ModalConfirmacaoSimples = ({
               <p className="modal-subtitle">Esta ação não pode ser desfeita</p>
             </div>
           </div>
-          <button onClick={onClose} className="modal-close">×</button>
+          <button onClick={onClose} className="modal-close" disabled={loading}>×</button>
         </div>
 
         <div className="modal-body">
@@ -34,6 +35,7 @@ const ModalConfirmacaoSimples = ({
             </p>
           </div>
           
+          {/* Informações da Transação */}
           <div className="confirmation-info">
             <div className="confirmation-item">
               <strong>Descrição:</strong> {transacao.descricao}
@@ -47,28 +49,68 @@ const ModalConfirmacaoSimples = ({
             <div className="confirmation-item">
               <strong>Categoria:</strong> {transacao.categoria_nome || 'N/A'}
             </div>
+            {transacao.conta_pagamento_nome && (
+              <div className="confirmation-item">
+                <strong>Conta:</strong> {transacao.conta_pagamento_nome}
+              </div>
+            )}
           </div>
 
+          {/* Aviso sobre a ação */}
           <div className="confirmation-warning">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
-            </svg>
-            <p>
-              Esta transação será excluída permanentemente. Esta ação não pode ser desfeita.
-            </p>
+            <AlertTriangle size={16} />
+            <div>
+              <p>
+                <strong>Esta transação será excluída permanentemente.</strong>
+              </p>
+              <p>
+                Esta ação não pode ser desfeita. A transação será removida do sistema 
+                e não aparecerá mais em relatórios ou extratos.
+              </p>
+              {transacao.efetivado && (
+                <p style={{ marginTop: '8px', color: '#DC2626' }}>
+                  ⚠️ Esta transação já foi efetivada. A exclusão pode afetar o saldo da conta.
+                </p>
+              )}
+            </div>
           </div>
+
+          {/* Informações adicionais se houver */}
+          {transacao.observacoes && (
+            <div className="summary-panel">
+              <h4 className="summary-title">Observações</h4>
+              <p style={{ fontSize: '14px', color: '#6B7280', margin: 0 }}>
+                {transacao.observacoes}
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="modal-footer">
-          <div className="footer-right">
-            <button onClick={onClose} className="btn-cancel">
-              Cancelar
-            </button>
-            <button onClick={onConfirmar} className="btn-secondary btn-secondary--danger">
-              <Trash2 size={14} />
-              Excluir Transação
-            </button>
-          </div>
+          <button 
+            onClick={onClose} 
+            className="btn-cancel"
+            disabled={loading}
+          >
+            Cancelar
+          </button>
+          <button 
+            onClick={onConfirmar} 
+            className="btn-secondary btn-secondary--danger"
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <div className="btn-spinner"></div>
+                Excluindo...
+              </>
+            ) : (
+              <>
+                <Trash2 size={14} />
+                Excluir Transação
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>

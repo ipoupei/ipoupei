@@ -1,4 +1,4 @@
-// src/modules/transacoes/components/TransferenciasModal.jsx - VERSÃO CSS PURO
+// src/modules/transacoes/components/TransferenciasModal.jsx - CORRIGIDO PARA USAR useTransferencias
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -16,15 +16,24 @@ import { useAuthStore } from '@modules/auth/store/authStore';
 import { useUIStore } from '@store/uiStore';
 import { formatCurrency } from '@utils/formatCurrency';
 import { supabase } from '@lib/supabaseClient';
+import useTransferencias from '@/modules/transacoes/hooks/useTransferencias'; // ✅ USANDO O HOOK CORRETO
 import '@shared/styles/FormsModal.css';
 
 /**
- * Modal de Transferências - CSS Puro
- * Seguindo o padrão dos outros modais
+ * Modal de Transferências - CORRIGIDO
+ * ✅ Usa useTransferencias (com RPC e refresh global)
+ * ✅ Mantém toda a UI original
  */
 const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
   const { user } = useAuthStore();
   const { showNotification } = useUIStore();
+  
+  // ✅ USAR O HOOK CORRETO
+  const { 
+    realizarTransferencia, 
+    validarTransferencia,
+    loading: transferLoading 
+  } = useTransferencias();
   
   const valorInputRef = useRef(null);
 
@@ -39,6 +48,7 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
     descricao: ''
   });
   const [errors, setErrors] = useState({});
+  const [validacao, setValidacao] = useState(null); // ✅ Para dados de validação
 
   // Carregar contas
   const carregarContas = useCallback(async () => {
@@ -102,19 +112,40 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
     [contas, formData.contaDestinoId]
   );
 
-  // Cálculo do aviso de saldo negativo
+  // ✅ VALIDAÇÃO usando o hook
+  useEffect(() => {
+    const executarValidacao = async () => {
+      if (formData.contaOrigemId && formData.contaDestinoId && valorNumerico > 0) {
+        const resultado = await validarTransferencia({
+          contaOrigemId: formData.contaOrigemId,
+          contaDestinoId: formData.contaDestinoId,
+          valor: valorNumerico
+        });
+        setValidacao(resultado);
+      } else {
+        setValidacao(null);
+      }
+    };
+
+    executarValidacao();
+  }, [formData.contaOrigemId, formData.contaDestinoId, valorNumerico, validarTransferencia]);
+
+  // Cálculo do aviso de saldo negativo usando validação
   const avisoSaldoNegativo = useMemo(() => {
-    if (contaOrigem && valorNumerico > 0) {
-      const novoSaldo = Number(contaOrigem.saldo) - valorNumerico;
-      return novoSaldo < 0 ? { conta: contaOrigem.nome, novoSaldo } : null;
+    if (validacao?.valida && validacao.dados?.saldoInsuficiente) {
+      return {
+        conta: validacao.dados.contaOrigem.nome,
+        novoSaldo: validacao.dados.novoSaldoOrigem
+      };
     }
     return null;
-  }, [contaOrigem, valorNumerico]);
+  }, [validacao]);
 
   // Reset form
   const resetForm = useCallback(() => {
     setFormData({ contaOrigemId: '', contaDestinoId: '', valor: '', descricao: '' });
     setErrors({});
+    setValidacao(null);
   }, []);
 
   // Effects
@@ -165,7 +196,7 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
     }));
   }, []);
 
-  // Validação
+  // Validação do formulário
   const validateForm = useCallback(() => {
     const newErrors = {};
     if (!formData.contaOrigemId) newErrors.contaOrigemId = "Selecione a conta de origem";
@@ -173,11 +204,17 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
     if (formData.contaOrigemId === formData.contaDestinoId) newErrors.contaDestinoId = "Deve ser diferente da origem";
     if (!valorNumerico || valorNumerico <= 0) newErrors.valor = "Valor deve ser maior que zero";
     if (formData.descricao && formData.descricao.length > 100) newErrors.descricao = "Máximo de 100 caracteres";
+    
+    // ✅ Verificar validação do hook
+    if (validacao && !validacao.valida) {
+      newErrors.geral = validacao.erro;
+    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [formData, valorNumerico]);
+  }, [formData, valorNumerico, validacao]);
 
-  // Executar transferência
+  // ✅ EXECUTAR TRANSFERÊNCIA usando o hook
   const executarTransferencia = useCallback(async () => {
     if (!validateForm()) {
       showNotification('Corrija os erros no formulário', 'error');
@@ -187,133 +224,43 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
     try {
       setSubmitting(true);
       
-      // Verificar se as contas ainda existem
-      const { data: contasAtualizadas, error: contasError } = await supabase
-        .from('contas')
-        .select('*')
-        .in('id', [formData.contaOrigemId, formData.contaDestinoId])
-        .eq('usuario_id', user.id)
-        .eq('ativo', true);
+      console.log('🔄 Iniciando transferência via hook...');
+      
+      // ✅ USAR O HOOK que tem RPC + refresh global
+      const resultado = await realizarTransferencia({
+        contaOrigemId: formData.contaOrigemId,
+        contaDestinoId: formData.contaDestinoId,
+        valor: valorNumerico,
+        descricao: formData.descricao
+      });
 
-      if (contasError) {
-        throw new Error('Erro ao acessar dados das contas');
-      }
+      console.log('📊 Resultado da transferência:', resultado);
 
-      if (!contasAtualizadas || contasAtualizadas.length !== 2) {
-        throw new Error('Uma ou ambas as contas não foram encontradas');
+      if (resultado.success) {
+        const avisoSaldo = avisoSaldoNegativo;
+        
+        showNotification(
+          avisoSaldo 
+            ? `Transferência realizada! ${avisoSaldo.conta} ficou com saldo negativo.`
+            : 'Transferência realizada com sucesso!',
+          avisoSaldo ? 'warning' : 'success'
+        );
+        
+        resetForm();
+        await carregarContas(); // Recarregar contas locais
+        if (onSave) onSave();
+        setTimeout(() => onClose(), 1500);
+      } else {
+        throw new Error(resultado.error || 'Erro na transferência');
       }
-
-      const contaOrigemAtualizada = contasAtualizadas.find(c => c.id === formData.contaOrigemId);
-      const contaDestinoAtualizada = contasAtualizadas.find(c => c.id === formData.contaDestinoId);
-
-      if (!contaOrigemAtualizada || !contaDestinoAtualizada) {
-        throw new Error('Erro ao identificar as contas');
-      }
-      
-      const dataAtual = new Date().toISOString().split('T')[0];
-      const timestamp = new Date().toISOString();
-      const valorFinal = Math.round(valorNumerico * 100) / 100;
-      
-      if (valorFinal <= 0) {
-        throw new Error('Valor da transferência deve ser maior que zero');
-      }
-      
-      // Criar identificador único para a transferência
-      const identificadorTransferencia = `TRANS_${timestamp.replace(/[-:.T]/g, '')}_${Math.random().toString(36).substr(2, 5)}`;
-      
-      const transacoes = [
-        {
-          usuario_id: user.id,
-          data: dataAtual,
-          descricao: `Transferência para ${contaDestinoAtualizada.nome}${formData.descricao ? ` - ${formData.descricao}` : ''} [${identificadorTransferencia}]`,
-          conta_id: formData.contaOrigemId,
-          valor: valorFinal,
-          tipo: 'despesa',
-          efetivado: true,
-          transferencia: true,
-          observacoes: formData.descricao || null,
-          created_at: timestamp,
-          updated_at: timestamp
-        },
-        {
-          usuario_id: user.id,
-          data: dataAtual,
-          descricao: `Transferência de ${contaOrigemAtualizada.nome}${formData.descricao ? ` - ${formData.descricao}` : ''} [${identificadorTransferencia}]`,
-          conta_id: formData.contaDestinoId,
-          valor: valorFinal,
-          tipo: 'receita',
-          efetivado: true,
-          transferencia: true,
-          observacoes: formData.descricao || null,
-          created_at: timestamp,
-          updated_at: timestamp
-        }
-      ];
-      
-      // Inserir transações
-      const { data: transacoesInseridas, error: transacoesError } = await supabase
-        .from('transacoes')
-        .insert(transacoes)
-        .select();
-      
-      if (transacoesError) {
-        throw new Error('Erro ao registrar transações: ' + transacoesError.message);
-      }
-      
-      // Calcular novos saldos
-      const saldoOrigemAtual = parseFloat(contaOrigemAtualizada.saldo);
-      const saldoDestinoAtual = parseFloat(contaDestinoAtualizada.saldo);
-      const novoSaldoOrigem = Number((saldoOrigemAtual - valorFinal).toFixed(2));
-      const novoSaldoDestino = Number((saldoDestinoAtual + valorFinal).toFixed(2));
-      
-      // Atualizar saldos das contas
-      const { error: origemError } = await supabase
-        .from('contas')
-        .update({ 
-          saldo: novoSaldoOrigem,
-          updated_at: timestamp
-        })
-        .eq('id', formData.contaOrigemId)
-        .eq('usuario_id', user.id);
-      
-      if (origemError) {
-        throw new Error('Erro ao atualizar saldo da conta de origem: ' + origemError.message);
-      }
-      
-      const { error: destinoError } = await supabase
-        .from('contas')
-        .update({ 
-          saldo: novoSaldoDestino,
-          updated_at: timestamp
-        })
-        .eq('id', formData.contaDestinoId)
-        .eq('usuario_id', user.id);
-      
-      if (destinoError) {
-        throw new Error('Erro ao atualizar saldo da conta de destino: ' + destinoError.message);
-      }
-      
-      const avisoSaldo = novoSaldoOrigem < 0;
-      
-      showNotification(
-        avisoSaldo 
-          ? `Transferência realizada! ${contaOrigemAtualizada.nome} ficou com saldo negativo.`
-          : 'Transferência realizada com sucesso!',
-        avisoSaldo ? 'warning' : 'success'
-      );
-      
-      resetForm();
-      await carregarContas();
-      if (onSave) onSave();
-      setTimeout(() => onClose(), 1500);
       
     } catch (error) {
-      console.error('Erro na transferência:', error);
+      console.error('❌ Erro na transferência:', error);
       showNotification(`Erro ao realizar transferência: ${error.message}`, 'error');
     } finally {
       setSubmitting(false);
     }
-  }, [validateForm, user.id, formData, valorNumerico, showNotification, resetForm, carregarContas, onSave, onClose]);
+  }, [validateForm, realizarTransferencia, formData, valorNumerico, avisoSaldoNegativo, showNotification, resetForm, carregarContas, onSave, onClose]);
 
   if (!isOpen) return null;
 
@@ -330,6 +277,7 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
               <h2 className="modal-title">Transferir entre Contas</h2>
               <p className="modal-subtitle">
                 {contas.length} {contas.length === 1 ? 'conta disponível' : 'contas disponíveis'}
+                {(transferLoading || submitting) && ' • Processando...'}
               </p>
             </div>
           </div>
@@ -360,6 +308,17 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
             <form onSubmit={(e) => { e.preventDefault(); executarTransferencia(); }}>
               
               <h3 className="section-title">Informações da Transferência</h3>
+              
+              {/* ✅ Erro geral de validação */}
+              {errors.geral && (
+                <div className="summary-panel error mb-3">
+                  <div className="summary-header">
+                    <AlertTriangle size={16} />
+                    <strong>Erro de Validação</strong>
+                  </div>
+                  <p className="summary-value">{errors.geral}</p>
+                </div>
+              )}
               
               {/* Valor */}
               <div className="flex flex-col mb-3">
@@ -462,7 +421,7 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
               )}
 
               {/* Preview da transferência */}
-              {formData.contaOrigemId && formData.contaDestinoId && valorNumerico > 0 && contaOrigem && contaDestino && (
+              {validacao?.valida && validacao.dados && valorNumerico > 0 && (
                 <div className={`summary-panel ${avisoSaldoNegativo ? 'warning' : 'success'} mb-3`}>
                   <div className="summary-header">
                     <ArrowLeftRight size={16} />
@@ -470,14 +429,14 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
                   </div>
                   <div className="transfer-preview">
                     <div className="transfer-from">
-                      <span className="transfer-account">{contaOrigem.nome}</span>
+                      <span className="transfer-account">{validacao.dados.contaOrigem.nome}</span>
                       <span className="transfer-amount">-{formatCurrency(valorNumerico)}</span>
                     </div>
                     <div className="transfer-arrow">
                       <ArrowRight size={16} />
                     </div>
                     <div className="transfer-to">
-                      <span className="transfer-account">{contaDestino.nome}</span>
+                      <span className="transfer-account">{validacao.dados.contaDestino.nome}</span>
                       <span className="transfer-amount">+{formatCurrency(valorNumerico)}</span>
                     </div>
                   </div>
@@ -527,7 +486,7 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
             <button
               type="submit"
               onClick={(e) => { e.preventDefault(); executarTransferencia(); }}
-              disabled={submitting || !formData.contaOrigemId || !formData.contaDestinoId || !valorNumerico}
+              disabled={submitting || !validacao?.valida || !valorNumerico}
               className={`btn-primary ${avisoSaldoNegativo ? 'btn-warning' : ''}`}
             >
               {submitting ? (

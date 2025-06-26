@@ -19,6 +19,8 @@ import ContasModal from '@modules/contas/components/ContasModal';
 import CartoesModal from '@modules/cartoes/components/CartoesModal';
 import CategoriasModal from '@modules/categorias/components/CategoriasModal';
 
+ import GlobalRefreshListener from '@/modules/core/components/GlobalRefreshListener';
+
 import '@shared/styles/MainLayout.css';
 
 

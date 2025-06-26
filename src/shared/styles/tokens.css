@@ -2,7 +2,7 @@
 :root {
   /* === CORES === */
   /* Primárias */
-  --color-primary: #3b82f6;
+  --color-primary: #008080;
   --color-primary-dark: #1d4ed8;
   --color-primary-light: #dbeafe;
   
@@ -35,7 +35,7 @@
   --color-success: #10b981;
   --color-warning: #f59e0b;
   --color-error: #ef4444;
-  --color-info: #3b82f6;
+  --color-info: #008080;
   
   /* === TIPOGRAFIA === */
   --font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

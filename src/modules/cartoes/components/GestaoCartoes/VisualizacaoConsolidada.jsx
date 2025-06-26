@@ -105,12 +105,9 @@ const VisualizacaoConsolidada = ({
               <CreditCard className="empty-state__icon" />
               <h3 className="empty-state__title">Nenhum cartão encontrado</h3>
               <p className="empty-state__description">
-                Adicione seus cartões para acompanhar as faturas e gastos.
+                Clique no menu "Meus Cartões" aqui na esquerda e adicione seus cartões para acompanhar as faturas e gastos.
               </p>
-              <button className="empty-state__button">
-                <Plus className="icon" />
-                Adicionar Cartão
-              </button>
+              
             </div>
           </div>
         )}

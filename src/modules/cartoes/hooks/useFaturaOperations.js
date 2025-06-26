@@ -1,5 +1,6 @@
 // src/modules/cartoes/hooks/useFaturaOperations.js
 // ✅ REFATORADO: Nova lógica de pagamento - Efetivar transações + Estornos para balanceamento
+// ✅ ADICIONADO: Controle inteligente de exclusão de parcelas
 
 import { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
@@ -10,6 +11,7 @@ import { formatCurrency } from '@shared/utils/formatCurrency';
 /**
  * Hook para operações de escrita relacionadas a faturas
  * ✅ NOVA LÓGICA: Efetivar transações existentes + Estornos para balanceamento
+ * ✅ ADICIONADO: Exclusão inteligente de parcelas
  */
 export const useFaturaOperations = () => {
   const { user } = useAuth();
@@ -836,6 +838,8 @@ export const useFaturaOperations = () => {
       if (!user?.id) throw new Error('Usuário não autenticado');
       if (!transacaoId) throw new Error('transacaoId é obrigatório');
 
+      console.log('🗑️ Excluindo transação individual:', transacaoId);
+
       const { error: deleteError } = await supabase
         .from('transacoes')
         .delete()
@@ -844,13 +848,16 @@ export const useFaturaOperations = () => {
 
       if (deleteError) throw deleteError;
 
+      console.log('✅ Transação excluída com sucesso:', transacaoId);
+
       return {
         success: true,
-        transacao_id: transacaoId
+        transacao_id: transacaoId,
+        message: 'Transação excluída com sucesso'
       };
 
     } catch (err) {
-      console.error('Erro ao excluir transação:', err);
+      console.error('❌ Erro ao excluir transação:', err);
       setError(err.message);
       return { success: false, error: err.message };
     } finally {
@@ -858,8 +865,68 @@ export const useFaturaOperations = () => {
     }
   };
 
-  // ✅ EXCLUIR GRUPO DE PARCELAS
+  // ✅ NOVO: EXCLUIR PARCELAS FUTURAS DO PARCELAMENTO
+  const excluirParcelasFuturas = async (grupoParcelamento, parcelaAtualNumero) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (!user?.id) throw new Error('Usuário não autenticado');
+      if (!grupoParcelamento) throw new Error('grupoParcelamento é obrigatório');
+      if (!parcelaAtualNumero) throw new Error('parcelaAtualNumero é obrigatório');
+
+      console.log('🗑️ Excluindo parcelas futuras do grupo:', {
+        grupoParcelamento,
+        apartirDaParcela: parcelaAtualNumero
+      });
+
+      // Buscar quantas parcelas serão excluídas
+      const { data: parcelasParaExcluir, error: countError } = await supabase
+        .from('transacoes')
+        .select('id, parcela_atual, descricao')
+        .eq('grupo_parcelamento', grupoParcelamento)
+        .eq('usuario_id', user.id)
+        .gte('parcela_atual', parcelaAtualNumero);
+
+      if (countError) throw countError;
+
+      console.log('📊 Parcelas que serão excluídas:', parcelasParaExcluir);
+
+      // Excluir todas as parcelas futuras (incluindo a atual)
+      const { error: deleteError } = await supabase
+        .from('transacoes')
+        .delete()
+        .eq('grupo_parcelamento', grupoParcelamento)
+        .eq('usuario_id', user.id)
+        .gte('parcela_atual', parcelaAtualNumero);
+
+      if (deleteError) throw deleteError;
+
+      console.log('✅ Parcelas futuras excluídas com sucesso');
+
+      return {
+        success: true,
+        grupo_parcelamento: grupoParcelamento,
+        parcelas_excluidas: parcelasParaExcluir?.length || 0,
+        message: `${parcelasParaExcluir?.length || 0} parcela(s) excluída(s) com sucesso`
+      };
+
+    } catch (err) {
+      console.error('❌ Erro ao excluir parcelas futuras:', err);
+      setError(err.message);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ EXCLUIR GRUPO DE PARCELAS (mantido para compatibilidade)
   const excluirParcelamento = async (grupoParcelamento, parcelaAtual) => {
+    if (parcelaAtual) {
+      // Se uma parcela específica foi fornecida, usar a nova função
+      return await excluirParcelasFuturas(grupoParcelamento, parcelaAtual);
+    }
+
     setLoading(true);
     setError(null);
 
@@ -867,28 +934,26 @@ export const useFaturaOperations = () => {
       if (!user?.id) throw new Error('Usuário não autenticado');
       if (!grupoParcelamento) throw new Error('grupoParcelamento é obrigatório');
 
-      // Se parcelaAtual for fornecida, excluir apenas essa e as futuras
-      let query = supabase
+      console.log('🗑️ Excluindo grupo completo de parcelamento:', grupoParcelamento);
+
+      const { error: deleteError } = await supabase
         .from('transacoes')
         .delete()
         .eq('grupo_parcelamento', grupoParcelamento)
         .eq('usuario_id', user.id);
 
-      if (parcelaAtual) {
-        query = query.gte('parcela_atual', parcelaAtual);
-      }
-
-      const { error: deleteError } = await query;
-
       if (deleteError) throw deleteError;
+
+      console.log('✅ Grupo de parcelamento excluído com sucesso');
 
       return {
         success: true,
-        grupo_parcelamento: grupoParcelamento
+        grupo_parcelamento: grupoParcelamento,
+        message: 'Parcelamento excluído com sucesso'
       };
 
     } catch (err) {
-      console.error('Erro ao excluir grupo de parcelas:', err);
+      console.error('❌ Erro ao excluir grupo de parcelas:', err);
       setError(err.message);
       return { success: false, error: err.message };
     } finally {
@@ -1089,7 +1154,8 @@ export const useFaturaOperations = () => {
     lancarEstorno,
     editarTransacao,
     excluirTransacao,
-    excluirParcelamento,
+    excluirParcelamento, // Mantido para compatibilidade
+    excluirParcelasFuturas, // ✅ NOVA FUNÇÃO
     
     // Operações de cartão
     criarCartao,

@@ -1794,3 +1794,128 @@
   font-size: 0.95rem;
   color: #374151;
 }
+/* src/modules/cartoes/styles/EmptyStateFixes.css */
+/* ✅ CORREÇÕES ESPECÍFICAS PARA EMPTY STATE DOS CARTÕES */
+
+/* Override para garantir que o empty state dos cartões use as classes corretas */
+.gestao-cartoes .transactions-table-card {
+  background: #ffffff;
+  border-radius: 1rem;
+  border: 1px solid #f3f4f6;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-top: 1rem;
+}
+
+.gestao-cartoes .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 1.5rem;
+  text-align: center;
+  min-height: 300px;
+}
+
+.gestao-cartoes .empty-state__icon {
+  color: #9ca3af;
+  margin-bottom: 1.5rem;
+  opacity: 0.6;
+}
+
+.gestao-cartoes .empty-state__title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 0.75rem 0;
+  line-height: 1.4;
+}
+
+.gestao-cartoes .empty-state__description {
+  font-size: 1rem;
+  color: #6b7280;
+  margin: 0 0 2rem 0;
+  max-width: 400px;
+  line-height: 1.5;
+}
+
+.gestao-cartoes .empty-state__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #008080, #006666);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  min-height: 44px;
+}
+
+.gestao-cartoes .empty-state__button:hover {
+  background: linear-gradient(135deg, #006666, #004d4d);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 128, 128, 0.3);
+}
+
+.gestao-cartoes .empty-state__button:active {
+  transform: translateY(0);
+}
+
+.gestao-cartoes .empty-state__button .icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+/* Garantir que não há conflitos com outras classes empty-state */
+.gestao-cartoes .gestao-cartoes__empty {
+  margin-top: 1rem;
+}
+
+/* Responsividade específica para o empty state */
+@media (max-width: 768px) {
+  .gestao-cartoes .empty-state {
+    padding: 3rem 1rem;
+    min-height: 250px;
+  }
+  
+  .gestao-cartoes .empty-state__title {
+    font-size: 1.125rem;
+  }
+  
+  .gestao-cartoes .empty-state__description {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .gestao-cartoes .empty-state__button {
+    padding: 0.625rem 1.25rem;
+    font-size: 0.8125rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .gestao-cartoes .empty-state {
+    padding: 2rem 0.75rem;
+    min-height: 200px;
+  }
+  
+  .gestao-cartoes .empty-state__icon {
+    margin-bottom: 1rem;
+  }
+  
+  .gestao-cartoes .empty-state__title {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .gestao-cartoes .empty-state__description {
+    font-size: 0.8125rem;
+    margin-bottom: 1.25rem;
+  }
+}

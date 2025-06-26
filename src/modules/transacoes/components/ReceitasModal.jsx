@@ -1,4 +1,4 @@
-// src/modules/transacoes/components/ReceitasModal.jsx - VERSÃO CORRIGIDA E COMPLETA
+// src/modules/transacoes/components/ReceitasModal.jsx - VERSÃO REFATORADA
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -30,16 +30,17 @@ import { useAuthStore } from '@modules/auth/store/authStore';
 import { useUIStore } from '@store/uiStore';
 import { formatCurrency } from '@utils/formatCurrency';
 import { supabase } from '@lib/supabaseClient';
-import useContas from '@modules/contas/hooks/useContas';
+// ✅ MUDANÇA 1: Removido useContas, usando estado local
+// import useContas from '@modules/contas/hooks/useContas';
 import { useTransactions } from '@modules/transacoes/store/transactionsStore';
 import '@shared/styles/FormsModal.css';
 
 const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   const { user } = useAuthStore();
   const { showNotification } = useUIStore();
-  const { contas, recalcularSaldos } = useContas();
+  // ✅ MUDANÇA 2: Estado local para contas
+  const [contas, setContas] = useState([]);
   
-  // ✅ CORREÇÃO: Usar o hook correto para obter a função (nome correto da exportação)
   const { updateGrupoValor, isParceladaOuRecorrente } = useTransactions();
   
   const valorInputRef = useRef(null);
@@ -68,7 +69,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     categoriaId: ''
   });
 
-  // ✅ CORRIGIDO: Estados para edição de grupos
+  // Estados para edição de grupos
   const [mostrarEscopoEdicao, setMostrarEscopoEdicao] = useState(false);
   const [escopoEdicao, setEscopoEdicao] = useState('atual');
   const [transacaoInfo, setTransacaoInfo] = useState(null);
@@ -96,6 +97,28 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
 
   const [errors, setErrors] = useState({});
 
+  // ✅ MUDANÇA 3: Função para carregar contas
+  const carregarContas = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('contas')
+        .select('*')
+        .eq('usuario_id', user.id)
+        .eq('ativo', true)
+        .order('nome');
+      
+      if (error) throw error;
+      setContas(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar contas:', error);
+      showNotification('Erro ao carregar contas', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [user, showNotification]);
+
   // ===== CONFIGURAÇÕES =====
   const tiposReceita = [
     { 
@@ -108,9 +131,9 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     },
     { 
       id: 'previsivel', 
-      nome: 'Receita Mensal', // ✅ CORREÇÃO 11: Alterado de "Previsível" para "Receita Mensal"
+      nome: 'Receita Mensal',
       icone: <Repeat size={16} />, 
-      descricao: 'Repetem todo mês', // ✅ CORREÇÃO 11: Alterado de "Renda fixa" para "Repetem todo mês"
+      descricao: 'Repetem todo mês',
       cor: '#10B981',
       tooltip: 'Receitas que se repetem regularmente: salário, aposentadoria, aluguel recebido, dividendos.'
     },
@@ -184,11 +207,11 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     [subcategorias, formData.categoria]
   );
 
-  // ✅ CORREÇÃO: Identificar tipo de transação CORRIGIDO
+  // Identificar tipo de transação
   const identificarTipoTransacao = useCallback((transacao) => {
     if (!transacao) return 'extra';
 
-    console.log('🔍 [CORRIGIDO] Identificando tipo da transação:', {
+    console.log('🔍 Identificando tipo da transação:', {
       id: transacao.id,
       grupo_parcelamento: transacao.grupo_parcelamento,
       grupo_recorrencia: transacao.grupo_recorrencia,
@@ -196,24 +219,21 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       total_parcelas: transacao.total_parcelas
     });
 
-    // ✅ REGRA CORRETA: Se tem grupo_parcelamento, é parcelada
     if (transacao.grupo_parcelamento) {
       console.log('✅ Transação é PARCELADA (grupo_parcelamento presente)');
       return 'parcelada';
     }
 
-    // ✅ REGRA CORRETA: Se tem grupo_recorrencia, é previsível
     if (transacao.grupo_recorrencia) {
       console.log('✅ Transação é PREVISÍVEL (grupo_recorrencia presente)');
       return 'previsivel';
     }
 
-    // Senão, é extra
     console.log('✅ Transação é EXTRA (sem grupos)');
     return 'extra';
   }, []);
 
-  // ✅ CORREÇÃO: Carregar subcategorias por categoria CORRIGIDO
+  // Carregar subcategorias por categoria
   const getSubcategoriasPorCategoria = useCallback(async (categoriaId) => {
     if (!categoriaId || !user?.id) return [];
     
@@ -254,16 +274,14 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     setSubcategoriasFiltradas(filtradas);
   }, [formData.subcategoriaTexto, subcategoriasDaCategoria]);
 
-  // ✅ CORREÇÃO: Identificar tipo e grupo no modo edição CORRIGIDO
+  // Identificar tipo e grupo no modo edição
   useEffect(() => {
     if (isEditMode && transacaoEditando) {
       console.log('🔍 [EDIT MODE] Analisando transação para edição:', transacaoEditando);
       
-      // ✅ Usar a função do store para identificar tipo
       const infoGrupo = isParceladaOuRecorrente(transacaoEditando);
       console.log('🎯 [EDIT MODE] Análise do grupo via store:', infoGrupo);
       
-      // Determinar tipo baseado na análise
       let tipoIdentificado = 'extra';
       if (infoGrupo.isParcelada) {
         tipoIdentificado = 'parcelada';
@@ -274,10 +292,8 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       console.log('🎯 [EDIT MODE] Tipo identificado:', tipoIdentificado);
       setTipoReceita(tipoIdentificado);
       
-      // Armazenar informações do grupo
       setTransacaoInfo(infoGrupo);
       
-      // Armazenar valor original
       const valorOrig = transacaoEditando.valor || 0;
       setValorOriginal(valorOrig);
       console.log('💰 [EDIT MODE] Valor original armazenado:', valorOrig);
@@ -329,27 +345,24 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     }
   }, [tipoReceita, valorNumerico, formData.frequenciaPrevisivel, formData.numeroParcelas, formData.frequenciaParcelada]);
 
-  // ✅ CORREÇÃO: Preenchimento para edição CORRIGIDO
+  // Preenchimento para edição
   const preencherFormularioEdicao = useCallback(async () => {
     if (!transacaoEditando || !categorias.length) return;
     
-    console.log('🖊️ [CORRIGIDO] Preenchendo formulário para edição:', transacaoEditando);
+    console.log('🖊️ Preenchendo formulário para edição:', transacaoEditando);
     
-    // Formatar valor para exibição
     const valorFormatado = transacaoEditando.valor ? 
       transacaoEditando.valor.toLocaleString('pt-BR', { 
         minimumFractionDigits: 2, 
         maximumFractionDigits: 2 
       }) : '';
     
-    // Buscar categoria
     const categoria = categorias.find(c => c.id === transacaoEditando.categoria_id);
     let subcategoriaTexto = '';
     let subcategoriaId = '';
 
-    // ✅ CORREÇÃO: Carregar subcategoria corretamente
     if (transacaoEditando.subcategoria_id) {
-      console.log('🔍 [CORRIGIDO] Carregando subcategoria:', transacaoEditando.subcategoria_id);
+      console.log('🔍 Carregando subcategoria:', transacaoEditando.subcategoria_id);
       
       try {
         const { data: subcategoriaData, error } = await supabase
@@ -362,9 +375,8 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
         if (!error && subcategoriaData) {
           subcategoriaTexto = subcategoriaData.nome;
           subcategoriaId = subcategoriaData.id;
-          console.log('✅ [CORRIGIDO] Subcategoria carregada:', subcategoriaData.nome);
+          console.log('✅ Subcategoria carregada:', subcategoriaData.nome);
           
-          // Garantir que as subcategorias da categoria estão carregadas
           const subcategoriasCarregadas = await getSubcategoriasPorCategoria(transacaoEditando.categoria_id);
           setSubcategorias(prev => {
             const semCategoriasAntigas = prev.filter(sub => sub.categoria_id !== transacaoEditando.categoria_id);
@@ -395,7 +407,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       primeiroEfetivado: true
     });
 
-    console.log('✅ [CORRIGIDO] Formulário preenchido com subcategoria:', {
+    console.log('✅ Formulário preenchido com subcategoria:', {
       subcategoria_id: subcategoriaId,
       subcategoriaTexto: subcategoriaTexto
     });
@@ -426,27 +438,25 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     }
   }, [errors]);
 
-  // ✅ CORREÇÃO: Handle de valor CORRIGIDO para verificar mudança de valor
+  // Handle de valor
   const handleValorChange = useCallback((e) => {
     const valorFormatado = formatarValor(e.target.value);
     setFormData(prev => ({ ...prev, valor: valorFormatado }));
     
-    // ✅ LÓGICA CORRIGIDA: Verificar se mudou o valor de uma transação de grupo
     if (isEditMode && transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente)) {
-      console.log('🔄 [CORRIGIDO] Verificando mudança de valor em grupo:', {
+      console.log('🔄 Verificando mudança de valor em grupo:', {
         valorFormatado,
         valorOriginal,
         transacaoInfo
       });
       
-      // Converter valor formatado para número
       let novoValor = 0;
       if (valorFormatado) {
         const valorLimpo = valorFormatado.replace(/\./g, '').replace(',', '.');
         novoValor = parseFloat(valorLimpo) || 0;
       }
       
-      console.log('💰 [CORRIGIDO] Comparação de valores:', {
+      console.log('💰 Comparação de valores:', {
         valorOriginal,
         novoValor,
         saoIguais: novoValor === valorOriginal,
@@ -454,14 +464,14 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       });
       
       if (novoValor !== valorOriginal && novoValor > 0) {
-        console.log('✅ [CORRIGIDO] ATIVANDO escopo de edição');
+        console.log('✅ ATIVANDO escopo de edição');
         setMostrarEscopoEdicao(true);
       } else {
-        console.log('❌ [CORRIGIDO] DESATIVANDO escopo de edição');
+        console.log('❌ DESATIVANDO escopo de edição');
         setMostrarEscopoEdicao(false);
       }
     } else {
-      console.log('ℹ️ [CORRIGIDO] Não é grupo ou não está editando, escopo desativado');
+      console.log('ℹ️ Não é grupo ou não está editando, escopo desativado');
       setMostrarEscopoEdicao(false);
     }
     
@@ -480,7 +490,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     });
   }, []);
 
-  // ✅ CORREÇÃO 12: Handlers para input numérico com incremento/decremento
+  // Handlers para input numérico com incremento/decremento
   const handleNumeroParcelasChange = useCallback((e) => {
     const valor = parseInt(e.target.value) || 1;
     const valorLimitado = Math.max(1, Math.min(60, valor));
@@ -531,10 +541,8 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     }));
     setCategoriaDropdownOpen(false);
     
-    // Carregar subcategorias da categoria selecionada
     const subcategoriasCarregadas = await getSubcategoriasPorCategoria(categoria.id);
     setSubcategorias(prev => {
-      // Remover subcategorias antigas da categoria anterior e adicionar as novas
       const semCategoriasAntigas = prev.filter(sub => sub.categoria_id !== categoria.id);
       return [...semCategoriasAntigas, ...subcategoriasCarregadas];
     });
@@ -740,7 +748,6 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       newErrors.observacoes = "Máximo de 300 caracteres";
     }
     
-    // ✅ CORREÇÃO: Validação para transações de grupo que mudaram valor
     if (isEditMode && transacaoInfo && mostrarEscopoEdicao && !escopoEdicao) {
       newErrors.escopoEdicao = "Escolha o escopo da alteração";
     }
@@ -767,12 +774,11 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     return Object.keys(newErrors).length === 0;
   }, [formData, tipoReceita, valorNumerico, isEditMode, transacaoInfo, mostrarEscopoEdicao, escopoEdicao]);
 
-  // ✅ CORREÇÃO: Atualizar transação CORRIGIDO
+  // Atualizar transação
   const atualizarTransacao = useCallback(async () => {
     try {
-      // ✅ CORREÇÃO: Se é transação de grupo e o valor mudou, usar updateGrupoTransacoesValor
       if (transacaoInfo && mostrarEscopoEdicao && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente)) {
-        console.log('🔄 [CORRIGIDO] Atualizando grupo de transações via hook correto:', {
+        console.log('🔄 Atualizando grupo de transações via hook correto:', {
           transacaoId: transacaoEditando.id,
           escopoEdicao,
           valorNumerico,
@@ -781,7 +787,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
 
         const resultado = await updateGrupoValor(
           transacaoEditando.id,
-          escopoEdicao, // 'atual' ou 'futuras'
+          escopoEdicao,
           valorNumerico
         );
 
@@ -793,7 +799,6 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
         return true;
       }
 
-      // Caso contrário, atualização normal individual
       const dadosAtualizacao = {
         data: formData.data,
         descricao: formData.descricao.trim(),
@@ -948,7 +953,6 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     try {
       setSubmitting(true);
       
-      // Modo edição
       if (isEditMode) {
         await atualizarTransacao();
         
@@ -962,9 +966,9 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
         return;
       }
       
-      // Modo criação
       await criarReceitas();
-      await recalcularSaldos();
+      // ✅ MUDANÇA 4: Usar carregarContas em vez de recalcularSaldos
+      await carregarContas();
       
       if (onSave) onSave();
       
@@ -992,7 +996,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     } finally {
       setSubmitting(false);
     }
-  }, [validateForm, criarReceitas, recalcularSaldos, onSave, showNotification, resetForm, onClose, isEditMode, atualizarTransacao]);
+  }, [validateForm, criarReceitas, carregarContas, onSave, showNotification, resetForm, onClose, isEditMode, atualizarTransacao]);
 
   const handleCancelar = useCallback(() => {
     resetForm();
@@ -1000,11 +1004,13 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   }, [resetForm, onClose]);
 
   // ===== EFFECTS =====
+  // ✅ MUDANÇA 5: Effect para carregar contas e dados
   useEffect(() => {
     if (isOpen && user) {
+      carregarContas();
       carregarDados();
     }
-  }, [isOpen, user, carregarDados]);
+  }, [isOpen, user, carregarContas, carregarDados]);
 
   useEffect(() => {
     if (isOpen && categorias.length > 0 && transacaoEditando) {
@@ -1037,6 +1043,45 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   return (
     <div className="modal-overlay active">
       <div className="forms-modal-container">
+        {/* Modal de Confirmação */}
+        {confirmacao.show && (
+          <div className="modal-overlay-confirmation">
+            <div className="forms-modal-container modal-small">
+              <div className="modal-header">
+                <div className="modal-header-content">
+                  <div className="modal-icon-container modal-icon-primary">
+                    <Plus size={18} />
+                  </div>
+                  <div>
+                    <h2 className="modal-title">
+                      Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
+                    </h2>
+                    <p className="modal-subtitle">
+                      {confirmacao.type === 'categoria' ? 'A categoria' : 'A subcategoria'}{' '}
+                      <strong>"{confirmacao.nome}"</strong> não existe. Deseja criá-la?
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="modal-footer">
+                <button 
+                  onClick={() => setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' })}
+                  className="btn-cancel"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleConfirmarCriacao}
+                  className="btn-primary"
+                >
+                  Criar {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="modal-header">
           <div className="modal-header-content">
@@ -1066,7 +1111,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
           ) : (
             <form onSubmit={(e) => handleSubmit(e, false)}>
               
-              {/* ✅ CORREÇÃO: ESCOPO DE EDIÇÃO MELHORADO */}
+              {/* ESCOPO DE EDIÇÃO */}
               {isEditMode && transacaoInfo && mostrarEscopoEdicao && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && (
                 <div className="confirmation-warning mb-3">
                   <AlertCircle size={16} />
@@ -1184,7 +1229,7 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                 </div>
               </div>
 
-              {/* ESCOLHA DO TIPO - Mostra o tipo identificado quando editando */}
+              {/* ESCOLHA DO TIPO */}
               {isEditMode ? (
                 <div className="flex flex-col mb-3">
                   <h3 className="section-title">Tipo de Receita Detectado</h3>
@@ -1289,7 +1334,6 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                     <Clock size={16} />
                     <div>
                       <div>
-                        {/* ✅ CORREÇÃO 10: Pluralização correta */}
                         {tipoReceita === 'extra' ? 'Planejada' : 'Todas planejadas'}
                       </div>
                       <small>A receber</small>
@@ -1350,7 +1394,6 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                       <Hash size={14} />
                       Número de Parcelas *
                     </label>
-                    {/* ✅ CORREÇÃO 12: Input numérico com botões de incremento/decremento */}
                     <div className="input-number-container">
                       <input
                         type="number"
@@ -1486,227 +1529,188 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                   <label className="form-label">
                     <Tag size={14} />
                     Subcategoria <span className="form-label-small">({subcategoriasDaCategoria.length} disponíveis)</span>
-                 </label>
-                 <div className="dropdown-container">
-                   <div style={{position: 'relative'}}>
-                     <input
-                       type="text"
-                       value={formData.subcategoriaTexto}
-                       onChange={handleSubcategoriaChange}
-                       onBlur={handleSubcategoriaBlur}
-                       onFocus={() => setSubcategoriaDropdownOpen(true)}
-                       placeholder="Digite ou selecione uma subcategoria"
-                       disabled={submitting}
-                       autoComplete="off"
-                       className="input-text input-with-icon"
-                       style={{
-                         paddingLeft: '28px'
-                       }}
-                     />
-                     <div
-                       style={{
-                         position: 'absolute',
-                         left: '8px',
-                         top: '50%',
-                         transform: 'translateY(-50%)',
-                         width: '12px',
-                         height: '12px',
-                         borderRadius: '50%',
-                         backgroundColor: categoriaSelecionada.cor || '#10b981',
-                         pointerEvents: 'none'
-                       }}
-                     />
-                     <Search size={14} className="input-search-icon" />
-                   </div>
-                   
-                   {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
-                     <div className="dropdown-options">
-                       {subcategoriasFiltradas.map(subcategoria => (
-                         <div
-                           key={subcategoria.id}
-                           onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
-                           className="dropdown-option"
-                         >
-                           <div 
-                             className="category-color-tag"
-                             style={{backgroundColor: categoriaSelecionada.cor || '#10b981'}}
-                           ></div>
-                           {subcategoria.nome}
-                         </div>
-                       ))}
-                     </div>
-                   )}
-                 </div>
-               </div>
-             )}
+                  </label>
+                  <div className="dropdown-container">
+                    <div style={{position: 'relative'}}>
+                      <input
+                        type="text"
+                        value={formData.subcategoriaTexto}
+                        onChange={handleSubcategoriaChange}
+                        onBlur={handleSubcategoriaBlur}
+                        onFocus={() => setSubcategoriaDropdownOpen(true)}
+                        placeholder="Digite ou selecione uma subcategoria"
+                        disabled={submitting}
+                        autoComplete="off"
+                        className="input-text input-with-icon"
+                        style={{
+                          paddingLeft: '28px'
+                        }}
+                      />
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: '8px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          width: '12px',
+                          height: '12px',
+                          borderRadius: '50%',
+                          backgroundColor: categoriaSelecionada.cor || '#10b981',
+                          pointerEvents: 'none'
+                        }}
+                      />
+                      <Search size={14} className="input-search-icon" />
+                    </div>
+                    
+                    {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
+                      <div className="dropdown-options">
+                        {subcategoriasFiltradas.map(subcategoria => (
+                          <div
+                            key={subcategoria.id}
+                            onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
+                            className="dropdown-option"
+                          >
+                            <div 
+                              className="category-color-tag"
+                              style={{backgroundColor: categoriaSelecionada.cor || '#10b981'}}
+                            ></div>
+                            {subcategoria.nome}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
-             {/* CONTA DE DESTINO */}
-             <div className="flex flex-col mb-3">
-               <label className="form-label">
-                 <Building size={14} />
-                 Conta de Destino *
-               </label>
-               <div className="select-search">
-                 <select
-                   name="conta"
-                   value={formData.conta}
-                   onChange={handleInputChange}
-                   disabled={submitting}
-                   className={errors.conta ? 'error' : ''}
-                 >
-                   <option value="">Selecione uma conta</option>
-                   {contasAtivas.map(conta => (
-                     <option key={conta.id} value={conta.id}>
-                       {conta.nome} - {formatCurrency(conta.saldo || 0)}
-                     </option>
-                   ))}
-                 </select>
-               </div>
-               {errors.conta && <div className="form-error">{errors.conta}</div>}
-               
-               {contasAtivas.length === 0 && (
-                 <div className="form-info">
-                   Nenhuma conta ativa encontrada. Crie uma conta primeiro.
-                 </div>
-               )}
-             </div>
+              {/* CONTA DE DESTINO */}
+              <div className="flex flex-col mb-3">
+                <label className="form-label">
+                  <Building size={14} />
+                  Conta de Destino *
+                </label>
+                <div className="select-search">
+                  <select
+                    name="conta"
+                    value={formData.conta}
+                    onChange={handleInputChange}
+                    disabled={submitting}
+                    className={errors.conta ? 'error' : ''}
+                  >
+                    <option value="">Selecione uma conta</option>
+                    {contasAtivas.map(conta => (
+                      <option key={conta.id} value={conta.id}>
+                        {conta.nome} - {formatCurrency(conta.saldo || 0)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {errors.conta && <div className="form-error">{errors.conta}</div>}
+                
+                {contasAtivas.length === 0 && (
+                  <div className="form-info">
+                    Nenhuma conta ativa encontrada. Crie uma conta primeiro.
+                  </div>
+                )}
+              </div>
 
-             {/* OBSERVAÇÕES */}
-             <div className="flex flex-col mb-3">
-               <label className="form-label">
-                 <FileText size={14} />
-                 Observações <span className="form-label-small">(máx. 300)</span>
-               </label>
-               <textarea
-                 name="observacoes"
-                 value={formData.observacoes}
-                 onChange={handleInputChange}
-                 placeholder="Observações adicionais (opcional)..."
-                 rows="2"
-                 disabled={submitting}
-                 maxLength="300"
-                 className={`textarea-observations ${errors.observacoes ? 'error' : ''}`}
-               />
-               <div className="char-counter">
-                 <span></span>
-                 <span className={formData.observacoes.length > 250 ? 'char-counter-warning' : ''}>
-                   {formData.observacoes.length}/300
-                 </span>
-               </div>
-               {errors.observacoes && <div className="form-error">{errors.observacoes}</div>}
-             </div>
+              {/* OBSERVAÇÕES */}
+              <div className="flex flex-col mb-3">
+                <label className="form-label">
+                  <FileText size={14} />
+                  Observações <span className="form-label-small">(máx. 300)</span>
+                </label>
+                <textarea
+                  name="observacoes"
+                  value={formData.observacoes}
+                  onChange={handleInputChange}
+                  placeholder="Observações adicionais (opcional)..."
+                  rows="2"
+                  disabled={submitting}
+                  maxLength="300"
+                  className={`textarea-observations ${errors.observacoes ? 'error' : ''}`}
+                />
+                <div className="char-counter">
+                  <span></span>
+                  <span className={formData.observacoes.length > 250 ? 'char-counter-warning' : ''}>
+                    {formData.observacoes.length}/300
+                  </span>
+                </div>
+                {errors.observacoes && <div className="form-error">{errors.observacoes}</div>}
+              </div>
 
-           </form>
-         )}
-       </div>
+            </form>
+          )}
+        </div>
 
-       {/* AÇÕES */}
-       <div className="modal-footer">
-         <button
-           type="button"
-           onClick={handleCancelar}
-           disabled={submitting}
-           className="btn-cancel"
-         >
-           Cancelar
-         </button>
-         
-         {!isEditMode && (
-           <button
-             type="button"
-             onClick={(e) => handleSubmit(e, true)}
-             disabled={submitting}
-             className="btn-secondary btn-secondary--success"
-           >
-             {submitting ? (
-               <>
-                 <span className="btn-spinner"></span>
-                 Salvando...
-               </>
-             ) : (
-               <>
-                 <PlusCircle size={14} />
-                 Continuar Adicionando
-               </>
-             )}
-           </button>
-         )}
-         
-         <button
-           type="submit"
-           onClick={(e) => handleSubmit(e, false)}
-           disabled={submitting}
-           className="btn-primary"
-         >
-           {submitting ? (
-             <>
-               <span className="btn-spinner"></span>
-               {isEditMode ? 'Atualizando...' :
-                tipoReceita === 'previsivel' ? `Criando receitas para o futuro...` :
-                tipoReceita === 'parcelada' ? `Criando ${formData.numeroParcelas} parcelas...` :
-                'Salvando...'}
-             </>
-           ) : (
-             <>
-               {isEditMode ? <Edit size={14} /> : <Plus size={14} />}
-               {isEditMode ? 
-                 (mostrarEscopoEdicao ? 'Atualizar Grupo' : 'Atualizar Receita') :
-                tipoReceita === 'previsivel' ? `Criar Receitas Futuras` :
-                tipoReceita === 'parcelada' ? `Parcelar em ${formData.numeroParcelas}x` :
-                'Adicionar Receita Extra'}
-             </>
-           )}
-         </button>
-       </div>
-     </div>
-     
-     {/* Modal de Confirmação */}
-     {confirmacao.show && (
-       <div className="modal-overlay-confirmation">
-         <div className="forms-modal-container modal-small">
-           <div className="modal-header">
-             <div className="modal-header-content">
-               <div className="modal-icon-container modal-icon-primary">
-                 <Plus size={18} />
-               </div>
-               <div>
-                 <h2 className="modal-title">
-                   Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
-                 </h2>
-                 <p className="modal-subtitle">
-                   {confirmacao.type === 'categoria' ? 'A categoria' : 'A subcategoria'}{' '}
-                   <strong>"{confirmacao.nome}"</strong> não existe. Deseja criá-la?
-                 </p>
-               </div>
-             </div>
-           </div>
-           
-           <div className="modal-footer">
-             <button 
-               onClick={() => setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' })}
-               className="btn-cancel"
-             >
-               Cancelar
-             </button>
-             <button 
-               onClick={handleConfirmarCriacao}
-               className="btn-primary"
-             >
-               Criar {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
-             </button>
-           </div>
-         </div>
-       </div>
-     )}
-   </div>
- );
+        {/* AÇÕES */}
+        <div className="modal-footer">
+          <button
+            type="button"
+            onClick={handleCancelar}
+            disabled={submitting}
+            className="btn-cancel"
+          >
+            Cancelar
+          </button>
+          
+          {!isEditMode && (
+            <button
+              type="button"
+              onClick={(e) => handleSubmit(e, true)}
+              disabled={submitting}
+              className="btn-secondary btn-secondary--success"
+            >
+              {submitting ? (
+                <>
+                  <span className="btn-spinner"></span>
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  <PlusCircle size={14} />
+                  Continuar Adicionando
+                </>
+              )}
+            </button>
+          )}
+          
+          <button
+            type="submit"
+            onClick={(e) => handleSubmit(e, false)}
+            disabled={submitting}
+            className="btn-primary"
+          >
+            {submitting ? (
+              <>
+                <span className="btn-spinner"></span>
+                {isEditMode ? 'Atualizando...' :
+                 tipoReceita === 'previsivel' ? `Criando receitas para o futuro...` :
+                 tipoReceita === 'parcelada' ? `Criando ${formData.numeroParcelas} parcelas...` :
+                 'Salvando...'}
+              </>
+            ) : (
+              <>
+                {isEditMode ? <Edit size={14} /> : <Plus size={14} />}
+                {isEditMode ? 
+                  (mostrarEscopoEdicao ? 'Atualizar Grupo' : 'Atualizar Receita') :
+                 tipoReceita === 'previsivel' ? `Criar Receitas Futuras` :
+                 tipoReceita === 'parcelada' ? `Parcelar em ${formData.numeroParcelas}x` :
+                 'Adicionar Receita Extra'}
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 ReceitasModal.propTypes = {
- isOpen: PropTypes.bool.isRequired,
- onClose: PropTypes.func.isRequired,
- onSave: PropTypes.func,
- transacaoEditando: PropTypes.object
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onSave: PropTypes.func,
+  transacaoEditando: PropTypes.object
 };
 
 export default React.memo(ReceitasModal);

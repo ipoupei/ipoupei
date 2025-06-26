@@ -1,0 +1,509 @@
+/* src/modules/cartoes/styles/ModalConfirmacao.css */
+/* ✅ Estilos para modais de confirmação de exclusão de parcelas */
+
+/* ===== MODAL BASE ===== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+}
+
+.modal-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* ===== CONFIRMAÇÃO DE PARCELAS ===== */
+.confirmation-question {
+  margin-bottom: 24px;
+}
+
+.confirmation-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: #374151;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.confirmation-info {
+  background-color: #F9FAFB;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.confirmation-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.confirmation-item:last-child {
+  margin-bottom: 0;
+}
+
+.confirmation-item strong {
+  color: #374151;
+  font-weight: 600;
+  margin-right: 12px;
+  min-width: 120px;
+}
+
+/* ===== OPÇÕES DE RADIO ===== */
+.confirmation-options {
+  margin: 24px 0;
+}
+
+.radio-option {
+  display: flex;
+  align-items: flex-start;
+  padding: 16px;
+  border: 2px solid #E5E7EB;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: #FFFFFF;
+}
+
+.radio-option:hover {
+  border-color: #D1D5DB;
+  background-color: #F9FAFB;
+}
+
+.radio-option:has(input:checked) {
+  border-color: #3B82F6;
+  background-color: #EFF6FF;
+}
+
+.radio-option input[type="radio"] {
+  margin-right: 12px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.radio-option-content {
+  flex: 1;
+}
+
+.radio-option-title {
+  display: block;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 4px;
+  font-size: 15px;
+}
+
+.radio-option-description {
+  color: #6B7280;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* ===== AVISOS ===== */
+.confirmation-warning {
+  display: flex;
+  align-items: flex-start;
+  padding: 16px;
+  background-color: #FEF3C7;
+  border: 1px solid #F59E0B;
+  border-radius: 8px;
+  margin: 20px 0;
+}
+
+.confirmation-warning svg {
+  color: #D97706;
+  margin-right: 12px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.confirmation-warning p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #92400E;
+}
+
+.confirmation-warning p + p {
+  margin-top: 8px;
+}
+
+.confirmation-warning strong {
+  font-weight: 600;
+}
+
+/* ===== PAINEL DE RESUMO ===== */
+.summary-panel {
+  background-color: #F3F4F6;
+  border: 1px solid #D1D5DB;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+}
+
+.summary-panel.warning {
+  background-color: #FEF3C7;
+  border-color: #F59E0B;
+}
+
+.summary-panel.danger {
+  background-color: #FEF2F2;
+  border-color: #F87171;
+}
+
+.summary-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 12px 0;
+  display: flex;
+  align-items: center;
+}
+
+.summary-title svg {
+  margin-right: 8px;
+}
+
+/* ===== BOTÕES ===== */
+.modal-footer {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding-top: 20px;
+  border-top: 1px solid #E5E7EB;
+  margin-top: 24px;
+}
+
+.btn-cancel {
+  padding: 10px 20px;
+  border: 1px solid #D1D5DB;
+  background-color: #FFFFFF;
+  color: #374151;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-cancel:hover:not(:disabled) {
+  background-color: #F9FAFB;
+  border-color: #9CA3AF;
+}
+
+.btn-cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  padding: 10px 20px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-secondary--danger {
+  background-color: #DC2626;
+  color: #FFFFFF;
+}
+
+.btn-secondary--danger:hover:not(:disabled) {
+  background-color: #B91C1C;
+}
+
+.btn-secondary--danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ===== SPINNER DE LOADING ===== */
+.btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ===== RESPONSIVIDADE ===== */
+@media (max-width: 640px) {
+  .modal-footer {
+    flex-direction: column-reverse;
+  }
+  
+  .radio-option {
+    padding: 12px;
+  }
+  
+  .radio-option-title {
+    font-size: 14px;
+  }
+  
+  .radio-option-description {
+    font-size: 12px;
+  }
+  
+  .confirmation-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .confirmation-item strong {
+    min-width: auto;
+    margin-bottom: 4px;
+  }
+}
+
+/* ===== ACESSIBILIDADE ===== */
+.radio-option:focus-within {
+  outline: 2px solid #3B82F6;
+  outline-offset: 2px;
+}
+
+.btn-cancel:focus,
+.btn-secondary:focus {
+  outline: 2px solid #3B82F6;
+  outline-offset: 2px;
+}
+
+/* ===== ESTADOS ESPECIAIS ===== */
+.radio-option input[type="radio"]:disabled + .radio-option-content {
+  opacity: 0.6;
+}
+
+.radio-option:has(input:disabled) {
+  cursor: not-allowed;
+  background-color: #F3F4F6;
+}
+
+/* ===== EFEITOS VISUAIS ===== */
+.confirmation-warning {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.summary-panel {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.radio-option {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.radio-option:hover {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* ===== ANIMAÇÕES ===== */
+.modal-overlay.active .forms-modal-container {
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.radio-option {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+.radio-option:nth-child(1) { animation-delay: 0.05s; }
+.radio-option:nth-child(2) { animation-delay: 0.1s; }
+
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ===== MELHORIAS DE UX ===== */
+.confirmation-item:hover {
+  background-color: rgba(59, 130, 246, 0.05);
+  border-radius: 4px;
+  padding: 4px 8px;
+  margin: 4px -8px;
+  transition: all 0.2s ease;
+}
+
+.summary-panel:hover {
+  border-color: #9CA3AF;
+  transition: border-color 0.2s ease;
+}
+
+/* ===== TEMAS ESPECÍFICOS ===== */
+.summary-panel.success {
+  background-color: #ECFDF5;
+  border-color: #10B981;
+}
+
+.summary-panel.success .summary-title {
+  color: #047857;
+}
+
+.summary-panel.info {
+  background-color: #EFF6FF;
+  border-color: #3B82F6;
+}
+
+.summary-panel.info .summary-title {
+  color: #1D4ED8;
+}
+
+/* ===== INDICADORES VISUAIS ===== */
+.confirmation-item::before {
+  content: '';
+  width: 4px;
+  height: 4px;
+  background-color: #9CA3AF;
+  border-radius: 50%;
+  margin-right: 8px;
+  margin-top: 8px;
+  flex-shrink: 0;
+}
+
+.radio-option:has(input:checked)::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  background-color: #3B82F6;
+  border-radius: 50%;
+}
+
+.radio-option {
+  position: relative;
+}
+
+/* ===== DARK MODE SUPPORT ===== */
+@media (prefers-color-scheme: dark) {
+  .confirmation-info {
+    background-color: #1F2937;
+    border-color: #374151;
+  }
+  
+  .confirmation-text {
+    color: #D1D5DB;
+  }
+  
+  .confirmation-item strong {
+    color: #F3F4F6;
+  }
+  
+  .radio-option {
+    background-color: #1F2937;
+    border-color: #374151;
+  }
+  
+  .radio-option:hover {
+    background-color: #111827;
+    border-color: #4B5563;
+  }
+  
+  .radio-option:has(input:checked) {
+    background-color: #1E3A8A;
+    border-color: #3B82F6;
+  }
+  
+  .radio-option-title {
+    color: #F3F4F6;
+  }
+  
+  .radio-option-description {
+    color: #9CA3AF;
+  }
+  
+  .summary-panel {
+    background-color: #1F2937;
+    border-color: #374151;
+  }
+  
+  .summary-title {
+    color: #F3F4F6;
+  }
+}
+
+/* ===== ESTADOS DE ERRO ===== */
+.radio-option.error {
+  border-color: #F87171;
+  background-color: #FEF2F2;
+}
+
+.radio-option.error .radio-option-title {
+  color: #DC2626;
+}
+
+/* ===== TOOLTIPS E HINTS ===== */
+.confirmation-hint {
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background-color: #EFF6FF;
+  border-left: 3px solid #3B82F6;
+  border-radius: 0 4px 4px 0;
+  font-size: 13px;
+  color: #1D4ED8;
+}
+
+.confirmation-hint svg {
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
+/* ===== MELHORIAS DE PERFORMANCE ===== */
+.modal-overlay {
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.radio-option,
+.summary-panel,
+.confirmation-warning {
+  will-change: transform;
+}
+
+/* ===== PRINT STYLES ===== */
+@media print {
+  .modal-overlay {
+    display: none !important;
+  }
+}

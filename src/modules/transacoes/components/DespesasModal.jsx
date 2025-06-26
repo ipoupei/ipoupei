@@ -1,4 +1,4 @@
-// src/modules/transacoes/components/DespesasModal.jsx - VERSÃO CORRIGIDA E COMPLETA
+// src/modules/transacoes/components/DespesasModal.jsx - VERSÃO REFATORADA COM ZUSTAND
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -29,14 +29,17 @@ import { useAuthStore } from '@modules/auth/store/authStore';
 import { useUIStore } from '@store/uiStore';
 import { formatCurrency } from '@utils/formatCurrency';
 import { supabase } from '@lib/supabaseClient';
-import useContas from '@modules/contas/hooks/useContas';
+// ✅ REMOVIDO: import useContas - vamos usar fetch direto como TransferenciasModal
 import { useTransactions } from '@modules/transacoes/store/transactionsStore';
 import '@shared/styles/FormsModal.css';
 
 const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   const { user } = useAuthStore();
   const { showNotification } = useUIStore();
-  const { contas, recalcularSaldos } = useContas();
+  
+  // ✅ REFATORAÇÃO: Usar fetch direto igual TransferenciasModal
+  const [contas, setContas] = useState([]);
+  const [loading, setLoading] = useState(false);
   
   // ✅ CORREÇÃO: Usar o hook correto para obter a função
   const { updateGrupoValor, isParceladaOuRecorrente } = useTransactions();
@@ -46,10 +49,9 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
 
   // Estados principais
   const [submitting, setSubmitting] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [tipoDespesa, setTipoDespesa] = useState('extra');
 
-  // Estados para dados
+  // Estados para dados (apenas categorias - contas vêm do Zustand)
   const [categorias, setCategorias] = useState([]);
   const [subcategorias, setSubcategorias] = useState([]);
 
@@ -158,6 +160,7 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     }
   }, [formData.valor]);
 
+  // ✅ REFATORAÇÃO: Usar fetch direto como TransferenciasModal
   const contasAtivas = useMemo(() => 
     contas.filter(conta => conta.ativo !== false), 
     [contas]
@@ -624,12 +627,35 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
   }, [confirmacao, user.id, showNotification]);
 
-  // ===== CARREGAR DADOS =====
-  const carregarDados = useCallback(async () => {
+  // ✅ REFATORAÇÃO: Carregar contas direto do banco (igual TransferenciasModal)
+  const carregarContas = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('contas')
+        .select('*')
+        .eq('usuario_id', user.id)
+        .eq('ativo', true)
+        .order('nome');
+      
+      if (error) throw error;
+      setContas(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar contas:', error);
+      showNotification('Erro ao carregar contas', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [user, showNotification]);
+
+  // ✅ REFATORAÇÃO: REMOVER carregarDados - categorias apenas
+  const carregarCategorias = useCallback(async () => {
     if (!user) return;
     
     setLoading(true);
     try {
+      // ✅ APENAS CATEGORIAS - contas vêm do fetch direto
       const [categoriasRes, subcategoriasRes] = await Promise.all([
         supabase.from('categorias').select('*').eq('usuario_id', user.id).eq('tipo', 'despesa').eq('ativo', true).order('nome'),
         supabase.from('subcategorias').select('*').eq('usuario_id', user.id).eq('ativo', true).order('nome')
@@ -638,8 +664,8 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       setCategorias(categoriasRes.data || []);
       setSubcategorias(subcategoriasRes.data || []);
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      showNotification('Erro ao carregar dados', 'error');
+      console.error('Erro ao carregar categorias:', error);
+      showNotification('Erro ao carregar categorias', 'error');
     } finally {
       setLoading(false);
     }
@@ -925,7 +951,7 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
       
       // Modo criação
       await criarDespesas();
-      await recalcularSaldos();
+      await carregarContas(); // ✅ Recarregar contas após criar despesa
       
       if (onSave) onSave();
       
@@ -953,7 +979,7 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     } finally {
       setSubmitting(false);
     }
-  }, [validateForm, criarDespesas, recalcularSaldos, onSave, showNotification, resetForm, onClose, isEditMode, atualizarTransacao]);
+  }, [validateForm, criarDespesas, carregarContas, onSave, showNotification, resetForm, onClose, isEditMode, atualizarTransacao]);
 
   const handleCancelar = useCallback(() => {
     resetForm();
@@ -961,11 +987,13 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   }, [resetForm, onClose]);
 
   // ===== EFFECTS =====
+  // ✅ REFATORAÇÃO: Carregar contas + categorias ao abrir (igual TransferenciasModal)
   useEffect(() => {
     if (isOpen && user) {
-      carregarDados();
+      carregarContas(); // ✅ Sempre busca dados frescos do banco
+      carregarCategorias();
     }
-  }, [isOpen, user, carregarDados]);
+  }, [isOpen, user, carregarContas, carregarCategorias]);
 
   useEffect(() => {
     if (isOpen && categorias.length > 0 && transacaoEditando) {
@@ -997,7 +1025,46 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
 
   return (
     <div className="modal-overlay active">
+      
       <div className="forms-modal-container">
+        {/* Modal de Confirmação */}
+      {confirmacao.show && (
+        <div className="modal-overlay-confirmation">
+          <div className="forms-modal-container modal-small">
+            <div className="modal-header">
+              <div className="modal-header-content">
+                <div className="modal-icon-container modal-icon-danger">
+                  <Plus size={18} />
+                </div>
+                <div>
+                  <h2 className="modal-title">
+                    Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
+                  </h2>
+                  <p className="modal-subtitle">
+                    {confirmacao.type === 'categoria' ? 'A categoria' : 'A subcategoria'}{' '}
+                    <strong>"{confirmacao.nome}"</strong> não existe. Deseja criá-la?
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="modal-footer">
+              <button 
+                onClick={() => setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' })}
+                className="btn-cancel"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleConfirmarCriacao}
+                className="btn-primary"
+              >
+                Criar {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
         {/* Header */}
         <div className="modal-header">
           <div className="modal-header-content">
@@ -1019,11 +1086,14 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
         </div>
 
         <div className="modal-body">
+          
+      
           {loading ? (
             <div className="loading-container">
               <div className="loading-spinner"></div>
               <p className="loading-text">Carregando dados...</p>
             </div>
+            
           ) : (
             <form onSubmit={(e) => handleSubmit(e, false)}>
               
@@ -1478,6 +1548,7 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                         }}
                       />
                       <Search size={14} className="input-search-icon" />
+                      
                     </div>
                     
                     {subcategoriaDropdownOpen && subcategoriasFiltradas.length > 0 && (
@@ -1498,10 +1569,12 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                       </div>
                     )}
                   </div>
+                  
                 </div>
+                
               )}
 
-              {/* ✅ CORREÇÃO: REMOVER BOTÕES DE PAGAMENTO - APENAS CONTA */}
+              {/* ✅ REFATORAÇÃO: CONTA DE DÉBITO - Usando fetch direto (igual TransferenciasModal) */}
               <div className="flex flex-col mb-3">
                 <label className="form-label">
                   <Building size={14} />
@@ -1530,6 +1603,7 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                     Nenhuma conta ativa encontrada. Crie uma conta primeiro.
                   </div>
                 )}
+
               </div>
 
               {/* OBSERVAÇÕES */}
@@ -1555,10 +1629,13 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                   </span>
                 </div>
                 {errors.observacoes && <div className="form-error">{errors.observacoes}</div>}
+              
               </div>
 
             </form>
+            
           )}
+
         </div>
 
         {/* AÇÕES */}
@@ -1618,47 +1695,11 @@ const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
               </>
             )}
           </button>
+
         </div>
       </div>
       
-      {/* Modal de Confirmação */}
-      {confirmacao.show && (
-        <div className="modal-overlay-confirmation">
-          <div className="forms-modal-container modal-small">
-            <div className="modal-header">
-              <div className="modal-header-content">
-                <div className="modal-icon-container modal-icon-danger">
-                  <Plus size={18} />
-                </div>
-                <div>
-                  <h2 className="modal-title">
-                    Criar Nova {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
-                  </h2>
-                  <p className="modal-subtitle">
-                    {confirmacao.type === 'categoria' ? 'A categoria' : 'A subcategoria'}{' '}
-                    <strong>"{confirmacao.nome}"</strong> não existe. Deseja criá-la?
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="modal-footer">
-              <button 
-                onClick={() => setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' })}
-                className="btn-cancel"
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={handleConfirmarCriacao}
-                className="btn-primary"
-              >
-                Criar {confirmacao.type === 'categoria' ? 'Categoria' : 'Subcategoria'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 };
