@@ -2,8 +2,8 @@
 
 /* Container principal do modal de importação */
 .importacao-modal {
-  min-width: 800px;
-  max-width: 1200px;
+  min-width: 1300px;
+  max-width: 2000px;
   width: 90vw;
   max-height: 90vh;
 }
