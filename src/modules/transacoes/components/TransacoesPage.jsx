@@ -16,6 +16,7 @@ import Button from '@shared/components/ui/Button';
 // Modals
 import DespesasModal from '@modules/transacoes/components/DespesasModal';
 import ReceitasModal from '@modules/transacoes/components/ReceitasModal';
+import ImportacaoModal from '@modules/transacoes/components/ImportacaoModal';
 
 // Utils
 import formatCurrency from '@shared/utils/formatCurrency';
@@ -41,6 +42,7 @@ const TransacoesPage = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showDespesasModal, setShowDespesasModal] = useState(false);
   const [showReceitasModal, setShowReceitasModal] = useState(false);
+  const [showImportacaoModal, setShowImportacaoModal] = useState(false);
   const [transacaoEditando, setTransacaoEditando] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [transacaoParaConfirm, setTransacaoParaConfirm] = useState(null);
@@ -1324,15 +1326,36 @@ const TransacoesPage = () => {
               padding: '0 16px',
               border: '1px solid #e5e7eb',
               borderRadius: '6px',
-              backgroundColor: hasActiveFilters ? '#eff6ff' : '#f3f4f6',
-              color: hasActiveFilters ? '#3b82f6' : '#374151',
+              backgroundColor: groupByCard ? '#eff6ff' : '#f3f4f6',
+              color: groupByCard ? '#3b82f6' : '#374151',
               cursor: 'pointer',
               fontSize: '0.875rem',
               lineHeight: '1rem',
-              fontWeight: hasActiveFilters ? '600' : '400'
+              fontWeight: groupByCard ? '600' : '400'
             }}
           >
             💳 {groupByCard ? 'Desagrupar despesas de cartão' : 'Agrupar despesas de cartão'}
+          </button>
+          
+          <button
+            onClick={() => setShowImportacaoModal(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '40px',
+              padding: '0 16px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '6px',
+              backgroundColor: '#f3f4f6',
+              color: '#374151',
+              cursor: 'pointer',
+              fontSize: '0.875rem',
+              lineHeight: '1rem',
+              fontWeight: '400'
+            }}
+          >
+            📥 Importar Transações
           </button>
         </div>
       </div>
@@ -1681,6 +1704,15 @@ const TransacoesPage = () => {
           />
         )}
       </EditModalWrapper>
+
+      {/* Modal de Importação */}
+      {showImportacaoModal && (
+        <ImportacaoModal
+          isOpen={showImportacaoModal}
+          onClose={() => setShowImportacaoModal(false)}
+          onSave={fetchTransacoes}
+        />
+      )}
     </PageContainer>
   );
 };
