@@ -717,9 +717,12 @@
 
 /* ================== MODAL LARGE ESPECÍFICO ================== */
 .forms-modal-container.modal-large {
-  max-width: 1200px;
-  width: 95%;
-  max-height: 90vh;
+  max-width: 100vw;
+  width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  border-radius: 0;
+  margin: 0;
 }
 
 .forms-modal-container.modal-large .modal-body {
