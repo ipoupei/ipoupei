@@ -24,6 +24,7 @@ import { useUIStore } from '@store/uiStore';
 import useCartoesData from '@modules/cartoes/hooks/useCartoesData';
 import useFaturaOperations from '@modules/cartoes/hooks/useFaturaOperations';
 import useCategorias from '@modules/categorias/hooks/useCategorias';
+import InputMoney from '@shared/components/ui/InputMoney';
 
 import { formatCurrency } from '@utils/formatCurrency';
 import '@shared/styles/FormsModal.css';
@@ -155,20 +156,27 @@ const DespesasCartaoModal = ({
   }, [cartoes, isEditMode, transacaoEditando]);
 
   const valorNumerico = useMemo(() => {
-    if (!formData.valorTotal) return 0;
-    const valorString = formData.valorTotal.toString();
-    if (valorString.includes(',')) {
-      const partes = valorString.split(',');
-      const inteira = partes[0].replace(/\./g, '');
-      const decimal = partes[1] || '00';
-      const valorFinal = parseFloat(`${inteira}.${decimal}`);
-      return isNaN(valorFinal) ? 0 : valorFinal;
-    } else {
-      const apenasNumeros = valorString.replace(/\./g, '');
-      const valorFinal = parseFloat(apenasNumeros) / 100;
-      return isNaN(valorFinal) ? 0 : valorFinal;
-    }
-  }, [formData.valorTotal]);
+  if (!formData.valor) return 0;
+  const valorString = formData.valor.toString();
+  
+  // ✅ CORREÇÃO: Se contém operadores, não converter ainda
+  if (/[+\-*/()]/.test(valorString)) {
+    return 0; // Retorna 0 temporário para cálculos de preview
+  }
+  
+  // Conversão normal apenas para números formatados
+  if (valorString.includes(',')) {
+    const partes = valorString.split(',');
+    const inteira = partes[0].replace(/\./g, '');
+    const decimal = partes[1] || '00';
+    const valorFinal = parseFloat(`${inteira}.${decimal}`);
+    return isNaN(valorFinal) ? 0 : valorFinal;
+  } else {
+    const apenasNumeros = valorString.replace(/\./g, '');
+    const valorFinal = parseFloat(apenasNumeros) / 100;
+    return isNaN(valorFinal) ? 0 : valorFinal;
+  }
+}, [formData.valor]);
 
   const valorParcela = useMemo(() => 
     formData.numeroParcelas > 0 ? valorNumerico / formData.numeroParcelas : 0,
@@ -177,16 +185,23 @@ const DespesasCartaoModal = ({
 
   // ✅ FUNCTIONS
   const formatarValor = useCallback((valor) => {
-    const apenasNumeros = valor.toString().replace(/\D/g, '');
-    if (!apenasNumeros || apenasNumeros === '0') return '';
-    const valorEmCentavos = parseInt(apenasNumeros, 10);
-    const valorEmReais = valorEmCentavos / 100;
-    return valorEmReais.toLocaleString('pt-BR', { 
-      minimumFractionDigits: 2, 
-      maximumFractionDigits: 2 
-    });
-  }, []);
+  // ✅ CORREÇÃO: Se contém operadores matemáticos, não formatar
+  if (/[+\-*/()]/.test(valor)) {
+    return valor; // Deixa passar direto para o InputMoney processar
+  }
+  
+  // Formatação normal apenas para números puros
+  const apenasNumeros = valor.toString().replace(/\D/g, '');
+  if (!apenasNumeros || apenasNumeros === '0') return '';
+  const valorEmCentavos = parseInt(apenasNumeros, 10);
+  const valorEmReais = valorEmCentavos / 100;
+  return valorEmReais.toLocaleString('pt-BR', { 
+    minimumFractionDigits: 2, 
+    maximumFractionDigits: 2 
+  });
+}, []);
 
+  
   const calcularDataVencimentoParcela = useCallback((dataBaseVencimento, numeroParcela) => {
     if (!dataBaseVencimento || numeroParcela < 1) return null;
     
@@ -866,14 +881,15 @@ const DespesasCartaoModal = ({
                     <DollarSign size={14} />
                     Valor Total *
                   </label>
-                  <input
+                  <InputMoney
                     ref={valorInputRef}
-                    type="text"
-                    value={formData.valorTotal}
+                    value={typeof formData.valor === 'string' && /[+\-*/()]/.test(formData.valor) ? 0 : valorNumerico}
                     onChange={handleValorChange}
-                    placeholder="0,00"
+                    placeholder="R$ 0,00 (ou 5+3,50)"
                     disabled={submitting}
-                    className={`input-money input-money-highlight ${errors.valorTotal ? 'error' : ''}`}
+                    enableCalculator={true}
+                    showCalculationFeedback={true}
+                    className={`input-money-highlight ${errors.valor ? 'error' : ''}`}
                   />
                   {errors.valorTotal && <div className="form-error">{errors.valorTotal}</div>}
                 </div>
