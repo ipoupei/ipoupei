@@ -31,6 +31,7 @@ import { formatCurrency } from '@utils/formatCurrency';
 import { supabase } from '@lib/supabaseClient';
 // ✅ REMOVIDO: import useContas - vamos usar fetch direto como TransferenciasModal
 import { useTransactions } from '@modules/transacoes/store/transactionsStore';
+import InputMoney from '@shared/components/ui/InputMoney';
 import '@shared/styles/FormsModal.css';
 
 const DespesasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
