@@ -3,4 +3,4 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 
 
-export default React.memo(ImportacaoModal);
+export default ImportacaoModal
