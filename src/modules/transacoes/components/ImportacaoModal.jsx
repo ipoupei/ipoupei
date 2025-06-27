@@ -3,7 +3,7 @@ import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { Upload, FileText, Check, X, Search, TrendingUp, TrendingDown, CheckCircle, AlertCircle, Eye, Trash2, Save, Settings, CheckSquare, Code, Database, Tag, Building } from 'lucide-react';
 import useContas from '@modules/contas/hooks/useContas';
 import useCategorias from '@modules/categorias/hooks/useCategorias';
-import { useTransactionsStore } from '@modules/transacoes/store/transactionsStore';
+import { useTransactions } from '@modules/transacoes/store/transactionsStore';
 import { useUIStore } from '@store/uiStore';
 import useAuth from '@modules/auth/hooks/useAuth';
 
@@ -28,7 +28,7 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
   const { user } = useAuth();
   const { contas, loading: loadingContas } = useContas();
   const { categorias, loading: loadingCategorias } = useCategorias();
-  const { addTransacao } = useTransactionsStore();
+  const { addTransacao } = useTransactions();
   const { showNotification } = useUIStore();
 
   // ===== EFEITOS =====
