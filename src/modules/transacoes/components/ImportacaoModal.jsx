@@ -1,9 +1,8 @@
-// src/modules/transacoes/components/ImportacaoModal.jsx
+// src/modules/transacoes/components/ImportacaoModal.jsx - VERSÃO CORRIGIDA
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { Upload, FileText, Check, X, Search, TrendingUp, TrendingDown, CheckCircle, AlertCircle, Eye, Trash2, Save, Settings, CheckSquare, Code, Database, Tag, Building } from 'lucide-react';
-import useContas from '@modules/contas/hooks/useContas';
-import useCategorias from '@modules/categorias/hooks/useCategorias';
-import { useTransactions } from '@modules/transacoes/store/transactionsStore';
+// ✅ MUDANÇA 1: Usar fetch direto como nos outros modais
+import { supabase } from '@lib/supabaseClient';
 import { useUIStore } from '@store/uiStore';
 import useAuth from '@modules/auth/hooks/useAuth';
 
@@ -22,16 +21,60 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
   const [categoriaDropdownOpen, setCategoriaDropdownOpen] = useState({});
   const [subcategoriaDropdownOpen, setSubcategoriaDropdownOpen] = useState({});
   
+  // ✅ MUDANÇA 2: Estados locais para dados (como nos outros modais)
+  const [contas, setContas] = useState([]);
+  const [categorias, setCategorias] = useState([]);
+  const [subcategorias, setSubcategorias] = useState([]);
+  const [loadingData, setLoadingData] = useState(false);
+  
   const fileInputRef = useRef(null);
 
-  // ===== HOOKS PADRONIZADOS =====
+  // ===== HOOKS BÁSICOS =====
   const { user } = useAuth();
-  const { contas, loading: loadingContas } = useContas();
-  const { categorias, loading: loadingCategorias } = useCategorias();
-  const { addTransacao } = useTransactions();
   const { showNotification } = useUIStore();
 
+  // ✅ MUDANÇA 3: Funções para carregar dados (igual aos outros modais)
+  const carregarContas = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const { data, error } = await supabase
+        .from('contas')
+        .select('*')
+        .eq('usuario_id', user.id)
+        .eq('ativo', true)
+        .order('nome');
+      
+      if (error) throw error;
+      setContas(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar contas:', error);
+    }
+  }, [user?.id]);
+
+  const carregarCategorias = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const [categoriasRes, subcategoriasRes] = await Promise.all([
+        supabase.from('categorias').select('*').eq('usuario_id', user.id).eq('ativo', true).order('nome'),
+        supabase.from('subcategorias').select('*').eq('usuario_id', user.id).eq('ativo', true).order('nome')
+      ]);
+
+      setCategorias(categoriasRes.data || []);
+      setSubcategorias(subcategoriasRes.data || []);
+    } catch (error) {
+      console.error('Erro ao carregar categorias:', error);
+    }
+  }, [user?.id]);
+
   // ===== EFEITOS =====
+  useEffect(() => {
+    if (isOpen && user?.id) {
+      setLoadingData(true);
+      Promise.all([carregarContas(), carregarCategorias()])
+        .finally(() => setLoadingData(false));
+    }
+  }, [isOpen, user?.id, carregarContas, carregarCategorias]);
+
   useEffect(() => {
     if (!isOpen) {
       // Reset ao fechar modal
@@ -63,11 +106,10 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
     categorias.filter(cat => cat.tipo === 'despesa'), [categorias]
   );
 
-  // ===== FUNÇÕES AUXILIARES PARA SUBCATEGORIAS (USANDO HOOK) =====
+  // ===== FUNÇÕES AUXILIARES PARA SUBCATEGORIAS =====
   const getSubcategoriasPorCategoria = useCallback((categoriaId) => {
-    const categoria = categorias.find(cat => cat.id === categoriaId);
-    return categoria?.subcategorias || [];
-  }, [categorias]);
+    return subcategorias.filter(sub => sub.categoria_id === categoriaId);
+  }, [subcategorias]);
 
   const getSubcategoriasFiltradas = useCallback((categoriaId, searchText = '') => {
     let subs = getSubcategoriasPorCategoria(categoriaId);
@@ -343,7 +385,7 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
     setSelectedTransactions(newSelection);
   };
 
-  // ===== HANDLERS DE CATEGORIA/SUBCATEGORIA (REFATORADOS) =====
+  // ===== HANDLERS DE CATEGORIA/SUBCATEGORIA =====
   const handleCategoriaChange = (transactionId, value) => {
     const categoria = categorias.find(cat => cat.id === value);
     updateTransaction(transactionId, 'categoria_id', value);
@@ -381,7 +423,7 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
     return tipo === 'receita' ? categoriasReceita : categoriasDespesa;
   };
 
-  // ===== HANDLER DE IMPORTAÇÃO (REFATORADO) =====
+  // ✅ MUDANÇA 4: HANDLER DE IMPORTAÇÃO CORRIGIDO - USAR INSERÇÃO DIRETA
   const handleImport = async () => {
     setLoading(true);
     
@@ -390,59 +432,56 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
       
       console.log('🚀 Iniciando importação de', selectedTransList.length, 'transações');
       
-      // Importar transações uma por uma usando o hook padronizado
-      let sucessos = 0;
-      let erros = 0;
+      // ✅ PREPARAR DADOS PARA INSERÇÃO DIRETA (igual aos modais funcionais)
+      const transacoesParaInserir = selectedTransList.map(transacao => ({
+        usuario_id: user.id,
+        data: transacao.data,
+        tipo: transacao.tipo,
+        valor: transacao.valor,
+        descricao: transacao.descricao,
+        conta_id: transacao.conta_id,
+        categoria_id: transacao.categoria_id || null,
+        subcategoria_id: transacao.subcategoria_id || null,
+        efetivado: transacao.efetivado,
+        observacoes: transacao.observacoes || `Importado de ${transacao.origem || 'arquivo'} - ${file.name}`,
+        // SEMPRE COMO TRANSAÇÃO EXTRA (nunca previsível ou parcelada)
+        recorrente: false,
+        transferencia: false,
+        grupo_recorrencia: null,
+        grupo_parcelamento: null,
+        parcela_atual: null,
+        total_parcelas: null,
+        numero_recorrencia: null,
+        total_recorrencias: null,
+        eh_recorrente: false,
+        tipo_recorrencia: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }));
       
-      for (const transacao of selectedTransList) {
-        try {
-          // Preparar dados para o formato do banco - SEMPRE COMO EXTRA
-          const transacaoData = {
-            data: transacao.data,
-            tipo: transacao.tipo,
-            valor: transacao.valor,
-            descricao: transacao.descricao,
-            conta_id: transacao.conta_id,
-            categoria_id: transacao.categoria_id || null,
-            subcategoria_id: transacao.subcategoria_id || null,
-            efetivado: transacao.efetivado,
-            observacoes: transacao.observacoes || `Importado de ${transacao.origem || 'arquivo'} - ${file.name}`,
-            // IMPORTANTE: Sempre salvar como extra (nunca previsível ou parcelada)
-            tipo_receita: transacao.tipo === 'receita' ? 'extra' : undefined,
-            tipo_despesa: transacao.tipo === 'despesa' ? 'extra' : undefined,
-            recorrente: false,
-            grupo_recorrencia: null,
-            grupo_parcelamento: null
-          };
-          
-          console.log('💾 Salvando transação:', transacaoData);
-          
-          const resultado = await addTransacao(transacaoData);
-          
-          if (resultado.success) {
-            sucessos++;
-          } else {
-            console.error('Erro ao salvar transação:', resultado.error);
-            erros++;
-          }
-          
-        } catch (transacaoError) {
-          console.error('Erro ao processar transação:', transacaoError);
-          erros++;
-        }
+      console.log('💾 Inserindo transações no banco:', transacoesParaInserir);
+      
+      // ✅ INSERÇÃO DIRETA NO SUPABASE (igual aos modais funcionais)
+      const { data, error } = await supabase
+        .from('transacoes')
+        .insert(transacoesParaInserir);
+      
+      if (error) {
+        console.error('❌ Erro do Supabase:', error);
+        throw error;
       }
       
-      console.log(`✅ Importação concluída: ${sucessos} sucessos, ${erros} erros`);
+      console.log('✅ Transações inseridas com sucesso:', data);
       
-      if (sucessos > 0) {
-        showNotification(
-          `${sucessos} transação(ões) importada(s) com sucesso!`,
-          'success'
-        );
-        setCurrentStep('success');
-      } else {
-        throw new Error('Nenhuma transação foi importada com sucesso');
-      }
+      // Recarregar contas para atualizar saldos
+      await carregarContas();
+      
+      showNotification(
+        `${selectedTransList.length} transação(ões) importada(s) com sucesso!`,
+        'success'
+      );
+      
+      setCurrentStep('success');
       
     } catch (err) {
       console.error('❌ Erro na importação:', err);
@@ -477,132 +516,144 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
         <p className="modal-subtitle">Importe extratos bancários e faturas de cartão</p>
       </div>
 
-      {/* Seleção da Conta */}
-      <div className="summary-panel">
-        <h3 className="summary-title">
-          <Building size={16} />
-          Selecione a conta de destino
-        </h3>
-        <div className="select-search">
-          <select
-            value={contaSelecionada}
-            onChange={(e) => setContaSelecionada(e.target.value)}
-            disabled={loadingContas}
-          >
-            <option value="">Selecionar conta...</option>
-            {contas.map(conta => (
-              <option key={conta.id} value={conta.id}>
-                {conta.nome} ({conta.tipo}) - R$ {(conta.saldo || 0).toFixed(2)}
-              </option>
-            ))}
-          </select>
+      {/* Loading de dados */}
+      {loadingData && (
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p className="loading-text">Carregando dados...</p>
         </div>
-        {loadingContas && (
-          <p className="text-sm text-gray-600 mt-1">Carregando contas...</p>
-        )}
-      </div>
+      )}
+
+      {/* Seleção da Conta */}
+      {!loadingData && (
+        <div className="summary-panel">
+          <h3 className="summary-title">
+            <Building size={16} />
+            Selecione a conta de destino
+          </h3>
+          <div className="select-search">
+            <select
+              value={contaSelecionada}
+              onChange={(e) => setContaSelecionada(e.target.value)}
+            >
+              <option value="">Selecionar conta...</option>
+              {contas.map(conta => (
+                <option key={conta.id} value={conta.id}>
+                  {conta.nome} ({conta.tipo}) - R$ {(conta.saldo || 0).toFixed(2)}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
 
       {/* Upload de Arquivo */}
-      <div className="empty-state" style={{ 
-        border: '2px dashed #e5e7eb',
-        borderRadius: '1rem',
-        cursor: 'pointer',
-        transition: 'border-color 0.15s ease',
-        minHeight: '200px'
-      }}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-      >
-        <Upload size={48} style={{ color: '#9ca3af', marginBottom: '1rem' }} />
-        {file ? (
-          <div>
-            <h3 className="empty-state-title">📁 Arquivo selecionado:</h3>
-            <p style={{ color: '#3b82f6', fontWeight: '600' }}>{file.name}</p>
-            <span className="text-sm text-gray-600">({(file.size / 1024).toFixed(1)} KB)</span>
-          </div>
-        ) : (
-          <div>
-            <h3 className="empty-state-title">Arraste seu extrato aqui ou clique para selecionar</h3>
-            <p className="empty-state-description">Formatos aceitos: .csv, .txt, .ofx</p>
-          </div>
-        )}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".csv,.txt,.ofx"
-          onChange={handleFileUpload}
-          style={{ display: 'none' }}
-        />
-      </div>
+      {!loadingData && (
+        <div className="empty-state" style={{ 
+          border: '2px dashed #e5e7eb',
+          borderRadius: '1rem',
+          cursor: 'pointer',
+          transition: 'border-color 0.15s ease',
+          minHeight: '200px'
+        }}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <Upload size={48} style={{ color: '#9ca3af', marginBottom: '1rem' }} />
+          {file ? (
+            <div>
+              <h3 className="empty-state-title">📁 Arquivo selecionado:</h3>
+              <p style={{ color: '#3b82f6', fontWeight: '600' }}>{file.name}</p>
+              <span className="text-sm text-gray-600">({(file.size / 1024).toFixed(1)} KB)</span>
+            </div>
+          ) : (
+            <div>
+              <h3 className="empty-state-title">Arraste seu extrato aqui ou clique para selecionar</h3>
+              <p className="empty-state-description">Formatos aceitos: .csv, .txt, .ofx</p>
+            </div>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.txt,.ofx"
+            onChange={handleFileUpload}
+            style={{ display: 'none' }}
+          />
+        </div>
+      )}
 
       {/* Botão de Análise */}
-      <div className="text-center">
-        <button
-          onClick={handleAnalyze}
-          disabled={!file || loading || !contaSelecionada}
-          className="btn-primary"
-          style={{ padding: '0.75rem 1.5rem' }}
-        >
-          {loading ? (
-            <>
-              <div className="btn-spinner"></div>
-              Analisando...
-            </>
-          ) : (
-            <>
-              <FileText size={18} />
-              Analisar Arquivo
-            </>
-          )}
-        </button>
-      </div>
-
-      {/* Arquivos de Teste */}
-      <div className="section-block">
-        <h3 className="section-title">🧪 Testar com Arquivos de Exemplo</h3>
-        <div className="flex gap-3 row">
-          <button 
-            onClick={() => handleTestFile('csv')}
-            className="btn-secondary"
-            style={{ 
-              flexDirection: 'column', 
-              padding: '1rem',
-              background: '#f3f4f6',
-              border: '1px solid #d1d5db'
-            }}
+      {!loadingData && (
+        <div className="text-center">
+          <button
+            onClick={handleAnalyze}
+            disabled={!file || loading || !contaSelecionada}
+            className="btn-primary"
+            style={{ padding: '0.75rem 1.5rem' }}
           >
-            <Code size={20} style={{ marginBottom: '0.5rem', color: '#8b5cf6' }} />
-            <div style={{ fontWeight: '500' }}>Testar CSV</div>
-          </button>
-          <button 
-            onClick={() => handleTestFile('txt')}
-            className="btn-secondary"
-            style={{ 
-              flexDirection: 'column', 
-              padding: '1rem',
-              background: '#f3f4f6',
-              border: '1px solid #d1d5db'
-            }}
-          >
-            <FileText size={20} style={{ marginBottom: '0.5rem', color: '#3b82f6' }} />
-            <div style={{ fontWeight: '500' }}>Testar TXT</div>
-          </button>
-          <button 
-            onClick={() => handleTestFile('ofx')}
-            className="btn-secondary"
-            style={{ 
-              flexDirection: 'column', 
-              padding: '1rem',
-              background: '#f3f4f6',
-              border: '1px solid #d1d5db'
-            }}
-          >
-            <Database size={20} style={{ marginBottom: '0.5rem', color: '#10b981' }} />
-            <div style={{ fontWeight: '500' }}>Testar OFX</div>
+            {loading ? (
+              <>
+                <div className="btn-spinner"></div>
+                Analisando...
+              </>
+            ) : (
+              <>
+                <FileText size={18} />
+                Analisar Arquivo
+              </>
+            )}
           </button>
         </div>
-      </div>
+      )}
+
+      {/* Arquivos de Teste */}
+      {!loadingData && (
+        <div className="section-block">
+          <h3 className="section-title">🧪 Testar com Arquivos de Exemplo</h3>
+          <div className="flex gap-3 row">
+            <button 
+              onClick={() => handleTestFile('csv')}
+              className="btn-secondary"
+              style={{ 
+                flexDirection: 'column', 
+                padding: '1rem',
+                background: '#f3f4f6',
+                border: '1px solid #d1d5db'
+              }}
+            >
+              <Code size={20} style={{ marginBottom: '0.5rem', color: '#8b5cf6' }} />
+              <div style={{ fontWeight: '500' }}>Testar CSV</div>
+            </button>
+            <button 
+              onClick={() => handleTestFile('txt')}
+              className="btn-secondary"
+              style={{ 
+                flexDirection: 'column', 
+                padding: '1rem',
+                background: '#f3f4f6',
+                border: '1px solid #d1d5db'
+              }}
+            >
+              <FileText size={20} style={{ marginBottom: '0.5rem', color: '#3b82f6' }} />
+              <div style={{ fontWeight: '500' }}>Testar TXT</div>
+            </button>
+            <button 
+              onClick={() => handleTestFile('ofx')}
+              className="btn-secondary"
+              style={{ 
+                flexDirection: 'column', 
+                padding: '1rem',
+                background: '#f3f4f6',
+                border: '1px solid #d1d5db'
+              }}
+            >
+              <Database size={20} style={{ marginBottom: '0.5rem', color: '#10b981' }} />
+              <div style={{ fontWeight: '500' }}>Testar OFX</div>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 
