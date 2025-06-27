@@ -1129,7 +1129,7 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
 
   return (
     <div className="modal-overlay active">
-      <div className="forms-modal-container modal-large">
+      <div className="forms-modal-container modal-importacao">
         {/* Header */}
         <div className="modal-header modal-header-gradient">
           <div className="modal-header-content">
