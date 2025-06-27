@@ -34,6 +34,8 @@ import { supabase } from '@lib/supabaseClient';
 // import useContas from '@modules/contas/hooks/useContas';
 import { useTransactions } from '@modules/transacoes/store/transactionsStore';
 import '@shared/styles/FormsModal.css';
+import InputMoney from '@shared/components/ui/InputMoney';
+
 
 const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   const { user } = useAuthStore();
@@ -165,32 +167,47 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   }));
 
   // ===== FUNÇÕES UTILITÁRIAS =====
-  const formatarValor = useCallback((valor) => {
-    const apenasNumeros = valor.toString().replace(/\D/g, '');
-    if (!apenasNumeros || apenasNumeros === '0') return '';
-    const valorEmCentavos = parseInt(apenasNumeros, 10);
-    const valorEmReais = valorEmCentavos / 100;
-    return valorEmReais.toLocaleString('pt-BR', { 
-      minimumFractionDigits: 2, 
-      maximumFractionDigits: 2 
-    });
-  }, []);
+const formatarValor = useCallback((valor) => {
+  // ✅ CORREÇÃO: Se contém operadores matemáticos, não formatar
+  if (/[+\-*/()]/.test(valor)) {
+    return valor; // Deixa passar direto para o InputMoney processar
+  }
+  
+  // Formatação normal apenas para números puros
+  const apenasNumeros = valor.toString().replace(/\D/g, '');
+  if (!apenasNumeros || apenasNumeros === '0') return '';
+  const valorEmCentavos = parseInt(apenasNumeros, 10);
+  const valorEmReais = valorEmCentavos / 100;
+  return valorEmReais.toLocaleString('pt-BR', { 
+    minimumFractionDigits: 2, 
+    maximumFractionDigits: 2 
+  });
+}, []);
 
-  const valorNumerico = useMemo(() => {
-    if (!formData.valor) return 0;
-    const valorString = formData.valor.toString();
-    if (valorString.includes(',')) {
-      const partes = valorString.split(',');
-      const inteira = partes[0].replace(/\./g, '');
-      const decimal = partes[1] || '00';
-      const valorFinal = parseFloat(`${inteira}.${decimal}`);
-      return isNaN(valorFinal) ? 0 : valorFinal;
-    } else {
-      const apenasNumeros = valorString.replace(/\./g, '');
-      const valorFinal = parseFloat(apenasNumeros) / 100;
-      return isNaN(valorFinal) ? 0 : valorFinal;
-    }
-  }, [formData.valor]);
+// ✅ FUNÇÃO CORRIGIDA: valorNumerico - Permite operadores matemáticos
+const valorNumerico = useMemo(() => {
+  if (!formData.valor) return 0;
+  const valorString = formData.valor.toString();
+  
+  // ✅ CORREÇÃO: Se contém operadores, não converter ainda
+  if (/[+\-*/()]/.test(valorString)) {
+    return 0; // Retorna 0 temporário para cálculos de preview
+  }
+  
+  // Conversão normal apenas para números formatados
+  if (valorString.includes(',')) {
+    const partes = valorString.split(',');
+    const inteira = partes[0].replace(/\./g, '');
+    const decimal = partes[1] || '00';
+    const valorFinal = parseFloat(`${inteira}.${decimal}`);
+    return isNaN(valorFinal) ? 0 : valorFinal;
+  } else {
+    const apenasNumeros = valorString.replace(/\./g, '');
+    const valorFinal = parseFloat(apenasNumeros) / 100;
+    return isNaN(valorFinal) ? 0 : valorFinal;
+  }
+}, [formData.valor]);
+
 
   const contasAtivas = useMemo(() => 
     contas.filter(conta => conta.ativo !== false), 
@@ -439,46 +456,42 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   }, [errors]);
 
   // Handle de valor
-  const handleValorChange = useCallback((e) => {
-    const valorFormatado = formatarValor(e.target.value);
+  // ✅ FUNÇÃO CORRIGIDA: handleValorChange - Permite operadores matemáticos
+const handleValorChange = useCallback((valorNumericoRecebido) => {
+  // ✅ CORREÇÃO: Se receber um número do InputMoney (calculadora processou)
+  if (typeof valorNumericoRecebido === 'number') {
+    // Formatar o número recebido
+    const valorFormatado = valorNumericoRecebido.toLocaleString('pt-BR', { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    });
     setFormData(prev => ({ ...prev, valor: valorFormatado }));
-    
-    if (isEditMode && transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente)) {
-      console.log('🔄 Verificando mudança de valor em grupo:', {
-        valorFormatado,
-        valorOriginal,
-        transacaoInfo
-      });
-      
-      let novoValor = 0;
-      if (valorFormatado) {
-        const valorLimpo = valorFormatado.replace(/\./g, '').replace(',', '.');
-        novoValor = parseFloat(valorLimpo) || 0;
-      }
-      
-      console.log('💰 Comparação de valores:', {
-        valorOriginal,
-        novoValor,
-        saoIguais: novoValor === valorOriginal,
-        deveUsoEscopo: novoValor !== valorOriginal && novoValor > 0
-      });
+  } else {
+    // Recebido string (usuário digitando) - deixar passar
+    setFormData(prev => ({ ...prev, valor: valorNumericoRecebido }));
+  }
+  
+  // ✅ LÓGICA CORRIGIDA: Verificar mudança de valor apenas com números finais
+  if (isEditMode && transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente)) {
+    // Só verificar se é um número final (não expressão matemática)
+    if (typeof valorNumericoRecebido === 'number') {
+      const novoValor = valorNumericoRecebido;
       
       if (novoValor !== valorOriginal && novoValor > 0) {
-        console.log('✅ ATIVANDO escopo de edição');
         setMostrarEscopoEdicao(true);
       } else {
-        console.log('❌ DESATIVANDO escopo de edição');
         setMostrarEscopoEdicao(false);
       }
-    } else {
-      console.log('ℹ️ Não é grupo ou não está editando, escopo desativado');
-      setMostrarEscopoEdicao(false);
     }
-    
-    if (errors.valor) {
-      setErrors(prev => ({ ...prev, valor: null }));
-    }
-  }, [formatarValor, errors.valor, isEditMode, transacaoInfo, valorOriginal]);
+  } else {
+    setMostrarEscopoEdicao(false);
+  }
+  
+  if (errors.valor) {
+    setErrors(prev => ({ ...prev, valor: null }));
+  }
+}, [errors.valor, isEditMode, transacaoInfo, valorOriginal]);
+  
 
   const handleTipoChange = useCallback((novoTipo) => {
     setTipoReceita(novoTipo);
@@ -1199,14 +1212,15 @@ const ReceitasModal = ({ isOpen, onClose, onSave, transacaoEditando }) => {
                     <DollarSign size={14} />
                     {tipoReceita === 'parcelada' ? 'Valor por Parcela' : 'Valor'} *
                   </label>
-                  <input
+                  <InputMoney
                     ref={valorInputRef}
-                    type="text"
-                    value={formData.valor}
+                    value={typeof formData.valor === 'string' && /[+\-*/()]/.test(formData.valor) ? 0 : valorNumerico}
                     onChange={handleValorChange}
-                    placeholder="0,00"
+                    placeholder="R$ 0,00 (ou 5+3,50)"
                     disabled={submitting}
-                    className={`input-money input-money-highlight ${errors.valor ? 'error' : ''}`}
+                    enableCalculator={true}
+                    showCalculationFeedback={true}
+                    className={`input-money-highlight ${errors.valor ? 'error' : ''}`}
                   />
                   {errors.valor && <div className="form-error">{errors.valor}</div>}
                 </div>
