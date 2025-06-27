@@ -1,6 +1,8 @@
+javascript// src/Components/ImportacaoModal.jsx
+import React from 'react';
 
-// src/Components/ImportacaoModal.jsx - Versão Completa
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-
+function ImportacaoModal() {
+  return <div></div>;
+}
 
 export default ImportacaoModal;
