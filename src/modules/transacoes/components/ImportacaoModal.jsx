@@ -3,11 +3,9 @@ import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { Upload, FileText, Check, X, Search, TrendingUp, TrendingDown, CheckCircle, AlertCircle, Eye, Trash2, Save, Settings, CheckSquare, Code, Database, Tag, Building } from 'lucide-react';
 import useContas from '@modules/contas/hooks/useContas';
 import useCategorias from '@modules/categorias/hooks/useCategorias';
-import { useTransactions } from '@modules/transacoes/store/transactionsStore';
+import { useTransactionsStore } from '@modules/transacoes/store/transactionsStore';
 import { useUIStore } from '@store/uiStore';
-import { categoriasStore } from '@modules/categorias/store/categoriasStore';
-import { supabase } from '@lib/supabaseClient';
-import { useAuthStore } from '@modules/auth/store/authStore';
+import useAuth from '@modules/auth/hooks/useAuth';
 
 const ImportacaoModal = ({ isOpen, onClose }) => {
   // ===== ESTADOS LOCAIS =====
@@ -20,18 +18,17 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
   const [filters, setFilters] = useState({ search: '', type: '', status: '' });
   const [contaSelecionada, setContaSelecionada] = useState('');
   
-  // Estados para subcategorias
-  const [subcategorias, setSubcategorias] = useState([]);
+  // Estados para dropdowns
   const [categoriaDropdownOpen, setCategoriaDropdownOpen] = useState({});
   const [subcategoriaDropdownOpen, setSubcategoriaDropdownOpen] = useState({});
   
   const fileInputRef = useRef(null);
 
-  // ===== HOOKS DOS DADOS REAIS =====
-  const { user } = useAuthStore();
+  // ===== HOOKS PADRONIZADOS =====
+  const { user } = useAuth();
   const { contas, loading: loadingContas } = useContas();
   const { categorias, loading: loadingCategorias } = useCategorias();
-  const { addTransacao } = useTransactions();
+  const { addTransacao } = useTransactionsStore();
   const { showNotification } = useUIStore();
 
   // ===== EFEITOS =====
@@ -45,7 +42,6 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
       setError(null);
       setFilters({ search: '', type: '', status: '' });
       setContaSelecionada('');
-      setSubcategorias([]);
       setCategoriaDropdownOpen({});
       setSubcategoriaDropdownOpen({});
     }
@@ -67,45 +63,23 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
     categorias.filter(cat => cat.tipo === 'despesa'), [categorias]
   );
 
-  // ===== CARREGAR SUBCATEGORIAS =====
-  const carregarSubcategorias = useCallback(async () => {
-    if (!user?.id) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('subcategorias')
-        .select('*')
-        .eq('usuario_id', user.id)
-        .eq('ativo', true)
-        .order('nome');
+  // ===== FUNÇÕES AUXILIARES PARA SUBCATEGORIAS (USANDO HOOK) =====
+  const getSubcategoriasPorCategoria = useCallback((categoriaId) => {
+    const categoria = categorias.find(cat => cat.id === categoriaId);
+    return categoria?.subcategorias || [];
+  }, [categorias]);
 
-      if (error) throw error;
-      setSubcategorias(data || []);
-    } catch (error) {
-      console.error('❌ Erro ao carregar subcategorias:', error);
+  const getSubcategoriasFiltradas = useCallback((categoriaId, searchText = '') => {
+    let subs = getSubcategoriasPorCategoria(categoriaId);
+    if (searchText) {
+      subs = subs.filter(sub => 
+        sub.nome.toLowerCase().includes(searchText.toLowerCase())
+      );
     }
-  }, [user?.id]);
+    return subs;
+  }, [getSubcategoriasPorCategoria]);
 
-  useEffect(() => {
-    if (isOpen && user) {
-      carregarSubcategorias();
-    }
-  }, [isOpen, user, carregarSubcategorias]);
-
-  // ===== LISTENER PARA CATEGORIAS STORE =====
-  useEffect(() => {
-    if (!isOpen) return;
-    
-    const unsubscribe = categoriasStore.subscribe((changeEvent) => {
-      console.log('🔄 ImportacaoModal recebeu mudança nas categorias:', changeEvent);
-      // Recarregar subcategorias quando houver mudanças
-      carregarSubcategorias();
-    });
-
-    return unsubscribe;
-  }, [isOpen, carregarSubcategorias]);
-
-  // ===== PARSERS (mantidos do mockup) =====
+  // ===== PARSERS (mantidos do original) =====
   const parseOFX = (content) => {
     const transacoes = [];
     const transacaoRegex = /<STMTTRN>(.*?)<\/STMTTRN>/gs;
@@ -369,7 +343,7 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
     setSelectedTransactions(newSelection);
   };
 
-  // ===== HANDLERS DE CATEGORIA/SUBCATEGORIA =====
+  // ===== HANDLERS DE CATEGORIA/SUBCATEGORIA (REFATORADOS) =====
   const handleCategoriaChange = (transactionId, value) => {
     const categoria = categorias.find(cat => cat.id === value);
     updateTransaction(transactionId, 'categoria_id', value);
@@ -381,7 +355,10 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
   };
 
   const handleSubcategoriaChange = (transactionId, value) => {
-    const subcategoria = subcategorias.find(sub => sub.id === value);
+    const transacao = transacoes.find(t => t.id === transactionId);
+    const subcategoria = getSubcategoriasPorCategoria(transacao.categoria_id)
+      .find(sub => sub.id === value);
+    
     updateTransaction(transactionId, 'subcategoria_id', value);
     updateTransaction(transactionId, 'subcategoriaTexto', subcategoria?.nome || '');
     
@@ -404,16 +381,7 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
     return tipo === 'receita' ? categoriasReceita : categoriasDespesa;
   };
 
-  const getSubcategoriasFiltradas = (categoriaId, searchText = '') => {
-    let subs = subcategorias.filter(sub => sub.categoria_id === categoriaId);
-    if (searchText) {
-      subs = subs.filter(sub => 
-        sub.nome.toLowerCase().includes(searchText.toLowerCase())
-      );
-    }
-    return subs;
-  };
-
+  // ===== HANDLER DE IMPORTAÇÃO (REFATORADO) =====
   const handleImport = async () => {
     setLoading(true);
     
@@ -422,7 +390,7 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
       
       console.log('🚀 Iniciando importação de', selectedTransList.length, 'transações');
       
-      // Importar transações uma por uma
+      // Importar transações uma por uma usando o hook padronizado
       let sucessos = 0;
       let erros = 0;
       
@@ -1257,7 +1225,6 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
                   setSelectedTransactions(new Set());
                   setFilters({ search: '', type: '', status: '' });
                   setError(null);
-                  setSubcategorias([]);
                   setCategoriaDropdownOpen({});
                   setSubcategoriaDropdownOpen({});
                 }}
