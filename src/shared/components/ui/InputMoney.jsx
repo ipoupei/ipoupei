@@ -79,7 +79,7 @@ const InputMoney = ({
 
     try {
       // Verifica se tem operadores matemáticos
-      const temOperadores = /[+\-*/]/.test(valor);
+const temOperadores = /[+\-*/()\s]/.test(valor); // ✅ Incluir espaços também
       
       if (temOperadores) {
         // É uma expressão matemática
@@ -163,24 +163,29 @@ const InputMoney = ({
   }, [autoFocus, disabled]);
   
   // ✅ Handle quando o input muda com validação
-  const handleChange = useCallback((e) => {
-    const newValue = e.target.value;
-    
-    // Se não permite negativo, remove o sinal de menos
-    const finalValue = allowNegative ? newValue : newValue.replace('-', '');
-    
-    setInputValue(finalValue);
+const handleChange = useCallback((e) => {
+  const newValue = e.target.value;
+  
+  // ✅ CORREÇÃO: Para calculadora, permitir todos os operadores
+  let finalValue = newValue;
+  
+  if (!enableCalculator && !allowNegative) {
+    // Só remove minus se não é calculadora E não permite negativo
+    finalValue = newValue.replace('-', '');
+  }
+  
+  setInputValue(finalValue);
     setExpressaoOriginal(''); // Limpa feedback ao digitar
     
     // Converte e envia o valor numérico (só se não for expressão)
-    if (!enableCalculator || !/[+\-*/]/.test(finalValue)) {
-      const numericValue = stringToNumber(finalValue);
-      
-      if (onChange) {
-        onChange(numericValue);
-      }
+    if (!enableCalculator || !/[+\-*/()]/.test(finalValue)) {
+    const numericValue = stringToNumber(finalValue);
+    
+    if (onChange) {
+      onChange(numericValue);
     }
-  }, [allowNegative, stringToNumber, onChange, enableCalculator]);
+  }
+}, [allowNegative, enableCalculator, stringToNumber, onChange]);
   
   // ✅ Handle quando ganha foco
   const handleFocus = useCallback((e) => {
@@ -241,59 +246,73 @@ const InputMoney = ({
   }, [inputValue, stringToNumber, formatCurrency, onChange, onBlur, processarCalculadora, showCalculationFeedback]);
 
   // ✅ Navegação por teclado SIMPLIFICADA + CALCULADORA
-  const handleKeyDown = useCallback((e) => {
-    switch (e.key) {
-      case 'Enter':
-      case 'Tab':
-        // ✅ NOVO: Força processamento da calculadora
-        handleBlur(e);
-        break;
-        
-      case 'Escape':
-        // Cancela edição e volta ao valor original
-        setInputValue(formatCurrency(value));
-        setExpressaoOriginal('');
-        if (inputRef.current) {
-          inputRef.current.blur();
-        }
-        break;
+const handleKeyDown = useCallback((e) => {
+  switch (e.key) {
+    case 'Enter':
+    case 'Tab':
+      // Força processamento da calculadora
+      handleBlur(e);
+      break;
+      
+    case 'Escape':
+      // Cancela edição e volta ao valor original
+      setInputValue(formatCurrency(value));
+      setExpressaoOriginal('');
+      if (inputRef.current) {
+        inputRef.current.blur();
+      }
+      break;
         
       // ✅ Permite apenas números, vírgula, ponto, sinal de menos E operadores matemáticos
-      default:
-        const allowedKeys = [
-          'Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight',
-          'ArrowUp', 'ArrowDown', 'Home', 'End', 'Control', 'Alt', 'Shift'
-        ];
+ default:
+      const allowedKeys = [
+        'Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight',
+        'ArrowUp', 'ArrowDown', 'Home', 'End', 'Control', 'Alt', 'Shift'
+      ];
+      
+      if (!allowedKeys.includes(e.key)) {
+        const char = e.key;
+        const isNumber = /\d/.test(char);
+        const isComma = char === ',';
+        const isPeriod = char === '.';
         
-        if (!allowedKeys.includes(e.key)) {
-          const char = e.key;
-          const isNumber = /\d/.test(char);
-          const isComma = char === ',';
-          const isPeriod = char === '.';
-          const isMinus = char === '-' && allowNegative;
-          const isOperator = enableCalculator && /[+\-*/()]/.test(char); // ✅ NOVO
-          
-          if (!isNumber && !isComma && !isPeriod && !isMinus && !isOperator) {
+        // ✅ CORREÇÃO: Lógica melhorada para sinal de menos
+        const isMinus = char === '-';
+        const isOperator = enableCalculator && /[+*/()\-]/.test(char); // ✅ Incluir - explicitamente
+        
+        // ✅ NOVA LÓGICA: Permitir operadores quando calculadora habilitada
+        if (!isNumber && !isComma && !isPeriod && !isOperator) {
+          // Se não permite negativo E não é calculadora, bloquear minus
+          if (isMinus && !allowNegative && !enableCalculator) {
             e.preventDefault();
           }
-          
-          // ✅ Previne múltiplas vírgulas
-          if (isComma && inputValue.includes(',')) {
-            e.preventDefault();
-          }
-          
-          // ✅ Previne sinal de menos no meio (exceto para subtração)
-          if (isMinus && !enableCalculator && (inputValue.length > 0 || inputValue.includes('-'))) {
+          // Outros caracteres não permitidos
+          else if (!isMinus) {
             e.preventDefault();
           }
         }
-        break;
+        
+        // ✅ Previne múltiplas vírgulas
+        if (isComma && inputValue.includes(',')) {
+          e.preventDefault();
+        }
+        
+        // ✅ CORREÇÃO: Lógica do minus ajustada para calculadora
+        if (isMinus && !enableCalculator) {
+          // Sem calculadora: só permite minus no início se allowNegative
+          if (!allowNegative || (inputValue.length > 0 && !inputValue.includes('-'))) {
+            e.preventDefault();
+          }
+        }
+        // Com calculadora: minus sempre permitido como operador
+      }
+      break;
     }
     
-    if (onKeyDown) {
-      onKeyDown(e);
-    }
-  }, [inputValue, allowNegative, value, formatCurrency, onKeyDown, handleBlur, enableCalculator]);
+  if (onKeyDown) {
+    onKeyDown(e);
+  }
+}, [inputValue, allowNegative, enableCalculator, value, formatCurrency, onKeyDown, handleBlur]);
 
   // ✅ CORREÇÃO: Classes CSS sem styled-jsx
   const inputClasses = [
