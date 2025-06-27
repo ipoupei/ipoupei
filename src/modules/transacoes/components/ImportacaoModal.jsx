@@ -5,6 +5,8 @@ import { Upload, FileText, Check, X, Search, TrendingUp, TrendingDown, CheckCirc
 import { supabase } from '@lib/supabaseClient';
 import { useUIStore } from '@store/uiStore';
 import useAuth from '@modules/auth/hooks/useAuth';
+// ✅ Importar CSS para validações
+import '@modules/transacoes/styles/ImportacaoModal.css';
 
 const ImportacaoModal = ({ isOpen, onClose }) => {
   // ===== ESTADOS LOCAIS =====
@@ -423,8 +425,72 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
     return tipo === 'receita' ? categoriasReceita : categoriasDespesa;
   };
 
-  // ✅ MUDANÇA 4: HANDLER DE IMPORTAÇÃO CORRIGIDO - USAR INSERÇÃO DIRETA
+  // ✅ VALIDAÇÃO DE CAMPOS OBRIGATÓRIOS
+  const validateTransactions = () => {
+    const selectedTransList = transacoes.filter(t => selectedTransactions.has(t.id));
+    const errors = [];
+    
+    selectedTransList.forEach((transaction, index) => {
+      const transactionErrors = [];
+      
+      // Validar campos obrigatórios
+      if (!transaction.data) {
+        transactionErrors.push('Data é obrigatória');
+      }
+      
+      if (!transaction.descricao || !transaction.descricao.trim()) {
+        transactionErrors.push('Descrição é obrigatória');
+      }
+      
+      if (!transaction.categoria_id) {
+        transactionErrors.push('Categoria é obrigatória');
+      }
+      
+      if (!transaction.conta_id) {
+        transactionErrors.push('Conta é obrigatória');
+      }
+      
+      if (!transaction.valor || transaction.valor <= 0) {
+        transactionErrors.push('Valor deve ser maior que zero');
+      }
+      
+      if (transactionErrors.length > 0) {
+        errors.push({
+          transactionIndex: index + 1,
+          description: transaction.descricao || 'Sem descrição',
+          errors: transactionErrors
+        });
+      }
+    });
+    
+    return errors;
+  };
+
+  // ✅ MUDANÇA 4: HANDLER DE IMPORTAÇÃO CORRIGIDO COM VALIDAÇÃO
   const handleImport = async () => {
+    // ✅ VALIDAR ANTES DE IMPORTAR
+    const validationErrors = validateTransactions();
+    
+    if (validationErrors.length > 0) {
+      let errorMessage = `Algumas transações têm campos obrigatórios em branco:\n\n`;
+      
+      validationErrors.slice(0, 5).forEach(error => {
+        errorMessage += `• Transação ${error.transactionIndex} (${error.description}):\n`;
+        error.errors.forEach(err => errorMessage += `  - ${err}\n`);
+        errorMessage += '\n';
+      });
+      
+      if (validationErrors.length > 5) {
+        errorMessage += `... e mais ${validationErrors.length - 5} transações com problemas.`;
+      }
+      
+      errorMessage += '\nPreencha todos os campos obrigatórios antes de importar.';
+      
+      setError(errorMessage);
+      showNotification('Preencha todos os campos obrigatórios', 'error');
+      return;
+    }
+    
     setLoading(true);
     
     try {
@@ -438,9 +504,9 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
         data: transacao.data,
         tipo: transacao.tipo,
         valor: transacao.valor,
-        descricao: transacao.descricao,
+        descricao: transacao.descricao.trim(),
         conta_id: transacao.conta_id,
-        categoria_id: transacao.categoria_id || null,
+        categoria_id: transacao.categoria_id,
         subcategoria_id: transacao.subcategoria_id || null,
         efetivado: transacao.efetivado,
         observacoes: transacao.observacoes || `Importado de ${transacao.origem || 'arquivo'} - ${file.name}`,
@@ -667,7 +733,97 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
           </h3>
         </div>
         
-        {/* Estatísticas */}
+        {/* ✅ INDICADOR DE TRANSAÇÕES COM PROBLEMAS */}
+        {transacoes.length > 0 && (
+          <div className="summary-panel" style={{ 
+            background: validateTransactions().length > 0 ? '#fef2f2' : '#f0fdf4',
+            border: `1px solid ${validateTransactions().length > 0 ? '#fecaca' : '#bbf7d0'}`
+          }}>
+            <h3 className="summary-title">
+              {validateTransactions().length > 0 ? (
+                <>
+                  <AlertCircle size={16} style={{ color: '#ef4444' }} />
+                  ⚠️ Campos obrigatórios pendentes
+                </>
+              ) : (
+                <>
+                  <CheckCircle size={16} style={{ color: '#10b981' }} />
+                  ✅ Todas as transações válidas
+                </>
+              )}
+            </h3>
+            {validateTransactions().length > 0 ? (
+              <div>
+                <p style={{ margin: '0 0 8px 0', color: '#ef4444', fontSize: '0.875rem' }}>
+                  {validateTransactions().length} transação(ões) com campos obrigatórios em branco.
+                </p>
+                <p style={{ margin: 0, fontSize: '0.75rem', color: '#6b7280' }}>
+                  Campos obrigatórios: Data, Descrição, Categoria e Valor maior que zero.
+                </p>
+                
+                {/* Barra de progresso */}
+                <div style={{ marginTop: '0.75rem' }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    marginBottom: '0.25rem'
+                  }}>
+                    <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                      Progresso de preenchimento
+                    </span>
+                    <span style={{ fontSize: '0.75rem', fontWeight: '600' }}>
+                      {selectedTransList.length - validateTransactions().length}/{selectedTransList.length}
+                    </span>
+                  </div>
+                  <div style={{
+                    width: '100%',
+                    height: '6px',
+                    backgroundColor: '#e5e7eb',
+                    borderRadius: '3px',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      width: `${((selectedTransList.length - validateTransactions().length) / selectedTransList.length) * 100}%`,
+                      height: '100%',
+                      backgroundColor: validateTransactions().length > 0 ? '#f59e0b' : '#10b981',
+                      transition: 'width 0.3s ease'
+                    }} />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <p style={{ margin: '0 0 8px 0', color: '#10b981', fontSize: '0.875rem' }}>
+                  Todas as transações selecionadas estão prontas para importação.
+                </p>
+                
+                {/* Barra de progresso completa */}
+                <div style={{ marginTop: '0.75rem' }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    marginBottom: '0.25rem'
+                  }}>
+                    <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                      Progresso de preenchimento
+                    </span>
+                    <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#10b981' }}>
+                      {selectedTransList.length}/{selectedTransList.length} ✅
+                    </span>
+                  </div>
+                  <div style={{
+                    width: '100%',
+                    height: '6px',
+                    backgroundColor: '#10b981',
+                    borderRadius: '3px'
+                  }} />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         <div className="stats-grid" style={{ 
           display: 'grid', 
           gridTemplateColumns: 'repeat(4, 1fr)', 
@@ -757,11 +913,11 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
                     }}
                   />
                 </th>
-                <th>Data</th>
-                <th>Descrição</th>
-                <th>Valor</th>
+                <th className="required-header">Data</th>
+                <th className="required-header">Descrição</th>
+                <th className="required-header">Valor</th>
                 <th>Tipo</th>
-                <th>Categoria</th>
+                <th className="required-header">Categoria</th>
                 <th>Subcategoria</th>
                 <th>Status</th>
                 <th>Observações</th>
@@ -774,7 +930,12 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
                 const categoriaSelecionada = categorias.find(c => c.id === transaction.categoria_id);
                 
                 return (
-                  <tr key={transaction.id} className="transaction-row">
+                  <tr key={transaction.id} className={`transaction-row ${
+                    // ✅ DESTACAR LINHAS COM CAMPOS OBRIGATÓRIOS EM BRANCO
+                    (!transaction.categoria_id || !transaction.descricao?.trim() || !transaction.valor || transaction.valor <= 0) 
+                      ? 'transaction-row--error' 
+                      : ''
+                  }`}>
                     <td style={{ textAlign: 'center', padding: '0.75rem' }}>
                       <input
                         type="checkbox"
@@ -788,18 +949,27 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
                         type="date"
                         value={transaction.data}
                         onChange={(e) => updateTransaction(transaction.id, 'data', e.target.value)}
-                        className="input-date"
+                        className={`input-date ${!transaction.data ? 'input-error' : ''}`}
                         style={{ fontSize: '0.75rem', padding: '0.25rem' }}
+                        required
                       />
+                      {!transaction.data && (
+                        <div className="field-error">Data obrigatória</div>
+                      )}
                     </td>
                     <td style={{ padding: '0.75rem' }}>
                       <input
                         type="text"
                         value={transaction.descricao}
                         onChange={(e) => updateTransaction(transaction.id, 'descricao', e.target.value)}
-                        className="input-text"
+                        className={`input-text ${!transaction.descricao?.trim() ? 'input-error' : ''}`}
                         style={{ fontSize: '0.75rem', padding: '0.25rem' }}
+                        placeholder="Descrição obrigatória"
+                        required
                       />
+                      {!transaction.descricao?.trim() && (
+                        <div className="field-error">Descrição obrigatória</div>
+                      )}
                     </td>
                     <td style={{ padding: '0.75rem' }}>
                       <div className={`flex items-center valor ${transaction.tipo === 'receita' ? 'receita' : 'despesa'}`}>
@@ -810,9 +980,10 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
                         <input
                           type="number"
                           step="0.01"
+                          min="0.01"
                           value={transaction.valor}
                           onChange={(e) => updateTransaction(transaction.id, 'valor', parseFloat(e.target.value) || 0)}
-                          className="input-money"
+                          className={`input-money ${(!transaction.valor || transaction.valor <= 0) ? 'input-error' : ''}`}
                           style={{ 
                             width: '80px', 
                             fontSize: '0.75rem', 
@@ -820,8 +991,13 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
                             background: 'none',
                             fontVariantNumeric: 'tabular-nums'
                           }}
+                          placeholder="0,00"
+                          required
                         />
                       </div>
+                      {(!transaction.valor || transaction.valor <= 0) && (
+                        <div className="field-error">Valor obrigatório</div>
+                      )}
                     </td>
                     <td style={{ padding: '0.75rem' }}>
                       <select
@@ -848,14 +1024,15 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
                           onChange={(e) => handleCategoriaTextChange(transaction.id, e.target.value)}
                           onFocus={() => setCategoriaDropdownOpen(prev => ({ ...prev, [transaction.id]: true }))}
                           onBlur={() => setTimeout(() => setCategoriaDropdownOpen(prev => ({ ...prev, [transaction.id]: false })), 200)}
-                          placeholder="Digite categoria..."
-                          className="input-text"
+                          placeholder="Categoria obrigatória *"
+                          className={`input-text ${!transaction.categoria_id ? 'input-error' : ''}`}
                           style={{
                             fontSize: '0.75rem',
                             padding: '0.25rem',
                             paddingLeft: categoriaSelecionada ? '20px' : '8px',
                             paddingRight: '24px'
                           }}
+                          required
                         />
                         {categoriaSelecionada && (
                           <div
@@ -879,7 +1056,7 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
                             right: '6px',
                             top: '50%',
                             transform: 'translateY(-50%)',
-                            color: '#9ca3af'
+                            color: !transaction.categoria_id ? '#ef4444' : '#9ca3af'
                           }}
                         />
                         
@@ -903,6 +1080,9 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
                           </div>
                         )}
                       </div>
+                      {!transaction.categoria_id && (
+                        <div className="field-error">Categoria obrigatória</div>
+                      )}
                     </td>
                     <td style={{ padding: '0.75rem', minWidth: '180px' }}>
                       <div className="dropdown-container">
@@ -1235,10 +1415,20 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
               {currentStep === 'analysis' && (
                 <button
                   onClick={() => setCurrentStep('confirmation')}
-                  disabled={selectedTransactions.size === 0}
-                  className="btn-primary"
+                  disabled={selectedTransactions.size === 0 || validateTransactions().length > 0}
+                  className={`btn-primary ${validateTransactions().length > 0 ? 'btn-disabled' : ''}`}
+                  title={validateTransactions().length > 0 ? 'Preencha todos os campos obrigatórios antes de continuar' : ''}
                 >
-                  Importar {selectedTransactions.size} Transações
+                  {validateTransactions().length > 0 ? (
+                    <>
+                      <AlertCircle size={14} />
+                      {validateTransactions().length} Campo(s) Pendente(s)
+                    </>
+                  ) : (
+                    <>
+                      Importar {selectedTransactions.size} Transações
+                    </>
+                  )}
                 </button>
               )}
               {currentStep === 'confirmation' && (
