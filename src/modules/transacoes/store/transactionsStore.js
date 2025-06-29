@@ -1,4 +1,4 @@
-// src/modules/transacoes/store/transactionsStore.js - VERSÃO CORRIGIDA
+// src/modules/transacoes/store/transactionsStore.js - VERSÃO CORRIGIDA COM RPC
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
@@ -13,6 +13,7 @@ import { startOfMonth, endOfMonth, format } from 'date-fns';
  * - Tratamento adequado de data_efetivacao
  * - BUG FIX 22: Lógica corrigida para exibir parcelas no mês de vencimento da fatura
  * - BUG FIX 2: Modal de edição de ajuste de saldo preenchido corretamente
+ * - ✅ NOVA: Função toggleEfetivadoRPC para corrigir problema de relacionamento ambíguo
  */
 export const useTransactionsStore = create(
   subscribeWithSelector((set, get) => ({
@@ -265,7 +266,7 @@ export const useTransactionsStore = create(
           .select(`
             *,
             categoria:categorias(id, nome, cor, icone),
-            conta:contas!transacoes_conta_id_fkey(id, nome, tipo),
+            conta_origem:contas!transacoes_conta_id_fkey(id, nome, tipo),
             conta_destino:contas!transacoes_conta_destino_id_fkey(id, nome, tipo),
             cartao:cartoes(id, nome, bandeira)
           `, { count: 'exact' });
@@ -322,7 +323,7 @@ export const useTransactionsStore = create(
           categoria_nome: t.categoria?.nome || 'Sem categoria',
           categoria_cor: t.categoria?.cor || '#6B7280',
           conta_id: t.conta_id,
-          conta_nome: t.conta?.nome || 'Conta não informada',
+          conta_nome: t.conta_origem?.nome || 'Conta não informada',
           conta_destino_id: t.conta_destino_id,
           conta_destino_nome: t.conta_destino?.nome,
           cartao_id: t.cartao_id,
@@ -409,6 +410,86 @@ export const useTransactionsStore = create(
     // ===========================
     // CRUD DE TRANSAÇÕES
     // ===========================
+
+    // ✅ NOVA FUNÇÃO: Toggle efetivado via RPC (SOLUÇÃO PARA O BUG)
+    toggleEfetivadoRPC: async (transacaoId, novoStatus) => {
+      try {
+        set({ loading: true, error: null });
+
+        console.log('🔄 [RPC] Atualizando efetivação:', {
+          transacaoId,
+          novoStatus
+        });
+
+        const { default: supabase } = await import('@lib/supabaseClient');
+        
+        // Obter usuário autenticado
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError || !userData?.user?.id) {
+          throw new Error('Usuário não autenticado');
+        }
+
+        // Chamar RPC
+        const { data, error } = await supabase.rpc('ip_atualizar_efetivacao_transacao', {
+          p_transacao_id: transacaoId,
+          p_usuario_id: userData.user.id,
+          p_efetivado: novoStatus
+        });
+
+        if (error) {
+          console.error('❌ [RPC] Erro do Supabase:', error);
+          throw new Error(error.message || 'Erro na comunicação com o servidor');
+        }
+
+        // Verificar resultado da RPC
+        if (!data || !data.success) {
+          console.error('❌ [RPC] RPC retornou erro:', data);
+          
+          // Tratamento específico para erros de cartão
+          if (data?.details?.tipo === 'cartao_credito') {
+            const errorMsg = `${data.error}\n\nCartão: ${data.details.cartao_nome}\n${data.details.sugestao}`;
+            throw new Error(errorMsg);
+          }
+          
+          throw new Error(data?.error || 'Erro desconhecido na operação');
+        }
+
+        // ✅ ATUALIZAR ESTADO LOCAL (Single Source of Truth)
+        set(state => ({
+          transacoes: state.transacoes.map(transacao => 
+            transacao.id === transacaoId 
+              ? { 
+                  ...transacao, 
+                  efetivado: novoStatus,
+                  updated_at: new Date().toISOString()
+                }
+              : transacao
+          ),
+          loading: false
+        }));
+
+        console.log('✅ [RPC] Efetivação atualizada com sucesso:', data.message);
+
+        return { 
+          success: true, 
+          message: data.message,
+          data: data.data
+        };
+
+      } catch (error) {
+        console.error('❌ [RPC] Erro ao atualizar efetivação:', error);
+        
+        set({ 
+          error: error.message,
+          loading: false 
+        });
+
+        return { 
+          success: false, 
+          error: error.message 
+        };
+      }
+    },
 
     // ✅ MÉTODO CORRIGIDO: Atualizar valor de grupo de transações
     updateGrupoTransacoesValor: async (transacaoId, tipoAtualizacao, novoValor) => {
@@ -662,8 +743,8 @@ export const useTransactionsStore = create(
           .select(`
             *,
             categoria:categorias(id, nome, cor, icone),
-            conta:contas(id, nome, tipo),
-            conta_destino:contas!transacoes_conta_destino_fkey(id, nome, tipo),
+            conta_origem:contas!transacoes_conta_id_fkey(id, nome, tipo),
+            conta_destino:contas!transacoes_conta_destino_id_fkey(id, nome, tipo),
             cartao:cartoes(id, nome, bandeira)
           `)
           .single();
@@ -682,7 +763,9 @@ export const useTransactionsStore = create(
           categoria_nome: data.categoria?.nome || 'Sem categoria',
           categoria_cor: data.categoria?.cor || '#6B7280',
           conta_id: data.conta_id,
-          conta_nome: data.conta?.nome || 'Conta não informada',
+          conta_nome: data.conta_origem?.nome || 'Conta não informada',
+          conta_destino_id: data.conta_destino_id,
+          conta_destino_nome: data.conta_destino?.nome,
           cartao_id: data.cartao_id,
           cartao_nome: data.cartao?.nome,
           efetivado: data.efetivado !== false,
@@ -762,8 +845,8 @@ export const useTransactionsStore = create(
           .select(`
             *,
             categoria:categorias(id, nome, cor, icone),
-            conta:contas(id, nome, tipo),
-            conta_destino:contas!transacoes_conta_destino_fkey(id, nome, tipo),
+            conta_origem:contas!transacoes_conta_id_fkey(id, nome, tipo),
+            conta_destino:contas!transacoes_conta_destino_id_fkey(id, nome, tipo),
             cartao:cartoes(id, nome, bandeira)
           `)
           .single();
@@ -782,7 +865,9 @@ export const useTransactionsStore = create(
           categoria_nome: data.categoria?.nome || 'Sem categoria',
           categoria_cor: data.categoria?.cor || '#6B7280',
           conta_id: data.conta_id,
-          conta_nome: data.conta?.nome || 'Conta não informada',
+          conta_nome: data.conta_origem?.nome || 'Conta não informada',
+          conta_destino_id: data.conta_destino_id,
+          conta_destino_nome: data.conta_destino?.nome,
           cartao_id: data.cartao_id,
           cartao_nome: data.cartao?.nome,
           efetivado: data.efetivado !== false,
@@ -1178,7 +1263,7 @@ export const useTransactionsStore = create(
 // ===========================
 
 /**
- * Hook principal para usar transações COM FUNCIONALIDADES CORRIGIDAS
+ * Hook principal para usar transações - COMPATIBILIDADE
  */
 export const useTransactions = () => {
   const store = useTransactionsStore();
@@ -1196,6 +1281,9 @@ export const useTransactions = () => {
     addTransacao: store.addTransacao,
     updateTransacao: store.updateTransacao,
     deleteTransacao: store.deleteTransacao,
+    
+    // ✅ NOVA AÇÃO: Toggle efetivado via RPC
+    toggleEfetivado: store.toggleEfetivadoRPC,
     
     // ✅ AÇÃO CORRIGIDA para grupos
     updateGrupoValor: store.updateGrupoTransacoesValor,
@@ -1227,96 +1315,6 @@ export const useTransactions = () => {
     // Cache e performance
     getCacheKey: store.getCacheKey,
     invalidateCache: store.invalidateCache
-  };
-};
-
-// Hook simplificado para componentes que só precisam ler dados
-export const useTransactionsData = () => {
-  const { transacoes, loading, error, hasActiveFilters, estatisticas } = useTransactionsStore();
-  return { transacoes, loading, error, hasActiveFilters, estatisticas: estatisticas() };
-};
-
-// Hook para filtros
-export const useTransactionsFilters = () => {
-  const { filtros, setFiltros, limparFiltros, hasActiveFilters } = useTransactionsStore();
-  return { filtros, setFiltros, limparFiltros, hasActiveFilters: hasActiveFilters() };
-};
-
-// ✅ Hook específico para operações de efetivação
-export const useTransactionsEfetivacao = () => {
-  const store = useTransactionsStore();
-  
-  return {
-    // Operações de efetivação
-    determinarDataEfetivacao: store.determinarDataEfetivacao,
-    
-    // Estatísticas de efetivação
-    estatisticasEfetivacao: () => {
-      const stats = store.getEstatisticas();
-      return stats.efetivacao;
-    },
-    
-    // Filtrar por status de efetivação
-    getTransacoesEfetivadas: () => {
-      const { transacoes } = store;
-      return transacoes.filter(t => t.data_efetivacao !== null);
-    },
-    
-    getTransacoesNaoEfetivadas: () => {
-      const { transacoes } = store;
-      return transacoes.filter(t => t.data_efetivacao === null);
-    },
-    
-    // Verificar se transação foi efetivada
-    isTransacaoEfetivada: (transacaoId) => {
-      const transacao = store.getTransacaoById(transacaoId);
-      return transacao ? transacao.data_efetivacao !== null : false;
-    }
-  };
-};
-
-// ✅ NOVO: Hook específico para grupos (parceladas/recorrentes)
-export const useTransactionsGrupos = () => {
-  const store = useTransactionsStore();
-  
-  return {
-    // Verificar tipo de transação
-    isParceladaOuRecorrente: store.isParceladaOuRecorrente,
-    
-    // Atualizar grupo
-    updateGrupoValor: store.updateGrupoTransacoesValor,
-    
-    // Obter transações do mesmo grupo
-    getTransacoesDoGrupo: (transacao) => {
-      const { transacoes } = store;
-      const info = store.isParceladaOuRecorrente(transacao);
-      
-      if (!info.grupoId) return [transacao];
-      
-      if (info.isParcelada) {
-        return transacoes.filter(t => t.grupo_parcelamento === info.grupoId);
-      } else if (info.isRecorrente) {
-        return transacoes.filter(t => t.grupo_recorrencia === info.grupoId);
-      }
-      
-      return [transacao];
-    },
-    
-    // Contar transações do grupo
-    contarTransacoesGrupo: (transacao) => {
-      const { transacoes } = store;
-      const info = store.isParceladaOuRecorrente(transacao);
-      
-      if (!info.grupoId) return 1;
-      
-      if (info.isParcelada) {
-        return transacoes.filter(t => t.grupo_parcelamento === info.grupoId).length;
-      } else if (info.isRecorrente) {
-        return transacoes.filter(t => t.grupo_recorrencia === info.grupoId).length;
-      }
-      
-      return 1;
-    }
   };
 };
 

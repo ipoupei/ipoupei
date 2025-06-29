@@ -870,9 +870,7 @@ const DespesasCartaoModal = ({
           ) : (
             <form onSubmit={(e) => handleSubmit(e, false)}>
               
-              <h3 className="section-title">
-                {isEditMode ? 'Dados da Transação' : 'Informações da Compra'}
-              </h3>
+
               
               {/* Valor e Data */}
               <div className="flex gap-3 row mb-3">

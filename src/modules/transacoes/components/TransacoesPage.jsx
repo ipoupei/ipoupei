@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+
 
 // Styles
 import '@modules/transacoes/styles/TransacoesPage.css';
@@ -28,13 +29,15 @@ import { useTransactionsStore } from '@modules/transacoes/store/transactionsStor
 const TransacoesPage = () => {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+    const navigate = useNavigate(); // ← ADICIONAR ESTA LINHA
+
   
   // Store
   const {
     transacoes,
     loading,
     error,
-    updateTransacao,
+    toggleEfetivadoRPC,
     deleteTransacao
   } = useTransactionsStore();
 
@@ -384,45 +387,63 @@ const TransacoesPage = () => {
       );
     }
 
-    // Agrupar por cartão se solicitado
-    if (groupByCard && filtered.length > 0) {
-      const cartaoGroups = {};
-      const nonCardTransactions = [];
+// ✅ CORREÇÃO: Substituir a lógica de agrupamento por cartão (linhas 461-485)
 
-      filtered.forEach(transacao => {
-        if (transacao.cartao_id && transacao.tipo === 'despesa') {
-          const key = transacao.cartao_id;
-          
-          if (!cartaoGroups[key]) {
-            cartaoGroups[key] = {
-              id: `fatura-${key}`,
-              tipo: 'fatura',
-              descricao: `Fatura ${transacao.cartao_nome || 'Cartão'}`,
-              cartao_nome: transacao.cartao_nome || 'Cartão',
-              cartao_id: transacao.cartao_id,
-              data: transacao.data,
-              valor: 0,
-              efetivado: true,
-              categoria_nome: 'Fatura Cartão',
-              categoria_cor: '#DC3545',
-              conta_nome: '-',
-              transacoes: []
-            };
-          }
-          
-          cartaoGroups[key].valor += transacao.valor;
-          cartaoGroups[key].transacoes.push(transacao);
-        } else {
-          nonCardTransactions.push(transacao);
-        }
-      });
+            // Agrupar por cartão se solicitado
+            if (groupByCard && filtered.length > 0) {
+              const cartaoGroups = {};
+              const nonCardTransactions = [];
+
+              filtered.forEach(transacao => {
+            if (transacao.cartao_id && (transacao.tipo === 'despesa' || transacao.tipo === 'receita')) {
+              const key = transacao.cartao_id;
+              
+              if (!cartaoGroups[key]) {
+                cartaoGroups[key] = {
+                  id: `fatura-${key}`,
+                  tipo: 'fatura',
+                  descricao: `Fatura ${transacao.cartao_nome || 'Cartão'}`,
+                  cartao_nome: transacao.cartao_nome || 'Cartão',
+                  cartao_id: transacao.cartao_id,
+                  data: transacao.data,
+                  valor: 0,
+                  efetivado: true,
+                  categoria_nome: 'Fatura Cartão',
+                  categoria_cor: '#DC3545',
+                  conta_nome: '-',
+                  transacoes: []
+                };
+              }      
+      // ✅ CORREÇÃO: Verificar se é estorno e ajustar cálculo
+      const isEstorno = transacao.valor > 0; // Para despesas de cartão, valor positivo = estorno
       
-      const faturas = Object.values(cartaoGroups);
-      if (faturas.length > 0) {
-        filtered = [...faturas, ...nonCardTransactions];
+      if (isEstorno) {
+        // ✅ Estorno: SUBTRAIR do total da fatura
+        cartaoGroups[key].valor -= Math.abs(transacao.valor);
+        console.log(`🔄 [ESTORNO] ${transacao.descricao}: -R$ ${Math.abs(transacao.valor).toFixed(2)} (Cartão: ${transacao.cartao_nome})`);
+      } else {
+        // ✅ Despesa normal: SOMAR ao total da fatura
+        cartaoGroups[key].valor += Math.abs(transacao.valor);
+        console.log(`💳 [DESPESA] ${transacao.descricao}: +R$ ${Math.abs(transacao.valor).toFixed(2)} (Cartão: ${transacao.cartao_nome})`);
       }
+      
+      cartaoGroups[key].transacoes.push(transacao);
+    } else {
+      nonCardTransactions.push(transacao);
     }
-
+  });
+  
+  const faturas = Object.values(cartaoGroups);
+  
+  // ✅ DEBUG: Mostrar totais finais de cada cartão
+  faturas.forEach(fatura => {
+    console.log(`📊 [TOTAL CARTÃO] ${fatura.cartao_nome}: R$ ${fatura.valor.toFixed(2)} (${fatura.transacoes.length} transações)`);
+  });
+  
+  if (faturas.length > 0) {
+    filtered = [...faturas, ...nonCardTransactions];
+  }
+}
     // Aplicar ordenação
     filtered.sort((a, b) => {
       let aValue = a[sortConfig.key];
@@ -584,27 +605,50 @@ const TransacoesPage = () => {
     }
   };
 
-  const executeConfirmAction = async () => {
-    if (!transacaoParaConfirm || !confirmAction) return;
+// ✅ SUBSTITUIR COMPLETAMENTE a função executeConfirmAction no TransacoesPage.jsx
 
-    try {
-      if (confirmAction === 'toggle_efetivado') {
-        await updateTransacao(transacaoParaConfirm.id, {
-          efetivado: !transacaoParaConfirm.efetivado
-        });
-      } else if (confirmAction === 'delete') {
-        await deleteTransacao(transacaoParaConfirm.id);
+const executeConfirmAction = async () => {
+  if (!transacaoParaConfirm || !confirmAction) return;
+
+  try {
+    if (confirmAction === 'toggle_efetivado') {
+      // ✅ NOVA IMPLEMENTAÇÃO: Usar RPC via Store
+      const resultado = await toggleEfetivadoRPC(
+        transacaoParaConfirm.id, 
+        !transacaoParaConfirm.efetivado
+      );
+
+      if (!resultado.success) {
+        // Erro já foi tratado no store, apenas mostrar mensagem
+        if (resultado.error.includes('Cartão:')) {
+          // Erro de cartão - mostrar alert detalhado
+          alert(resultado.error);
+        } else {
+          // Outros erros - mostrar no console
+          console.error('❌ Erro ao atualizar efetivação:', resultado.error);
+        }
+        return;
       }
-      
-      setShowConfirmModal(false);
-      setTransacaoParaConfirm(null);
-      setConfirmAction(null);
-      fetchTransacoes();
-    } catch (error) {
-      console.error('Erro ao executar ação:', error);
-    }
-  };
 
+      // ✅ Sucesso - o estado já foi atualizado no store automaticamente!
+      console.log('✅ Efetivação atualizada:', resultado.message);
+      
+    } else if (confirmAction === 'delete') {
+      // Manter implementação existente para delete
+      await deleteTransacao(transacaoParaConfirm.id);
+    }
+    
+    setShowConfirmModal(false);
+    setTransacaoParaConfirm(null);
+    setConfirmAction(null);
+    
+    // ✅ NÃO PRECISA MAIS: fetchTransacoes() 
+    // O estado já foi atualizado automaticamente pelo store!
+    
+  } catch (error) {
+    console.error('❌ Erro ao executar ação:', error);
+  }
+};
   // ========== COMPONENTES ==========
 
   // Cabeçalho da tabela
@@ -1338,7 +1382,7 @@ const TransacoesPage = () => {
           </button>
           
           <button
-            onClick={() => setShowImportacaoModal(true)}
+            onClick={() => navigate('/transacoes/importar')}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -1354,7 +1398,7 @@ const TransacoesPage = () => {
               lineHeight: '1rem',
               fontWeight: '400'
             }}
-          >
+            >
             📥 Importar Transações
           </button>
         </div>

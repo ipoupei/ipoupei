@@ -1,11 +1,9 @@
-// src/modules/transacoes/components/ImportacaoModal.jsx - VERSÃO CORRIGIDA
+// src/modules/transacoes/components/ImportacaoModal.jsx - VERSÃO COM SUPORTE PDF
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { Upload, FileText, Check, X, Search, TrendingUp, TrendingDown, CheckCircle, AlertCircle, Eye, Trash2, Save, Settings, CheckSquare, Code, Database, Tag, Building } from 'lucide-react';
-// ✅ MUDANÇA 1: Usar fetch direto como nos outros modais
 import { supabase } from '@lib/supabaseClient';
 import { useUIStore } from '@store/uiStore';
 import useAuth from '@modules/auth/hooks/useAuth';
-// ✅ Importar CSS para validações
 import '@modules/transacoes/styles/ImportacaoModal.css';
 
 const ImportacaoModal = ({ isOpen, onClose }) => {
@@ -23,7 +21,7 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
   const [categoriaDropdownOpen, setCategoriaDropdownOpen] = useState({});
   const [subcategoriaDropdownOpen, setSubcategoriaDropdownOpen] = useState({});
   
-  // ✅ MUDANÇA 2: Estados locais para dados (como nos outros modais)
+  // Estados locais para dados
   const [contas, setContas] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [subcategorias, setSubcategorias] = useState([]);
@@ -35,7 +33,7 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
   const { user } = useAuth();
   const { showNotification } = useUIStore();
 
-  // ✅ MUDANÇA 3: Funções para carregar dados (igual aos outros modais)
+  // ===== FUNÇÕES PARA CARREGAR DADOS =====
   const carregarContas = useCallback(async () => {
     if (!user?.id) return;
     try {
@@ -123,7 +121,223 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
     return subs;
   }, [getSubcategoriasPorCategoria]);
 
-  // ===== PARSERS (mantidos do original) =====
+  // ===== CARREGADOR E CONFIGURADOR DE PDF.JS =====
+  const loadPDFJS = useCallback(async () => {
+    // Verificar se já está carregado
+    if (typeof window !== 'undefined' && window.pdfjsLib) {
+      console.log('✅ PDF.js já está carregado');
+      return true;
+    }
+    
+    try {
+      console.log('📦 Carregando PDF.js...');
+      
+      // Carregar script principal
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        script.async = true;
+        
+        script.onload = () => {
+          console.log('✅ PDF.js carregado');
+          resolve();
+        };
+        
+        script.onerror = () => {
+          console.error('❌ Erro ao carregar PDF.js');
+          reject(new Error('Falha ao carregar PDF.js'));
+        };
+        
+        document.head.appendChild(script);
+      });
+      
+      // Configurar worker
+      if (window.pdfjsLib && !window.pdfjsLib.GlobalWorkerOptions.workerSrc) {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+      
+      console.log('✅ PDF.js configurado com sucesso');
+      return true;
+      
+    } catch (error) {
+      console.error('❌ Erro ao carregar PDF.js:', error);
+      return false;
+    }
+  }, []);
+
+  // ===== PARSER DE PDF (BASEADO NO HTML DEMONSTRATIVO) =====
+  const parsePDF = useCallback(async (file) => {
+    try {
+      console.log('📄 Iniciando parse de PDF:', file.name);
+      
+      // Garantir que PDF.js está carregado
+      const pdfReady = await loadPDFJS();
+      if (!pdfReady) {
+        throw new Error('Falha ao carregar PDF.js');
+      }
+      
+      // Converter arquivo para ArrayBuffer
+      const arrayBuffer = await file.arrayBuffer();
+      
+      // Carregar PDF
+      const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      
+      console.log('📖 PDF carregado:', {
+        numPages: pdf.numPages,
+        fingerprint: pdf.fingerprint
+      });
+      
+      // Extrair texto de todas as páginas
+      let textoCompleto = '';
+      
+      for (let i = 1; i <= pdf.numPages; i++) {
+        console.log(`📄 Processando página ${i}/${pdf.numPages}`);
+        
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        
+        // Extrair texto da página
+        const pageText = textContent.items.map(item => item.str).join(' ');
+        textoCompleto += pageText + '\n';
+      }
+      
+      if (!textoCompleto.trim()) {
+        throw new Error('Nenhum texto foi extraído do PDF');
+      }
+      
+      console.log('📝 Texto extraído:', textoCompleto.length, 'caracteres');
+      
+      // Analisar transações usando a lógica do HTML demonstrativo
+      return analisarTransacoesPDF(textoCompleto);
+      
+    } catch (error) {
+      console.error('❌ Erro ao processar PDF:', error);
+      throw error;
+    }
+  }, [loadPDFJS]);
+
+  // ===== FUNÇÃO BASEADA NO HTML DEMONSTRATIVO =====
+  const analisarTransacoesPDF = useCallback((texto) => {
+    const transacoes = [];
+    const linhas = texto.split('\n');
+    
+    // Detectar tipo de documento
+    const tipoDocumento = detectarTipoDocumento(texto);
+    console.log('📄 Tipo detectado:', tipoDocumento);
+    
+    console.log('📋 Analisando', linhas.length, 'linhas de texto');
+    
+    // Padrões regex EXATOS do HTML demonstrativo
+    const padroes = [
+      // Padrão 1: DD/MM/YYYY DESCRIÇÃO VALOR
+      /(\d{2}\/\d{2}\/\d{4})\s+(.+?)\s+([+-]?\d{1,3}(?:\.\d{3})*,\d{2})/g,
+      // Padrão 2: DD/MM DESCRIÇÃO VALOR
+      /(\d{2}\/\d{2})\s+(.+?)\s+([+-]?\d{1,3}(?:\.\d{3})*,\d{2})/g,
+      // Padrão 3: VALOR DESCRIÇÃO DD/MM
+      /([+-]?\d{1,3}(?:\.\d{3})*,\d{2})\s+(.+?)\s+(\d{2}\/\d{2})/g,
+    ];
+
+    for (const linha of linhas) {
+      for (const padrao of padroes) {
+        const matches = [...linha.matchAll(padrao)];
+        
+        for (const match of matches) {
+          let data, descricao, valor;
+          
+          if (padrao === padroes[0]) { // DD/MM/YYYY DESCRIÇÃO VALOR
+            [, data, descricao, valor] = match;
+          } else if (padrao === padroes[1]) { // DD/MM DESCRIÇÃO VALOR
+            [, data, descricao, valor] = match;
+            data = data + '/' + new Date().getFullYear();
+          } else if (padrao === padroes[2]) { // VALOR DESCRIÇÃO DD/MM
+            [, valor, descricao, data] = match;
+            data = data + '/' + new Date().getFullYear();
+          }
+
+          // Limpar e processar dados - LÓGICA EXATA DO HTML
+          descricao = descricao.trim().replace(/\s+/g, ' ');
+          valor = parseFloat(valor.replace(/\./g, '').replace(',', '.'));
+          
+          // Determinar tipo (receita ou despesa)
+          let tipo;
+          if (tipoDocumento === 'fatura_cartao') {
+            tipo = 'despesa'; // Fatura de cartão = sempre despesa
+          } else {
+            tipo = valor >= 0 ? 'receita' : 'despesa';
+          }
+          valor = Math.abs(valor);
+
+          // Filtrar transações válidas - LÓGICA EXATA DO HTML
+          if (valor > 0 && descricao.length > 3) {
+            transacoes.push({
+              id: transacoes.length,
+              data: converterData(data),
+              descricao: descricao,
+              valor: valor,
+              tipo: tipo,
+              categoria_id: '',
+              categoriaTexto: '',
+              subcategoria_id: '',
+              subcategoriaTexto: '',
+              conta_id: contaSelecionada,
+              efetivado: true,
+              observacoes: 'Importado via PDF',
+              origem: 'PDF'
+            });
+          }
+        }
+      }
+    }
+
+    // Remover duplicatas - LÓGICA EXATA DO HTML
+    const transacoesUnicas = transacoes.filter((transacao, index, self) => 
+      index === self.findIndex(t => 
+        t.data === transacao.data && 
+        t.descricao === transacao.descricao && 
+        t.valor === transacao.valor
+      )
+    );
+
+    console.log('📊 Resultado da análise:', {
+      totalEncontradas: transacoes.length,
+      totalUnicas: transacoesUnicas.length,
+      duplicatasRemovidas: transacoes.length - transacoesUnicas.length
+    });
+
+    // Ordenar por data - LÓGICA EXATA DO HTML
+    return transacoesUnicas.sort((a, b) => new Date(a.data) - new Date(b.data));
+  }, [contaSelecionada]);
+
+  // ===== DETECÇÃO DE TIPO DE DOCUMENTO =====
+  const detectarTipoDocumento = (texto) => {
+    const textoLower = texto.toLowerCase();
+    
+    const indicadoresFatura = [
+      'fatura', 'cartão', 'card', 'credit',
+      'limite disponível', 'limite de crédito',
+      'vencimento da fatura', 'valor da fatura',
+      'visa', 'mastercard', 'elo', 'amex',
+      'pagamento mínimo', 'total da fatura'
+    ];
+    
+    const scoreFatura = indicadoresFatura.reduce((score, termo) => {
+      return score + (textoLower.includes(termo) ? 1 : 0);
+    }, 0);
+    
+    return scoreFatura >= 3 ? 'fatura_cartao' : 'extrato_conta';
+  };
+
+  // ===== CONVERSOR DE DATA DO HTML DEMONSTRATIVO =====
+  const converterData = useCallback((dataStr) => {
+    const partes = dataStr.split('/');
+    if (partes.length === 3) {
+      return `${partes[2]}-${partes[1].padStart(2, '0')}-${partes[0].padStart(2, '0')}`;
+    }
+    return dataStr;
+  }, []);
+
+  // ===== PARSERS ORIGINAIS (mantidos) =====
   const parseOFX = (content) => {
     const transacoes = [];
     const transacaoRegex = /<STMTTRN>(.*?)<\/STMTTRN>/gs;
@@ -291,9 +505,18 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
       const text = await file.text();
       let parsedTransactions = [];
       
-      if (text.includes('<OFX>') || text.includes('OFXHEADER')) {
+      // Detectar tipo de arquivo
+      const fileName = file.name.toLowerCase();
+      const fileType = file.type.toLowerCase();
+      
+      if (fileName.endsWith('.pdf') || fileType.includes('pdf')) {
+        console.log('📄 Processando arquivo PDF');
+        parsedTransactions = await parsePDF(file);
+      } else if (text.includes('<OFX>') || text.includes('OFXHEADER')) {
+        console.log('📄 Processando arquivo OFX');
         parsedTransactions = parseOFX(text);
       } else {
+        console.log('📄 Processando arquivo CSV/TXT');
         parsedTransactions = parseCSV(text);
       }
       
@@ -313,79 +536,13 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
       setCurrentStep('analysis');
       
     } catch (err) {
+      console.error('❌ Erro ao processar arquivo:', err);
       setError('Erro ao processar arquivo: ' + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleTestFile = (type) => {
-    let content = '';
-    let filename = '';
-    
-    if (type === 'csv') {
-      content = `Data,Descrição,Valor
-12/06/2025,REMUNERACAO/SALARIO,8456.10
-12/06/2025,COR RENDIMENTO KNSC11,157.30
-12/06/2025,INT CLARO S.A,-41.34
-13/06/2025,MERCADO ATACADAO,-150.75
-14/06/2025,COMBUSTIVEL SHELL,-80.50`;
-      filename = 'teste.csv';
-    } else if (type === 'txt') {
-      content = `12/06/2025;REMUNERACAO/SALARIO;8456.10
-12/06/2025;COR RENDIMENTO KNSC11;157.30
-12/06/2025;INT CLARO S.A;-41.34
-13/06/2025;MERCADO ATACADAO;-150.75
-16/06/2025;FINANC IMOBILIARIO;-1704.43`;
-      filename = 'extrato.txt';
-    } else if (type === 'ofx') {
-      content = `<OFX>
-<BANKMSGSRSV1>
-<STMTTRNRS>
-<STMTRS>
-<BANKTRANLIST>
-<STMTTRN>
-<DTPOSTED>20250612100000
-<TRNAMT>157.30
-<MEMO>COR RENDIMENTO KNSC11
-</STMTTRN>
-<STMTTRN>
-<DTPOSTED>20250612100000
-<TRNAMT>-41.34
-<MEMO>INT CLARO S A
-</STMTTRN>
-<STMTTRN>
-<DTPOSTED>20250613100000
-<TRNAMT>8456.10
-<MEMO>REMUNERACAO SALARIO
-</STMTTRN>
-</BANKTRANLIST>
-</STMTRS>
-</STMTTRNRS>
-</BANKMSGSRSV1>
-</OFX>`;
-      filename = 'extrato.ofx';
-    }
-    
-    const mockFile = new File([content], filename, { type: 'text/plain' });
-    setFile(mockFile);
-  };
-
-  const updateTransaction = (id, field, value) => {
-    setTransacoes(prev => prev.map(t => 
-      t.id === id ? { ...t, [field]: value } : t
-    ));
-  };
-
-  const toggleTransactionSelection = (id) => {
-    const newSelection = new Set(selectedTransactions);
-    if (newSelection.has(id)) {
-      newSelection.delete(id);
-    } else {
-      newSelection.add(id);
-    }
-    setSelectedTransactions(newSelection);
-  };
 
   // ===== HANDLERS DE CATEGORIA/SUBCATEGORIA =====
   const handleCategoriaChange = (transactionId, value) => {
@@ -425,7 +582,7 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
     return tipo === 'receita' ? categoriasReceita : categoriasDespesa;
   };
 
-  // ✅ VALIDAÇÃO DE CAMPOS OBRIGATÓRIOS
+  // ===== VALIDAÇÃO DE CAMPOS OBRIGATÓRIOS =====
   const validateTransactions = () => {
     const selectedTransList = transacoes.filter(t => selectedTransactions.has(t.id));
     const errors = [];
@@ -466,9 +623,9 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
     return errors;
   };
 
-  // ✅ MUDANÇA 4: HANDLER DE IMPORTAÇÃO CORRIGIDO COM VALIDAÇÃO
+  // ===== HANDLER DE IMPORTAÇÃO =====
   const handleImport = async () => {
-    // ✅ VALIDAR ANTES DE IMPORTAR
+    // Validar antes de importar
     const validationErrors = validateTransactions();
     
     if (validationErrors.length > 0) {
@@ -498,7 +655,7 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
       
       console.log('🚀 Iniciando importação de', selectedTransList.length, 'transações');
       
-      // ✅ PREPARAR DADOS PARA INSERÇÃO DIRETA (igual aos modais funcionais)
+      // Preparar dados para inserção direta
       const transacoesParaInserir = selectedTransList.map(transacao => ({
         usuario_id: user.id,
         data: transacao.data,
@@ -527,7 +684,7 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
       
       console.log('💾 Inserindo transações no banco:', transacoesParaInserir);
       
-      // ✅ INSERÇÃO DIRETA NO SUPABASE (igual aos modais funcionais)
+      // Inserção direta no Supabase
       const { data, error } = await supabase
         .from('transacoes')
         .insert(transacoesParaInserir);
@@ -636,13 +793,13 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
           ) : (
             <div>
               <h3 className="empty-state-title">Arraste seu extrato aqui ou clique para selecionar</h3>
-              <p className="empty-state-description">Formatos aceitos: .csv, .txt, .ofx</p>
+              <p className="empty-state-description">Formatos aceitos: .pdf, .csv, .txt, .ofx</p>
             </div>
           )}
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv,.txt,.ofx"
+            accept=".csv,.txt,.ofx,.pdf"
             onChange={handleFileUpload}
             style={{ display: 'none' }}
           />
@@ -673,53 +830,7 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
         </div>
       )}
 
-      {/* Arquivos de Teste */}
-      {!loadingData && (
-        <div className="section-block">
-          <h3 className="section-title">🧪 Testar com Arquivos de Exemplo</h3>
-          <div className="flex gap-3 row">
-            <button 
-              onClick={() => handleTestFile('csv')}
-              className="btn-secondary"
-              style={{ 
-                flexDirection: 'column', 
-                padding: '1rem',
-                background: '#f3f4f6',
-                border: '1px solid #d1d5db'
-              }}
-            >
-              <Code size={20} style={{ marginBottom: '0.5rem', color: '#8b5cf6' }} />
-              <div style={{ fontWeight: '500' }}>Testar CSV</div>
-            </button>
-            <button 
-              onClick={() => handleTestFile('txt')}
-              className="btn-secondary"
-              style={{ 
-                flexDirection: 'column', 
-                padding: '1rem',
-                background: '#f3f4f6',
-                border: '1px solid #d1d5db'
-              }}
-            >
-              <FileText size={20} style={{ marginBottom: '0.5rem', color: '#3b82f6' }} />
-              <div style={{ fontWeight: '500' }}>Testar TXT</div>
-            </button>
-            <button 
-              onClick={() => handleTestFile('ofx')}
-              className="btn-secondary"
-              style={{ 
-                flexDirection: 'column', 
-                padding: '1rem',
-                background: '#f3f4f6',
-                border: '1px solid #d1d5db'
-              }}
-            >
-              <Database size={20} style={{ marginBottom: '0.5rem', color: '#10b981' }} />
-              <div style={{ fontWeight: '500' }}>Testar OFX</div>
-            </button>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 
@@ -733,7 +844,7 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
           </h3>
         </div>
         
-        {/* ✅ INDICADOR DE TRANSAÇÕES COM PROBLEMAS */}
+        {/* Indicador de transações com problemas */}
         {transacoes.length > 0 && (
           <div className="summary-panel" style={{ 
             background: validateTransactions().length > 0 ? '#fef2f2' : '#f0fdf4',
@@ -824,6 +935,7 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
             )}
           </div>
         )}
+
         <div className="stats-grid" style={{ 
           display: 'grid', 
           gridTemplateColumns: 'repeat(4, 1fr)', 
@@ -896,7 +1008,13 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Tabela de Transações */}
-        <div style={{ overflowX: 'auto' }}>
+        <div style={{ 
+          overflowX: 'auto', 
+          overflowY: 'auto',
+          maxHeight: 'calc(100vh - 500px)',
+          border: '1px solid #e5e7eb',
+          borderRadius: '0.5rem'
+        }}>
           <table className="transactions-table">
             <thead>
               <tr>
@@ -931,7 +1049,7 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
                 
                 return (
                   <tr key={transaction.id} className={`transaction-row ${
-                    // ✅ DESTACAR LINHAS COM CAMPOS OBRIGATÓRIOS EM BRANCO
+                    // Destacar linhas com campos obrigatórios em branco
                     (!transaction.categoria_id || !transaction.descricao?.trim() || !transaction.valor || transaction.valor <= 0) 
                       ? 'transaction-row--error' 
                       : ''
@@ -1327,8 +1445,38 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
   );
 
   return (
-    <div className="modal-overlay active">
-      <div className="forms-modal-container modal-importacao">
+    <div className="modal-overlay active" style={{ 
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      zIndex: 99999,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 0,
+      margin: 0
+    }}>
+      <div 
+        className="forms-modal-container modal-importacao" 
+        style={{
+          width: '100vw',
+          height: '100vh',
+          maxWidth: 'none',
+          maxHeight: 'none',
+          minWidth: 'none',
+          minHeight: 'none',
+          margin: 0,
+          backgroundColor: 'white',
+          borderRadius: 0,
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}
+      >
         {/* Header */}
         <div className="modal-header modal-header-gradient">
           <div className="modal-header-content">
@@ -1383,7 +1531,11 @@ const ImportacaoModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Main Content */}
-        <div className="modal-body">
+        <div className="modal-body" style={{
+          flex: 1,
+          overflow: 'auto',
+          padding: '1.5rem'
+        }}>
           {currentStep === 'upload' && renderUploadStep()}
           {currentStep === 'analysis' && renderAnalysisStep()}
           {currentStep === 'confirmation' && renderConfirmationStep()}

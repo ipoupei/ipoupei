@@ -5,6 +5,7 @@ import Dashboard from '@modules/dashboard/pages/Dashboard';
 import ResetPassword from '@modules/auth/pages/ResetPassword';
 import UserProfile from '@modules/usuarios/components/UserProfile';
 import TransacoesRouteHandler from '@modules/transacoes/components/TransacoesRouteHandler.jsx';
+import ImportacaoPage from '@modules/transacoes/components/ImportacaoPage.jsx';
 import RelatoriosHome from '@modules/relatorios/components/RelatoriosHome.jsx';
 import RelatorioCategoria from '@modules/relatorios/components/RelatorioCategoria.jsx';
 import RelatorioEvolucao from '@modules/relatorios/components/RelatorioEvolucao.jsx';
@@ -22,6 +23,7 @@ import GestaoCartoes from '@modules/cartoes/components/GestaoCartoes';
  * ATUALIZADO: Integração com MainLayout para rotas principais
  * NOVO: Rota /susto-consciente para diagnóstico emocional
  * NOVO: Rotas /cartoes para gestão de cartões de crédito
+ * NOVO: Rota /transacoes/importar para importação de transações
  * Rotas especiais (login, reset, callback) ficam fora do layout
  */
 const AppRoutes = () => {
@@ -71,12 +73,18 @@ const AppRoutes = () => {
           {/* TRANSAÇÕES - NOVA IMPLEMENTAÇÃO COM FILTROS DINÂMICOS */}
           <Route path="/transacoes" element={<TransacoesRouteHandler />} />
           
+          {/* NOVA ROTA: Importação de Transações como página completa */}
+          <Route 
+            path="/transacoes/importar" 
+            element={<ImportacaoPage />} 
+          />
+          
           {/* Rotas específicas de transações com filtros pré-definidos */}
           <Route 
             path="/transacoes/receitas" 
             element={
               <Navigate 
-                to="/transacoes?tipo=receita" 
+                to="/transacoes?filter=receitas" 
                 replace 
               />
             } 
@@ -85,7 +93,7 @@ const AppRoutes = () => {
             path="/transacoes/despesas" 
             element={
               <Navigate 
-                to="/transacoes?tipo=despesa" 
+                to="/transacoes?filter=despesas" 
                 replace 
               />
             } 
@@ -94,7 +102,7 @@ const AppRoutes = () => {
             path="/transacoes/cartoes" 
             element={
               <Navigate 
-                to="/transacoes?tem_cartao=true" 
+                to="/transacoes?filter=cartoes" 
                 replace 
               />
             } 
@@ -110,18 +118,17 @@ const AppRoutes = () => {
           />
 
           {/* CARTÕES - NOVA IMPLEMENTAÇÃO COMPLETA */}
-<Route path="cartoes">
-  <Route index element={<Navigate to="gestao" replace />} />
-  <Route path="gestao" element={<GestaoCartoes />} />
-  <Route path="faturas" element={<GestaoCartoes />} />
-  <Route path="faturas/:cartaoId" element={<GestaoCartoes />} />
-  <Route path="lista" element={<Navigate to="gestao" replace />} />
-  <Route path="minhas-faturas" element={<Navigate to="faturas" replace />} />
-  <Route path="meus-cartoes" element={<Navigate to="gestao" replace />} />
-  <Route path="*" element={<Navigate to="gestao" replace />} />
-</Route>
+          <Route path="cartoes">
+            <Route index element={<Navigate to="gestao" replace />} />
+            <Route path="gestao" element={<GestaoCartoes />} />
+            <Route path="faturas" element={<GestaoCartoes />} />
+            <Route path="faturas/:cartaoId" element={<GestaoCartoes />} />
+            <Route path="lista" element={<Navigate to="gestao" replace />} />
+            <Route path="minhas-faturas" element={<Navigate to="faturas" replace />} />
+            <Route path="meus-cartoes" element={<Navigate to="gestao" replace />} />
+            <Route path="*" element={<Navigate to="gestao" replace />} />
+          </Route>
 
-          
           {/* Relatórios */}
           <Route path="relatorios" element={<RelatoriosHome />} />
           <Route path="relatorios/categorias" element={<RelatorioCategoria />} />

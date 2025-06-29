@@ -2784,7 +2784,7 @@
 
 /* ================== 3.2 CABEÇALHO E TÍTULOS DO MODAL ================== */
 .modal-header {
-  padding: var(--spacing-5) var(--spacing-5) var(--spacing-4) var(--spacing-5);
+  padding: var(--spacing-5) var(--spacing-5) var(--spacing-4) 50;
   border-bottom: var(--border-width-1) solid var(--color-gray-200);
   position: relative;
   flex-shrink: 0;

@@ -1201,10 +1201,7 @@ const handleValorChange = useCallback((valorNumericoRecebido) => {
                     {errors.escopoEdicao && <div className="form-error">{errors.escopoEdicao}</div>}
                   </div>
                 </div>
-              )}
-
-              <h3 className="section-title">Informações da Receita</h3>
-              
+              )}              
               {/* VALOR E DATA */}
               <div className="flex gap-3 row mb-3">
                 <div>
@@ -1243,118 +1240,332 @@ const handleValorChange = useCallback((valorNumericoRecebido) => {
                 </div>
               </div>
 
-              {/* ESCOLHA DO TIPO */}
-              {isEditMode ? (
-                <div className="flex flex-col mb-3">
-                  <h3 className="section-title">Tipo de Receita Detectado</h3>
-                  <div className="type-selector mb-2" style={{ 
-                    background: '#f8fafc', 
-                    border: '1px solid #e2e8f0', 
-                    borderRadius: '8px', 
-                    padding: '0px' 
-                  }}>
-                    {tiposReceita.map((tipo) => (
-                      <div
-                        key={tipo.id}
-                        className={`type-option ${tipoReceita === tipo.id ? 'active' : 'inactive'}`}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          padding: '8px 12px',
-                          borderRadius: '6px',
-                          background: tipoReceita === tipo.id ? tipo.cor + '15' : 'transparent',
-                          border: tipoReceita === tipo.id ? `1px solid ${tipo.cor}` : '1px solid transparent',
-                          opacity: tipoReceita === tipo.id ? 1 : 0.4,
-                          marginBottom: '0px'
-                        }}
-                        title={tipo.tooltip}
-                      >
-                        <div style={{ color: tipo.cor, marginRight: '8px' }}>{tipo.icone}</div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: '500', fontSize: '14px' }}>{tipo.nome}</div>
-                          <div style={{ fontSize: '12px', color: '#6b7280' }}>{tipo.descricao}</div>
-                        </div>
-                        {tipoReceita === tipo.id && (
-                          <div style={{ color: tipo.cor, fontWeight: 'bold' }}>✓</div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  {transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && (
-                    <div className="confirmation-info-box" style={{ marginTop: '4px' }}>
-                      <HelpCircle size={16} />
-                      <p>
-                        {transacaoInfo.isParcelada && (
-                          <>📦 Parcela {transacaoInfo.parcelaAtual} de {transacaoInfo.totalParcelas}</>
-                        )}
-                        {transacaoInfo.isRecorrente && (
-                          <>🔄 Ocorrência {transacaoInfo.numeroRecorrencia}{transacaoInfo.totalRecorrencias ? ` de ${transacaoInfo.totalRecorrencias}` : ''}</>
-                        )}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex flex-col mb-3">
-                  <h3 className="section-title">Tipo de Receita</h3>
-                  <div className="type-selector mb-2">
-                    {tiposReceita.map((tipo) => (
-                      <button
-                        key={tipo.id}
-                        type="button"
-                        className={`type-option ${tipoReceita === tipo.id ? 'active' : ''}`}
-                        onClick={() => handleTipoChange(tipo.id)}
-                        disabled={submitting}
-                        title={tipo.tooltip}
-                      >
-                        <div className="type-option-content">
-                          <div className="type-option-icon">{tipo.icone}</div>
-                          <div className="type-option-text">
-                            <div className="type-option-name">{tipo.nome}</div>
-                            <div className="type-option-desc">{tipo.descricao}</div>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* STATUS */}
-              <div className="flex flex-col mb-3">
-                <label className="form-label">
-                  <CheckCircle size={14} />
-                  Status da {tipoReceita === 'extra' ? 'Receita' : 'Primeira'}
-                </label>
-                <div className="status-selector">
-                  <button
-                    type="button"
-                    className={`status-option ${formData.efetivado ? 'active' : ''}`}
-                    onClick={() => setFormData(prev => ({ ...prev, efetivado: true }))}
-                    disabled={submitting}
-                  >
-                    <CheckCircle size={16} />
-                    <div>
-                      <div>Primeira já recebida</div>
-                      <small>Dinheiro na conta</small>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    className={`status-option ${!formData.efetivado ? 'active' : ''}`}
-                    onClick={() => setFormData(prev => ({ ...prev, efetivado: false }))}
-                    disabled={submitting}
-                  >
-                    <Clock size={16} />
-                    <div>
-                      <div>
-                        {tipoReceita === 'extra' ? 'Planejada' : 'Todas planejadas'}
-                      </div>
-                      <small>A receber</small>
-                    </div>
-                  </button>
-                </div>
-              </div>
+{/* ESCOLHA DO TIPO - VERSÃO COMPACTA */}
+{isEditMode ? (
+  <div className="flex flex-col mb-3">
+    <div 
+      className="type-selector mb-2" 
+      style={{ 
+        background: '#f8fafc', 
+        border: '1px solid #e2e8f0', 
+        borderRadius: '6px', 
+        padding: '4px',
+        display: 'flex',
+        gap: '2px'
+      }}
+    >
+      {tiposReceita.map((tipo) => (
+        <div
+          key={tipo.id}
+          className={`type-option ${tipoReceita === tipo.id ? 'active' : 'inactive'}`}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '6px 8px',
+            borderRadius: '4px',
+            background: tipoReceita === tipo.id ? tipo.cor + '15' : 'transparent',
+            border: tipoReceita === tipo.id ? `1px solid ${tipo.cor}` : '1px solid transparent',
+            opacity: tipoReceita === tipo.id ? 1 : 0.6,
+            flex: 1,
+            cursor: 'default',
+            minHeight: '44px'
+          }}
+          title={tipo.tooltip}
+        >
+          <div style={{ 
+            color: tipo.cor, 
+            marginRight: '6px', 
+            fontSize: '16px',
+            display: 'flex',
+            alignItems: 'center'
+          }}>
+            {tipo.icone}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ 
+              fontWeight: '600', 
+              fontSize: '13px', 
+              lineHeight: '1.2',
+              color: tipoReceita === tipo.id ? '#111827' : '#6b7280'
+            }}>
+              {tipo.nome}
+            </div>
+            <div style={{ 
+              fontSize: '11px', 
+              color: '#6b7280',
+              lineHeight: '1.2',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
+              {tipo.descricao}
+            </div>
+          </div>
+          {tipoReceita === tipo.id && (
+            <div style={{ 
+              color: tipo.cor, 
+              fontWeight: 'bold',
+              fontSize: '14px',
+              marginLeft: '4px'
+            }}>
+              ✓
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+    {transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente) && (
+      <div className="confirmation-info-box" style={{ 
+        marginTop: '4px',
+        padding: '6px 8px',
+        fontSize: '12px'
+      }}>
+        <HelpCircle size={14} />
+        <p style={{ margin: 0 }}>
+          {transacaoInfo.isParcelada && (
+            <>📦 Parcela {transacaoInfo.parcelaAtual} de {transacaoInfo.totalParcelas}</>
+          )}
+          {transacaoInfo.isRecorrente && (
+            <>🔄 Ocorrência {transacaoInfo.numeroRecorrencia}{transacaoInfo.totalRecorrencias ? ` de ${transacaoInfo.totalRecorrencias}` : ''}</>
+          )}
+        </p>
+      </div>
+    )}
+  </div>
+) : (
+  <div className="flex flex-col mb-3">
+    <div 
+      className="type-selector mb-2"
+      style={{
+        display: 'flex',
+        gap: '6px',
+        padding: '4px',
+        background: '#f8fafc',
+        borderRadius: '6px',
+        border: '1px solid #e2e8f0'
+      }}
+    >
+      {tiposReceita.map((tipo) => (
+        <button
+          key={tipo.id}
+          type="button"
+          className={`type-option ${tipoReceita === tipo.id ? 'active' : ''}`}
+          onClick={() => handleTipoChange(tipo.id)}
+          disabled={submitting}
+          title={tipo.tooltip}
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            padding: '6px 8px',
+            borderRadius: '4px',
+            border: tipoReceita === tipo.id ? `2px solid ${tipo.cor}` : '1px solid transparent',
+            background: tipoReceita === tipo.id ? tipo.cor + '15' : 'transparent',
+            cursor: submitting ? 'not-allowed' : 'pointer',
+            transition: 'all 0.15s ease',
+            minHeight: '44px',
+            opacity: submitting ? 0.6 : 1
+          }}
+          onMouseEnter={(e) => {
+            if (!submitting && tipoReceita !== tipo.id) {
+              e.target.style.background = '#ffffff';
+              e.target.style.borderColor = '#d1d5db';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!submitting && tipoReceita !== tipo.id) {
+              e.target.style.background = 'transparent';
+              e.target.style.borderColor = 'transparent';
+            }
+          }}
+        >
+          <div style={{ 
+            color: tipo.cor, 
+            marginRight: '6px', 
+            fontSize: '16px',
+            display: 'flex',
+            alignItems: 'center'
+          }}>
+            {tipo.icone}
+          </div>
+          <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+            <div style={{ 
+              fontWeight: '600', 
+              fontSize: '13px', 
+              lineHeight: '1.2',
+              color: tipoReceita === tipo.id ? '#111827' : '#374151'
+            }}>
+              {tipo.nome}
+            </div>
+            <div style={{ 
+              fontSize: '11px', 
+              color: '#6b7280',
+              lineHeight: '1.2',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
+              {tipo.descricao}
+            </div>
+          </div>
+          {tipoReceita === tipo.id && (
+            <div style={{ 
+              color: tipo.cor, 
+              fontWeight: 'bold',
+              fontSize: '14px',
+              marginLeft: '4px'
+            }}>
+              ✓
+            </div>
+          )}
+        </button>
+      ))}
+    </div>
+  </div>
+)}
+{/* STATUS - VERSÃO COMPACTA */}
+<div className="flex flex-col mb-3">
+  <label className="form-label" style={{ 
+    fontSize: '13px', 
+    fontWeight: '600', 
+    marginBottom: '6px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    color: '#374151'
+  }}>
+    <CheckCircle size={12} />
+    Status da {tipoReceita === 'extra' ? 'Receita' : 'Primeira'}
+  </label>
+  
+  <div 
+    className="status-selector"
+    style={{
+      display: 'flex',
+      gap: '4px',
+      background: '#f8fafc',
+      padding: '3px',
+      borderRadius: '6px',
+      border: '1px solid #e2e8f0'
+    }}
+  >
+    <button
+      type="button"
+      className={`status-option ${formData.efetivado ? 'active' : ''}`}
+      onClick={() => setFormData(prev => ({ ...prev, efetivado: true }))}
+      disabled={submitting}
+      style={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        padding: '6px 8px',
+        borderRadius: '4px',
+        border: formData.efetivado ? '2px solid #10b981' : '1px solid transparent',
+        background: formData.efetivado ? '#dcfce7' : 'transparent',
+        cursor: submitting ? 'not-allowed' : 'pointer',
+        transition: 'all 0.15s ease',
+        minHeight: '38px',
+        opacity: submitting ? 0.6 : 1
+      }}
+      onMouseEnter={(e) => {
+        if (!submitting && !formData.efetivado) {
+          e.target.style.background = '#ffffff';
+          e.target.style.borderColor = '#d1d5db';
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!submitting && !formData.efetivado) {
+          e.target.style.background = 'transparent';
+          e.target.style.borderColor = 'transparent';
+        }
+      }}
+    >
+      <CheckCircle 
+        size={14} 
+        style={{ 
+          color: formData.efetivado ? '#10b981' : '#6b7280',
+          flexShrink: 0
+        }} 
+      />
+      <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
+        <div style={{ 
+          fontSize: '12px', 
+          fontWeight: '600',
+          lineHeight: '1.2',
+          color: formData.efetivado ? '#166534' : '#374151'
+        }}>
+          Primeira já recebida
+        </div>
+        <small style={{ 
+          fontSize: '10px', 
+          color: '#6b7280',
+          lineHeight: '1.2'
+        }}>
+          Dinheiro na conta
+        </small>
+      </div>
+    </button>
+    
+    <button
+      type="button"
+      className={`status-option ${!formData.efetivado ? 'active' : ''}`}
+      onClick={() => setFormData(prev => ({ ...prev, efetivado: false }))}
+      disabled={submitting}
+      style={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        padding: '6px 8px',
+        borderRadius: '4px',
+        border: !formData.efetivado ? '2px solid #f59e0b' : '1px solid transparent',
+        background: !formData.efetivado ? '#fef3c7' : 'transparent',
+        cursor: submitting ? 'not-allowed' : 'pointer',
+        transition: 'all 0.15s ease',
+        minHeight: '38px',
+        opacity: submitting ? 0.6 : 1
+      }}
+      onMouseEnter={(e) => {
+        if (!submitting && formData.efetivado) {
+          e.target.style.background = '#ffffff';
+          e.target.style.borderColor = '#d1d5db';
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!submitting && formData.efetivado) {
+          e.target.style.background = 'transparent';
+          e.target.style.borderColor = 'transparent';
+        }
+      }}
+    >
+      <Clock 
+        size={14} 
+        style={{ 
+          color: !formData.efetivado ? '#f59e0b' : '#6b7280',
+          flexShrink: 0
+        }} 
+      />
+      <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
+        <div style={{ 
+          fontSize: '12px', 
+          fontWeight: '600',
+          lineHeight: '1.2',
+          color: !formData.efetivado ? '#92400e' : '#374151'
+        }}>
+          {tipoReceita === 'extra' ? 'Planejada' : 'Todas planejadas'}
+        </div>
+        <small style={{ 
+          fontSize: '10px', 
+          color: '#6b7280',
+          lineHeight: '1.2'
+        }}>
+          A receber
+        </small>
+      </div>
+    </button>
+  </div>
+</div>
 
               {/* CAMPOS ESPECÍFICOS POR TIPO */}
               {tipoReceita === 'previsivel' && !isEditMode && (
