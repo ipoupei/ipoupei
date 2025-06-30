@@ -151,7 +151,7 @@ const [showImportInfo, setShowImportInfo] = useState(false);
       const dataBase = faturaCalculada.data_vencimento;
       
       // Gerar 6 opções: 2 anteriores + atual + 3 próximas
-      for (let i = -2; i <= 3; i++) {
+      for (let i = -12; i <= 3; i++) {
         const partes = dataBase.split('-');
         const ano = parseInt(partes[0]);
         const mes = parseInt(partes[1]) - 1;
