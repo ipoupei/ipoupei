@@ -155,16 +155,16 @@ const DespesasCartaoModal = ({
     return cartoesAtivos;
   }, [cartoes, isEditMode, transacaoEditando]);
 
-  const valorNumerico = useMemo(() => {
-  if (!formData.valor) return 0;
-  const valorString = formData.valor.toString();
+const valorNumerico = useMemo(() => {
+  if (!formData.valorTotal) return 0; // ✅ CORRIGIDO: valorTotal
+  const valorString = formData.valorTotal.toString();
   
   // ✅ CORREÇÃO: Se contém operadores, não converter ainda
   if (/[+\-*/()]/.test(valorString)) {
     return 0; // Retorna 0 temporário para cálculos de preview
   }
   
-  // Conversão normal apenas para números formatados
+   // Conversão normal apenas para números formatados
   if (valorString.includes(',')) {
     const partes = valorString.split(',');
     const inteira = partes[0].replace(/\./g, '');
@@ -176,7 +176,8 @@ const DespesasCartaoModal = ({
     const valorFinal = parseFloat(apenasNumeros) / 100;
     return isNaN(valorFinal) ? 0 : valorFinal;
   }
-}, [formData.valor]);
+}, [formData.valorTotal]); // ✅ Corrigido: dependência valorTotal
+
 
   const valorParcela = useMemo(() => 
     formData.numeroParcelas > 0 ? valorNumerico / formData.numeroParcelas : 0,
@@ -200,6 +201,7 @@ const DespesasCartaoModal = ({
     maximumFractionDigits: 2 
   });
 }, []);
+
 
   
   const calcularDataVencimentoParcela = useCallback((dataBaseVencimento, numeroParcela) => {
@@ -340,14 +342,15 @@ const DespesasCartaoModal = ({
     }
   }, [isOpen, user, fetchCartoes, showNotification]);
 
-  useEffect(() => {
-    if (isEditMode && transacaoEditando && categorias.length > 0) {
-      console.log('🔄 Carregando dados para edição:', transacaoEditando);
-      
-      const valorFormatado = (transacaoEditando.valor || 0).toLocaleString('pt-BR', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      });
+useEffect(() => {
+  if (isEditMode && transacaoEditando && categorias.length > 0) {
+    console.log('🔄 Carregando dados para edição:', transacaoEditando);
+    
+    const valorFormatado = (transacaoEditando.valor || 0).toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    
       
       const categoria = categorias.find(c => c.id === transacaoEditando.categoria_id);
       
@@ -368,7 +371,7 @@ const DespesasCartaoModal = ({
       }
       
       const dadosFormulario = {
-        valorTotal: valorFormatado,
+        valorTotal: valorFormatado, // ✅ Já estava correto
         dataCompra: transacaoEditando.data ? transacaoEditando.data.split('T')[0] : new Date().toISOString().split('T')[0],
         descricao: transacaoEditando.descricao || '',
         categoria: transacaoEditando.categoria_id || '',
@@ -389,8 +392,7 @@ const DespesasCartaoModal = ({
         setSubcategoriasFiltradas(subcategoriasDisponiveis);
       }
     }
-  }, [isEditMode, transacaoEditando, categorias, getSubcategoriasPorCategoria]);
-
+}, [isEditMode, transacaoEditando, categorias, getSubcategoriasPorCategoria]);
   useEffect(() => {
     if (!isEditMode && formData.cartaoId && formData.dataCompra) {
       calcularOpcoesFatura().then(setOpcoesFatura);
@@ -502,13 +504,24 @@ const DespesasCartaoModal = ({
     }
   }, [errors, isEditMode]);
 
-  const handleValorChange = useCallback((e) => {
-    const valorFormatado = formatarValor(e.target.value);
+  const handleValorChange = useCallback((valorNumericoRecebido) => {
+  // ✅ CORREÇÃO: Se receber um número do InputMoney (calculadora processou)
+  if (typeof valorNumericoRecebido === 'number') {
+    // Formatar o número recebido
+    const valorFormatado = valorNumericoRecebido.toLocaleString('pt-BR', { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    });
     setFormData(prev => ({ ...prev, valorTotal: valorFormatado }));
-    if (errors.valorTotal) {
-      setErrors(prev => ({ ...prev, valorTotal: null }));
-    }
-  }, [formatarValor, errors.valorTotal]);
+  } else {
+    // Recebido string (usuário digitando) - deixar passar
+    setFormData(prev => ({ ...prev, valorTotal: valorNumericoRecebido }));
+  }
+  
+  if (errors.valorTotal) {
+    setErrors(prev => ({ ...prev, valorTotal: null }));
+  }
+}, [errors.valorTotal]);
 
   const handleCategoriaChange = useCallback((e) => {
     const { value } = e.target;
@@ -879,16 +892,19 @@ const DespesasCartaoModal = ({
                     <DollarSign size={14} />
                     Valor Total *
                   </label>
-                  <InputMoney
-                    ref={valorInputRef}
-                    value={typeof formData.valor === 'string' && /[+\-*/()]/.test(formData.valor) ? 0 : valorNumerico}
-                    onChange={handleValorChange}
-                    placeholder="R$ 0,00 (ou 5+3,50)"
-                    disabled={submitting}
-                    enableCalculator={true}
-                    showCalculationFeedback={true}
-                    className={`input-money-highlight ${errors.valor ? 'error' : ''}`}
-                  />
+                    <InputMoney
+                      ref={valorInputRef}
+                      value={typeof formData.valorTotal === 'string' && /[+\-*/()]/.test(formData.valorTotal) ? 0 : valorNumerico}
+                      //           ^^^^^^^^^^^^^^^^^^^ ✅ Corrigido: valorTotal ao invés de valor
+                      onChange={handleValorChange}
+                      placeholder="R$ 0,00 (ou 5+3,50)"
+                      disabled={submitting}
+                      enableCalculator={true}
+                      showCalculationFeedback={true}
+                      className={`input-money-highlight ${errors.valorTotal ? 'error' : ''}`}
+                      //                                            ^^^^^^^^^^^ ✅ Corrigido: valorTotal
+                    />
+
                   {errors.valorTotal && <div className="form-error">{errors.valorTotal}</div>}
                 </div>
                 
