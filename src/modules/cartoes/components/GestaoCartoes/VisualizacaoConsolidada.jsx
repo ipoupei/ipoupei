@@ -1,5 +1,5 @@
 // src/modules/cartoes/components/GestaoCartoes/VisualizacaoConsolidada.jsx
-// ✅ CORREÇÃO: Bug dos valores que se sobrepõem entre cartões
+// ✅ CORREÇÃO: Apenas layout otimizado, mantendo toda formatação original
 import React, { useMemo } from 'react';
 import { Eye, EyeOff, CreditCard, ChevronRight, Plus } from 'lucide-react';
 import { obterStatusUtilizacao, calcularDiasVencimento } from '../../utils/cartoesUtils';
@@ -69,13 +69,13 @@ const VisualizacaoConsolidada = ({
   });
 
   return (
-    <div className="gestao-cartoes">
+    <div className="gestao-cartoes" style={{ minHeight: 'auto', height: 'auto', overflow: 'visible' }}>
       {/* Header */}
-      <div className="gestao-cartoes__header">
+      <div className="gestao-cartoes__header" style={{ padding: '1rem 1.5rem 0.5rem 1.5rem', margin: 0 }}>
         <div className="gestao-cartoes__header-content">
           <div className="gestao-cartoes__title">
-            <h1 className="gestao-cartoes__main-title">Faturas dos Cartões</h1>
-            <p className="gestao-cartoes__subtitle">Visão consolidada das suas faturas</p>
+            <h1 className="gestao-cartoes__main-title" style={{ margin: '0 0 0.25rem 0' }}>Faturas dos Cartões</h1>
+            <p className="gestao-cartoes__subtitle" style={{ margin: 0 }}>Visão consolidada das suas faturas</p>
           </div>
           <div className="gestao-cartoes__actions">
             <button
@@ -90,7 +90,12 @@ const VisualizacaoConsolidada = ({
         </div>
       </div>
 
-      <div className="gestao-cartoes__content">
+      <div className="gestao-cartoes__content" style={{ 
+        padding: '1rem 1.5rem 1.5rem 1.5rem',
+        height: 'auto',
+        minHeight: 0,
+        overflow: 'visible'
+      }}>
         {/* Lista de Cartões - Usando dados limpos */}
         <div className="gestao-cartoes__lista">
           {cartoesLimpos?.map((cartao) => (
@@ -214,7 +219,6 @@ const VisualizacaoConsolidada = ({
             </div>
           </div>
         )}
-
 
       </div>
     </div>

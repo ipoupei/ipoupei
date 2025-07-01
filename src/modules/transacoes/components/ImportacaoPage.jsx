@@ -13,7 +13,9 @@ import { CSVExtractor } from '@modules/importacao/utils/parsers/extractors/csvEx
 import { ExcelExtractor } from '@modules/importacao/utils/parsers/extractors/excelExtractor.js';
 import { saveFailedFile } from '@utils/failedFilesSaver';
 
-
+const formatarValorBR = (valor) => {
+  return valor.toString().replace('.', ',');
+};
 
 const ImportacaoPage = () => {
   const navigate = useNavigate();
@@ -1069,12 +1071,12 @@ const renderUploadStep = () => (
                 {tipoImportacao === 'conta' 
                   ? contas.map(conta => (
                       <option key={conta.id} value={conta.id}>
-                        {conta.nome} ({conta.tipo}) - R$ {(conta.saldo || 0).toFixed(2)}
+                        {conta.nome} ({conta.tipo}) - R$ {(conta.saldo || 0).toFixed(2).replace('.', ',')}
                       </option>
                     ))
                   : cartoes.map(cartao => (
                       <option key={cartao.id} value={cartao.id}>
-                        {cartao.nome} ({cartao.bandeira}) - R$ {(cartao.limite || 0).toFixed(2)}
+                        {cartao.nome} ({cartao.bandeira}) - R$ {(cartao.limite || 0).toFixed(2).replace('.', ',')}
                       </option>
                     ))
                 }
@@ -1386,7 +1388,7 @@ const renderAnalysisStep = () => (
             <div style={{ fontSize: '1rem', marginBottom: '0.25rem' }}>💰</div>
             <div style={{ fontSize: '0.6875rem', color: '#6b7280' }}>Receitas</div>
             <div style={{ fontSize: '0.875rem', fontWeight: '600', color: '#10b981' }}>
-              R$ {totalReceitas.toFixed(2)}
+              R$ {totalReceitas.toFixed(2).replace('.', ',')}
             </div>
           </div>
         )}
@@ -1397,7 +1399,7 @@ const renderAnalysisStep = () => (
             {tipoImportacao === 'cartao' ? 'Cartão' : 'Despesas'}
           </div>
           <div style={{ fontSize: '0.875rem', fontWeight: '600', color: '#ef4444' }}>
-            R$ {totalDespesas.toFixed(2)}
+            R$ {totalDespesas.toFixed(2).replace('.', ',')}
           </div>
         </div>
         
@@ -1579,7 +1581,8 @@ const renderAnalysisStep = () => (
         minHeight: '500px',
         overflowY: 'auto',
         border: '1px solid #e5e7eb',
-        borderRadius: '0.5rem'
+        borderRadius: '0.5rem',
+        paddingBottom: '200px' // ✅ FOLGA PARA DROPDOWN
       }}>
   
 
@@ -1677,7 +1680,7 @@ const renderAnalysisStep = () => (
               <input
                 type="text"
                 inputMode="decimal"
-                value={transaction.valor}
+                value={formatarValorBR(transaction.valor)}
                 onChange={(e) => {
                   const value = e.target.value.replace(/[^\d.,]/g, '');
                   updateTransaction(transaction.id, 'valor', parseFloat(value.replace(',', '.')) || 0);
@@ -2047,7 +2050,7 @@ const renderConfirmationStep = () => {
                      (totalReceitas - totalDespesas) > 0 ? '#10b981' : '#ef4444',
               transition: 'color 0.2s ease'
             }}>
-              R$ {(totalReceitas - totalDespesas).toFixed(2)}
+              R$ {(totalReceitas - totalDespesas).toFixed(2).replace('.', ',')}
             </div>
           </div>
 
@@ -2137,14 +2140,14 @@ const renderConfirmationStep = () => {
             {tipoImportacao === 'conta' && totalReceitas > 0 && (
               <span>
                 💰 <strong>{selectedTransList.filter(t => t.tipo === 'receita').length}</strong> receitas 
-                (R$ {totalReceitas.toFixed(2)}) — Média: R$ {(totalReceitas / selectedTransList.filter(t => t.tipo === 'receita').length).toFixed(2)}
+                (R$ {totalReceitas.toFixed(2).replace('.', ',')}) — Média: R$ {(totalReceitas / selectedTransList.filter(t => t.tipo === 'receita').length).toFixed(2).replace('.', ',')}
               </span>
             )}
             
             {totalDespesas > 0 && (
               <span>
                 💸 <strong>{selectedTransList.filter(t => t.tipo === 'despesa').length}</strong> despesas 
-                (R$ {totalDespesas.toFixed(2)}) — Média: R$ {(totalDespesas / selectedTransList.filter(t => t.tipo === 'despesa').length).toFixed(2)}
+                (R$ {totalDespesas.toFixed(2).replace('.', ',')}) — Média: R$ {(totalDespesas / selectedTransList.filter(t => t.tipo === 'despesa').length).toFixed(2).replace('.', ',')}
               </span>
             )}
           </div>
@@ -2195,7 +2198,7 @@ const renderConfirmationStep = () => {
                     const conta = contas.find(c => c.id === contaSelecionada);
                     return conta && (
                       <p style={{ fontSize: '0.875rem', margin: 0, color: '#374151' }}>
-                        {conta.nome} ({conta.tipo}) - Saldo atual: R$ {(conta.saldo || 0).toFixed(2)}
+                        {conta.nome} ({conta.tipo}) - Saldo atual: R$ {(conta.saldo || 0).toFixed(2).replace('.', ',')}
                       </p>
                     );
                   })()
@@ -2205,7 +2208,7 @@ const renderConfirmationStep = () => {
                     return cartao && (
                       <div style={{ fontSize: '0.875rem', color: '#374151' }}>
                         <p style={{ margin: '0 0 0.25rem 0' }}>
-                          {cartao.nome} ({cartao.bandeira}) - Limite: R$ {(cartao.limite || 0).toFixed(2)}
+                          {cartao.nome} ({cartao.bandeira}) - Limite: R$ {(cartao.limite || 0).toFixed(2).replace('.', ',')}
                         </p>
                         <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>
                           📅 Fatura: {faturaVencimento ? new Date(faturaVencimento + 'T12:00:00').toLocaleDateString('pt-BR') : 'N/A'}
@@ -2245,7 +2248,7 @@ const renderConfirmationStep = () => {
                           borderRadius: '0.375rem',
                           color: '#374151'
                         }}>
-                          {nome}: {data.count}x (R$ {data.total.toFixed(2)})
+                          {nome}: {data.count}x (R$ {data.total.toFixed(2).replace('.', ',')})
                         </span>
                       ))}
                     </div>
@@ -2383,7 +2386,7 @@ const renderConfirmationStep = () => {
           {tipoImportacao === 'conta' && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ color: '#10b981' }}>Receitas</span>
-              <span style={{ fontWeight: '600', color: '#10b981' }}>R$ {totalReceitas.toFixed(2)}</span>
+              <span style={{ fontWeight: '600', color: '#10b981' }}>R$ {totalReceitas.toFixed(2).replace('.', ',')}</span>
             </div>
           )}
           
@@ -2391,7 +2394,7 @@ const renderConfirmationStep = () => {
             <span style={{ color: '#ef4444' }}>
               {tipoImportacao === 'cartao' ? 'Despesas do Cartão' : 'Despesas'}
             </span>
-            <span style={{ fontWeight: '600', color: '#ef4444' }}>R$ {totalDespesas.toFixed(2)}</span>
+            <span style={{ fontWeight: '600', color: '#ef4444' }}>R$ {totalDespesas.toFixed(2).replace('.', ',')}</span>
           </div>
           
           {tipoImportacao === 'conta' && (
@@ -2407,7 +2410,7 @@ const renderConfirmationStep = () => {
                     fontWeight: '700', 
                     color: (totalReceitas - totalDespesas) >= 0 ? '#10b981' : '#ef4444' 
                   }}>
-                    R$ {(totalReceitas - totalDespesas).toFixed(2)}
+                    R$ {(totalReceitas - totalDespesas).toFixed(2).replace('.', ',')}
                   </span>
                 </div>
               </div>

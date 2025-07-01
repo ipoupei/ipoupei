@@ -884,46 +884,52 @@ useEffect(() => {
             <form onSubmit={(e) => handleSubmit(e, false)}>
               
 
-              
-              {/* Valor e Data */}
-              <div className="flex gap-3 row mb-3">
-                <div>
-                  <label className="form-label">
-                    <DollarSign size={14} />
-                    Valor Total *
-                  </label>
-                    <InputMoney
-                      ref={valorInputRef}
-                      value={typeof formData.valorTotal === 'string' && /[+\-*/()]/.test(formData.valorTotal) ? 0 : valorNumerico}
-                      //           ^^^^^^^^^^^^^^^^^^^ ✅ Corrigido: valorTotal ao invés de valor
-                      onChange={handleValorChange}
-                      placeholder="R$ 0,00 (ou 5+3,50)"
-                      disabled={submitting}
-                      enableCalculator={true}
-                      showCalculationFeedback={true}
-                      className={`input-money-highlight ${errors.valorTotal ? 'error' : ''}`}
-                      //                                            ^^^^^^^^^^^ ✅ Corrigido: valorTotal
-                    />
-
-                  {errors.valorTotal && <div className="form-error">{errors.valorTotal}</div>}
-                </div>
-                
-                <div>
-                  <label className="form-label">
-                    <Calendar size={14} />
-                    Data da Compra *
-                  </label>
-                  <input
-                    type="date"
-                    name="dataCompra"
-                    value={formData.dataCompra}
-                    onChange={handleInputChange}
-                    disabled={submitting}
-                    className={`input-date ${errors.dataCompra ? 'error' : ''}`}
-                  />
-                  {errors.dataCompra && <div className="form-error">{errors.dataCompra}</div>}
-                </div>
-              </div>
+{/* Valor e Data */}
+<div className="flex gap-3 row mb-3">
+  <div>
+    <label className="form-label">
+      <DollarSign size={14} />
+      Valor Total *
+    </label>
+    <InputMoney
+      ref={valorInputRef}
+      value={typeof formData.valorTotal === 'string' && /[+\-*/()]/.test(formData.valorTotal) ? 0 : valorNumerico}
+      onChange={handleValorChange}
+      placeholder="R$ 0,00 (ou 5+3,50)"
+      disabled={submitting || (isEditMode && (transacaoEditando?.efetivado === true))}
+      enableCalculator={true}
+      showCalculationFeedback={true}
+      className={`input-money-highlight ${errors.valorTotal ? 'error' : ''}`}
+    />
+    {errors.valorTotal && <div className="form-error">{errors.valorTotal}</div>}
+    {isEditMode && transacaoEditando?.efetivado === true && (
+      <small className="form-help-text">
+        Valor não pode ser alterado em despesa já efetivada/paga
+      </small>
+    )}
+  </div>
+  
+  <div>
+    <label className="form-label">
+      <Calendar size={14} />
+      Data da Compra *
+    </label>
+    <input
+      type="date"
+      name="dataCompra"
+      value={formData.dataCompra}
+      onChange={handleInputChange}
+      disabled={submitting || (isEditMode && (transacaoEditando?.efetivado === true))}
+      className={`input-date ${errors.dataCompra ? 'error' : ''}`}
+    />
+    {errors.dataCompra && <div className="form-error">{errors.dataCompra}</div>}
+    {isEditMode && transacaoEditando?.efetivado === true && (
+      <small className="form-help-text">
+        Data da compra não pode ser alterada em despesa já efetivada/paga
+      </small>
+    )}
+  </div>
+</div>
 
               {/* Descrição */}
               <div className="flex flex-col mb-3">
