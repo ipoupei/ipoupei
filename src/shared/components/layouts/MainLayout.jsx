@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Menu,
@@ -19,11 +19,9 @@ import ContasModal from '@modules/contas/components/ContasModal';
 import CartoesModal from '@modules/cartoes/components/CartoesModal';
 import CategoriasModal from '@modules/categorias/components/CategoriasModal';
 
- import GlobalRefreshListener from '@/modules/core/components/GlobalRefreshListener';
+import GlobalRefreshListener from '@/modules/core/components/GlobalRefreshListener';
 
 import '@shared/styles/MainLayout.css';
-
-
 
 const modalStyles = `
 .main-layout__content {
@@ -104,17 +102,65 @@ const modalStyles = `
 }
 `;
 
-if (typeof document !== 'undefined') {
-  const style = document.createElement('style');
-  style.textContent = modalStyles;
-  document.head.appendChild(style);
+// 🔥 SAFETY: Aplicar estilos de forma segura
+if (typeof document !== 'undefined' && document.head) {
+  const existingStyle = document.getElementById('mainlayout-styles');
+  if (!existingStyle) {
+    const style = document.createElement('style');
+    style.id = 'mainlayout-styles';
+    style.textContent = modalStyles;
+    document.head.appendChild(style);
+  }
 }
+
+// 🔥 DEFENSIVE MODAL WRAPPER
+const SafeModal = ({ isOpen, children, onClose, modalType }) => {
+  const [canRender, setCanRender] = useState(false);
+  
+  useEffect(() => {
+    if (isOpen) {
+      // 🔥 Aguardar próximo tick para garantir DOM
+      const timer = setTimeout(() => {
+        // Verificar se DOM está pronto
+        const root = document.getElementById('root');
+        const body = document.body;
+        
+        if (root && body && root.children.length > 0) {
+          setCanRender(true);
+        } else {
+          console.warn(`⚠️ DOM não pronto para modal ${modalType}, tentando novamente...`);
+          // Tentar novamente após delay
+          setTimeout(() => setCanRender(true), 100);
+        }
+      }, 50);
+      
+      return () => clearTimeout(timer);
+    } else {
+      setCanRender(false);
+    }
+  }, [isOpen, modalType]);
+  
+  // 🔥 Só renderiza se DOM estiver pronto
+  if (!isOpen || !canRender) return null;
+  
+  // 🔥 Envolver em try-catch para pegar erro de render
+  try {
+    return children;
+  } catch (error) {
+    console.error(`❌ Erro ao renderizar modal ${modalType}:`, error);
+    return null;
+  }
+};
 
 const MainLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { showNotification } = useUIStore();
+  
+  // 🔥 REF para garantir que componente está montado
+  const layoutRef = useRef(null);
+  const [isLayoutReady, setIsLayoutReady] = useState(false);
   
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -132,6 +178,18 @@ const MainLayout = () => {
   });
 
   const userLevel = user?.user_metadata?.level || 7;
+
+  // 🔥 GARANTIR que layout está pronto antes de renderizar modais
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (layoutRef.current) {
+        setIsLayoutReady(true);
+        console.log('✅ MainLayout pronto para modais');
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -156,18 +214,35 @@ const MainLayout = () => {
     };
   }, []);
 
+  // 🔥 DEFENSIVE modal opening
   const handleOpenModal = (modalType) => {
+    console.log(`🚀 Tentando abrir modal: ${modalType}`);
+    
+    // 🔥 Verificar se layout está pronto
+    if (!isLayoutReady || !layoutRef.current) {
+      console.warn(`⚠️ Layout não pronto para modal ${modalType}`);
+      showNotification('Aguarde, aplicação ainda carregando...', 'warning');
+      return;
+    }
+    
     if (modalStates.hasOwnProperty(modalType)) {
-      setModalStates(prev => ({
-        ...prev,
-        [modalType]: true
-      }));
+      setModalStates(prev => {
+        const newState = { ...prev };
+        // 🔥 Fechar outros modais primeiro
+        Object.keys(newState).forEach(key => {
+          newState[key] = key === modalType;
+        });
+        console.log(`✅ Modal ${modalType} aberto`);
+        return newState;
+      });
     } else {
+      console.error(`❌ Modal "${modalType}" não encontrado`);
       showNotification(`Modal "${modalType}" não encontrado`, 'error');
     }
   };
 
   const handleCloseModal = (modalType) => {
+    console.log(`🔒 Fechando modal: ${modalType}`);
     setModalStates(prev => ({
       ...prev,
       [modalType]: false
@@ -175,7 +250,7 @@ const MainLayout = () => {
   };
 
   const handleModalSave = () => {
-    console.log('Dados salvos com sucesso');
+    console.log('💾 Dados salvos com sucesso');
   };
 
   const handleLogout = async () => {
@@ -205,7 +280,7 @@ const MainLayout = () => {
   };
 
   return (
-    <>
+    <div ref={layoutRef} id="main-layout-container">
       <Sidebar
         onOpenModal={handleOpenModal}
         isCollapsed={sidebarCollapsed}
@@ -216,50 +291,96 @@ const MainLayout = () => {
         onLogout={handleLogout}
       />
 
-      <ReceitasModal
-        isOpen={modalStates.ReceitasModal}
-        onClose={() => handleCloseModal('ReceitasModal')}
-        onSave={handleModalSave}
-      />
+      {/* 🔥 SAFE MODALS - só renderizam se layout estiver pronto */}
+      {isLayoutReady && (
+        <>
+          <SafeModal 
+            isOpen={modalStates.ReceitasModal} 
+            modalType="ReceitasModal"
+            onClose={() => handleCloseModal('ReceitasModal')}
+          >
+            <ReceitasModal
+              isOpen={modalStates.ReceitasModal}
+              onClose={() => handleCloseModal('ReceitasModal')}
+              onSave={handleModalSave}
+            />
+          </SafeModal>
 
-      <DespesasModal
-        isOpen={modalStates.DespesasModal}
-        onClose={() => handleCloseModal('DespesasModal')}
-        onSave={handleModalSave}
-      />
+          <SafeModal 
+            isOpen={modalStates.DespesasModal} 
+            modalType="DespesasModal"
+            onClose={() => handleCloseModal('DespesasModal')}
+          >
+            <DespesasModal
+              isOpen={modalStates.DespesasModal}
+              onClose={() => handleCloseModal('DespesasModal')}
+              onSave={handleModalSave}
+            />
+          </SafeModal>
 
-      <DespesasCartaoModal
-        isOpen={modalStates.DespesasCartaoModal}
-        onClose={() => handleCloseModal('DespesasCartaoModal')}
-        onSave={handleModalSave}
-      />
+          <SafeModal 
+            isOpen={modalStates.DespesasCartaoModal} 
+            modalType="DespesasCartaoModal"
+            onClose={() => handleCloseModal('DespesasCartaoModal')}
+          >
+            <DespesasCartaoModal
+              isOpen={modalStates.DespesasCartaoModal}
+              onClose={() => handleCloseModal('DespesasCartaoModal')}
+              onSave={handleModalSave}
+            />
+          </SafeModal>
 
-      <TransferenciasModal
-        isOpen={modalStates.TransferenciasModal}
-        onClose={() => handleCloseModal('TransferenciasModal')}
-        onSave={handleModalSave}
-      />
+          <SafeModal 
+            isOpen={modalStates.TransferenciasModal} 
+            modalType="TransferenciasModal"
+            onClose={() => handleCloseModal('TransferenciasModal')}
+          >
+            <TransferenciasModal
+              isOpen={modalStates.TransferenciasModal}
+              onClose={() => handleCloseModal('TransferenciasModal')}
+              onSave={handleModalSave}
+            />
+          </SafeModal>
 
-      <ContasModal
-        isOpen={modalStates.ContasModal}
-        onClose={() => handleCloseModal('ContasModal')}
-        onSave={handleModalSave}
-      />
+          <SafeModal 
+            isOpen={modalStates.ContasModal} 
+            modalType="ContasModal"
+            onClose={() => handleCloseModal('ContasModal')}
+          >
+            <ContasModal
+              isOpen={modalStates.ContasModal}
+              onClose={() => handleCloseModal('ContasModal')}
+              onSave={handleModalSave}
+            />
+          </SafeModal>
 
-      <CartoesModal
-        isOpen={modalStates.CartoesModal}
-        onClose={() => handleCloseModal('CartoesModal')}
-        onSave={handleModalSave}
-      />
+          <SafeModal 
+            isOpen={modalStates.CartoesModal} 
+            modalType="CartoesModal"
+            onClose={() => handleCloseModal('CartoesModal')}
+          >
+            <CartoesModal
+              isOpen={modalStates.CartoesModal}
+              onClose={() => handleCloseModal('CartoesModal')}
+              onSave={handleModalSave}
+            />
+          </SafeModal>
 
-      <CategoriasModal
-        isOpen={modalStates.CategoriasModal}
-        onClose={() => handleCloseModal('CategoriasModal')}
-        onSave={handleModalSave}
-      />
+          <SafeModal 
+            isOpen={modalStates.CategoriasModal} 
+            modalType="CategoriasModal"
+            onClose={() => handleCloseModal('CategoriasModal')}
+          >
+            <CategoriasModal
+              isOpen={modalStates.CategoriasModal}
+              onClose={() => handleCloseModal('CategoriasModal')}
+              onSave={handleModalSave}
+            />
+          </SafeModal>
+        </>
+      )}
 
       <div className={`main-layout ${scrolled ? 'main-layout--scrolled' : ''}`}>
-        
         <div 
           className="main-layout__content"
           style={{
@@ -315,12 +436,8 @@ const MainLayout = () => {
           </main>
         </div>
       </div>
-      
-    </>
-    
+    </div>
   );
-  
 };
-
 
 export default MainLayout;
