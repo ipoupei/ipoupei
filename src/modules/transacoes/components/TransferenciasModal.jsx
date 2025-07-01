@@ -1,4 +1,4 @@
-// src/modules/transacoes/components/TransferenciasModal.jsx - CORRIGIDO PARA USAR useTransferencias
+// src/modules/transacoes/components/TransferenciasModal.jsx - CORRIGIDO COM CAMPO DE DATA
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -9,19 +9,21 @@ import {
   Building, 
   AlertTriangle,
   Repeat,
-  FileText
+  FileText,
+  Calendar
 } from 'lucide-react';
 
 import { useAuthStore } from '@modules/auth/store/authStore';
 import { useUIStore } from '@store/uiStore';
 import { formatCurrency } from '@utils/formatCurrency';
 import { supabase } from '@lib/supabaseClient';
-import useTransferencias from '@/modules/transacoes/hooks/useTransferencias'; // ✅ USANDO O HOOK CORRETO
+import useTransferencias from '@/modules/transacoes/hooks/useTransferencias';
 import '@shared/styles/FormsModal.css';
 
 /**
- * Modal de Transferências - CORRIGIDO
+ * Modal de Transferências - ATUALIZADO COM CAMPO DE DATA
  * ✅ Usa useTransferencias (com RPC e refresh global)
+ * ✅ Adiciona campo de data da transferência
  * ✅ Mantém toda a UI original
  */
 const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
@@ -45,6 +47,7 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
     contaOrigemId: '',
     contaDestinoId: '',
     valor: '',
+    data: new Date().toISOString().split('T')[0], // ✅ ADICIONADO CAMPO DE DATA
     descricao: ''
   });
   const [errors, setErrors] = useState({});
@@ -143,7 +146,14 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
 
   // Reset form
   const resetForm = useCallback(() => {
-    setFormData({ contaOrigemId: '', contaDestinoId: '', valor: '', descricao: '' });
+    const dataAtual = new Date().toISOString().split('T')[0]; // ✅ RESETAR DATA PARA HOJE
+    setFormData({ 
+      contaOrigemId: '', 
+      contaDestinoId: '', 
+      valor: '', 
+      data: dataAtual, // ✅ RESETAR DATA
+      descricao: '' 
+    });
     setErrors({});
     setValidacao(null);
   }, []);
@@ -203,6 +213,7 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
     if (!formData.contaDestinoId) newErrors.contaDestinoId = "Selecione a conta de destino";
     if (formData.contaOrigemId === formData.contaDestinoId) newErrors.contaDestinoId = "Deve ser diferente da origem";
     if (!valorNumerico || valorNumerico <= 0) newErrors.valor = "Valor deve ser maior que zero";
+    if (!formData.data) newErrors.data = "Data é obrigatória"; // ✅ VALIDAÇÃO DA DATA
     if (formData.descricao && formData.descricao.length > 100) newErrors.descricao = "Máximo de 100 caracteres";
     
     // ✅ Verificar validação do hook
@@ -214,7 +225,7 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
     return Object.keys(newErrors).length === 0;
   }, [formData, valorNumerico, validacao]);
 
-  // ✅ EXECUTAR TRANSFERÊNCIA usando o hook
+  // ✅ EXECUTAR TRANSFERÊNCIA usando o hook COM DATA
   const executarTransferencia = useCallback(async () => {
     if (!validateForm()) {
       showNotification('Corrija os erros no formulário', 'error');
@@ -224,13 +235,14 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
     try {
       setSubmitting(true);
       
-      console.log('🔄 Iniciando transferência via hook...');
+      console.log('🔄 Iniciando transferência via hook com data...');
       
-      // ✅ USAR O HOOK que tem RPC + refresh global
+      // ✅ USAR O HOOK que tem RPC + refresh global INCLUINDO A DATA
       const resultado = await realizarTransferencia({
         contaOrigemId: formData.contaOrigemId,
         contaDestinoId: formData.contaDestinoId,
         valor: valorNumerico,
+        data: formData.data, // ✅ ENVIAR DATA DA TRANSFERÊNCIA
         descricao: formData.descricao
       });
 
@@ -320,22 +332,40 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
                 </div>
               )}
               
-              {/* Valor */}
-              <div className="flex flex-col mb-3">
-                <label className="form-label">
-                  <DollarSign size={14} />
-                  Valor da Transferência *
-                </label>
-                <input
-                  ref={valorInputRef}
-                  type="text"
-                  value={formData.valor}
-                  onChange={handleValorChange}
-                  placeholder="0,00"
-                  disabled={submitting}
-                  className={`input-money input-money-highlight ${errors.valor ? 'error' : ''}`}
-                />
-                {errors.valor && <div className="form-error">{errors.valor}</div>}
+              {/* ✅ VALOR E DATA - Igual ao modal de receitas */}
+              <div className="flex gap-3 row mb-3">
+                <div>
+                  <label className="form-label">
+                    <DollarSign size={14} />
+                    Valor da Transferência *
+                  </label>
+                  <input
+                    ref={valorInputRef}
+                    type="text"
+                    value={formData.valor}
+                    onChange={handleValorChange}
+                    placeholder="0,00"
+                    disabled={submitting}
+                    className={`input-money input-money-highlight ${errors.valor ? 'error' : ''}`}
+                  />
+                  {errors.valor && <div className="form-error">{errors.valor}</div>}
+                </div>
+                
+                <div>
+                  <label className="form-label">
+                    <Calendar size={14} />
+                    Data da Transferência *
+                  </label>
+                  <input
+                    type="date"
+                    name="data"
+                    value={formData.data}
+                    onChange={handleInputChange}
+                    disabled={submitting}
+                    className={`input-date ${errors.data ? 'error' : ''}`}
+                  />
+                  {errors.data && <div className="form-error">{errors.data}</div>}
+                </div>
               </div>
 
               {/* Contas */}
@@ -439,6 +469,20 @@ const TransferenciasModal = ({ isOpen, onClose, onSave }) => {
                       <span className="transfer-account">{validacao.dados.contaDestino.nome}</span>
                       <span className="transfer-amount">+{formatCurrency(valorNumerico)}</span>
                     </div>
+                  </div>
+                  {/* ✅ EXIBIR DATA DA TRANSFERÊNCIA NO PREVIEW */}
+                  <div style={{ 
+                    marginTop: '8px', 
+                    fontSize: '12px', 
+                    color: '#6b7280',
+                    textAlign: 'center'
+                  }}>
+                    📅 {new Date(formData.data + 'T00:00:00').toLocaleDateString('pt-BR', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
                   </div>
                 </div>
               )}

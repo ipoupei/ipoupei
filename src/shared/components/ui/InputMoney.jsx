@@ -1,13 +1,12 @@
-// src/shared/components/ui/InputMoney.jsx - COM CALCULADORA INTEGRADA
+// src/shared/components/ui/InputMoney.jsx - CORREÇÕES MÍNIMAS
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 
 /**
  * Componente para campos de entrada monetários
- * ✅ NOVO: Calculadora integrada (5+3,50 → 8,50)
- * ✅ CORREÇÃO: Removido styled-jsx que causava erro
- * ✅ CORREÇÃO: Formatação de valor mais inteligente
- * ✅ CORREÇÃO: Suporte completo a valores negativos
+ * ✅ CORREÇÃO 1: Validação de vírgulas por número individual (permite 6,98+5,50)
+ * ✅ CORREÇÃO 2: Evitar processamento duplo no blur
+ * ✅ CORREÇÃO 3: Remover styled-jsx que causava erro
  */
 const InputMoney = ({
   name,
@@ -24,17 +23,17 @@ const InputMoney = ({
   onFocus,
   onBlur,
   onKeyDown,
-  enableCalculator = true, // ✅ NOVO: Prop para habilitar/desabilitar calculadora
-  showCalculationFeedback = true, // ✅ NOVO: Mostrar feedback do cálculo
+  enableCalculator = true,
+  showCalculationFeedback = true,
   ...props
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [isValid, setIsValid] = useState(true);
-  const [expressaoOriginal, setExpressaoOriginal] = useState(''); // ✅ NOVO: Para feedback
+  const [expressaoOriginal, setExpressaoOriginal] = useState('');
   const inputRef = useRef(null);
   
-  // ✅ Formata número para moeda brasileira
+  // Formata número para moeda brasileira
   const formatCurrency = useCallback((num) => {
     if (num === 0 || num === null || num === undefined) return 'R$ 0,00';
     
@@ -44,7 +43,7 @@ const InputMoney = ({
     }).format(num);
   }, []);
 
-  // ✅ NOVO: Função para avaliar expressão matemática de forma segura
+  // Função para avaliar expressão matemática de forma segura
   const avaliarExpressao = useCallback((expressao) => {
     try {
       // Remove espaços e substitui vírgula por ponto
@@ -71,7 +70,7 @@ const InputMoney = ({
     }
   }, []);
 
-  // ✅ NOVO: Processar cálculo matemático
+  // Processar cálculo matemático
   const processarCalculadora = useCallback((valor) => {
     if (!enableCalculator || !valor.trim()) {
       return { resultado: null, foiCalculado: false };
@@ -79,10 +78,9 @@ const InputMoney = ({
 
     try {
       // Verifica se tem operadores matemáticos
-const temOperadores = /[+\-*/()\s]/.test(valor); // ✅ Incluir espaços também
+      const temOperadores = /[+\-*/()\s]/.test(valor);
       
       if (temOperadores) {
-        // É uma expressão matemática
         const resultado = avaliarExpressao(valor);
         return { 
           resultado, 
@@ -97,36 +95,29 @@ const temOperadores = /[+\-*/()\s]/.test(valor); // ✅ Incluir espaços também
     return { resultado: null, foiCalculado: false };
   }, [enableCalculator, avaliarExpressao]);
   
-  // ✅ Converte string para número com validação aprimorada
+  // Converte string para número com validação
   const stringToNumber = useCallback((str) => {
     if (!str || str === '' || str === '-') return 0;
     
-    // Remove espaços
     str = str.trim();
-    
-    // Se for só o sinal de menos, retorna 0
     if (str === '-') return 0;
     
-    // Detecta se é negativo
     const isNegative = str.startsWith('-');
-    
-    // Remove tudo exceto números e vírgula
     let numbers = str.replace(/[^0-9,]/g, '');
     
     if (!numbers) return 0;
     
-    // ✅ VALIDAÇÃO: Máximo uma vírgula
+    // Validação: máximo uma vírgula
     const virgulaCount = (numbers.match(/,/g) || []).length;
     if (virgulaCount > 1) {
       setIsValid(false);
       return 0;
     }
     
-    // ✅ VALIDAÇÃO: Máximo 2 dígitos após vírgula
+    // Validação: máximo 2 dígitos após vírgula
     if (numbers.includes(',')) {
       const partes = numbers.split(',');
       if (partes[1] && partes[1].length > 2) {
-        // Trunca para 2 dígitos
         numbers = `${partes[0]},${partes[1].substring(0, 2)}`;
       }
     }
@@ -137,7 +128,6 @@ const temOperadores = /[+\-*/()\s]/.test(valor); // ✅ Incluir espaços também
     const result = parseFloat(numbers) || 0;
     const finalResult = isNegative ? -result : result;
     
-    // ✅ VALIDAÇÃO: Verifica se é um número válido
     if (isNaN(finalResult) || !isFinite(finalResult)) {
       setIsValid(false);
       return 0;
@@ -151,43 +141,41 @@ const temOperadores = /[+\-*/()\s]/.test(valor); // ✅ Incluir espaços também
   useEffect(() => {
     if (!isFocused) {
       setInputValue(formatCurrency(value));
-      setExpressaoOriginal(''); // Limpa feedback quando valor muda externamente
+      setExpressaoOriginal('');
     }
   }, [value, isFocused, formatCurrency]);
 
-  // ✅ AutoFocus quando solicitado
+  // AutoFocus quando solicitado
   useEffect(() => {
     if (autoFocus && inputRef.current && !disabled) {
       inputRef.current.focus();
     }
   }, [autoFocus, disabled]);
   
-  // ✅ Handle quando o input muda com validação
-const handleChange = useCallback((e) => {
-  const newValue = e.target.value;
-  
-  // ✅ CORREÇÃO: Para calculadora, permitir todos os operadores
-  let finalValue = newValue;
-  
-  if (!enableCalculator && !allowNegative) {
-    // Só remove minus se não é calculadora E não permite negativo
-    finalValue = newValue.replace('-', '');
-  }
-  
-  setInputValue(finalValue);
-    setExpressaoOriginal(''); // Limpa feedback ao digitar
+  // Handle quando o input muda
+  const handleChange = useCallback((e) => {
+    const newValue = e.target.value;
     
-    // Converte e envia o valor numérico (só se não for expressão)
-    if (!enableCalculator || !/[+\-*/()]/.test(finalValue)) {
-    const numericValue = stringToNumber(finalValue);
+    let finalValue = newValue;
     
-    if (onChange) {
-      onChange(numericValue);
+    if (!enableCalculator && !allowNegative) {
+      finalValue = newValue.replace('-', '');
     }
-  }
-}, [allowNegative, enableCalculator, stringToNumber, onChange]);
+    
+    setInputValue(finalValue);
+    setExpressaoOriginal('');
+    
+    // Só converte se não for expressão matemática
+    if (!enableCalculator || !/[+\-*/()\s]/.test(finalValue)) {
+      const numericValue = stringToNumber(finalValue);
+      
+      if (onChange) {
+        onChange(numericValue);
+      }
+    }
+  }, [allowNegative, enableCalculator, stringToNumber, onChange]);
   
-  // ✅ Handle quando ganha foco
+  // Handle quando ganha foco
   const handleFocus = useCallback((e) => {
     setIsFocused(true);
     
@@ -199,43 +187,47 @@ const handleChange = useCallback((e) => {
       setInputValue('');
     }
     
-    setExpressaoOriginal(''); // Limpa feedback ao focar
+    setExpressaoOriginal('');
     
     if (onFocus) {
       onFocus(e);
     }
   }, [value, onFocus]);
   
-  // ✅ Handle quando perde foco - COM CALCULADORA
+  // ✅ CORREÇÃO 2: Handle quando perde foco - evitar processamento duplo
   const handleBlur = useCallback((e) => {
     setIsFocused(false);
+    
+    // ✅ CORREÇÃO: Evitar reprocessar valores já formatados
+    if (inputValue.startsWith('R$')) {
+      if (onBlur) {
+        onBlur(e);
+      }
+      return;
+    }
     
     let finalValue = inputValue;
     let numericValue;
     
-    // ✅ NOVO: Tentar processar como cálculo primeiro
+    // Tentar processar como cálculo primeiro
     const { resultado, foiCalculado, expressaoOriginal } = processarCalculadora(inputValue);
     
     if (foiCalculado && resultado !== null) {
-      // Foi um cálculo válido
       numericValue = resultado;
-      finalValue = resultado.toFixed(2).replace('.', ',');
+      finalValue = formatCurrency(resultado);
       
       if (showCalculationFeedback) {
         setExpressaoOriginal(expressaoOriginal);
-        // Limpa feedback após 3 segundos
         setTimeout(() => setExpressaoOriginal(''), 3000);
       }
     } else {
-      // Processamento normal
       numericValue = stringToNumber(inputValue);
+      finalValue = formatCurrency(numericValue);
       setExpressaoOriginal('');
     }
     
-    // Formata para exibição
-    setInputValue(formatCurrency(numericValue));
+    setInputValue(finalValue);
     
-    // Garante que o parent component tem o valor correto
     if (onChange) {
       onChange(numericValue);
     }
@@ -245,76 +237,83 @@ const handleChange = useCallback((e) => {
     }
   }, [inputValue, stringToNumber, formatCurrency, onChange, onBlur, processarCalculadora, showCalculationFeedback]);
 
-  // ✅ Navegação por teclado SIMPLIFICADA + CALCULADORA
-const handleKeyDown = useCallback((e) => {
-  switch (e.key) {
-    case 'Enter':
-    case 'Tab':
-      // Força processamento da calculadora
-      handleBlur(e);
-      break;
-      
-    case 'Escape':
-      // Cancela edição e volta ao valor original
-      setInputValue(formatCurrency(value));
-      setExpressaoOriginal('');
-      if (inputRef.current) {
-        inputRef.current.blur();
-      }
-      break;
-        
-      // ✅ Permite apenas números, vírgula, ponto, sinal de menos E operadores matemáticos
- default:
-      const allowedKeys = [
-        'Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight',
-        'ArrowUp', 'ArrowDown', 'Home', 'End', 'Control', 'Alt', 'Shift'
-      ];
-      
-      if (!allowedKeys.includes(e.key)) {
-        const char = e.key;
-        const isNumber = /\d/.test(char);
-        const isComma = char === ',';
-        const isPeriod = char === '.';
-        
-        // ✅ CORREÇÃO: Lógica melhorada para sinal de menos
-        const isMinus = char === '-';
-        const isOperator = enableCalculator && /[+*/()\-]/.test(char); // ✅ Incluir - explicitamente
-        
-        // ✅ NOVA LÓGICA: Permitir operadores quando calculadora habilitada
-        if (!isNumber && !isComma && !isPeriod && !isOperator) {
-          // Se não permite negativo E não é calculadora, bloquear minus
-          if (isMinus && !allowNegative && !enableCalculator) {
-            e.preventDefault();
-          }
-          // Outros caracteres não permitidos
-          else if (!isMinus) {
-            e.preventDefault();
-          }
-        }
-        
-        // ✅ Previne múltiplas vírgulas
-        if (isComma && inputValue.includes(',')) {
-          e.preventDefault();
-        }
-        
-        // ✅ CORREÇÃO: Lógica do minus ajustada para calculadora
-        if (isMinus && !enableCalculator) {
-          // Sem calculadora: só permite minus no início se allowNegative
-          if (!allowNegative || (inputValue.length > 0 && !inputValue.includes('-'))) {
-            e.preventDefault();
-          }
-        }
-        // Com calculadora: minus sempre permitido como operador
-      }
-      break;
+  // ✅ CORREÇÃO 1: Validação de vírgulas por número individual
+  const validarVirgulaAtual = useCallback((texto, posicao) => {
+    const textoAntes = texto.substring(0, posicao);
+    const operadores = /[+\-*/()]/g;
+    let ultimoOperador = -1;
+    let match;
+    
+    while ((match = operadores.exec(textoAntes)) !== null) {
+      ultimoOperador = match.index;
     }
     
-  if (onKeyDown) {
-    onKeyDown(e);
-  }
-}, [inputValue, allowNegative, enableCalculator, value, formatCurrency, onKeyDown, handleBlur]);
+    const numeroAtual = textoAntes.substring(ultimoOperador + 1);
+    return !numeroAtual.includes(',');
+  }, []);
 
-  // ✅ CORREÇÃO: Classes CSS sem styled-jsx
+  // Navegação por teclado
+  const handleKeyDown = useCallback((e) => {
+    switch (e.key) {
+      case 'Enter':
+      case 'Tab':
+        handleBlur(e);
+        break;
+        
+      case 'Escape':
+        setInputValue(formatCurrency(value));
+        setExpressaoOriginal('');
+        if (inputRef.current) {
+          inputRef.current.blur();
+        }
+        break;
+          
+      default:
+        const allowedKeys = [
+          'Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight',
+          'ArrowUp', 'ArrowDown', 'Home', 'End', 'Control', 'Alt', 'Shift'
+        ];
+        
+        if (!allowedKeys.includes(e.key)) {
+          const char = e.key;
+          const isNumber = /\d/.test(char);
+          const isComma = char === ',';
+          const isPeriod = char === '.';
+          const isMinus = char === '-';
+          const isOperator = enableCalculator && /[+*/()\-]/.test(char);
+          
+          // ✅ CORREÇÃO 1: Validação de vírgula por número individual
+          if (isComma) {
+            const posicao = e.target.selectionStart || 0;
+            if (!validarVirgulaAtual(inputValue, posicao)) {
+              e.preventDefault();
+              return;
+            }
+          }
+          
+          if (!isNumber && !isComma && !isPeriod && !isOperator) {
+            if (isMinus && !allowNegative && !enableCalculator) {
+              e.preventDefault();
+            } else if (!isMinus) {
+              e.preventDefault();
+            }
+          }
+          
+          if (isMinus && !enableCalculator) {
+            if (!allowNegative || (inputValue.length > 0 && !inputValue.includes('-'))) {
+              e.preventDefault();
+            }
+          }
+        }
+        break;
+    }
+    
+    if (onKeyDown) {
+      onKeyDown(e);
+    }
+  }, [inputValue, allowNegative, enableCalculator, value, formatCurrency, onKeyDown, handleBlur, validarVirgulaAtual]);
+
+  // Classes CSS
   const inputClasses = [
     'input-money',
     className,
@@ -322,10 +321,10 @@ const handleKeyDown = useCallback((e) => {
     !isValid && 'input-money-invalid',
     disabled && 'input-money-disabled',
     allowNegative && 'input-money-allow-negative',
-    enableCalculator && 'input-money-calculator-enabled' // ✅ NOVO
+    enableCalculator && 'input-money-calculator-enabled'
   ].filter(Boolean).join(' ');
 
-  // ✅ CORREÇÃO: Estilos inline em vez de styled-jsx
+  // Estilos
   const containerStyle = {
     position: 'relative',
     display: 'inline-block',
@@ -366,7 +365,6 @@ const handleKeyDown = useCallback((e) => {
     zIndex: 10
   };
 
-  // ✅ NOVO: Estilo para feedback da calculadora
   const calculatorFeedbackStyle = {
     position: 'absolute',
     top: '100%',
@@ -393,7 +391,7 @@ const handleKeyDown = useCallback((e) => {
         onFocus={handleFocus}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
-        placeholder={enableCalculator ? `${placeholder} (ou 5+3,50)` : placeholder}
+        placeholder={enableCalculator ? `${placeholder} (ou 6,98+5,50)` : placeholder}
         disabled={disabled}
         tabIndex={tabIndex}
         className={inputClasses}
@@ -401,14 +399,13 @@ const handleKeyDown = useCallback((e) => {
         {...props}
       />
       
-      {/* ✅ NOVO: Feedback da calculadora */}
+      {/* ✅ CORREÇÃO 3: Feedback sem styled-jsx */}
       {expressaoOriginal && showCalculationFeedback && (
         <div style={calculatorFeedbackStyle}>
           ✨ Cálculo: {expressaoOriginal} = {inputValue.replace('R$ ', '')}
         </div>
       )}
       
-      {/* ✅ Indicador de valor inválido */}
       {!isValid && (
         <div style={errorStyle}>
           Formato inválido. Use apenas números e vírgula.
@@ -433,8 +430,8 @@ InputMoney.propTypes = {
   onFocus: PropTypes.func,
   onBlur: PropTypes.func,
   onKeyDown: PropTypes.func,
-  enableCalculator: PropTypes.bool, // ✅ NOVO
-  showCalculationFeedback: PropTypes.bool // ✅ NOVO
+  enableCalculator: PropTypes.bool,
+  showCalculationFeedback: PropTypes.bool
 };
 
 export default InputMoney;
