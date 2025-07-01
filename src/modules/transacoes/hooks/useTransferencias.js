@@ -67,27 +67,6 @@ const useTransferencias = () => {
       const timestamp = new Date().toISOString();
       const descricaoFinal = descricao || `Transferência de ${contaOrigem.nome} para ${contaDestino.nome}`;
 
-      // 1. Debitar da conta origem
-      const { error: debitError } = await supabase
-        .from('contas')
-        .update({ 
-          saldo: contaOrigem.saldo - valorNumerico,
-          updated_at: timestamp
-        })
-        .eq('id', contaOrigemId);
-
-      if (debitError) throw debitError;
-
-      // 2. Creditar na conta destino
-      const { error: creditError } = await supabase
-        .from('contas')
-        .update({ 
-          saldo: contaDestino.saldo + valorNumerico,
-          updated_at: timestamp
-        })
-        .eq('id', contaDestinoId);
-
-      if (creditError) throw creditError;
 
       // 3. Criar transação de saída COM DATA
       const { error: saidaError } = await supabase
