@@ -289,77 +289,156 @@ const useContas = () => {
     }
   }, [contasArquivadas, user, fetchContas, showNotification]);
 
-  // ✅ FUNÇÃO 6: CORRIGIR SALDO - NOVA FUNÇÃO NECESSÁRIA PARA O MODAL
-  const corrigirSaldoConta = useCallback(async (contaId, novoSaldo, metodo = 'ajuste', motivo = '') => {
-    if (!user?.id) return { success: false, error: 'Usuário não autenticado' };
+const corrigirSaldoConta = useCallback(async (contaId, novoSaldo, metodo = 'ajuste', motivo = '') => {
+  if (!user?.id) return { success: false, error: 'Usuário não autenticado' };
 
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      const conta = contas.find(c => c.id === contaId) || contasArquivadas.find(c => c.id === contaId);
-      if (!conta) throw new Error('Conta não encontrada');
+    const conta = contas.find(c => c.id === contaId) || contasArquivadas.find(c => c.id === contaId);
+    if (!conta) throw new Error('Conta não encontrada');
 
-      const saldoAtual = conta.saldo_atual || conta.saldo || 0;
-      const diferenca = novoSaldo - saldoAtual;
+    const saldoAtual = conta.saldo_atual || conta.saldo || 0;
+    const diferenca = novoSaldo - saldoAtual;
 
-      if (Math.abs(diferenca) < 0.01) {
-        showNotification('Saldo já está correto', 'info');
-        return { success: true };
+    if (Math.abs(diferenca) < 0.01) {
+      showNotification('Saldo já está correto', 'info');
+      return { success: true };
+    }
+
+    if (metodo === 'saldo_inicial') {
+      // =====================================================================================
+      // MÉTODO 1: ALTERAR SALDO INICIAL - LÓGICA CORRIGIDA
+      // =====================================================================================
+      // Calcula qual deveria ser o saldo inicial para resultar no saldo desejado
+      
+      // 1. Buscar soma de todas as transações efetivadas da conta
+      const { data: somaTransacoes, error: erroSoma } = await supabase.rpc('calcular_soma_transacoes_conta', {
+        p_conta_id: contaId,
+        p_usuario_id: user.id
+      });
+
+      if (erroSoma) {
+        console.warn('RPC não disponível, calculando manualmente:', erroSoma);
+        
+        // Fallback: calcular manualmente
+        const { data: transacoes, error: erroTransacoes } = await supabase
+          .from('transacoes')
+          .select('tipo, valor, conta_destino_id, conta_id')
+          .or(`conta_id.eq.${contaId},conta_destino_id.eq.${contaId}`)
+          .eq('usuario_id', user.id)
+          .eq('efetivado', true)
+          .is('cartao_id', null); // Só transações diretas na conta
+
+        if (erroTransacoes) throw erroTransacoes;
+
+        // Calcular soma manual
+        let somaTotal = 0;
+        
+        (transacoes || []).forEach(t => {
+          if (t.conta_id === contaId) {
+            // Transação da conta (origem)
+            if (t.tipo === 'receita') somaTotal += Number(t.valor);
+            else if (t.tipo === 'despesa') somaTotal -= Number(t.valor);
+            else if (t.tipo === 'transferencia') somaTotal -= Number(t.valor);
+          } else if (t.conta_destino_id === contaId) {
+            // Transferência recebida (destino)
+            somaTotal += Number(t.valor);
+          }
+        });
+
+        var somaFinal = somaTotal;
+      } else {
+        var somaFinal = Number(somaTransacoes) || 0;
       }
 
-      if (metodo === 'saldo_inicial') {
-        // Alterar saldo inicial (triggers recalcularão)
-        const novoSaldoInicial = (conta.saldo_inicial || 0) + diferenca;
+      // 2. Calcular novo saldo inicial CORRETAMENTE
+      // ✅ FÓRMULA CORRETA: saldo_inicial = saldo_desejado - transações
+      const novoSaldoInicial = novoSaldo - somaFinal;
 
-        const { error } = await supabase
-          .from('contas')
-          .update({
-            saldo_inicial: novoSaldoInicial,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', contaId)
-          .eq('usuario_id', user.id);
+      console.log('📊 Cálculo saldo inicial CORRIGIDO:', {
+        saldoDesejado: novoSaldo,
+        somaTransacoes: somaFinal,
+        saldoInicialAtual: conta.saldo_inicial,
+        novoSaldoInicialCalculado: novoSaldoInicial
+      });
 
-        if (error) throw error;
-        
-        showNotification(`Saldo inicial alterado para ${novoSaldoInicial.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`, 'success');
+      // 3. Atualizar APENAS o saldo inicial (trigger recalculará automaticamente)
+      const { error } = await supabase
+        .from('contas')
+        .update({
+          saldo_inicial: novoSaldoInicial,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', contaId)
+        .eq('usuario_id', user.id);
 
-      } else {
-        // Criar transação de ajuste (triggers atualizarão saldo)
-        const ajuste = {
+      if (error) throw error;
+      
+      showNotification(
+        `Saldo inicial alterado. Novo saldo: ${novoSaldo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`, 
+        'success'
+      );
+
+    } else {
+      // =====================================================================================
+      // MÉTODO 2: CRIAR TRANSAÇÃO DE AJUSTE - LÓGICA CORRIGIDA
+      // =====================================================================================
+      // Cria APENAS uma transação de receita ou despesa para ajustar o saldo atual
+      // NÃO altera o saldo inicial!
+
+      const tipoAjuste = diferenca > 0 ? 'receita' : 'despesa';
+      const valorAjuste = Math.abs(diferenca);
+
+      console.log('💰 Criando transação de ajuste:', {
+        tipo: tipoAjuste,
+        valor: valorAjuste,
+        diferenca: diferenca,
+        saldoAtual: saldoAtual,
+        saldoDesejado: novoSaldo
+      });
+
+      // Criar transação de ajuste (trigger atualizará saldo automaticamente)
+      const { error } = await supabase
+        .from('transacoes')
+        .insert([{
           usuario_id: user.id,
           conta_id: contaId,
           data: new Date().toISOString().split('T')[0],
           descricao: 'Ajuste de saldo manual',
-          tipo: diferenca > 0 ? 'receita' : 'despesa',
-          valor: Math.abs(diferenca),
+          tipo: tipoAjuste,
+          valor: valorAjuste,
           efetivado: true,
           ajuste_manual: true,
-          observacoes: motivo || 'Correção de divergência',
+          motivo_ajuste: motivo || 'Correção de divergência',
+          observacoes: motivo || 'Correção manual de saldo',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
-        };
+        }]);
 
-        const { error } = await supabase
-          .from('transacoes')
-          .insert([ajuste]);
-
-        if (error) throw error;
-        showNotification(`Ajuste de ${Math.abs(diferenca).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} criado`, 'success');
-      }
-
-      // ✅ Aguardar um pouco para triggers executarem
-      setTimeout(() => fetchContas(true), 500);
-      return { success: true };
-
-    } catch (error) {
-      console.error('❌ Erro ao corrigir saldo:', error);
-      showNotification('Erro ao corrigir saldo', 'error');
-      return { success: false, error: error.message };
-    } finally {
-      setLoading(false);
+      if (error) throw error;
+      
+      showNotification(
+        `Ajuste de ${valorAjuste.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} criado com sucesso!`, 
+        'success'
+      );
     }
-  }, [user, contas, contasArquivadas, fetchContas, showNotification]);
+
+    // ✅ CORREÇÃO: Aguardar tempo adequado para triggers processarem
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    await fetchContas(true); // Recarregar com arquivadas
+    
+    return { success: true };
+
+  } catch (error) {
+    console.error('❌ Erro ao corrigir saldo:', error);
+    setError && setError(error.message); // Usar setError se existir
+    showNotification('Erro ao corrigir saldo', 'error');
+    return { success: false, error: error.message };
+  } finally {
+    setLoading(false);
+  }
+}, [user, contas, contasArquivadas, showNotification, fetchContas]);
 
   // ✅ FUNÇÃO 7: Validar consistência dos saldos
   const validarConsistencia = useCallback(async () => {
