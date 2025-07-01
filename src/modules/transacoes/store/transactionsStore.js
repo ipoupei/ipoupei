@@ -139,10 +139,15 @@ export const useTransactionsStore = create(
 
         // Tentar buscar via RPC CORRIGIDA
         try {
+          const periodoEfetivo = {
+            inicio: filtros.dataInicio || format(filtros.periodo.inicio, 'yyyy-MM-dd'),
+            fim: filtros.dataFim || format(filtros.periodo.fim, 'yyyy-MM-dd')
+          };
+
           const { data, error } = await supabase.rpc('ip_buscar_transacoes_periodo', {
             p_usuario_id: userId,
-            p_data_inicio: format(filtros.periodo.inicio, 'yyyy-MM-dd'),
-            p_data_fim: format(filtros.periodo.fim, 'yyyy-MM-dd')
+            p_data_inicio: periodoEfetivo.inicio,
+            p_data_fim: periodoEfetivo.fim
           });
 
           if (error) throw error;
@@ -194,6 +199,23 @@ export const useTransactionsStore = create(
 
     // ===== BUG FIX 22: Nova função para filtrar parcelas de cartão =====
     aplicarFiltrosCartaoParcelas: (transacoes) => {
+
+          const aplicarFiltrosCartaoParcelas = (transacoes) => {
+            const { filtros } = get();
+            
+            // ✅ USAR MESMO PERÍODO EFETIVO
+            const periodoEfetivo = {
+              inicio: filtros.dataInicio ? new Date(filtros.dataInicio) : new Date(filtros.periodo.inicio),
+              fim: filtros.dataFim ? new Date(filtros.dataFim) : new Date(filtros.periodo.fim)
+            };
+            
+            const periodoInicio = periodoEfetivo.inicio;
+            const periodoFim = periodoEfetivo.fim;
+            
+            // ... resto da função permanece igual
+          }
+
+
       const { filtros } = get();
       
       // Obter período atual de forma mais explícita

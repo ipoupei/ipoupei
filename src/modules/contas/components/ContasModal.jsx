@@ -66,7 +66,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
     nome: '',
     tipo: 'corrente',
     banco: '',
-    saldoInicial: '',
+    saldoInicial: '0,00',
     cor: '#3B82F6'
   });
   const [formErrors, setFormErrors] = useState({});
@@ -144,7 +144,7 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
       nome: '',
       tipo: 'corrente',
       banco: '',
-      saldoInicial: '',
+      saldoInicial: '0,00',
       cor: '#3B82F6'
     });
     setFormErrors({});

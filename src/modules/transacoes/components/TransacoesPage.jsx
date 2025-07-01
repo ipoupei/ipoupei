@@ -153,38 +153,62 @@ const TransacoesPage = () => {
   };
 
   // Função para buscar transações
-  const fetchTransacoes = async () => {
-    if (!user?.id) return;
+const fetchTransacoes = async () => {
+  if (!user?.id) return;
 
-    try {
-      useTransactionsStore.setState({ loading: true, error: null });
-      
-      const { default: supabase } = await import('@lib/supabaseClient');
-      
-      const { data, error } = await supabase.rpc('ip_buscar_transacoes_periodo', {
-        p_usuario_id: user.id,
-        p_data_inicio: format(dataInicio, 'yyyy-MM-dd'),
-        p_data_fim: format(dataFim, 'yyyy-MM-dd')
-      });
+  // ✅ DEBUG: Verificar estado dos filtros
+  console.log('🔍 [DEBUG] Estado dos filtros:', {
+    dataInicio: filters.dataInicio,
+    dataFim: filters.dataFim,
+    currentDate: currentDate,
+    dataInicioCalculado: format(dataInicio, 'yyyy-MM-dd'),
+    dataFimCalculado: format(dataFim, 'yyyy-MM-dd')
+  });
 
-      if (error) throw error;
-      
-      // ===== BUG FIX 22: Aplicar filtro de parcelas de cartão AQUI TAMBÉM =====
-      const transacoesFiltradas = aplicarFiltroParcelasCartao(data || []);
-      
-      useTransactionsStore.setState({ 
-        transacoes: transacoesFiltradas, 
-        loading: false 
-      });
-      
-    } catch (error) {
-      console.error('❌ Erro ao buscar transações:', error);
-      useTransactionsStore.setState({ 
-        error: error.message, 
-        loading: false 
-      });
-    }
-  };
+  try {
+    useTransactionsStore.setState({ loading: true, error: null });
+    
+    const { default: supabase } = await import('@lib/supabaseClient');
+    
+    // ✅ CORREÇÃO: Usar período efetivo que prioriza filtros avançados
+    const periodoEfetivo = {
+      inicio: filters.dataInicio || format(dataInicio, 'yyyy-MM-dd'),
+      fim: filters.dataFim || format(dataFim, 'yyyy-MM-dd')
+    };
+
+    console.log('🔍 Período efetivo sendo usado:', periodoEfetivo);
+    console.log('🔍 [DEBUG] Filtros aplicados:', {
+      filtroDataInicio: filters.dataInicio,
+      filtroDataFim: filters.dataFim,
+      usandoFiltros: !!(filters.dataInicio || filters.dataFim)
+    });
+
+    const { data, error } = await supabase.rpc('ip_buscar_transacoes_periodo', {
+      p_usuario_id: user.id,
+      p_data_inicio: periodoEfetivo.inicio,
+      p_data_fim: periodoEfetivo.fim
+    });
+
+    if (error) throw error;
+    
+    console.log('📊 Transações recebidas da RPC:', data?.length || 0);
+    
+    // ===== BUG FIX 22: Aplicar filtro de parcelas de cartão AQUI TAMBÉM =====
+    const transacoesFiltradas = aplicarFiltroParcelasCartao(data || []);
+    
+    useTransactionsStore.setState({ 
+      transacoes: transacoesFiltradas, 
+      loading: false 
+    });
+    
+  } catch (error) {
+    console.error('❌ Erro ao buscar transações:', error);
+    useTransactionsStore.setState({ 
+      error: error.message, 
+      loading: false 
+    });
+  }
+};
 
   // ===== BUG FIX 22: Função para filtrar parcelas de cartão na página =====
   const aplicarFiltroParcelasCartao = (transacoes) => {
@@ -302,13 +326,20 @@ const TransacoesPage = () => {
     }
   }, [searchParams]);
 
-  // Carregar dados
-  useEffect(() => {
-    if (user?.id) {
-      fetchTransacoes();
-      fetchFilterData();
-    }
-  }, [user?.id, currentDate]);
+// ✅ useEffect para carregamento inicial (só roda uma vez por mês)
+useEffect(() => {
+  if (user?.id) {
+    fetchFilterData(); // Dados auxiliares só precisam ser carregados uma vez
+  }
+}, [user?.id, currentDate]); // Mantém currentDate para recarregar dados auxiliares se mudar mês
+
+// ✅ useEffect para filtros (roda sempre que filtros mudam)
+useEffect(() => {
+  if (user?.id) {
+    console.log('🔍 [DEBUG] Filtros mudaram, disparando nova busca:', filters);
+    fetchTransacoes();
+  }
+}, [user?.id, filters]); // NOVA dependência: filters
 
   // ========== FILTRAR E ORDENAR TRANSAÇÕES ==========
   const transacoesProcessadas = useMemo(() => {
@@ -374,18 +405,6 @@ const TransacoesPage = () => {
       );
     }
 
-    // Filtro por período específico
-    if (filters.dataInicio) {
-      filtered = filtered.filter(t => 
-        new Date(t.data) >= new Date(filters.dataInicio)
-      );
-    }
-
-    if (filters.dataFim) {
-      filtered = filtered.filter(t => 
-        new Date(t.data) <= new Date(filters.dataFim)
-      );
-    }
 
 // ✅ CORREÇÃO: Substituir a lógica de agrupamento por cartão (linhas 461-485)
 
@@ -532,17 +551,27 @@ const TransacoesPage = () => {
   };
 
   // Filtros
-  const handleFilterChange = (key, value) => {
-    // No modal, só atualiza modalFilters
-    setModalFilters(prev => ({ ...prev, [key]: value }));
-  };
+const handleFilterChange = (key, value) => {
+  console.log('🔍 [DEBUG] handleFilterChange:', { key, value });
+  
+  // No modal, só atualiza modalFilters
+  setModalFilters(prev => {
+    const newModalFilters = { ...prev, [key]: value };
+    console.log('🔍 [DEBUG] Novos modalFilters:', newModalFilters);
+    return newModalFilters;
+  });
+};
+const applyFilters = () => {
+  console.log('🔍 [DEBUG] applyFilters chamado:');
+  console.log('🔍 [DEBUG] modalFilters ANTES:', modalFilters);
+  console.log('🔍 [DEBUG] filters ANTES:', filters);
+  
+  // Só aqui que aplica os filtros de verdade
+  setFilters({ ...modalFilters });
+  setCurrentPage(1);
+  setShowFilterModal(false);
 
-  const applyFilters = () => {
-    // Só aqui que aplica os filtros de verdade
-    setFilters({ ...modalFilters });
-    setCurrentPage(1);
-    setShowFilterModal(false);
-  };
+};
 
   const openFilterModal = () => {
     // Copia os filtros atuais para o modal APENAS quando abrir
