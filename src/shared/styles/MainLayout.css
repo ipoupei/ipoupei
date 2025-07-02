@@ -7,7 +7,7 @@
 
 /* Ajuste do conteúdo principal para abrir espaço para sidebar fixa */
 .main-layout__content {
-  margin-left: 230px !important;
+  
   width: calc(100% - 230px) !important;
   transition: margin-left 0.3s ease-in-out !important;
 }
@@ -1036,7 +1036,7 @@ body:has(.ipoupei-sidebar--collapsed) .main-layout__content {
 }
 /* ========== CORREÇÃO SIDEBAR FIXA - ESPECIFICIDADE MÁXIMA ========== */
 html body #root .main-layout .main-layout__content {
-  margin-left: 230px !important;
+  
   width: calc(100% - 230px) !important;
   transition: margin-left 0.3s ease-in-out !important;
 }
@@ -1053,4 +1053,72 @@ html body #root .main-layout:has(.ipoupei-sidebar--collapsed) .main-layout__cont
     margin-left: 0 !important;
     width: 100% !important;
   }
+}
+#main-layout-container {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* A sidebar já tem a classe ipoupei-sidebar no seu código */
+.ipoupei-sidebar {
+  width: 230px;
+  height: 100vh;
+  overflow-y: auto;
+  position: sticky; /* ela rola com a página, mas sempre visível */
+  top: 0;
+  background-color: #f8f9fb;
+  border-right: 1px solid #e0e0e0;
+  z-index: 10;
+}
+
+/* Quando colapsada, você já usa essa classe no JSX */
+.ipoupei-sidebar--collapsed {
+  width: 56px;
+}
+
+/* O conteúdo principal que está com a classe main-layout__content */
+.main-layout__content {
+  flex-grow: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 100vh;
+  transition: all 0.3s ease-in-out;
+}
+
+.evolution-track__container {
+  transition: height 0.3s ease, padding 0.3s ease;
+  overflow: hidden;
+}
+
+.evolution-track__component {
+  transition: opacity 0.3s ease;
+}
+
+/* Quando o usuário rolar a página para baixo */
+.trilha-colapsada {
+  height: 50px;
+  padding: 0;
+}
+
+.trilha-colapsada .evolution-track__component {
+  opacity: 0;
+  pointer-events: none;
+}
+.evolution-track__container {
+  transition: height 0.3s ease, padding 0.3s ease;
+  overflow: hidden;
+  height: auto;
+  padding: 0.75rem 1rem;
+}
+
+.trilha-colapsada {
+  height: 50px !important;
+  padding: 0 !important;
+}
+
+.trilha-colapsada .evolution-track__component {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
 }

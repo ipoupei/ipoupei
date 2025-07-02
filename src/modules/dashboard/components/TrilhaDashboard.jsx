@@ -37,7 +37,8 @@ const TrilhaDashboard = ({
   passos = [], 
   passoAtual = null,
   onPassoClick = null,
-  className = ''
+  className = '',
+  isCollapsed = false
 }) => {
   const [hoveredPasso, setHoveredPasso] = useState(null);
 
@@ -105,12 +106,15 @@ const TrilhaDashboard = ({
   const xpDisponivel = 300;
 
   return (
-    <div className={`trilha-dashboard trilha-em-breve ${className}`}>
+      <div className={`trilha-dashboard ${isCollapsed ? 'trilha-colapsada' : ''} ${className}`}>
       {/* Badge "Em Breve" */}
-      <div className="trilha-badge-em-breve">
+      <div className="trilha-overlay-em-breve">
+        <div className="trilha-preview-content">    
         <Construction size={14} />
         <span>Em Desenvolvimento</span>
+        
         <Zap size={12} />
+          </div>
       </div>
 
       {/* Overlay semi-transparente */}

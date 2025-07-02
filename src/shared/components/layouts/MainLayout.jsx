@@ -280,7 +280,10 @@ const MainLayout = () => {
   };
 
   return (
-    <div ref={layoutRef} id="main-layout-container">
+
+
+      <div className={`main-layout ${scrolled ? 'main-layout--scrolled' : ''}`}>
+            <div ref={layoutRef} id="main-layout-container">
       <Sidebar
         onOpenModal={handleOpenModal}
         isCollapsed={sidebarCollapsed}
@@ -379,8 +382,6 @@ const MainLayout = () => {
           </SafeModal>
         </>
       )}
-
-      <div className={`main-layout ${scrolled ? 'main-layout--scrolled' : ''}`}>
         <div 
           className="main-layout__content"
           style={{
@@ -420,10 +421,14 @@ const MainLayout = () => {
             </header>
           )}
 
+
+
+
           <section className="main-layout__evolution-track" aria-label="Trilha de aprendizagem">
-            <div className="evolution-track__container">
+            <div className={`evolution-track__container ${scrolled ? 'trilha-colapsada' : ''}`}>
               <TrilhaDashboard
                 className="evolution-track__component"
+                isCollapsed={scrolled}
                 onPassoClick={(passo) => {
                   showNotification(`Passo: ${passo.titulo}`, 'info');
                 }}

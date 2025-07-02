@@ -479,6 +479,29 @@
   right: 30px;
   transform: translateX(0);
 }
+.trilha-dashboard.trilha-colapsada {
+  height: 50px; /* ou o tamanho reduzido que você preferir */
+  overflow: hidden;
+  transition: height 0.3s ease;
+}
+
+.trilha-dashboard.trilha-colapsada .trilha-preview-content,
+.trilha-dashboard.trilha-colapsada .trilha-header,
+.trilha-dashboard.trilha-colapsada .trilha-horizontal-container {
+  opacity: 0;
+  pointer-events: none;
+  transform: scaleY(0);
+  height: 0;
+  transition: all 0.3s ease;
+}
+.trilha-dashboard.trilha-colapsada .trilha-linha-progresso {
+  opacity: 1 !important;
+  transform: scaleY(1);
+  height: 4px;
+}
+.trilha-dashboard.trilha-colapsada {
+  transform-origin: top;
+}
 
 /* ===== RESPONSIVIDADE ===== */
 

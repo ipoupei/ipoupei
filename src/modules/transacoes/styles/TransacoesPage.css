@@ -119,7 +119,7 @@
 .transacoes-content {
   display: grid;
   grid-template-columns: 1fr 320px;
-  gap: 1.5rem;
+  gap: 0.5rem;
   align-items: start;
 }
 
@@ -233,7 +233,7 @@
 
 /* Sidebar */
 .resumo-sidebar {
-  max-width: 300px;
+  max-width: 263px;
   width: 100%;
 }
 /* Ajustar padding geral dos cards */

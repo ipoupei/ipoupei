@@ -156,13 +156,32 @@ const TransacoesPage = () => {
 const fetchTransacoes = async () => {
   if (!user?.id) return;
 
-  // ✅ DEBUG: Verificar estado dos filtros
-  console.log('🔍 [DEBUG] Estado dos filtros:', {
-    dataInicio: filters.dataInicio,
-    dataFim: filters.dataFim,
-    currentDate: currentDate,
-    dataInicioCalculado: format(dataInicio, 'yyyy-MM-dd'),
-    dataFimCalculado: format(dataFim, 'yyyy-MM-dd')
+  // ✅ CORREÇÃO: Verificar se filtros estão REALMENTE preenchidos (não apenas strings vazias)
+  const temFiltroDataInicio = filters.dataInicio && filters.dataInicio.trim() !== '';
+  const temFiltroDataFim = filters.dataFim && filters.dataFim.trim() !== '';
+  
+const periodoEfetivo = {
+  inicio: (filters.dataInicio && filters.dataInicio !== '') 
+          ? filters.dataInicio 
+          : format(dataInicio, 'yyyy-MM-dd'),
+  fim: (filters.dataFim && filters.dataFim !== '') 
+       ? filters.dataFim 
+       : format(dataFim, 'yyyy-MM-dd')
+};
+console.log('🔍 [TESTE]:', {
+  filters_dataInicio: `"${filters.dataInicio}"`,
+  filters_dataFim: `"${filters.dataFim}"`,
+  currentDate: currentDate,
+  periodoEfetivo: periodoEfetivo
+});
+
+  console.log('🔍 Período efetivo sendo usado:', periodoEfetivo);
+  console.log('🔍 [DEBUG] Filtros aplicados:', {
+    filtroDataInicio: filters.dataInicio,
+    filtroDataFim: filters.dataFim,
+    temFiltroDataInicio,
+    temFiltroDataFim,
+    usandoFiltros: temFiltroDataInicio || temFiltroDataFim
   });
 
   try {
@@ -170,19 +189,6 @@ const fetchTransacoes = async () => {
     
     const { default: supabase } = await import('@lib/supabaseClient');
     
-    // ✅ CORREÇÃO: Usar período efetivo que prioriza filtros avançados
-    const periodoEfetivo = {
-      inicio: filters.dataInicio || format(dataInicio, 'yyyy-MM-dd'),
-      fim: filters.dataFim || format(dataFim, 'yyyy-MM-dd')
-    };
-
-    console.log('🔍 Período efetivo sendo usado:', periodoEfetivo);
-    console.log('🔍 [DEBUG] Filtros aplicados:', {
-      filtroDataInicio: filters.dataInicio,
-      filtroDataFim: filters.dataFim,
-      usandoFiltros: !!(filters.dataInicio || filters.dataFim)
-    });
-
     const { data, error } = await supabase.rpc('ip_buscar_transacoes_periodo', {
       p_usuario_id: user.id,
       p_data_inicio: periodoEfetivo.inicio,
@@ -193,7 +199,6 @@ const fetchTransacoes = async () => {
     
     console.log('📊 Transações recebidas da RPC:', data?.length || 0);
     
-    // ===== BUG FIX 22: Aplicar filtro de parcelas de cartão AQUI TAMBÉM =====
     const transacoesFiltradas = aplicarFiltroParcelasCartao(data || []);
     
     useTransactionsStore.setState({ 
@@ -209,6 +214,7 @@ const fetchTransacoes = async () => {
     });
   }
 };
+
 
   // ===== BUG FIX 22: Função para filtrar parcelas de cartão na página =====
   const aplicarFiltroParcelasCartao = (transacoes) => {
@@ -285,61 +291,74 @@ const fetchTransacoes = async () => {
   };
 
   // Aplicar filtros da URL na inicialização
-  useEffect(() => {
-    const filter = searchParams.get('filter');
-    
-    if (filter) {
-      switch (filter) {
-        case 'receitas':
-          const receitaFilters = { ...filters, tipo: 'receita' };
-          setFilters(receitaFilters);
-          setModalFilters(receitaFilters);
-          break;
-        case 'despesas':
-          const despesaFilters = { ...filters, tipo: 'despesa' };
-          setFilters(despesaFilters);
-          setModalFilters(despesaFilters);
-          break;
-        case 'cartoes':
-          setGroupByCard(true);
-          const cartaoFilters = { ...filters, tipo: 'despesa' };
-          setFilters(cartaoFilters);
-          setModalFilters(cartaoFilters);
-          break;
-        default:
-          const emptyFilters = {
-            tipo: '', dataInicio: '', dataFim: '', efetivado: '', recorrente: '',
-            categoria: '', cartao: '', conta: '', subcategoria: '', valorMin: '', valorMax: '', descricao: ''
-          };
-          setFilters(emptyFilters);
-          setModalFilters(emptyFilters);
-          setGroupByCard(false);
-      }
-    } else {
-      const emptyFilters = {
-        tipo: '', dataInicio: '', dataFim: '', efetivado: '', recorrente: '',
-        categoria: '', cartao: '', conta: '', subcategoria: '', valorMin: '', valorMax: '', descricao: ''
-      };
-      setFilters(emptyFilters);
-      setModalFilters(emptyFilters);
-      setGroupByCard(false);
+ // ========== SUBSTITUIR TODOS OS useEffects POR ESTES 3 ==========
+
+// 🔗 useEffect #1: Filtros da URL (MANTER COMO ESTÁ)
+useEffect(() => {
+  const filter = searchParams.get('filter');
+  
+  if (filter) {
+    switch (filter) {
+      case 'receitas':
+        const receitaFilters = { ...filters, tipo: 'receita' };
+        setFilters(receitaFilters);
+        setModalFilters(receitaFilters);
+        break;
+      case 'despesas':
+        const despesaFilters = { ...filters, tipo: 'despesa' };
+        setFilters(despesaFilters);
+        setModalFilters(despesaFilters);
+        break;
+      case 'cartoes':
+        setGroupByCard(true);
+        const cartaoFilters = { ...filters, tipo: 'despesa' };
+        setFilters(cartaoFilters);
+        setModalFilters(cartaoFilters);
+        break;
+      default:
+        const emptyFilters = {
+          tipo: '', dataInicio: '', dataFim: '', efetivado: '', recorrente: '',
+          categoria: '', cartao: '', conta: '', subcategoria: '', valorMin: '', valorMax: '', descricao: ''
+        };
+        setFilters(emptyFilters);
+        setModalFilters(emptyFilters);
+        setGroupByCard(false);
     }
-  }, [searchParams]);
-
-// ✅ useEffect para carregamento inicial (só roda uma vez por mês)
-useEffect(() => {
-  if (user?.id) {
-    fetchFilterData(); // Dados auxiliares só precisam ser carregados uma vez
+  } else {
+    const emptyFilters = {
+      tipo: '', dataInicio: '', dataFim: '', efetivado: '', recorrente: '',
+      categoria: '', cartao: '', conta: '', subcategoria: '', valorMin: '', valorMax: '', descricao: ''
+    };
+    setFilters(emptyFilters);
+    setModalFilters(emptyFilters);
+    setGroupByCard(false);
   }
-}, [user?.id, currentDate]); // Mantém currentDate para recarregar dados auxiliares se mudar mês
+}, [searchParams]); // ← SÓ searchParams
 
-// ✅ useEffect para filtros (roda sempre que filtros mudam)
+// 📊 useEffect #2: Dados auxiliares (só carrega uma vez)
 useEffect(() => {
+  console.log('🎯 useEffect[dados auxiliares] DISPARADO');
+  
   if (user?.id) {
-    console.log('🔍 [DEBUG] Filtros mudaram, disparando nova busca:', filters);
+    fetchFilterData(); // Categorias, cartões, contas, etc.
+  }
+}, [user?.id]); // ← SÓ user?.id
+
+// 🔄 useEffect #3: Buscar transações (PRINCIPAL - roda quando mês OU filtros mudam)
+useEffect(() => {
+  console.log('🎯 useEffect[buscar transações] DISPARADO:', {
+    hasUserId: !!user?.id,
+    currentDate: currentDate,
+    filters: filters
+  });
+  
+  if (user?.id) {
+    console.log('🔍 [DEBUG] Buscando transações...');
     fetchTransacoes();
   }
-}, [user?.id, filters]); // NOVA dependência: filters
+}, [user?.id, currentDate, filters]); // ← TODOS OS TRÊS: user, mês E filtros
+
+
 
   // ========== FILTRAR E ORDENAR TRANSAÇÕES ==========
   const transacoesProcessadas = useMemo(() => {
@@ -525,20 +544,33 @@ useEffect(() => {
 
   // Navegação
   const handleNavigateMonth = (direction) => {
-    if (loading) return;
-    
-    let newDate;
-    if (direction === 'prev') {
-      newDate = subMonths(currentDate, 1);
-    } else if (direction === 'next') {
-      newDate = addMonths(currentDate, 1);
-    } else {
-      newDate = new Date();
-    }
-    
-    setCurrentDate(newDate);
-    setCurrentPage(1);
-  };
+  console.log('🎯 handleNavigateMonth CHAMADO:', direction); // ← ADICIONAR ESTE LOG
+  
+  if (loading) {
+    console.log('⏳ BLOQUEADO por loading:', loading); // ← ADICIONAR ESTE LOG
+    return;
+  }
+  
+  let newDate;
+  if (direction === 'prev') {
+    newDate = subMonths(currentDate, 1);
+    console.log('⬅️ Mudando para mês anterior:', newDate); // ← ADICIONAR ESTE LOG
+  } else if (direction === 'next') {
+    newDate = addMonths(currentDate, 1);
+    console.log('➡️ Mudando para próximo mês:', newDate); // ← ADICIONAR ESTE LOG
+  } else {
+    newDate = new Date();
+    console.log('📅 Mudando para hoje:', newDate); // ← ADICIONAR ESTE LOG
+  }
+  
+  console.log('🔄 Atualizando currentDate de:', currentDate, 'para:', newDate); // ← ADICIONAR ESTE LOG
+  
+  setCurrentDate(newDate);
+  setCurrentPage(1);
+  
+  console.log('✅ handleNavigateMonth FINALIZADO'); // ← ADICIONAR ESTE LOG
+};
+
 
   // Ordenação
   const handleSort = (key) => {
@@ -562,15 +594,23 @@ const handleFilterChange = (key, value) => {
   });
 };
 const applyFilters = () => {
-  console.log('🔍 [DEBUG] applyFilters chamado:');
-  console.log('🔍 [DEBUG] modalFilters ANTES:', modalFilters);
-  console.log('🔍 [DEBUG] filters ANTES:', filters);
+  console.log('🎯 applyFilters INICIADO'); // ← ADICIONAR ESTE LOG
+  console.log('🔍 [DEBUG] modalFilters:', modalFilters);
   
-  // Só aqui que aplica os filtros de verdade
-  setFilters({ ...modalFilters });
-  setCurrentPage(1);
-  setShowFilterModal(false);
-
+  try {
+    setFilters({ ...modalFilters });
+    console.log('✅ setFilters executado'); // ← ADICIONAR ESTE LOG
+    
+    setCurrentPage(1);
+    console.log('✅ setCurrentPage executado'); // ← ADICIONAR ESTE LOG
+    
+    setShowFilterModal(false);
+    console.log('✅ setShowFilterModal executado'); // ← ADICIONAR ESTE LOG
+    
+    console.log('✅ applyFilters FINALIZADO'); // ← ADICIONAR ESTE LOG
+  } catch (error) {
+    console.error('❌ ERRO em applyFilters:', error); // ← ADICIONAR ESTE LOG
+  }
 };
 
   const openFilterModal = () => {
@@ -1531,25 +1571,7 @@ const executeConfirmAction = async () => {
                 }}>
                   {displayValue}
                 </span>
-                <button
-                  onClick={() => {
-                    setFilters(prev => ({ ...prev, [key]: '' }));
-                    setModalFilters(prev => ({ ...prev, [key]: '' }));
-                  }}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'white',
-                    cursor: 'pointer',
-                    padding: '0',
-                    marginLeft: '4px',
-                    fontWeight: 'bold',
-                    fontSize: '0.875rem'
-                  }}
-                  title={`Remover filtro ${displayKey}`}
-                >
-                  ×
-                </button>
+
               </span>
             );
           })}
