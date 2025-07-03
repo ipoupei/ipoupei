@@ -18,6 +18,8 @@ import TransferenciasModal from '@modules/transacoes/components/TransferenciasMo
 import ContasModal from '@modules/contas/components/ContasModal';
 import CartoesModal from '@modules/cartoes/components/CartoesModal';
 import CategoriasModal from '@modules/categorias/components/CategoriasModal';
+import UnifiedTransactionModal from '@modules/transacoes/components/UnifiedTransactionModal'; // ← ADICIONAR ESTA LINHA
+
 
 import GlobalRefreshListener from '@/modules/core/components/GlobalRefreshListener';
 
@@ -174,7 +176,8 @@ const MainLayout = () => {
     TransferenciasModal: false,
     ContasModal: false,
     CartoesModal: false,
-    CategoriasModal: false
+    CategoriasModal: false,
+    UnifiedTransactionModal: false 
   });
 
   const userLevel = user?.user_metadata?.level || 7;
@@ -380,8 +383,21 @@ const MainLayout = () => {
               onSave={handleModalSave}
             />
           </SafeModal>
+          
+        <SafeModal 
+            isOpen={modalStates.UnifiedTransactionModal} 
+            modalType="UnifiedTransactionModal"
+            onClose={() => handleCloseModal('UnifiedTransactionModal')}
+          >
+            <UnifiedTransactionModal
+              isOpen={modalStates.UnifiedTransactionModal}
+              onClose={() => handleCloseModal('UnifiedTransactionModal')}
+              onSave={handleModalSave}
+            />
+          </SafeModal>
         </>
       )}
+      
         <div 
           className="main-layout__content"
           style={{

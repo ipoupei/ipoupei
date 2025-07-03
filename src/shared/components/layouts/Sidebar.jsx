@@ -81,6 +81,15 @@ const Sidebar = ({
       icon: Zap,
       items: [
         {
+          id: 'transacao-unificada',
+          label: 'Nova Transação',
+          icon: Receipt, // ou outro ícone de sua escolha
+          path: null,
+          modalType: 'UnifiedTransactionModal',
+          comingSoon: false,
+          variant: 'transacao'
+        },
+        {
           id: 'receita',
           label: 'Nova Receita',
           icon: TrendingUp,
@@ -89,6 +98,7 @@ const Sidebar = ({
           comingSoon: false,
           variant: 'receita'
         },
+        
         {
           id: 'despesa',
           label: 'Nova Despesa',
