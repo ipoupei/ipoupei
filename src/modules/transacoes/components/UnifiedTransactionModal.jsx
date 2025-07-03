@@ -795,50 +795,52 @@ const renderFormFields = () => {
 // ===== RENDER CAMPOS RECEITA/DESPESA =====
 const renderReceitaDespesaFields = () => (
   <div className="form-fields-receita-despesa">
-    <div style={{ display: 'flex', gap: '16px', width: '100%' }}>
-      <div className="form-group" style={{ flex: 1 }}>
-        <label className="form-label">
-          <Tag size={14} />
-          Categoria *
-        </label>
-        <div className="dropdown-container">
-          <div style={{position: 'relative'}}>
-            <input
-              type="text"
-              value={transactionData.categoria_texto}
-              onChange={handleCategoriaChange}
-              onBlur={handleCategoriaBlur}
-              onFocus={() => setCategoriaDropdownOpen(true)}
-              placeholder="Digite ou selecione uma categoria"
-              disabled={loading}
-              autoComplete="off"
-              className={`input-text input-with-icon ${!transactionData.categoria_id ? 'input-muted' : ''} ${errors.categoria_id ? 'error' : ''}`}
-            />
-            <Search size={14} className="input-search-icon" />
-          </div>
-          
-          {categoriaDropdownOpen && categoriasFiltradas && categoriasFiltradas.length > 0 && (
-            <div className="dropdown-options">
-              {categoriasFiltradas.map(categoria => (
-                <div
-                  key={categoria.id}
-                  onMouseDown={() => handleSelecionarCategoria(categoria)}
-                  className="dropdown-option"
-                >
-                  <div 
-                    className="category-color-tag"
-                    style={{backgroundColor: categoria.cor || '#10b981'}}
-                  ></div>
-                  {categoria.nome}
-                </div>
-              ))}
-            </div>
-          )}
+    {/* Categoria com autocomplete */}
+    <div className="form-group">
+      <label className="form-label">
+        <Tag size={14} />
+        Categoria *
+      </label>
+      <div className="dropdown-container">
+        <div style={{position: 'relative'}}>
+          <input
+            type="text"
+            value={transactionData.categoria_texto}
+            onChange={handleCategoriaChange}
+            onBlur={handleCategoriaBlur}
+            onFocus={() => setCategoriaDropdownOpen(true)}
+            placeholder="Digite ou selecione uma categoria"
+            disabled={loading}
+            autoComplete="off"
+            className={input-text input-with-icon ${!transactionData.categoria_id ? 'input-muted' : ''} ${errors.categoria_id ? 'error' : ''}}
+          />
+          <Search size={14} className="input-search-icon" />
         </div>
-        {errors.categoria_id && <div className="form-error">{errors.categoria_id}</div>}
+
+        {categoriaDropdownOpen && categoriasFiltradas && categoriasFiltradas.length > 0 && (
+          <div className="dropdown-options">
+            {categoriasFiltradas.map(categoria => (
+              <div
+                key={categoria.id}
+                onMouseDown={() => handleSelecionarCategoria(categoria)}
+                className="dropdown-option"
+              >
+                <div 
+                  className="category-color-tag"
+                  style={{backgroundColor: categoria.cor || '
+#10b981'}}
+                ></div>
+                {categoria.nome}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-      
-      <div className="form-group" style={{ flex: 1 }}>
+      {errors.categoria_id && <div className="form-error">{errors.categoria_id}</div>}
+    </div>
+    {/* Subcategoria */}
+    {transactionData.categoria_id && (
+      <div className="form-group">
         <label className="form-label">
           <Tag size={14} />
           Subcategoria
@@ -851,39 +853,27 @@ const renderReceitaDespesaFields = () => (
             onBlur={handleSubcategoriaBlur}
             onFocus={() => setSubcategoriaDropdownOpen(true)}
             placeholder="Digite ou selecione uma subcategoria"
-            disabled={loading || !transactionData.categoria_id}
+            disabled={loading}
             autoComplete="off"
             className="input-text"
-            style={{ opacity: !transactionData.categoria_id ? 0.6 : 1 }}
           />
-          
+
           {subcategoriaDropdownOpen && subcategoriasFiltradas && subcategoriasFiltradas.length > 0 && (
             <div className="dropdown-options">
-              {subcategoriasFiltradas.map(subcategoria => {
-                const categoriaAtual = categorias.find(cat => cat.id === transactionData.categoria_id);
-                const corCategoria = categoriaAtual?.cor || '#10b981';
-                
-                return (
-                  <div
-                    key={subcategoria.id}
-                    onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
-                    className="dropdown-option"
-                  >
-                    <div 
-                      className="category-color-tag"
-                      style={{backgroundColor: corCategoria}}
-                    ></div>
-                    {subcategoria.nome}
-                  </div>
-                );
-              })}
+              {subcategoriasFiltradas.map(subcategoria => (
+                <div
+                  key={subcategoria.id}
+                  onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
+                  className="dropdown-option"
+                >
+                  {subcategoria.nome}
+                </div>
+              ))}
             </div>
           )}
         </div>
       </div>
-    </div>
-  </div>
-)
+    )}
     
 
     {/* Conta */}
