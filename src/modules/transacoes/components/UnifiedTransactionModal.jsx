@@ -208,7 +208,7 @@ const UnifiedTransactionModal = ({
     },
     {
       id: 'cartao',
-      nome: 'Cartão',
+      nome: 'Despesa de cartão',
       icone: <CreditCard size={18} />,
       cor: '#8b5cf6',
       corHeader: 'cartao-header',
@@ -217,7 +217,7 @@ const UnifiedTransactionModal = ({
     },
     {
       id: 'transferencia',
-      nome: 'Transferir',
+      nome: 'Transferência',
       icone: <ArrowRightLeft size={18} />,
       cor: '#3b82f6',
       corHeader: 'transferencia-header',
@@ -779,7 +779,7 @@ const renderFormFields = () => {
     );
   }
 
-  switch(transactionData.tipo) {
+ switch(transactionData.tipo) {
     case 'receita':
     case 'despesa':
       return renderReceitaDespesaFields();
@@ -792,56 +792,56 @@ const renderFormFields = () => {
   }
 };
 
-
 // ===== RENDER CAMPOS RECEITA/DESPESA =====
 const renderReceitaDespesaFields = () => (
   <div className="form-fields-receita-despesa">
-    {/* Categoria com autocomplete */}
-    <div className="form-group">
-      <label className="form-label">
-        <Tag size={14} />
-        Categoria *
-      </label>
-      <div className="dropdown-container">
-        <div style={{position: 'relative'}}>
-          <input
-            type="text"
-            value={transactionData.categoria_texto}
-            onChange={handleCategoriaChange}
-            onBlur={handleCategoriaBlur}
-            onFocus={() => setCategoriaDropdownOpen(true)}
-            placeholder="Digite ou selecione uma categoria"
-            disabled={loading}
-            autoComplete="off"
-            className={`input-text input-with-icon ${!transactionData.categoria_id ? 'input-muted' : ''} ${errors.categoria_id ? 'error' : ''}`}
-          />
-          <Search size={14} className="input-search-icon" />
-        </div>
-        
-        {categoriaDropdownOpen && categoriasFiltradas && categoriasFiltradas.length > 0 && (
-          <div className="dropdown-options">
-            {categoriasFiltradas.map(categoria => (
-              <div
-                key={categoria.id}
-                onMouseDown={() => handleSelecionarCategoria(categoria)}
-                className="dropdown-option"
-              >
-                <div 
-                  className="category-color-tag"
-                  style={{backgroundColor: categoria.cor || '#10b981'}}
-                ></div>
-                {categoria.nome}
-              </div>
-            ))}
+    {/* Categoria e Subcategoria em linha */}
+    <div style={{display: 'flex', gap: '16px', width: '100%'}}>
+      {/* Categoria com autocomplete */}
+      <div className="form-group" style={{flex: 1, width: '50%'}}>
+        <label className="form-label">
+          <Tag size={14} />
+          Categoria *
+        </label>
+        <div className="dropdown-container">
+          <div style={{position: 'relative'}}>
+            <input
+              type="text"
+              value={transactionData.categoria_texto}
+              onChange={handleCategoriaChange}
+              onBlur={handleCategoriaBlur}
+              onFocus={() => setCategoriaDropdownOpen(true)}
+              placeholder="Digite ou selecione uma categoria"
+              disabled={loading}
+              autoComplete="off"
+              className={`input-text input-with-icon ${!transactionData.categoria_id ? 'input-muted' : ''} ${errors.categoria_id ? 'error' : ''}`}
+            />
+            <Search size={14} className="input-search-icon" />
           </div>
-        )}
+          
+          {categoriaDropdownOpen && categoriasFiltradas && categoriasFiltradas.length > 0 && (
+            <div className="dropdown-options">
+              {categoriasFiltradas.map(categoria => (
+                <div
+                  key={categoria.id}
+                  onMouseDown={() => handleSelecionarCategoria(categoria)}
+                  className="dropdown-option"
+                >
+                  <div 
+                    className="category-color-tag"
+                    style={{backgroundColor: categoria.cor || '#10b981'}}
+                  ></div>
+                  {categoria.nome}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {errors.categoria_id && <div className="form-error">{errors.categoria_id}</div>}
       </div>
-      {errors.categoria_id && <div className="form-error">{errors.categoria_id}</div>}
-    </div>
 
-    {/* Subcategoria */}
-    {transactionData.categoria_id && (
-      <div className="form-group">
+      {/* Subcategoria */}
+      <div className="form-group" style={{flex: 1, width: '50%'}}>
         <label className="form-label">
           <Tag size={14} />
           Subcategoria
@@ -854,7 +854,7 @@ const renderReceitaDespesaFields = () => (
             onBlur={handleSubcategoriaBlur}
             onFocus={() => setSubcategoriaDropdownOpen(true)}
             placeholder="Digite ou selecione uma subcategoria"
-            disabled={loading}
+            disabled={loading || !transactionData.categoria_id}
             autoComplete="off"
             className="input-text"
           />
@@ -867,6 +867,10 @@ const renderReceitaDespesaFields = () => (
                   onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
                   className="dropdown-option"
                 >
+                  <div 
+                    className="category-color-tag"
+                    style={{backgroundColor: categoriasFiltradas?.find(cat => cat.id === transactionData.categoria_id)?.cor || '#10b981'}}
+                  ></div>
                   {subcategoria.nome}
                 </div>
               ))}
@@ -874,10 +878,8 @@ const renderReceitaDespesaFields = () => (
           )}
         </div>
       </div>
-    )}
+    </div>
     
-    
-
     {/* Conta */}
     <div className="form-group">
       <label className="form-label">
