@@ -795,9 +795,7 @@ const renderFormFields = () => {
 // ===== RENDER CAMPOS RECEITA/DESPESA =====
 const renderReceitaDespesaFields = () => (
   <div className="form-fields-receita-despesa">
-    {/* Container para Categoria e Subcategoria lado a lado */}
     <div style={{ display: 'flex', gap: '16px', width: '100%' }}>
-      {/* Categoria com autocomplete */}
       <div className="form-group" style={{ flex: 1 }}>
         <label className="form-label">
           <Tag size={14} />
@@ -840,7 +838,6 @@ const renderReceitaDespesaFields = () => (
         {errors.categoria_id && <div className="form-error">{errors.categoria_id}</div>}
       </div>
       
-      {/* Subcategoria - sempre visível */}
       <div className="form-group" style={{ flex: 1 }}>
         <label className="form-label">
           <Tag size={14} />
@@ -863,7 +860,6 @@ const renderReceitaDespesaFields = () => (
           {subcategoriaDropdownOpen && subcategoriasFiltradas && subcategoriasFiltradas.length > 0 && (
             <div className="dropdown-options">
               {subcategoriasFiltradas.map(subcategoria => {
-                // Buscar a categoria selecionada para pegar a cor
                 const categoriaAtual = categorias.find(cat => cat.id === transactionData.categoria_id);
                 const corCategoria = categoriaAtual?.cor || '#10b981';
                 
