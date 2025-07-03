@@ -792,6 +792,7 @@ const renderFormFields = () => {
   }
 };
 
+
 // ===== RENDER CAMPOS RECEITA/DESPESA =====
 const renderReceitaDespesaFields = () => (
   <div className="form-fields-receita-despesa">
@@ -812,11 +813,11 @@ const renderReceitaDespesaFields = () => (
             placeholder="Digite ou selecione uma categoria"
             disabled={loading}
             autoComplete="off"
-            className={input-text input-with-icon ${!transactionData.categoria_id ? 'input-muted' : ''} ${errors.categoria_id ? 'error' : ''}}
+            className={`input-text input-with-icon ${!transactionData.categoria_id ? 'input-muted' : ''} ${errors.categoria_id ? 'error' : ''}`}
           />
           <Search size={14} className="input-search-icon" />
         </div>
-
+        
         {categoriaDropdownOpen && categoriasFiltradas && categoriasFiltradas.length > 0 && (
           <div className="dropdown-options">
             {categoriasFiltradas.map(categoria => (
@@ -827,8 +828,7 @@ const renderReceitaDespesaFields = () => (
               >
                 <div 
                   className="category-color-tag"
-                  style={{backgroundColor: categoria.cor || '
-#10b981'}}
+                  style={{backgroundColor: categoria.cor || '#10b981'}}
                 ></div>
                 {categoria.nome}
               </div>
@@ -838,6 +838,7 @@ const renderReceitaDespesaFields = () => (
       </div>
       {errors.categoria_id && <div className="form-error">{errors.categoria_id}</div>}
     </div>
+
     {/* Subcategoria */}
     {transactionData.categoria_id && (
       <div className="form-group">
@@ -857,7 +858,7 @@ const renderReceitaDespesaFields = () => (
             autoComplete="off"
             className="input-text"
           />
-
+          
           {subcategoriaDropdownOpen && subcategoriasFiltradas && subcategoriasFiltradas.length > 0 && (
             <div className="dropdown-options">
               {subcategoriasFiltradas.map(subcategoria => (
@@ -874,6 +875,7 @@ const renderReceitaDespesaFields = () => (
         </div>
       </div>
     )}
+    
     
 
     {/* Conta */}
