@@ -1737,7 +1737,7 @@ useEffect(() => {
 if (!isOpen) return null;
 
 return (
-  <div className="modal-overlay active">
+    <div className="modal-overlay active" data-modal="unified-transaction">
     <div className="forms-modal-container">
       
       {/* Header dinâmico */}
