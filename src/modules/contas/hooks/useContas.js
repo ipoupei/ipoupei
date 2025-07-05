@@ -110,7 +110,7 @@ const useContas = () => {
 
       // ✅ Calcular saldo total (usando função SQL ou localmente)
       const { data: saldoSQL, error: erroSaldo } = await supabase
-        .rpc('gpt_saldo_atual', { usuario: user.id });
+        .rpc('IP_Prod_calcular_saldo_atual', { usuario: user.id });
 
       if (erroSaldo) {
         console.warn('Erro na função SQL de saldo total:', erroSaldo);

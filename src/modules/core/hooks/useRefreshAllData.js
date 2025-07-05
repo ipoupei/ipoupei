@@ -2,7 +2,7 @@
 import { useRef } from 'react';
 import { useTransactionsStore } from '@/modules/transacoes/store/transactionsStore';
 import useContas from '@/modules/contas/hooks/useContas';
-import useDashboardData from '@/modules/dashboard/hooks/useDashboardData';
+import { useDashboardData } from '@modules/dashboard/store/dashboardStore';
 import { useAuthStore } from '@/modules/auth/store/authStore';
 
 /**

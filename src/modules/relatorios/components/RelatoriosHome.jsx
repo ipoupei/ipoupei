@@ -21,7 +21,8 @@ import { useReports } from '@old_context/old_ReportsContext';
 import { formatCurrency } from '@utils/formatCurrency';
 
 
-import useDashboardData from '@modules/dashboard/hooks/useDashboardData';
+import { useDashboardData } from '@modules/dashboard/store/dashboardStore';
+
 
 
 /**
