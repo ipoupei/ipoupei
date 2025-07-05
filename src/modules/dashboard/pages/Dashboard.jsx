@@ -25,10 +25,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import useAuth from "@modules/auth/hooks/useAuth";
 import { useDashboardData } from '@modules/dashboard/store/dashboardStore';
 
-
-
-import usePeriodo from '@modules/transacoes/hooks/usePeriodo';
-
 // Utilitários
 import { formatCurrency } from '@shared/utils/formatCurrency';
 import { getCurrentMonthName } from '@shared/utils/getCurrentMonthName';
@@ -42,10 +38,11 @@ import DetalhesDoDiaModal from '@modules/dashboard/components/DetalhesDoDiaModal
 // CSS modularizado
 import '../styles/Dashboard.css';
 
-console.log('🔥 DASHBOARD.JSX CARREGADO');
+console.log('🔥 DASHBOARD.JSX CARREGADO - VERSÃO MODERNIZADA');
 
 /**
- * Dashboard - Versão REFINADA E MODERNIZADA
+ * Dashboard - Versão MODERNIZADA E CONECTADA AO NOVO STORE
+ * ✅ Conectado ao novo dashboardStore com controles de período
  * ✅ Visual aprimorado com melhor hierarquia
  * ✅ Insights inteligentes baseados nos dados
  * ✅ Loading state customizado (skeleton)
@@ -57,17 +54,24 @@ console.log('🔥 DASHBOARD.JSX CARREGADO');
 const Dashboard = () => {
   const navigate = useNavigate();
   
-  // ✅ TODOS OS HOOKS NO TOPO - SEMPRE NA MESMA ORDEM
+  // ✅ HOOKS MODERNIZADOS - CONECTADOS AO NOVO STORE
   const { user, isAuthenticated, loading: authLoading } = useAuth();
-  const { data, loading, error, refreshData } = useDashboardData();
   const { 
-    currentDate,
-    navigateMonth, 
-    goToToday, 
+    data, 
+    loading, 
+    error, 
+    refreshData,
+    selectedDate,
+    navigateMonth,
+    goToToday,
     isCurrentMonth,
-    getFormattedPeriod,
-    getCurrentMonth
-  } = usePeriodo();
+    getCurrentPeriod
+  } = useDashboardData();
+
+  // ✅ FUNÇÕES DE COMPATIBILIDADE
+  const currentDate = selectedDate || new Date();
+  const getFormattedPeriod = () => getCurrentPeriod().formatado;
+  const getCurrentMonth = () => getCurrentPeriod().formatado;
   
   // Estados locais
   const [diaDetalhes, setDiaDetalhes] = useState(null);
@@ -81,15 +85,17 @@ const Dashboard = () => {
 
   // ✅ EFFECTS SEMPRE NO MESMO LOCAL
   useEffect(() => {
-    console.log('📅 Dashboard período:', getFormattedPeriod());
-  }, [currentDate]);
+    console.log('📅 Dashboard período conectado ao store:', getFormattedPeriod());
+  }, [selectedDate]);
 
   // ✅ HANDLERS SEMPRE NO MESMO LOCAL
   const handleNavigateMonth = (direction) => {
+    console.log('📅 Navegando mês:', direction);
     navigateMonth(direction);
   };
 
   const handleGoToToday = () => {
+    console.log('📅 Voltando para hoje');
     goToToday();
   };
 
@@ -197,65 +203,63 @@ const Dashboard = () => {
     return insights.slice(0, 3); // Máximo 3 insights
   };
 
+  // 🎯 Tooltip customizado simples
+  const SparklineTooltip = ({ active, payload, dataKey }) => {
+    if (!active || !payload || !payload.length) return null;
 
-// 🎯 Tooltip customizado simples - coloque no topo do componente
-const SparklineTooltip = ({ active, payload, dataKey }) => {
-  if (!active || !payload || !payload.length) return null;
+    const data = payload[0];
+    const value = data.value;
+    const mesNome = data.payload?.mes_nome || 'N/A';
+    
+    // Determinar cor baseada no tipo
+    let cor = '#333';
+    if (dataKey === 'saldo_acumulado') {
+      cor = value >= 0 ? '#008080' : '#DC3545';
+    } else if (dataKey === 'total_receitas') {
+      cor = '#008080';
+    } else if (dataKey === 'total_despesas') {
+      cor = '#DC3545';
+    }
 
-  const data = payload[0];
-  const value = data.value;
-  const mesNome = data.payload?.mes_nome || 'N/A';
-  
-  // Determinar cor baseada no tipo
-  let cor = '#333';
-  if (dataKey === 'saldo_acumulado') {
-    cor = value >= 0 ? '#008080' : '#DC3545';
-  } else if (dataKey === 'total_receitas') {
-    cor = '#008080';
-  } else if (dataKey === 'total_despesas') {
-    cor = '#DC3545';
-  }
-
-  return (
-    <div style={{
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-      border: '1px solid #e0e0e0',
-      borderRadius: '6px',
-      padding: '8px 12px',
-      fontSize: '12px',
-      fontWeight: '500',
-      color: cor,
-      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-      textAlign: 'center'
-    }}>
-      {mesNome}-{formatCurrency(value)}
-    </div>
-  );
-};
-
+    return (
+      <div style={{
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        border: '1px solid #e0e0e0',
+        borderRadius: '6px',
+        padding: '8px 12px',
+        fontSize: '12px',
+        fontWeight: '500',
+        color: cor,
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+        textAlign: 'center'
+      }}>
+        {mesNome}-{formatCurrency(value)}
+      </div>
+    );
+  };
 
   // ✅ NOVA FUNCIONALIDADE: Gerar dados para sparklines (mini gráficos)
-const gerarDadosSparkline = (tipo) => {
-  // ✅ Usar dados reais se disponíveis
-  if (data?.sparklineData && data.sparklineData[tipo]) {
-    console.log(`📈 Usando dados REAIS para sparkline ${tipo}:`, data.sparklineData[tipo].length, 'pontos');
-    return data.sparklineData[tipo];
-  }
+  const gerarDadosSparkline = (tipo) => {
+    // ✅ Usar dados reais se disponíveis
+    if (data?.sparklineData && data.sparklineData[tipo]) {
+      console.log(`📈 Usando dados REAIS para sparkline ${tipo}:`, data.sparklineData[tipo].length, 'pontos');
+      return data.sparklineData[tipo];
+    }
 
-  // ✅ Fallback para dados simulados (apenas se RPC falhar)
-  console.warn(`⚠️ Dados reais não disponíveis para ${tipo}, usando simulados`);
-  
-  const baseValue = tipo === 'saldo' ? data?.saldo?.atual || 0 : 
-                   tipo === 'receitas' ? data?.receitas?.atual || 0 :
-                   data?.despesas?.atual || 0;
-  
-  return Array.from({ length: 6 }, (_, i) => ({
-    x: i,
-    y: baseValue * (0.8 + Math.random() * 0.4), // Variação de ±20%
-    mes: ['Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul'][i] || `M${i+1}`,
-    valor: baseValue * (0.8 + Math.random() * 0.4)
-  }));
-};
+    // ✅ Fallback para dados simulados (apenas se RPC falhar)
+    console.warn(`⚠️ Dados reais não disponíveis para ${tipo}, usando simulados`);
+    
+    const baseValue = tipo === 'saldo' ? data?.saldo?.atual || 0 : 
+                     tipo === 'receitas' ? data?.receitas?.atual || 0 :
+                     data?.despesas?.atual || 0;
+    
+    return Array.from({ length: 6 }, (_, i) => ({
+      x: i,
+      y: baseValue * (0.8 + Math.random() * 0.4), // Variação de ±20%
+      mes: ['Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul'][i] || `M${i+1}`,
+      valor: baseValue * (0.8 + Math.random() * 0.4)
+    }));
+  };
 
   // ✅ EXTRAIR DADOS SEGUROS - SEMPRE NO MESMO LOCAL
   const dadosSegurosSaldo = data?.saldo || { atual: 0, previsto: 0 };
@@ -268,10 +272,10 @@ const gerarDadosSparkline = (tipo) => {
   const despesasPorCategoria = data?.despesasPorCategoria || [];
   const insights = calcularInsights();
 
-  // ✅ PERÍODO FORMATADO
+  // ✅ PERÍODO FORMATADO - CONECTADO AO STORE
   const periodoFormatado = getFormattedPeriod();
 
-  // ✅ COMPONENTE: Skeleton Loading (Novo)
+  // ✅ COMPONENTE: Skeleton Loading
   const SkeletonLoading = () => (
     <div className="dashboard">
       {/* Skeleton para seletor de período */}
@@ -299,11 +303,6 @@ const gerarDadosSparkline = (tipo) => {
         <div className="skeleton skeleton--insights"></div>
       </section>
 
-      {/* Skeleton para acesso rápido */}
-      <section className="dashboard__quick-access-section">
-        <div className="skeleton skeleton--quick-access"></div>
-      </section>
-
       {/* Skeleton para gráficos */}
       <section className="dashboard__charts-section">
         <div className="dashboard__charts-grid">
@@ -314,114 +313,114 @@ const gerarDadosSparkline = (tipo) => {
     </div>
   );
 
-  // ✅ COMPONENTE: Mini Sparkline (Novo)
+  // ✅ COMPONENTE: Mini Sparkline
   const MiniSparkline = ({ data, color = '#10b981', width = 60, height = 20 }) => {
-  const [hoveredPoint, setHoveredPoint] = useState(null);
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+    const [hoveredPoint, setHoveredPoint] = useState(null);
+    const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
-  if (!data || data.length === 0) return null;
+    if (!data || data.length === 0) return null;
 
-  const maxY = Math.max(...data.map(d => d.y));
-  const minY = Math.min(...data.map(d => d.y));
-  const range = maxY - minY || 1;
+    const maxY = Math.max(...data.map(d => d.y));
+    const minY = Math.min(...data.map(d => d.y));
+    const range = maxY - minY || 1;
 
-  const points = data.map((point, i) => {
-    const x = (i / (data.length - 1)) * width;
-    const y = height - ((point.y - minY) / range) * height;
-    return { x, y, originalData: point, index: i };
-  });
+    const points = data.map((point, i) => {
+      const x = (i / (data.length - 1)) * width;
+      const y = height - ((point.y - minY) / range) * height;
+      return { x, y, originalData: point, index: i };
+    });
 
-  const pathPoints = points.map(p => `${p.x},${p.y}`).join(' ');
+    const pathPoints = points.map(p => `${p.x},${p.y}`).join(' ');
 
-  const handleMouseMove = (event) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const mouseX = event.clientX - rect.left;
-    const mouseY = event.clientY - rect.top;
-    
-    // Encontrar o ponto mais próximo
-    const closest = points.reduce((prev, curr) => 
-      Math.abs(curr.x - mouseX) < Math.abs(prev.x - mouseX) ? curr : prev
-    );
-    
-    setHoveredPoint(closest);
-    setMousePosition({ x: event.clientX, y: event.clientY });
-  };
-
-  const handleMouseLeave = () => {
-    setHoveredPoint(null);
-  };
-
-  return (
-    <div className="mini-sparkline-container" style={{ position: 'relative' }}>
-      <svg 
-        width={width} 
-        height={height} 
-        className="mini-sparkline"
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-        style={{ cursor: 'crosshair' }}
-      >
-        {/* Linha principal */}
-        <polyline
-          points={pathPoints}
-          fill="none"
-          stroke={color}
-          strokeWidth="1.5"
-          strokeLinejoin="round"
-          strokeLinecap="round"
-        />
-        
-        {/* Pontos de hover */}
-        {points.map((point, index) => (
-          <circle
-            key={index}
-            cx={point.x}
-            cy={point.y}
-            r={hoveredPoint?.index === index ? 2 : 0}
-            fill={color}
-            className="sparkline-point"
-            style={{ 
-              opacity: hoveredPoint?.index === index ? 1 : 0,
-              transition: 'all 0.2s'
-            }}
-          />
-        ))}
-      </svg>
+    const handleMouseMove = (event) => {
+      const rect = event.currentTarget.getBoundingClientRect();
+      const mouseX = event.clientX - rect.left;
+      const mouseY = event.clientY - rect.top;
       
-      {/* Tooltip */}
-      {hoveredPoint && (
-        <div 
-          className="sparkline-tooltip"
-          style={{
-            position: 'fixed',
-            left: mousePosition.x + 10,
-            top: mousePosition.y - 30,
-            background: 'rgba(0, 0, 0, 0.8)',
-            color: 'white',
-            padding: '4px 8px',
-            borderRadius: '4px',
-            fontSize: '12px',
-            pointerEvents: 'none',
-            zIndex: 1000,
-            whiteSpace: 'nowrap'
-          }}
-        >
-          <div>{hoveredPoint.originalData.mes || 'Mês'}</div>
-          <div style={{ fontWeight: 'bold' }}>
-            {hoveredPoint.originalData.valor?.toLocaleString('pt-BR', { 
-              style: 'currency', 
-              currency: 'BRL',
-              minimumFractionDigits: 0,
-              maximumFractionDigits: 0
-            }) || 'R$ 0'}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
+      // Encontrar o ponto mais próximo
+      const closest = points.reduce((prev, curr) => 
+        Math.abs(curr.x - mouseX) < Math.abs(prev.x - mouseX) ? curr : prev
+      );
+      
+      setHoveredPoint(closest);
+      setMousePosition({ x: event.clientX, y: event.clientY });
+    };
 
-  // ✅ COMPONENTE: Seção de Insights (Nova)
+    const handleMouseLeave = () => {
+      setHoveredPoint(null);
+    };
+
+    return (
+      <div className="mini-sparkline-container" style={{ position: 'relative' }}>
+        <svg 
+          width={width} 
+          height={height} 
+          className="mini-sparkline"
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+          style={{ cursor: 'crosshair' }}
+        >
+          {/* Linha principal */}
+          <polyline
+            points={pathPoints}
+            fill="none"
+            stroke={color}
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+          
+          {/* Pontos de hover */}
+          {points.map((point, index) => (
+            <circle
+              key={index}
+              cx={point.x}
+              cy={point.y}
+              r={hoveredPoint?.index === index ? 2 : 0}
+              fill={color}
+              className="sparkline-point"
+              style={{ 
+                opacity: hoveredPoint?.index === index ? 1 : 0,
+                transition: 'all 0.2s'
+              }}
+            />
+          ))}
+        </svg>
+        
+        {/* Tooltip */}
+        {hoveredPoint && (
+          <div 
+            className="sparkline-tooltip"
+            style={{
+              position: 'fixed',
+              left: mousePosition.x + 10,
+              top: mousePosition.y - 30,
+              background: 'rgba(0, 0, 0, 0.8)',
+              color: 'white',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              pointerEvents: 'none',
+              zIndex: 1000,
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <div>{hoveredPoint.originalData.mes || 'Mês'}</div>
+            <div style={{ fontWeight: 'bold' }}>
+              {hoveredPoint.originalData.valor?.toLocaleString('pt-BR', { 
+                style: 'currency', 
+                currency: 'BRL',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+              }) || 'R$ 0'}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ✅ COMPONENTE: Seção de Insights
   const InsightsSection = () => {
     if (insights.length === 0) return null;
 
@@ -430,7 +429,7 @@ const gerarDadosSparkline = (tipo) => {
         <div className="dashboard__insights-header">
           <div className="dashboard__insights-title-group">
             <Lightbulb size={20} className="dashboard__insights-icon" />
-            <h3 className="dashboard__insights-title"> Insights Rápidos</h3>
+            <h3 className="dashboard__insights-title">💡 Insights Rápidos</h3>
           </div>
         </div>
         
@@ -490,7 +489,7 @@ const gerarDadosSparkline = (tipo) => {
   return (
     <div className="dashboard">
       
-      {/* Seletor de Período - Aprimorado */}
+      {/* Seletor de Período - CONECTADO AO STORE */}
       <section className="dashboard__period-section">
         <div className="dashboard__period-wrapper">
           <div className="dashboard__period-controls">
@@ -551,7 +550,6 @@ const gerarDadosSparkline = (tipo) => {
                   <div className="dashboard__card-icon">
                     <Wallet size={24} />
                   </div>
-
                 </div>
                 <div className="dashboard__card-content">
                   <h3 className="dashboard__card-title">Saldo Atual</h3>
@@ -604,7 +602,6 @@ const gerarDadosSparkline = (tipo) => {
                   <div className="dashboard__card-icon">
                     <TrendingUp size={24} />
                   </div>
-
                 </div>
                 <div className="dashboard__card-content">
                   <h3 className="dashboard__card-title">Receitas</h3>
@@ -658,7 +655,6 @@ const gerarDadosSparkline = (tipo) => {
                   <div className="dashboard__card-icon">
                     <TrendingDown size={24} />
                   </div>
-
                 </div>
                 <div className="dashboard__card-content">
                   <h3 className="dashboard__card-title">Despesas</h3>
@@ -712,8 +708,6 @@ const gerarDadosSparkline = (tipo) => {
                   <div className="dashboard__card-icon">
                     <CreditCard size={24} />
                   </div>
-                  <div className="dashboard__card-usage">
-                   </div>
                 </div>
                 <div className="dashboard__card-content">
                   <h3 className="dashboard__card-title">Cartões</h3>
@@ -758,7 +752,6 @@ const gerarDadosSparkline = (tipo) => {
       {/* Seção de Insights - Nova */}
       <InsightsSection />
 
-
       {/* Gráficos - Aprimorados */}
       <section className="dashboard__charts-section">
         <div className="dashboard__charts-grid">
@@ -776,7 +769,7 @@ const gerarDadosSparkline = (tipo) => {
             </div>
             
             <div className="dashboard__chart-container">
-              {receitasPorCategoria.length > 0 ? (
+              {receitasPorCategoria.length > 0 && receitasPorCategoria[0].nome !== "Nenhuma receita" ? (
                 <DonutChartCategoria data={receitasPorCategoria} />
               ) : (
                 <div className="dashboard__chart-empty">
@@ -787,7 +780,7 @@ const gerarDadosSparkline = (tipo) => {
                   <p className="chart-empty-description">
                     Que tal começar registrando sua primeira receita?
                   </p>
-                  <Link to="/transacoes/nova-receita" className="chart-empty-button">
+                  <Link to="/transacoes" className="chart-empty-button">
                     <Plus size={16} />
                     Adicionar receita
                   </Link>
@@ -809,7 +802,7 @@ const gerarDadosSparkline = (tipo) => {
             </div>
             
             <div className="dashboard__chart-container">
-              {despesasPorCategoria.length > 0 ? (
+              {despesasPorCategoria.length > 0 && despesasPorCategoria[0].nome !== "Nenhuma despesa" ? (
                 <DonutChartCategoria data={despesasPorCategoria} />
               ) : (
                 <div className="dashboard__chart-empty">
@@ -820,7 +813,7 @@ const gerarDadosSparkline = (tipo) => {
                   <p className="chart-empty-description">
                     Registre suas despesas para acompanhar onde seu dinheiro vai
                   </p>
-                  <Link to="/transacoes/nova-despesa" className="chart-empty-button">
+                  <Link to="/transacoes" className="chart-empty-button">
                     <Plus size={16} />
                     Adicionar despesa
                   </Link>
@@ -831,7 +824,7 @@ const gerarDadosSparkline = (tipo) => {
         </div>
       </section>
 
-      {/* Calendário - Aprimorado */}
+      {/* Calendário - Conectado ao período do store */}
       <section className="dashboard__calendar-section">
         <div className="dashboard__section-header">
           <div className="dashboard__section-title-group">

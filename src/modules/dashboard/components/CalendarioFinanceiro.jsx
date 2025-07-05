@@ -1,21 +1,26 @@
-// src/modules/dashboard/components/CalendarioFinanceiro.jsx - RPC CORRIGIDO
+// src/modules/dashboard/components/CalendarioFinanceiro.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDate, isSameDay, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { formatCurrency } from '@utils/formatCurrency';
+import { formatCurrency } from '@shared/utils/formatCurrency';
 import { supabase } from '@lib/supabaseClient';
 import useAuth from '@modules/auth/hooks/useAuth';
+import { useDashboardData } from '@modules/dashboard/store/dashboardStore';
 import '@modules/dashboard/styles/CalendarioFinanceiro.css';
 
 /**
- * Calendário Financeiro - VERSÃO COM RPC CORRIGIDO
- * ✅ Corrigiu nomes dos parâmetros das funções RPC
- * ✅ Melhor tratamento de erros
- * ✅ Logs detalhados para debug
- * ✅ Fallback robusto para consultas diretas
+ * 📅 CALENDÁRIO FINANCEIRO MODERNIZADO - iPoupei
+ * ✅ Conectado ao dashboardStore para sincronização de período
+ * ✅ Queries diretas robustas (sem dependência de RPCs)
+ * ✅ Performance otimizada com cache inteligente
+ * ✅ UI responsiva e interativa
+ * ✅ Compatibilidade total com seletor de período
  */
-const CalendarioFinanceiro = ({ mes = new Date().getMonth(), ano = new Date().getFullYear(), onDiaClick }) => {
+const CalendarioFinanceiro = ({ onDiaClick }) => {
   const { user, isAuthenticated } = useAuth();
+  const { selectedDate, getCurrentPeriod } = useDashboardData();
+  
+  // ✅ Estados locais otimizados
   const [diasDoMes, setDiasDoMes] = useState([]);
   const [movimentosPorDia, setMovimentosPorDia] = useState({});
   const [hoveredDay, setHoveredDay] = useState(null);
@@ -27,20 +32,53 @@ const CalendarioFinanceiro = ({ mes = new Date().getMonth(), ano = new Date().ge
     saldoMes: 0
   });
 
-  // Calcula período do mês de forma segura
+  // ✅ Cache local para performance
+  const [cache, setCache] = useState({
+    periodo: null,
+    dados: null,
+    timestamp: null
+  });
+
+  // ✅ Período conectado ao store
+  const periodoAtual = getCurrentPeriod();
+  const dataReferencia = selectedDate || new Date();
+
+  // ✅ Calcula período do mês de forma segura e reativa
   const periodoMes = useMemo(() => {
     try {
+      const mes = dataReferencia.getMonth();
+      const ano = dataReferencia.getFullYear();
       const primeiroDia = startOfMonth(new Date(ano, mes));
       const ultimoDia = endOfMonth(primeiroDia);
+      
+      console.log('📅 Período calculado para calendário:', {
+        mes: mes + 1,
+        ano,
+        periodo: periodoAtual.formatado,
+        inicio: format(primeiroDia, 'yyyy-MM-dd'),
+        fim: format(ultimoDia, 'yyyy-MM-dd')
+      });
+      
       return { primeiroDia, ultimoDia };
     } catch (err) {
-      console.error('Erro ao calcular período:', err);
+      console.error('❌ Erro ao calcular período:', err);
       const hoje = new Date();
       const primeiroDia = startOfMonth(hoje);
       const ultimoDia = endOfMonth(hoje);
       return { primeiroDia, ultimoDia };
     }
-  }, [mes, ano]);
+  }, [dataReferencia, periodoAtual]);
+
+  // ✅ Verificar se cache é válido
+  const isCacheValido = () => {
+    if (!cache.dados || !cache.periodo || !cache.timestamp) return false;
+    
+    const periodoFormatado = `${format(periodoMes.primeiroDia, 'yyyy-MM')}`;
+    const tempoDecorrido = Date.now() - cache.timestamp;
+    const cacheExpired = tempoDecorrido > 2 * 60 * 1000; // 2 minutos
+    
+    return cache.periodo === periodoFormatado && !cacheExpired;
+  };
 
   // ✅ Função para converter data de forma segura
   const parseDataSegura = (dataString) => {
@@ -64,88 +102,16 @@ const CalendarioFinanceiro = ({ mes = new Date().getMonth(), ano = new Date().ge
           const dataLocal = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia), 12, 0, 0);
           if (isValid(dataLocal)) return dataLocal;
         }
-        
-        if (dataString.includes('/')) {
-          const [dia, mes, ano] = dataString.split('/');
-          const converted = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia), 12, 0, 0);
-          if (isValid(converted)) return converted;
-        }
       }
       
       return null;
     } catch (err) {
-      console.warn('Erro ao converter data:', dataString, err);
+      console.warn('⚠️ Erro ao converter data:', dataString, err);
       return null;
     }
   };
 
-  // ✅ Busca totais com parâmetros corrigidos
-  const fetchTotaisMes = async () => {
-    if (!isAuthenticated || !user) {
-      return { totalReceitas: 0, totalDespesas: 0, saldoMes: 0 };
-    }
-
-    try {
-      const dataInicio = format(periodoMes.primeiroDia, 'yyyy-MM-dd');
-      const dataFim = format(periodoMes.ultimoDia, 'yyyy-MM-dd');
-
-      console.log('📊 Buscando totais do mês:', { dataInicio, dataFim, userId: user.id });
-
-      let totalReceitas = 0;
-      let totalDespesas = 0;
-
-      // ✅ Query direta sempre como fallback confiável
-      try {
-        const [receitasResult, despesasResult] = await Promise.all([
-          supabase
-            .from('transacoes')
-            .select('valor')
-            .eq('usuario_id', user.id)
-            .eq('tipo', 'receita')
-            .gte('data', dataInicio)
-            .lte('data', dataFim)
-            .or('transferencia.is.null,transferencia.eq.false'),
-          supabase
-            .from('transacoes')
-            .select('valor')
-            .eq('usuario_id', user.id)
-            .eq('tipo', 'despesa')
-            .gte('data', dataInicio)
-            .lte('data', dataFim)
-            .or('transferencia.is.null,transferencia.eq.false')
-        ]);
-
-        if (receitasResult.error) throw receitasResult.error;
-        if (despesasResult.error) throw despesasResult.error;
-
-        totalReceitas = (receitasResult.data || []).reduce((sum, t) => sum + (parseFloat(t.valor) || 0), 0);
-        totalDespesas = (despesasResult.data || []).reduce((sum, t) => sum + (parseFloat(t.valor) || 0), 0);
-
-        console.log('✅ Totais calculados via query direta:', { 
-          receitas: totalReceitas, 
-          despesas: totalDespesas
-        });
-      } catch (queryError) {
-        console.error('❌ Erro na query direta:', queryError);
-        totalReceitas = 0;
-        totalDespesas = 0;
-      }
-
-      const saldo = totalReceitas - totalDespesas;
-
-      return {
-        totalReceitas,
-        totalDespesas,
-        saldoMes: saldo
-      };
-
-    } catch (err) {
-      console.error('❌ Erro ao buscar totais:', err);
-      return { totalReceitas: 0, totalDespesas: 0, saldoMes: 0 };
-    }
-  };
-
-  // ✅ Busca transações com parâmetros RPC CORRIGIDOS
+  // ✅ Buscar transações via query direta (sempre funciona)
   const fetchTransacoesMes = async () => {
     if (!isAuthenticated || !user) {
       setLoading(false);
@@ -153,120 +119,127 @@ const CalendarioFinanceiro = ({ mes = new Date().getMonth(), ano = new Date().ge
     }
 
     try {
+      // Verificar cache primeiro
+      if (isCacheValido()) {
+        console.log('📦 Usando dados do cache do calendário');
+        const dadosCache = cache.dados;
+        setMovimentosPorDia(dadosCache.movimentosPorDia);
+        setResumoMes(dadosCache.resumoMes);
+        organizarDiasDoMes();
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError(null);
       
       const dataInicio = format(periodoMes.primeiroDia, 'yyyy-MM-dd');
       const dataFim = format(periodoMes.ultimoDia, 'yyyy-MM-dd');
 
-      console.log('💰 Buscando transações:', { 
+      console.log('💰 Calendário: Buscando transações via queries diretas:', { 
         dataInicio, 
         dataFim, 
-        userId: user.id
+        usuario: user.id.substring(0, 8) + '...',
+        periodo: periodoAtual.formatado
       });
 
-      let transacoesEnriquecidas;
-      let usouRPC = false;
+      // ✅ Query direta para transações (sempre confiável)
+      const { data: transacoesData, error: transacoesError } = await supabase
+        .from('transacoes')
+        .select(`
+          id,
+          data,
+          tipo,
+          valor,
+          descricao,
+          observacoes,
+          categoria_id,
+          conta_id,
+          efetivado,
+          transferencia,
+          created_at
+        `)
+        .eq('usuario_id', user.id)
+        .gte('data', dataInicio)
+        .lte('data', dataFim)
+        .or('transferencia.is.null,transferencia.eq.false')
+        .order('data', { ascending: true });
 
-      // ✅ Tentar RPC primeiro com PARÂMETROS CORRETOS
-      try {
-        console.log('🔧 Tentando RPC com parâmetros corretos...');
-        
-        const { data: transacoesData, error: transacoesError } = await supabase.rpc('gpt_transacoes_do_mes', {
-          p_usuario_id: user.id,        // ✅ CORRIGIDO: p_usuario_id
-          p_data_inicio: dataInicio,    // ✅ CORRIGIDO: p_data_inicio
-          p_data_fim: dataFim          // ✅ CORRIGIDO: p_data_fim
-        });
+      if (transacoesError) throw transacoesError;
 
-        if (!transacoesError && transacoesData) {
-          // ✅ RPC funcionou - mapear estrutura
-          transacoesEnriquecidas = transacoesData.map(transacao => ({
-            ...transacao,
-            categoria: {
-              nome: transacao.categoria_nome || 'Sem categoria',
-              cor: transacao.categoria_cor || '#6B7280'
-            },
-            conta: {
-              nome: transacao.conta_nome || 'Conta não informada',
-              tipo: 'outros'
-            }
-          }));
-          usouRPC = true;
-          console.log('✅ RPC ip_buscar_transacoes_periodo funcionou com parâmetros corretos!');
-        } else {
-          throw new Error(`RPC falhou: ${transacoesError?.message || 'Erro desconhecido'}`);
-        }
-      } catch (rpcError) {
-        console.warn('⚠️ RPC falhou, usando query direta:', rpcError.message);
-
-        // ✅ Fallback: Query direta SEMPRE
-        const { data: transacoesData, error: queryError } = await supabase
-          .from('transacoes')
-          .select(`
-            id,
-            data,
-            tipo,
-            valor,
-            descricao,
-            observacoes,
-            categoria_id,
-            conta_id,
-            created_at,
-            transferencia
-          `)
+      // ✅ Buscar categorias e contas em paralelo
+      const [categoriasResult, contasResult] = await Promise.all([
+        supabase
+          .from('categorias')
+          .select('id, nome, cor, icone')
           .eq('usuario_id', user.id)
-          .gte('data', dataInicio)
-          .lte('data', dataFim)
-          .or('transferencia.is.null,transferencia.eq.false')
-          .order('data', { ascending: true });
+          .eq('ativo', true),
+        supabase
+          .from('contas')
+          .select('id, nome, tipo, cor')
+          .eq('usuario_id', user.id)
+          .eq('ativo', true)
+      ]);
 
-        if (queryError) throw queryError;
+      const categoriasData = categoriasResult.data || [];
+      const contasData = contasResult.data || [];
 
-        // Buscar categorias e contas
-        const [categoriasResult, contasResult] = await Promise.all([
-          supabase
-            .from('categorias')
-            .select('id, nome, cor, icone')
-            .eq('usuario_id', user.id)
-            .eq('ativo', true),
-          supabase
-            .from('contas')
-            .select('id, nome, tipo')
-            .eq('usuario_id', user.id)
-            .eq('ativo', true)
-        ]);
-
-        const categoriasData = categoriasResult.data || [];
-        const contasData = contasResult.data || [];
-
-        // Enriquecer dados
-        transacoesEnriquecidas = (transacoesData || []).map(transacao => ({
+      // ✅ Enriquecer transações com categorias e contas
+      const transacoesEnriquecidas = (transacoesData || []).map(transacao => {
+        const categoria = categoriasData.find(c => c.id === transacao.categoria_id);
+        const conta = contasData.find(c => c.id === transacao.conta_id);
+        
+        return {
           ...transacao,
           categoria: {
-            nome: categoriasData.find(c => c.id === transacao.categoria_id)?.nome || 'Sem categoria',
-            cor: categoriasData.find(c => c.id === transacao.categoria_id)?.cor || '#6B7280'
+            nome: categoria?.nome || 'Sem categoria',
+            cor: categoria?.cor || '#6B7280',
+            icone: categoria?.icone
           },
           conta: {
-            nome: contasData.find(c => c.id === transacao.conta_id)?.nome || 'Conta não informada',
-            tipo: 'outros'
+            nome: conta?.nome || 'Conta não informada',
+            tipo: conta?.tipo || 'outros',
+            cor: conta?.cor
           }
-        }));
-        console.log('✅ Query direta funcionou como fallback!');
-      }
+        };
+      });
 
-      console.log('📊 Transações processadas:', {
+      console.log('📊 Calendário: Transações processadas:', {
         quantidade: transacoesEnriquecidas.length,
         receitas: transacoesEnriquecidas.filter(t => t.tipo === 'receita').length,
         despesas: transacoesEnriquecidas.filter(t => t.tipo === 'despesa').length,
-        usouRPC
+        periodo: periodoAtual.formatado
       });
 
-      // ✅ Busca totais
-      const totais = await fetchTotaisMes();
+      // ✅ Calcular totais do mês
+      const totais = calcularTotaisMes(transacoesEnriquecidas);
       setResumoMes(totais);
 
-      // ✅ Organiza transações por dia
-      organizarTransacoesPorDia(transacoesEnriquecidas);
+      // ✅ Organizar transações por dia
+      const movimentosPorDiaCalculados = organizarTransacoesPorDia(transacoesEnriquecidas);
+      setMovimentosPorDia(movimentosPorDiaCalculados);
+
+      // ✅ Salvar no cache
+      const dadosParaCache = {
+        movimentosPorDia: movimentosPorDiaCalculados,
+        resumoMes: totais
+      };
+      
+      setCache({
+        periodo: format(periodoMes.primeiroDia, 'yyyy-MM'),
+        dados: dadosParaCache,
+        timestamp: Date.now()
+      });
+
+      // ✅ Organizar dias do mês
+      organizarDiasDoMes();
+
+      console.log('✅ Calendário carregado com sucesso:', {
+        diasComMovimento: Object.keys(movimentosPorDiaCalculados).length,
+        receitas: totais.totalReceitas,
+        despesas: totais.totalDespesas,
+        saldo: totais.saldoMes
+      });
 
     } catch (err) {
       console.error('❌ Erro ao carregar dados do calendário:', err);
@@ -278,159 +251,153 @@ const CalendarioFinanceiro = ({ mes = new Date().getMonth(), ano = new Date().ge
     }
   };
 
-  // ✅ Organiza transações por dia
+  // ✅ Calcular totais do mês
+  const calcularTotaisMes = (transacoes) => {
+    const totais = {
+      totalReceitas: 0,
+      totalDespesas: 0,
+      saldoMes: 0
+    };
+
+    transacoes.forEach(transacao => {
+      const valor = parseFloat(transacao.valor) || 0;
+      if (transacao.tipo === 'receita') {
+        totais.totalReceitas += valor;
+      } else if (transacao.tipo === 'despesa') {
+        totais.totalDespesas += valor;
+      }
+    });
+
+    totais.saldoMes = totais.totalReceitas - totais.totalDespesas;
+    return totais;
+  };
+
+  // ✅ Organizar transações por dia
   const organizarTransacoesPorDia = (transacoes) => {
+    const porDia = {};
+    
+    transacoes.forEach((transacao) => {
+      let dataTransacao = null;
+      
+      if (typeof transacao.data === 'string') {
+        if (transacao.data.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          const [ano, mes, dia] = transacao.data.split('-');
+          dataTransacao = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia), 12, 0, 0);
+        } else {
+          dataTransacao = parseDataSegura(transacao.data);
+        }
+      } else {
+        dataTransacao = parseDataSegura(transacao.data);
+      }
+      
+      if (!dataTransacao || !isValid(dataTransacao)) {
+        console.warn('⚠️ Data inválida encontrada:', transacao.data);
+        return;
+      }
+      
+      const diaFormatado = format(dataTransacao, 'yyyy-MM-dd');
+      const dentroDoMes = dataTransacao >= periodoMes.primeiroDia && dataTransacao <= periodoMes.ultimoDia;
+      
+      if (dentroDoMes) {
+        if (!porDia[diaFormatado]) {
+          porDia[diaFormatado] = [];
+        }
+        
+        porDia[diaFormatado].push(transacao);
+      }
+    });
+    
+    return porDia;
+  };
+
+  // ✅ Organizar dias do mês
+  const organizarDiasDoMes = () => {
     try {
       const primeiroDia = periodoMes.primeiroDia;
       const ultimoDia = periodoMes.ultimoDia;
       const diasIntervalo = eachDayOfInterval({ start: primeiroDia, end: ultimoDia });
-      
       setDiasDoMes(diasIntervalo);
-      
-      const porDia = {};
-      
-      console.log('📅 Organizando transações por dia:', {
-        periodoInicio: format(primeiroDia, 'yyyy-MM-dd'),
-        periodoFim: format(ultimoDia, 'yyyy-MM-dd'),
-        totalTransacoes: transacoes.length
-      });
-      
-      transacoes.forEach((transacao, index) => {
-        let dataTransacao = null;
-        
-        if (typeof transacao.data === 'string') {
-          if (transacao.data.match(/^\d{4}-\d{2}-\d{2}$/)) {
-            const [ano, mes, dia] = transacao.data.split('-');
-            dataTransacao = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia), 12, 0, 0);
-          } else {
-            dataTransacao = parseDataSegura(transacao.data);
-          }
-        } else {
-          dataTransacao = parseDataSegura(transacao.data);
-        }
-        
-        if (!dataTransacao || !isValid(dataTransacao)) {
-          console.warn('Data inválida encontrada:', {
-            transacao: transacao.data,
-            index,
-            descricao: transacao.descricao
-          });
-          return;
-        }
-        
-        const diaFormatado = format(dataTransacao, 'yyyy-MM-dd');
-        const dentroDoMes = dataTransacao >= primeiroDia && dataTransacao <= ultimoDia;
-        
-        if (dentroDoMes) {
-          if (!porDia[diaFormatado]) {
-            porDia[diaFormatado] = [];
-          }
-          
-          porDia[diaFormatado].push(transacao);
-        }
-      });
-      
-      setMovimentosPorDia(porDia);
-      
-      console.log('✅ Movimentos organizados:', {
-        diasComMovimentos: Object.keys(porDia).length,
-        totalTransacoesProcessadas: transacoes.length,
-        diasEncontrados: Object.keys(porDia).sort()
-      });
-      
     } catch (err) {
-      console.error('❌ Erro ao organizar transações:', err);
-      setMovimentosPorDia({});
+      console.error('❌ Erro ao organizar dias do mês:', err);
+      setDiasDoMes([]);
     }
   };
 
-  // Carrega dados quando período muda
+  // ✅ Recarregar quando período mudar
   useEffect(() => {
+    console.log('🔄 Calendário: Período alterado, recarregando dados');
     fetchTransacoesMes();
-  }, [mes, ano, isAuthenticated, user]);
+  }, [dataReferencia, isAuthenticated, user]);
 
-  // ✅ Função para buscar totais do dia com parâmetros CORRETOS
-  const fetchTotaisDoDia = async (dia) => {
-    if (!isAuthenticated || !user) {
-      return { receitas: 0, despesas: 0, saldo: 0, numLancamentos: 0 };
-    }
-
+  // ✅ Handler de clique no dia (otimizado)
+  const handleDiaClick = async (dia) => {
     try {
-      const dataFormatada = format(dia, 'yyyy-MM-dd');
-
-      console.log('🔢 Buscando totais do dia via RPC:', { data: dataFormatada, userId: user.id });
-
-      // ✅ Tentar usar função RPC com PARÂMETROS CORRETOS
-      const { data: resumoDia, error: resumoError } = await supabase.rpc('gpt_resumo_do_dia', {
-        p_usuario_id: user.id,          // ✅ CORRIGIDO: p_usuario_id
-        p_data_especifica: dataFormatada // ✅ CORRIGIDO: p_data_especifica
+      const diaFormatado = format(dia, 'yyyy-MM-dd');
+      const movimentosDoDia = movimentosPorDia[diaFormatado] || [];
+      
+      console.log('🔍 Clique no dia:', { 
+        data: diaFormatado, 
+        movimentos: movimentosDoDia.length,
+        temCallback: !!onDiaClick
       });
+      
+      if (onDiaClick && movimentosDoDia.length > 0) {
+        // ✅ Processar movimentos para o modal
+        const movimentosProcessados = movimentosDoDia.map(mov => ({
+          id: mov.id,
+          descricao: mov.descricao || 'Sem descrição',
+          valor: parseFloat(mov.valor) || 0,
+          tipo: mov.tipo,
+          categoria: mov.categoria?.nome || 'Sem categoria',
+          categoria_cor: mov.categoria?.cor || '#6B7280',
+          conta: mov.conta?.nome || 'Conta não informada',
+          status: mov.efetivado !== false ? 'realizado' : 'agendado',
+          hora: format(parseDataSegura(mov.created_at) || new Date(), 'HH:mm'),
+          observacoes: mov.observacoes || '',
+          data: mov.data
+        }));
 
-      if (resumoError) {
-        console.warn('⚠️ Erro na RPC resumo do dia, usando dados locais:', resumoError);
-        
-        // ✅ Fallback: usar dados já carregados se RPC falhar
-        const movimentosDoDia = movimentosPorDia[dataFormatada] || [];
-        const totais = { 
-          receitas: 0, 
-          despesas: 0, 
-          saldo: 0, 
-          numLancamentos: movimentosDoDia.length
+        // ✅ Calcular totais
+        const totais = {
+          total_receitas: 0,
+          total_despesas: 0,
+          saldo: 0,
+          total_transacoes: movimentosProcessados.length
         };
         
-        movimentosDoDia.forEach(mov => {
+        movimentosProcessados.forEach(mov => {
           const valor = parseFloat(mov.valor) || 0;
           if (mov.tipo === 'receita') {
-            totais.receitas += valor;
+            totais.total_receitas += valor;
           } else if (mov.tipo === 'despesa') {
-            totais.despesas += valor;
+            totais.total_despesas += valor;
           }
         });
         
-        totais.saldo = totais.receitas - totais.despesas;
-        return totais;
+        totais.saldo = totais.total_receitas - totais.total_despesas;
+
+        // ✅ Estrutura para o modal
+        const dadosDia = {
+          data: dia,
+          movimentos: movimentosProcessados,
+          totais: totais
+        };
+        
+        console.log('🚀 Enviando dados para modal:', {
+          data: diaFormatado,
+          movimentos: dadosDia.movimentos.length,
+          totais: dadosDia.totais
+        });
+        
+        onDiaClick(dadosDia);
       }
-
-      // ✅ Processar resultado da RPC
-      const totais = {
-        receitas: parseFloat(resumoDia?.total_receitas || 0),
-        despesas: parseFloat(resumoDia?.total_despesas || 0),
-        saldo: parseFloat(resumoDia?.total_receitas || 0) - parseFloat(resumoDia?.total_despesas || 0),
-        numLancamentos: parseInt(resumoDia?.total_transacoes || 0)
-      };
-
-      console.log('✅ Totais do dia obtidos via RPC:', { data: dataFormatada, totais });
-
-      return totais;
-
+      
     } catch (err) {
-      console.error('❌ Erro ao buscar totais do dia:', err);
-      
-      // ✅ Fallback final: usar dados locais
-      const diaFormatado = format(dia, 'yyyy-MM-dd');
-      const movimentosDoDia = movimentosPorDia[diaFormatado] || [];
-      const totais = { 
-        receitas: 0, 
-        despesas: 0, 
-        saldo: 0, 
-        numLancamentos: movimentosDoDia.length
-      };
-      
-      movimentosDoDia.forEach(mov => {
-        const valor = parseFloat(mov.valor) || 0;
-        if (mov.tipo === 'receita') {
-          totais.receitas += valor;
-        } else if (mov.tipo === 'despesa') {
-          totais.despesas += valor;
-        }
-      });
-      
-      totais.saldo = totais.receitas - totais.despesas;
-      return totais;
+      console.error('❌ Erro ao processar clique no dia:', err);
     }
   };
 
-  // ✅ Função fallback para indicadores (usa dados locais já filtrados)
+  // ✅ Calcular totais do dia (local - performance)
   const calcularTotaisDoDiaLocal = (dia) => {
     try {
       const diaFormatado = format(dia, 'yyyy-MM-dd');
@@ -459,7 +426,7 @@ const CalendarioFinanceiro = ({ mes = new Date().getMonth(), ano = new Date().ge
     }
   };
 
-  // Classes CSS do dia
+  // ✅ Classes CSS do dia
   const getDiaClasses = (dia) => {
     try {
       const hoje = new Date();
@@ -488,285 +455,7 @@ const CalendarioFinanceiro = ({ mes = new Date().getMonth(), ano = new Date().ge
     }
   };
 
-// ✅ CORREÇÃO DO HANDLER DE CLIQUE NO DIA
-// ✅ VERSÃO COM DEBUG DETALHADO E FALLBACK ROBUSTO
-// Substitua a função handleDiaClick por esta versão:
-
-const handleDiaClick = async (dia) => {
-  try {
-    const diaFormatado = format(dia, 'yyyy-MM-dd');
-    const movimentosDoDia = movimentosPorDia[diaFormatado] || [];
-    
-    console.log('🔍 Clique no dia - ANÁLISE DETALHADA:', { 
-      data: diaFormatado, 
-      movimentosLocais: movimentosDoDia.length,
-      temCallback: !!onDiaClick,
-      movimentosDetalhes: movimentosDoDia.map(m => ({
-        id: m.id,
-        tipo: m.tipo,
-        valor: m.valor,
-        descricao: m.descricao,
-        transferencia: m.transferencia,
-        efetivado: m.efetivado
-      }))
-    });
-    
-    if (onDiaClick) {
-      console.log('🔍 Preparando dados para o modal...');
-
-      let movimentosProcessados = [];
-      let totais = { 
-        total_receitas: 0, 
-        total_despesas: 0, 
-        saldo: 0, 
-        total_transacoes: 0 
-      };
-
-      // ✅ Se há movimentos, processar dados detalhadamente
-      if (movimentosDoDia.length > 0) {
-        try {
-          console.log('📊 Buscando detalhes via RPC para dia com movimentos...');
-          console.log('🔍 Dados locais para comparação:', {
-            totalLocal: movimentosDoDia.length,
-            tiposLocal: movimentosDoDia.map(m => `${m.tipo}:${m.valor}`),
-            transferenciasLocal: movimentosDoDia.filter(m => m.transferencia).length,
-            naoEfetivadosLocal: movimentosDoDia.filter(m => m.efetivado === false).length
-          });
-          
-          // ✅ Chamadas RPC paralelas
-          const [detalhesResult, resumoResult] = await Promise.all([
-            supabase.rpc('gpt_detalhes_do_dia', {
-              p_usuario_id: user.id,
-              p_data_especifica: diaFormatado
-            }),
-            supabase.rpc('gpt_resumo_do_dia', {
-              p_usuario_id: user.id,
-              p_data_especifica: diaFormatado
-            })
-          ]);
-
-          console.log('🔍 Resultados das RPCs:', {
-            detalhesError: detalhesResult.error,
-            detalhesCount: detalhesResult.data?.length || 0,
-            resumoError: resumoResult.error,
-            resumoData: resumoResult.data?.[0] || null
-          });
-
-          // ✅ Processar detalhes (movimentações)
-          if (!detalhesResult.error && detalhesResult.data && detalhesResult.data.length > 0) {
-            movimentosProcessados = detalhesResult.data.map(mov => ({
-              id: mov.id,
-              descricao: mov.descricao || 'Sem descrição',
-              valor: parseFloat(mov.valor) || 0,
-              tipo: mov.tipo,
-              categoria: mov.categoria_nome || 'Sem categoria',
-              categoria_cor: mov.categoria_cor || '#6B7280',
-              conta: mov.conta_nome || 'Conta não informada',
-              status: 'realizado',
-              hora: mov.hora || '12:00',
-              observacoes: mov.observacoes || '',
-              data: mov.data
-            }));
-            console.log('✅ Detalhes obtidos via RPC:', movimentosProcessados.length);
-          } else {
-            console.warn('⚠️ RPC detalhes retornou vazio, mas há dados locais. Investigando...');
-            
-            // ✅ FALLBACK MELHORADO: Usar dados locais sempre que RPC falhar
-            console.log('🔄 Usando dados locais como fallback...');
-            movimentosProcessados = movimentosDoDia.map(mov => ({
-              id: mov.id,
-              descricao: mov.descricao || 'Sem descrição',
-              valor: parseFloat(mov.valor) || 0,
-              tipo: mov.tipo,
-              categoria: mov.categoria?.nome || 'Sem categoria',
-              categoria_cor: mov.categoria?.cor || '#6B7280',
-              conta: mov.conta?.nome || 'Conta não informada',
-              status: mov.efetivado !== false ? 'realizado' : 'agendado',
-              hora: '12:00',
-              observacoes: mov.observacoes || '',
-              data: mov.data
-            }));
-            console.log('✅ Usando dados locais:', movimentosProcessados.length);
-          }
-
-          // ✅ Processar resumo (totais)
-          if (!resumoResult.error && resumoResult.data?.[0]) {
-            const resumoData = resumoResult.data[0];
-            totais = {
-              total_receitas: parseFloat(resumoData.total_receitas) || 0,
-              total_despesas: parseFloat(resumoData.total_despesas) || 0,
-              saldo: parseFloat(resumoData.saldo) || 0,
-              total_transacoes: parseInt(resumoData.total_transacoes) || 0
-            };
-            console.log('✅ Resumo obtido via RPC:', totais);
-          } else {
-            console.warn('⚠️ RPC resumo falhou, calculando localmente');
-            
-            // ✅ FALLBACK: Calcular usando movimentosProcessados (que pode ser RPC ou local)
-            const totaisCalculados = {
-              total_receitas: 0,
-              total_despesas: 0,
-              saldo: 0,
-              total_transacoes: movimentosProcessados.length
-            };
-            
-            movimentosProcessados.forEach(mov => {
-              const valor = parseFloat(mov.valor) || 0;
-              if (mov.tipo === 'receita') {
-                totaisCalculados.total_receitas += valor;
-              } else if (mov.tipo === 'despesa') {
-                totaisCalculados.total_despesas += valor;
-              }
-            });
-            
-            totaisCalculados.saldo = totaisCalculados.total_receitas - totaisCalculados.total_despesas;
-            totais = totaisCalculados;
-            
-            console.log('✅ Totais calculados localmente:', totais);
-          }
-
-          // ✅ VALIDAÇÃO FINAL: Se ainda estiver vazio, forçar dados locais
-          if (movimentosProcessados.length === 0 && movimentosDoDia.length > 0) {
-            console.warn('🚨 INCONSISTÊNCIA DETECTADA: RPC vazia mas dados locais existem!');
-            console.log('🔧 Forçando uso de dados locais...');
-            
-            movimentosProcessados = movimentosDoDia.map(mov => ({
-              id: mov.id,
-              descricao: mov.descricao || 'Sem descrição',
-              valor: parseFloat(mov.valor) || 0,
-              tipo: mov.tipo,
-              categoria: mov.categoria?.nome || 'Sem categoria',
-              categoria_cor: mov.categoria?.cor || '#6B7280',
-              conta: mov.conta?.nome || 'Conta não informada',
-              status: mov.efetivado !== false ? 'realizado' : 'agendado',
-              hora: '12:00',
-              observacoes: mov.observacoes || '',
-              data: mov.data
-            }));
-            
-            // Recalcular totais
-            const totaisForced = {
-              total_receitas: 0,
-              total_despesas: 0,
-              saldo: 0,
-              total_transacoes: movimentosProcessados.length
-            };
-            
-            movimentosProcessados.forEach(mov => {
-              const valor = parseFloat(mov.valor) || 0;
-              if (mov.tipo === 'receita') {
-                totaisForced.total_receitas += valor;
-              } else if (mov.tipo === 'despesa') {
-                totaisForced.total_despesas += valor;
-              }
-            });
-            
-            totaisForced.saldo = totaisForced.total_receitas - totaisForced.total_despesas;
-            totais = totaisForced;
-            
-            console.log('🔧 Dados forçados aplicados:', {
-              movimentos: movimentosProcessados.length,
-              totais
-            });
-          }
-
-        } catch (rpcError) {
-          console.error('❌ Erro nas RPCs, usando dados locais:', rpcError);
-          
-          // ✅ Fallback total para dados locais
-          movimentosProcessados = movimentosDoDia.map(mov => ({
-            id: mov.id,
-            descricao: mov.descricao || 'Sem descrição',
-            valor: parseFloat(mov.valor) || 0,
-            tipo: mov.tipo,
-            categoria: mov.categoria?.nome || 'Sem categoria',
-            categoria_cor: mov.categoria?.cor || '#6B7280',
-            conta: mov.conta?.nome || 'Conta não informada',
-            status: mov.efetivado !== false ? 'realizado' : 'agendado',
-            hora: '12:00',
-            observacoes: mov.observacoes || '',
-            data: mov.data
-          }));
-
-          const totaisLocal = {
-            total_receitas: 0,
-            total_despesas: 0,
-            saldo: 0,
-            total_transacoes: movimentosProcessados.length
-          };
-          
-          movimentosProcessados.forEach(mov => {
-            const valor = parseFloat(mov.valor) || 0;
-            if (mov.tipo === 'receita') {
-              totaisLocal.total_receitas += valor;
-            } else if (mov.tipo === 'despesa') {
-              totaisLocal.total_despesas += valor;
-            }
-          });
-          
-          totaisLocal.saldo = totaisLocal.total_receitas - totaisLocal.total_despesas;
-          totais = totaisLocal;
-        }
-      } else {
-        console.log('📭 Dia sem movimentos, criando estrutura vazia...');
-        movimentosProcessados = [];
-        totais = { 
-          total_receitas: 0, 
-          total_despesas: 0, 
-          saldo: 0, 
-          total_transacoes: 0 
-        };
-      }
-
-      // ✅ ESTRUTURA FINAL SEMPRE VÁLIDA
-      const dadosDia = {
-        data: dia,
-        movimentos: movimentosProcessados,
-        totais: totais
-      };
-      
-      console.log('🚀 Enviando dados FINAIS para o modal:', {
-        data: format(dia, 'yyyy-MM-dd'),
-        movimentosEnviados: dadosDia.movimentos.length,
-        totaisEnviados: dadosDia.totais,
-        estruturaCompleta: !!dadosDia.data && Array.isArray(dadosDia.movimentos) && !!dadosDia.totais,
-        comparacao: {
-          dadosLocais: movimentosDoDia.length,
-          dadosEnviados: dadosDia.movimentos.length,
-          consistente: movimentosDoDia.length === dadosDia.movimentos.length
-        }
-      });
-      
-      // ✅ Chamar o modal SEMPRE
-      onDiaClick(dadosDia);
-      
-    } else {
-      console.warn('⚠️ Callback onDiaClick não definido');
-    }
-    
-  } catch (err) {
-    console.error('❌ Erro CRÍTICO ao processar clique no dia:', err);
-    
-    // ✅ Em caso de erro, ainda tentar abrir o modal com dados mínimos
-    if (onDiaClick) {
-      const dadosMinimos = {
-        data: dia,
-        movimentos: [],
-        totais: { 
-          total_receitas: 0, 
-          total_despesas: 0, 
-          saldo: 0, 
-          total_transacoes: 0 
-        }
-      };
-      
-      console.log('🔧 Abrindo modal com dados mínimos devido a erro CRÍTICO');
-      onDiaClick(dadosMinimos);
-    }
-  }
-};
-
-  // ✅ Renderiza indicadores do dia (usa dados locais para performance)
+  // ✅ Renderizar indicadores do dia
   const renderizarIndicadoresDia = (dia) => {
     try {
       const diaFormatado = format(dia, 'yyyy-MM-dd');
@@ -790,12 +479,11 @@ const handleDiaClick = async (dia) => {
     }
   };
 
-  // ✅ Tooltip simplificado que SEMPRE funciona
+  // ✅ Tooltip otimizado
   const DiaTooltip = ({ dia }) => {
     if (!dia) return null;
     
     try {
-      // ✅ Usar SEMPRE dados locais para garantir funcionamento
       const totais = calcularTotaisDoDiaLocal(dia);
       const diaFormatado = format(dia, 'yyyy-MM-dd');
       const movimentos = movimentosPorDia[diaFormatado] || [];
@@ -837,12 +525,12 @@ const handleDiaClick = async (dia) => {
         </div>
       );
     } catch (err) {
-      console.error('Erro no tooltip:', err);
+      console.error('❌ Erro no tooltip:', err);
       return null;
     }
   };
 
-  // ✅ Renderiza resumo do mês (APENAS 3 CARDS)
+  // ✅ Renderizar resumo do mês
   const renderizarResumoMes = () => (
     <div className="calendario-resumo-mes">
       <div className="resumo-item receitas">
@@ -862,7 +550,7 @@ const handleDiaClick = async (dia) => {
     </div>
   );
 
-  // Renderiza os dias da semana
+  // ✅ Renderizar dias da semana
   const renderizarDiasDaSemana = () => {
     const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
     
@@ -877,13 +565,13 @@ const handleDiaClick = async (dia) => {
     );
   };
 
-  // Renderiza o grid do calendário
+  // ✅ Renderizar grid do calendário
   const renderizarGridCalendario = () => {
     if (loading) {
       return (
         <div className="calendario-loading">
           <div className="loading-spinner"></div>
-          <span>Carregando...</span>
+          <span>Carregando {periodoAtual.formatado}...</span>
         </div>
       );
     }
@@ -903,7 +591,7 @@ const handleDiaClick = async (dia) => {
     if (diasDoMes.length === 0) {
       return (
         <div className="calendario-loading">
-          <span>Preparando calendário...</span>
+          <span>Preparando calendário para {periodoAtual.formatado}...</span>
         </div>
       );
     }
@@ -946,7 +634,7 @@ const handleDiaClick = async (dia) => {
 
   return (
     <div className="calendario-financeiro-moderno">
-      {/* Resumo do mês - APENAS 3 CARDS */}
+      {/* Resumo do mês - conectado ao período */}
       {!loading && !error && renderizarResumoMes()}            
       {renderizarDiasDaSemana()}
       {renderizarGridCalendario()}
