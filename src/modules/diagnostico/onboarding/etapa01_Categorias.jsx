@@ -1,41 +1,57 @@
 // src/modules/diagnostico/onboarding/etapa01_Categorias.jsx
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import DiagnosticoEtapaLayout from '@modules/diagnostico/styles/DiagnosticoEtapaLayout';
-import CategoriasModal from '@modules/categorias/components/CategoriasModal';
+import { X, ArrowRight, ArrowLeft, CheckCircle, Plus } from 'lucide-react';
 import useCategorias from '@modules/categorias/hooks/useCategorias';
+import CategoriasModal from '@modules/categorias/components/CategoriasModal';
+
+// CSS completamente novo
+import '@modules/diagnostico/styles/DiagnosticoOnboarding.css';
+
+
+
+
 
 const CategoriasEtapa = ({ 
   onContinuar, 
   onVoltar, 
   etapaAtual = 1, 
-  totalEtapas = 11 
+  totalEtapas = 11,
+  dadosExistentes = null 
 }) => {
+  const { categorias, loading, criarCategoria } = useCategorias();
   const [modalAberto, setModalAberto] = useState(false);
-  const { categorias, loading } = useCategorias();
 
-  const handleAbrirModal = () => {
+  const temCategorias = categorias && categorias.length > 0;
+  const podeContinuar = true; // Pode continuar mesmo sem categorias
+
+  const handleAbrirModal = useCallback(() => {
     setModalAberto(true);
-  };
+  }, []);
 
-  const handleFecharModal = () => {
+  const handleFecharModal = useCallback(() => {
     setModalAberto(false);
-  };
+  }, []);
 
-  const handleSalvar = () => {
-    // Modal fecha automaticamente após salvar
-    console.log('✅ Categoria salva!');
-  };
+  const handleCriarCategoriasBasicas = useCallback(async () => {
+    try {
+      for (const categoria of categoriasRecomendadas) {
+        await criarCategoria(categoria);
+      }
+    } catch (error) {
+      console.error('Erro ao criar categorias básicas:', error);
+    }
+  }, [criarCategoria]);
 
-  const handleContinuar = () => {
-    onContinuar();
-  };
+  const handleContinuar = useCallback(() => {
+    const dadosCategoria = {
+      totalCategorias: categorias?.length || 0,
+      temCategorias,
+      completoEm: new Date().toISOString()
+    };
+    onContinuar(dadosCategoria);
+  }, [categorias, temCategorias, onContinuar]);
 
-  const handlePular = () => {
-    onContinuar(); // Permite pular esta etapa
-  };
-
-  // Categorias básicas recomendadas
   const categoriasRecomendadas = [
     { icone: '🏠', nome: 'Moradia', tipo: 'despesa', cor: '#ef4444' },
     { icone: '🍽️', nome: 'Alimentação', tipo: 'despesa', cor: '#f97316' },
@@ -45,240 +61,264 @@ const CategoriasEtapa = ({
     { icone: '💼', nome: 'Salário', tipo: 'receita', cor: '#10b981' }
   ];
 
-  const temCategorias = categorias && categorias.length > 0;
-  const podeContinuar = temCategorias || true; // Pode pular
+  const criarCategoriasBasicas = useCallback(async () => {
+    try {
+      for (const categoria of categoriasRecomendadas) {
+        await criarCategoria(categoria);
+      }
+    } catch (error) {
+      console.error('Erro ao criar categorias básicas:', error);
+    }
+  }, [criarCategoria]);
+
+  const progressoPercentual = Math.round(((etapaAtual + 1) / totalEtapas) * 100);
+
+  const etapas = [
+    { numero: 1, nome: 'Intro', ativa: false, completa: true },
+    { numero: 2, nome: 'Categorias', ativa: true, completa: false },
+    { numero: 3, nome: 'Contas', ativa: false, completa: false },
+    { numero: 4, nome: 'Cartões', ativa: false, completa: false },
+    { numero: 5, nome: 'Desp.Cartão', ativa: false, completa: false },
+    { numero: 6, nome: 'Receitas', ativa: false, completa: false },
+    { numero: 7, nome: 'Desp.Fixas', ativa: false, completa: false },
+    { numero: 8, nome: 'Desp.Variáveis', ativa: false, completa: false },
+    { numero: 9, nome: 'Resumo', ativa: false, completa: false },
+    { numero: 10, nome: 'Metas', ativa: false, completa: false },
+    { numero: 11, nome: 'Fim', ativa: false, completa: false }
+  ];
 
   if (loading) {
     return (
-      <DiagnosticoEtapaLayout
-        icone="📁"
-        titulo="Carregando categorias..."
-        descricao="Aguarde enquanto carregamos suas informações"
-        temDados={false}
-        onAbrirModal={() => {}}
-        onContinuar={() => {}}
-        onVoltar={onVoltar}
-        podeContinuar={false}
-        etapaAtual={etapaAtual}
-        totalEtapas={totalEtapas}
-      />
+      <div className="diagnostico-container">
+        <div className="diagnostico-header">
+          <div className="header-row">
+            <div className="header-title">Carregando...</div>
+            <div className="header-progress">Aguarde</div>
+          </div>
+        </div>
+        <div className="diagnostico-main">
+          <div className="main-icon">⏳</div>
+          <h1 className="main-title">Carregando suas categorias...</h1>
+        </div>
+      </div>
     );
   }
 
   return (
-    <>
-      <DiagnosticoEtapaLayout
-        icone="📁"
-        titulo="Organize suas categorias"
-        subtitulo="Como você gosta de classificar seus gastos e ganhos?"
-        descricao="As categorias ajudam você a entender onde seu dinheiro vai e de onde vem. Você pode usar nossas sugestões ou criar suas próprias."
-        temDados={temCategorias}
-        labelBotaoPrincipal="Gerenciar Categorias"
-        onAbrirModal={handleAbrirModal}
-        onVoltar={onVoltar}
-        onContinuar={handleContinuar}
-        onPular={handlePular}
-        podeContinuar={podeContinuar}
-        podePular={true}
-        etapaAtual={etapaAtual}
-        totalEtapas={totalEtapas}
-        dadosExistentes={
-          temCategorias 
-            ? `${categorias.length} categoria${categorias.length > 1 ? 's' : ''} criada${categorias.length > 1 ? 's' : ''}` 
-            : null
-        }
-        dicas={[
-          "Comece simples - você pode sempre criar mais categorias depois",
-          "Pense em como você naturalmente organiza seus gastos na sua cabeça",
-          "Categorias muito específicas podem complicar o controle inicial"
-        ]}
-      >
-        {/* Categorias existentes */}
-        {temCategorias && (
-          <div className="categorias-existentes">
-            <h3>Suas categorias atuais:</h3>
-            <div className="categorias-grid">
-              {categorias.slice(0, 6).map((categoria) => (
-                <div key={categoria.id} className="categoria-card">
+    <div className="diagnostico-container">
+      
+      {/* Header Compacto */}
+      <div className="diagnostico-header">
+        <div className="header-row">
+          <div className="header-title">Diagnóstico Financeiro</div>
+          <div className="header-progress">
+            Etapa {etapaAtual + 1} de {totalEtapas} • {progressoPercentual}%
+          </div>
+        </div>
+
+        <div className="progress-bar">
+          <div 
+            className="progress-fill"
+            style={{ width: `${progressoPercentual}%` }}
+          />
+        </div>
+
+        <div className="steps-row">
+          {etapas.map((etapa) => (
+            <div 
+              key={etapa.numero}
+              className={`step ${etapa.ativa ? 'active' : ''} ${etapa.completa ? 'completed' : ''}`}
+            >
+              <div className="step-circle">
+                {etapa.completa ? '✓' : etapa.numero}
+              </div>
+              <div className="step-label">{etapa.nome}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Conteúdo Principal - Layout com Vídeo */}
+      <div className="diagnostico-main-with-video">
+        
+        {/* Vídeo à Esquerda */}
+        <div className="diagnostico-video-left">
+          <div className="video-container">
+            <div className="video-header">
+              <h3 className="video-title">🎬 Como organizar categorias</h3>
+              <p className="video-subtitle">Aprenda em 3 minutos</p>
+            </div>
+            
+            <div className="video-embed">
+              <iframe
+                width="100%"
+                height="200"
+                src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                title="Tutorial: Como organizar categorias financeiras"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              ></iframe>
+            </div>
+            
+            <div className="video-benefits">
+              <div className="benefit-item">
+                <span className="benefit-icon">⚡</span>
+                <span className="benefit-text">Configuração rápida</span>
+              </div>
+              <div className="benefit-item">
+                <span className="benefit-icon">🎯</span>
+                <span className="benefit-text">Organização eficaz</span>
+              </div>
+              <div className="benefit-item">
+                <span className="benefit-icon">📊</span>
+                <span className="benefit-text">Relatórios precisos</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Conteúdo à Direita */}
+        <div className="diagnostico-content-right">
+          <div className="main-icon">📁</div>
+          <h1 className="main-title">Organize suas categorias</h1>
+          <p className="main-subtitle">Como você gosta de classificar seus gastos e ganhos?</p>
+          <p className="main-description">
+            As categorias ajudam você a entender onde seu dinheiro vai e de onde vem. 
+            Você pode usar nossas sugestões ou criar suas próprias.
+          </p>
+
+          {/* Status Card */}
+          <div className={`status-card ${temCategorias ? 'completed' : 'pending'}`}>
+            <div className="status-icon">
+              {temCategorias ? '✅' : '📁'}
+            </div>
+            <div className="status-info">
+              <h3>
+                {temCategorias 
+                  ? `${categorias.length} categoria${categorias.length > 1 ? 's' : ''} criada${categorias.length > 1 ? 's' : ''}`
+                  : 'Categorias Financeiras'
+                }
+              </h3>
+              <p>
+                {temCategorias 
+                  ? 'Suas categorias estão prontas para organizar suas finanças'
+                  : 'Organize receitas e despesas em categorias que fazem sentido para você'
+                }
+              </p>
+            </div>
+          </div>
+
+          {/* Botões de Ação */}
+          <div className="action-buttons">
+            <button
+              onClick={handleAbrirModal}
+              className="btn-primary"
+            >
+              <Plus size={14} />
+              {temCategorias ? 'Gerenciar Categorias' : 'Criar Categorias'}
+            </button>
+
+            {!temCategorias && (
+              <button
+                onClick={handleCriarCategoriasBasicas}
+                className="btn-secondary"
+              >
+                ⚡ Usar categorias básicas
+              </button>
+            )}
+          </div>
+
+          {/* Grid de Informações ou Categorias Existentes */}
+          {temCategorias ? (
+            <div className="categorias-existentes">
+              {categorias.slice(0, 4).map((categoria) => (
+                <div key={categoria.id} className="preview-card-base">
                   <div 
                     className="categoria-cor"
                     style={{ backgroundColor: categoria.cor }}
                   >
-                    {categoria.icone || '📂'}
+                    {categoria.icone || '📁'}
                   </div>
-                  <div className="categoria-info">
-                    <span className="categoria-nome">{categoria.nome}</span>
-                    <span className="categoria-tipo">
+                  <div className="item-info-base">
+                    <div className="categoria-nome">{categoria.nome}</div>
+                    <div className="categoria-tipo">
                       {categoria.tipo === 'receita' ? 'Receita' : 'Despesa'}
-                    </span>
+                    </div>
                   </div>
                 </div>
               ))}
-              {categorias.length > 6 && (
-                <div className="categoria-card mais">
-                  <div className="categoria-cor">+</div>
-                  <div className="categoria-info">
-                    <span className="categoria-nome">
-                      {categorias.length - 6} mais...
-                    </span>
-                    <span className="categoria-tipo">categorias</span>
+              {categorias.length > 4 && (
+                <div className="preview-card-base mais">
+                  <div className="categoria-cor">
+                    +{categorias.length - 4}
+                  </div>
+                  <div className="item-info-base">
+                    <div className="categoria-nome">Mais categorias</div>
+                    <div className="categoria-tipo">Ver todas</div>
                   </div>
                 </div>
               )}
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="info-grid">
+              <div className="info-item success">
+                <div className="info-icon">🏠</div>
+                <div className="info-title">Essenciais</div>
+                <div className="info-text">Moradia, comida...</div>
+              </div>
 
-        {/* Sugestões de categorias */}
-        {!temCategorias && (
-          <div className="sugestoes-categorias">
-            <h3>💡 Sugestões de categorias básicas:</h3>
-            <div className="categorias-grid">
-              {categoriasRecomendadas.map((categoria, index) => (
-                <div key={index} className="categoria-sugestao">
-                  <div 
-                    className="categoria-cor"
-                    style={{ backgroundColor: categoria.cor }}
-                  >
-                    {categoria.icone}
-                  </div>
-                  <div className="categoria-info">
-                    <span className="categoria-nome">{categoria.nome}</span>
-                    <span className="categoria-tipo">
-                      {categoria.tipo === 'receita' ? 'Receita' : 'Despesa'}
-                    </span>
-                  </div>
-                </div>
-              ))}
+              <div className="info-item info">
+                <div className="info-icon">🎮</div>
+                <div className="info-title">Lazer</div>
+                <div className="info-text">Entretenimento</div>
+              </div>
+
+              <div className="info-item warning">
+                <div className="info-icon">💼</div>
+                <div className="info-title">Receitas</div>
+                <div className="info-text">Salário, extras...</div>
+              </div>
+
+              <div className="info-item info">
+                <div className="info-icon">🎯</div>
+                <div className="info-title">Personalize</div>
+                <div className="info-text">Do seu jeito</div>
+              </div>
             </div>
-            <p className="sugestoes-texto">
-              Estas são apenas sugestões. Você pode criar, editar ou excluir qualquer categoria.
-            </p>
-          </div>
-        )}
-      </DiagnosticoEtapaLayout>
+          )}
+        </div>
+      </div>
 
-      {/* Modal de categorias */}
-      {modalAberto && (
-        <CategoriasModal
-          isOpen={modalAberto}
-          onClose={handleFecharModal}
-          onSave={handleSalvar}
-          diagnosticoMode={true}
-        />
-      )}
+      {/* Navegação Inferior */}
+      <div className="navigation">
+        <div className="nav-left">
+          <button
+            onClick={onVoltar}
+            className="btn-back"
+          >
+            <ArrowLeft size={12} />
+            Voltar
+          </button>
+        </div>
+        
+        <div className="nav-right">
+          <button
+            onClick={handleContinuar}
+            className="btn-continue"
+          >
+            {temCategorias ? 'Continuar' : 'Pular por agora'}
+            <ArrowRight size={12} />
+          </button>
+        </div>
+      </div>
 
-      <style jsx>{`
-        .categorias-existentes,
-        .sugestoes-categorias {
-          margin: 2rem 0;
-        }
-
-        .categorias-existentes h3,
-        .sugestoes-categorias h3 {
-          margin: 0 0 1.5rem 0;
-          font-size: 1.125rem;
-          font-weight: 700;
-          color: #374151;
-          text-align: center;
-        }
-
-        .categorias-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 1rem;
-        }
-
-        .categoria-card,
-        .categoria-sugestao {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          padding: 1rem;
-          background: white;
-          border: 1px solid #e5e7eb;
-          border-radius: 12px;
-          transition: all 0.3s ease;
-        }
-
-        .categoria-card:hover,
-        .categoria-sugestao:hover {
-          border-color: #667eea;
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-
-        .categoria-card.mais {
-          border-style: dashed;
-          opacity: 0.7;
-        }
-
-        .categoria-cor {
-          width: 48px;
-          height: 48px;
-          border-radius: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          font-size: 1.25rem;
-          font-weight: 600;
-          flex-shrink: 0;
-        }
-
-        .categoria-card.mais .categoria-cor {
-          background: #e5e7eb !important;
-          color: #6b7280;
-          font-size: 1.5rem;
-          font-weight: bold;
-        }
-
-        .categoria-info {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-        }
-
-        .categoria-nome {
-          font-weight: 600;
-          color: #374151;
-          font-size: 0.875rem;
-        }
-
-        .categoria-tipo {
-          font-size: 0.75rem;
-          color: #6b7280;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-
-        .sugestoes-texto {
-          text-align: center;
-          margin-top: 1.5rem;
-          color: #6b7280;
-          font-size: 0.875rem;
-          font-style: italic;
-        }
-
-        @media (max-width: 768px) {
-          .categorias-grid {
-            grid-template-columns: 1fr;
-            gap: 0.75rem;
-          }
-
-          .categoria-card,
-          .categoria-sugestao {
-            padding: 0.875rem;
-          }
-
-          .categoria-cor {
-            width: 40px;
-            height: 40px;
-            font-size: 1rem;
-          }
-        }
-      `}</style>
-    </>
+      {/* Modal de Categorias */}
+      <CategoriasModal
+        isOpen={modalAberto}
+        onClose={handleFecharModal}
+      />
+    </div>
   );
 };
 
@@ -286,7 +326,8 @@ CategoriasEtapa.propTypes = {
   onContinuar: PropTypes.func.isRequired,
   onVoltar: PropTypes.func.isRequired,
   etapaAtual: PropTypes.number,
-  totalEtapas: PropTypes.number
+  totalEtapas: PropTypes.number,
+  dadosExistentes: PropTypes.object
 };
 
 export default CategoriasEtapa;

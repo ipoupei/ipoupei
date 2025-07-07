@@ -245,9 +245,9 @@ const Sidebar = ({
           id: 'diagnostico',
           label: 'Diagnóstico',
           icon: Calculator,
-          path: null,
+          path: '/diagnostico',
           modalType: null,
-          comingSoon: true,
+          comingSoon: false,
           variant: null
         },
         {

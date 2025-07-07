@@ -176,7 +176,7 @@ const useContasStore = create(
         let saldoFinal = 0;
         try {
           const { data: saldoRPC, error: erroSaldo } = await supabase
-            .rpc('IP_Prod_calcular_saldo_atual', { usuario: user.id });
+            .rpc('ip_prod_calcular_saldo_atual', { p_usuario_id: user.id });
 
           if (erroSaldo) {
             console.warn(`⚠️ [${currentFetchCount}] Erro na RPC saldo total:`, erroSaldo);

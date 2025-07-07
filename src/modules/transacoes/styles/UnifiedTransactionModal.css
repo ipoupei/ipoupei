@@ -878,3 +878,28 @@ div[data-modal="unified-transaction"] * {
 div[data-modal="unified-transaction"] .forms-modal-container {
   font-variant-numeric: tabular-nums !important;
 }
+
+.recurrence-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  min-height: 40px;
+}
+
+.recurrence-auto-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  line-height: 1.2;
+}
+
+.recurrence-help-text {
+  font-size: 0.75rem;
+  color: #6b7280;
+  line-height: 1.2;
+  margin-top: 2px;
+}

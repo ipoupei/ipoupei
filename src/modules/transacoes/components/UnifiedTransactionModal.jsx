@@ -135,9 +135,8 @@ const UnifiedTransactionModal = ({
     fatura_vencimento: null,                   // data de vencimento da fatura do cartão
     
     // Configurações de recorrência/parcelamento
-    numero_parcelas: 12,                       // quantidade de parcelas ou recorrências
+    numero_parcelas: 1,                       // quantidade de parcelas ou recorrências
     frequencia: 'mensal',                      // frequência (semanal|quinzenal|mensal|anual)
-    total_recorrencias: 12                     // total de recorrências (backup)
   });
 
   // ===== ESTADOS DE UI =====
@@ -237,9 +236,9 @@ const UnifiedTransactionModal = ({
     },
     {
       id: 'previsivel',
-      nome: 'Mensal',
+      nome: 'Recorrente',
       icone: <Repeat size={16} />,
-      descricao: 'Todo mês',
+      descricao: 'Repetem automaticamente',
       exemplo: ' salário'
     },
     {
@@ -262,7 +261,7 @@ const UnifiedTransactionModal = ({
     },
     {
       id: 'previsivel',
-      nome: 'Fixa',
+      nome: 'Recorrente',
       icone: <Repeat size={16} />,
       descricao: 'Todo mês',
       exemplo: 'aluguel'
@@ -299,7 +298,7 @@ const UnifiedTransactionModal = ({
 
   // Se deve mostrar toggle de status (efetivado/planejado)
   const mostrarStatus = useMemo(() => 
-    transactionData.tipo !== 'transferencia',
+    transactionData.tipo !== 'transferencia' && transactionData.tipo !== 'cartao',
     [transactionData.tipo]
   );
 
@@ -475,7 +474,7 @@ const UnifiedTransactionModal = ({
       conta_origem_id: null,
       conta_destino_id: null,
       fatura_vencimento: null,
-      numero_parcelas: 12,
+      numero_parcelas: 1,
       frequencia: 'mensal',
       total_recorrencias: 12
     });
@@ -902,66 +901,106 @@ const renderReceitaDespesaFields = () => (
       {errors.conta_id && <div className="form-error">{errors.conta_id}</div>}
     </div>
 
-    {/* Campos de Recorrência */}
-    {(transactionData.subtipo === 'previsivel' || transactionData.subtipo === 'parcelada') && (
-      <div className="recurrence-fields">
-        <div className="flex gap-3 row">
-          <div className="form-group">
-            <label className="form-label">
-              <Calendar size={14} />
-              {transactionData.subtipo === 'parcelada' ? 'Parcelas' : 'Recorrências'}
-            </label>
-            <div className="input-number-container">
-              <input
-                type="number"
-                min="1"
-                max="60"
-                value={transactionData.numero_parcelas}
-                onChange={(e) => handleInputChange('numero_parcelas', parseInt(e.target.value) || 1)}
-                disabled={loading}
-                className="input-number"
-              />
-              <div className="input-number-controls">
-                <button
-                  type="button"
-                  onClick={() => handleInputChange('numero_parcelas', Math.min(60, transactionData.numero_parcelas + 1))}
-                  disabled={loading || transactionData.numero_parcelas >= 60}
-                  className="input-number-btn"
+        {/* Campos de Recorrência */}
+        {transactionData.subtipo === 'previsivel' && (
+          <div className="recurrence-fields">
+            <div className="flex gap-3 row">
+              <div className="form-group">
+                <label className="form-label">
+                  <Repeat size={14} />
+                  Frequência
+                </label>
+                <select
+                  className="input-select"
+                  value={transactionData.frequencia}
+                  onChange={(e) => handleInputChange('frequencia', e.target.value)}
+                  disabled={loading}
                 >
-                  <ChevronUp size={12} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleInputChange('numero_parcelas', Math.max(1, transactionData.numero_parcelas - 1))}
-                  disabled={loading || transactionData.numero_parcelas <= 1}
-                  className="input-number-btn"
-                >
-                  <ChevronDown size={12} />
-                </button>
+                  <option value="semanal">Semanal</option>
+                  <option value="quinzenal">Quinzenal</option>
+                  <option value="mensal">Mensal</option>
+                  <option value="anual">Anual</option>
+                </select>
+              </div>
+              
+              {/* Info sobre recorrência automática */}
+              <div className="form-group">
+                <label className="form-label" style={{ color: '#6b7280' }}>
+                  <Calendar size={14} />
+                  Duração
+                </label>
+                <div className="recurrence-info">
+                  <span className="recurrence-auto-text">
+                    Criará automaticamente por 20 anos
+                  </span>
+                  <small className="recurrence-help-text">
+                    Você pode cancelar ou editar quando quiser
+                  </small>
+                </div>
               </div>
             </div>
           </div>
-          
-          <div className="form-group">
-            <label className="form-label">
-              <Repeat size={14} />
-              Frequência
-            </label>
-            <select
-              className="input-select"
-              value={transactionData.frequencia}
-              onChange={(e) => handleInputChange('frequencia', e.target.value)}
-              disabled={loading}
-            >
-              <option value="semanal">Semanal</option>
-              <option value="quinzenal">Quinzenal</option>
-              <option value="mensal">Mensal</option>
-              <option value="anual">Anual</option>
-            </select>
+        )}
+
+        {transactionData.subtipo === 'parcelada' && (
+          <div className="recurrence-fields">
+            <div className="flex gap-3 row">
+              <div className="form-group">
+                <label className="form-label">
+                  <Calendar size={14} />
+                  Parcelas
+                </label>
+                <div className="input-number-container">
+                  <input
+                    type="number"
+                    min="1"
+                    max="60"
+                    value={transactionData.numero_parcelas}
+                    onChange={(e) => handleInputChange('numero_parcelas', parseInt(e.target.value) || 1)}
+                    disabled={loading}
+                    className="input-number"
+                  />
+                  <div className="input-number-controls">
+                    <button
+                      type="button"
+                      onClick={() => handleInputChange('numero_parcelas', Math.min(60, transactionData.numero_parcelas + 1))}
+                      disabled={loading || transactionData.numero_parcelas >= 60}
+                      className="input-number-btn"
+                    >
+                      <ChevronUp size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleInputChange('numero_parcelas', Math.max(1, transactionData.numero_parcelas - 1))}
+                      disabled={loading || transactionData.numero_parcelas <= 1}
+                      className="input-number-btn"
+                    >
+                      <ChevronDown size={12} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="form-group">
+                <label className="form-label">
+                  <Repeat size={14} />
+                  Frequência
+                </label>
+                <select
+                  className="input-select"
+                  value={transactionData.frequencia}
+                  onChange={(e) => handleInputChange('frequencia', e.target.value)}
+                  disabled={loading}
+                >
+                  <option value="semanal">Semanal</option>
+                  <option value="quinzenal">Quinzenal</option>
+                  <option value="mensal">Mensal</option>
+                  <option value="anual">Anual</option>
+                </select>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-    )}
+        )}
   </div>
 );
 
@@ -1022,51 +1061,53 @@ const renderCartaoFields = () => (
       </div>
     </div>
 
-    {/* Categoria para cartão */}
-    <div className="form-group">
-      <label className="form-label">
-        <Tag size={14} />
-        Categoria *
-      </label>
-      <div className="dropdown-container">
-        <div style={{position: 'relative'}}>
-          <input
-            type="text"
-            value={transactionData.categoria_texto}
-            onChange={handleCategoriaChange}
-            onBlur={handleCategoriaBlur}
-            onFocus={() => setCategoriaDropdownOpen(true)}
-            placeholder="Digite ou selecione uma categoria"
-            disabled={loading}
-            autoComplete="off"
-            className={`input-text input-with-icon ${!transactionData.categoria_id ? 'input-muted' : ''} ${errors.categoria_id ? 'error' : ''}`}
-          />
-          <Search size={14} className="input-search-icon" />
-        </div>
-        
-        {categoriaDropdownOpen && categoriasFiltradas && categoriasFiltradas.length > 0 && (
-          <div className="dropdown-options">
-            {categoriasFiltradas.map(categoria => (
-              <div
-                key={categoria.id}
-                onMouseDown={() => handleSelecionarCategoria(categoria)}
-                className="dropdown-option"
-              >
-                <div 
-                  className="category-color-tag"
-                  style={{backgroundColor: categoria.cor || '#ef4444'}}
-                ></div>
-                {categoria.nome}
-              </div>
-            ))}
+{/* Categoria e Subcategoria em linha para cartão */}
+    <div style={{display: 'flex', gap: '16px', width: '100%'}}>
+      {/* Categoria com autocomplete */}
+      <div className="form-group" style={{flex: 1, width: '50%'}}>
+        <label className="form-label">
+          <Tag size={14} />
+          Categoria *
+        </label>
+        <div className="dropdown-container">
+          <div style={{position: 'relative'}}>
+            <input
+              type="text"
+              value={transactionData.categoria_texto}
+              onChange={handleCategoriaChange}
+              onBlur={handleCategoriaBlur}
+              onFocus={() => setCategoriaDropdownOpen(true)}
+              placeholder="Digite ou selecione uma categoria"
+              disabled={loading}
+              autoComplete="off"
+              className={`input-text input-with-icon ${!transactionData.categoria_id ? 'input-muted' : ''} ${errors.categoria_id ? 'error' : ''}`}
+            />
+            <Search size={14} className="input-search-icon" />
           </div>
-        )}
+          
+          {categoriaDropdownOpen && categoriasFiltradas && categoriasFiltradas.length > 0 && (
+            <div className="dropdown-options">
+              {categoriasFiltradas.map(categoria => (
+                <div
+                  key={categoria.id}
+                  onMouseDown={() => handleSelecionarCategoria(categoria)}
+                  className="dropdown-option"
+                >
+                  <div 
+                    className="category-color-tag"
+                    style={{backgroundColor: categoria.cor || '#ef4444'}}
+                  ></div>
+                  {categoria.nome}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {errors.categoria_id && <div className="form-error">{errors.categoria_id}</div>}
       </div>
-      {errors.categoria_id && <div className="form-error">{errors.categoria_id}</div>}
-    </div>
-{/* Subcategoria para cartão */}
-    {transactionData.categoria_id && (
-      <div className="form-group">
+
+      {/* Subcategoria */}
+      <div className="form-group" style={{flex: 1, width: '50%'}}>
         <label className="form-label">
           <Tag size={14} />
           Subcategoria
@@ -1079,7 +1120,7 @@ const renderCartaoFields = () => (
             onBlur={handleSubcategoriaBlur}
             onFocus={() => setSubcategoriaDropdownOpen(true)}
             placeholder="Digite ou selecione uma subcategoria"
-            disabled={loading}
+            disabled={loading || !transactionData.categoria_id}
             autoComplete="off"
             className="input-text"
           />
@@ -1092,6 +1133,10 @@ const renderCartaoFields = () => (
                   onMouseDown={() => handleSelecionarSubcategoria(subcategoria)}
                   className="dropdown-option"
                 >
+                  <div 
+                    className="category-color-tag"
+                    style={{backgroundColor: categoriasFiltradas?.find(cat => cat.id === transactionData.categoria_id)?.cor || '#ef4444'}}
+                  ></div>
                   {subcategoria.nome}
                 </div>
               ))}
@@ -1099,7 +1144,7 @@ const renderCartaoFields = () => (
           )}
         </div>
       </div>
-    )}
+    </div>
 
     {/* Fatura de Vencimento */}
     {transactionData.cartao_id && opcoesFatura && opcoesFatura.length > 0 && (
@@ -1350,7 +1395,20 @@ const criarReceitaDespesa = useCallback(async () => {
       // Transações recorrentes
       const grupoId = crypto.randomUUID();
       const dataBase = new Date(transactionData.data);
-      const totalRecorrencias = transactionData.numero_parcelas;
+      
+      // Calcular total de recorrências baseado no subtipo
+      const totalRecorrencias = transactionData.subtipo === 'previsivel' ? 
+        (() => {
+          switch (transactionData.frequencia) {
+            case 'semanal': return 20 * 52;   // 20 anos, 52 semanas por ano
+            case 'quinzenal': return 20 * 26; // 20 anos, 26 quinzenas por ano
+            case 'mensal': return 20 * 12;    // 20 anos, 12 meses por ano
+            case 'anual': return 20;          // 20 anos
+            default: return 20 * 12;          // Default: 20 anos mensais
+          }
+        })() : 
+        transactionData.numero_parcelas; // Para parceladas, usar o número definido pelo usuário
+        
       const frequencia = transactionData.frequencia;
 
       for (let i = 0; i < totalRecorrencias; i++) {
@@ -1409,7 +1467,7 @@ const criarReceitaDespesa = useCallback(async () => {
       mensagem = `${transactionData.numero_parcelas} parcelas criadas com sucesso!`;
       break;
     case 'previsivel':
-      mensagem = `${transactionData.tipo === 'receita' ? 'Receita' : 'Despesa'} ${transactionData.tipo === 'receita' ? 'previsível' : 'fixa'} configurada para o futuro!`;
+      mensagem = `${transactionData.tipo === 'receita' ? 'Receita' : 'Despesa'} recorrente configurada para o futuro!`;
       break;
   }
   
@@ -1451,6 +1509,7 @@ const criarDespesaCartao = useCallback(async () => {
       throw new Error('Erro ao criar categoria: ' + error.message);
     }
   }
+const valorPorParcela = valorNumerico / transactionData.numero_parcelas;
   
   let transacoesCriadas = [];
 
@@ -1469,7 +1528,7 @@ const criarDespesaCartao = useCallback(async () => {
         categoria_id: categoriaId,
         subcategoria_id: transactionData.subcategoria_id || null,
         descricao: `${transactionData.descricao.trim()} (${i}/${transactionData.numero_parcelas})`,
-        valor: valorNumerico, // Valor total (para cada parcela)
+        valor: valorPorParcela, // Valor total (para cada parcela)
         data: transactionData.data,
         tipo: 'despesa',
         fatura_vencimento: dataVencimento.toISOString().split('T')[0],
@@ -1715,6 +1774,22 @@ useEffect(() => {
   }
 }, [transactionData.tipo, transactionData.cartao_id, transactionData.data, gerarOpcoesFatura, transactionData.fatura_vencimento, handleInputChange]);
 
+// Auto-selecionar cartão se houver apenas um
+useEffect(() => {
+  if (
+    transactionData.tipo === 'cartao' && 
+    !transactionData.modoEdicao && 
+    cartoes && 
+    cartoes.length === 1 && 
+    !transactionData.cartao_id
+  ) {
+    const unicoCartao = cartoes[0];
+    if (unicoCartao && unicoCartao.ativo !== false) {
+      handleInputChange('cartao_id', unicoCartao.id);
+    }
+  }
+}, [transactionData.tipo, transactionData.modoEdicao, cartoes, transactionData.cartao_id, handleInputChange]);
+
 useEffect(() => {
   if (!isOpen) return;
   
@@ -1786,29 +1861,82 @@ return (
           ))}
         </div>
 
-        {/* Seletor de subtipos (apenas para receita/despesa) */}
-        {mostrarSubtipos && (
-          <div className="subtype-selector">
-            <div className="subtype-tabs">
-              {subtiposDisponiveis.map(subtipo => (
-                <button
-                  key={subtipo.id}
-                  type="button"
-                  className={`subtype-tab ${transactionData.subtipo === subtipo.id ? 'active' : ''}`}
-                  onClick={() => handleSubtipoChange(subtipo.id)}
-                  disabled={loading}
-                >
-                  {subtipo.icone}
-                  <div className="subtype-info">
-                    <span className="subtype-nome">{subtipo.nome}</span>
-                    <span className="subtype-exemplo">{subtipo.exemplo}</span>
-                  </div>
-                </button>
-              ))}
+          {/* Seletor de subtipos - Estilo do modal antigo */}
+          {mostrarSubtipos && (
+            <div className="flex flex-col mb-3">
+              <div 
+                className="type-selector mb-2"
+                style={{
+                  display: 'flex',
+                  gap: '6px',
+                  padding: '4px',
+                  background: '#f8fafc',
+                  borderRadius: '6px',
+                  border: '1px solid #e2e8f0'
+                }}
+              >
+                {subtiposDisponiveis.map((subtipo) => (
+                  <button
+                    key={subtipo.id}
+                    type="button"
+                    className={`type-option ${transactionData.subtipo === subtipo.id ? 'active' : ''}`}
+                    onClick={() => handleSubtipoChange(subtipo.id)}
+                    disabled={loading}
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '8px 12px',
+                      borderRadius: '4px',
+                      border: transactionData.subtipo === subtipo.id ? `2px solid #10b981` : '1px solid transparent',
+                      background: transactionData.subtipo === subtipo.id ? '#dcfce7' : 'transparent',
+                      cursor: loading ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.15s ease',
+                      minHeight: '48px',
+                      opacity: loading ? 0.6 : 1
+                    }}
+                  >
+                    <div style={{ 
+                      color: '#10b981', 
+                      marginRight: '8px', 
+                      fontSize: '18px',
+                      display: 'flex',
+                      alignItems: 'center'
+                    }}>
+                      {subtipo.icone}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                      <div style={{ 
+                        fontWeight: '600', 
+                        fontSize: '14px', 
+                        lineHeight: '1.2',
+                        color: transactionData.subtipo === subtipo.id ? '#166534' : '#374151'
+                      }}>
+                        {subtipo.nome}
+                      </div>
+                      <div style={{ 
+                        fontSize: '12px', 
+                        color: '#6b7280',
+                        lineHeight: '1.2'
+                      }}>
+                        {subtipo.descricao}
+                      </div>
+                    </div>
+                    {transactionData.subtipo === subtipo.id && (
+                      <div style={{ 
+                        color: '#10b981', 
+                        fontWeight: 'bold',
+                        fontSize: '16px',
+                        marginLeft: '4px'
+                      }}>
+                        ✓
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
-
+          )}
         {/* Status toggle (oculto para transferência) */}
         {mostrarStatus && (
           

@@ -1,390 +1,334 @@
 // src/modules/diagnostico/onboarding/etapa02_Contas.jsx
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import { Wallet } from 'lucide-react';
-import DiagnosticoEtapaLayout from '@modules/diagnostico/styles/DiagnosticoEtapaLayout';
-import ContasModal from '@modules/contas/components/ContasModal';
+import { ArrowRight, ArrowLeft, Wallet, Plus } from 'lucide-react';
 import useContas from '@modules/contas/hooks/useContas';
-import { formatCurrency } from '@utils/formatCurrency';
+import ContasModal from '@modules/contas/components/ContasModal';
+import { formatCurrency } from '@shared/utils/formatCurrency';
+
+// CSS completamente novo
+import '@modules/diagnostico/styles/DiagnosticoOnboarding.css';
 
 const ContasEtapa = ({ 
   onContinuar, 
   onVoltar, 
   etapaAtual = 2, 
-  totalEtapas = 11 
+  totalEtapas = 11,
+  dadosExistentes = null 
 }) => {
+  const { contas, loading, criarConta } = useContas();
   const [modalAberto, setModalAberto] = useState(false);
-  const { contas, loading } = useContas();
-
-  const handleAbrirModal = () => {
-    setModalAberto(true);
-  };
-
-  const handleFecharModal = () => {
-    setModalAberto(false);
-  };
-
-  const handleSalvar = () => {
-    console.log('✅ Conta salva!');
-    // Modal fecha automaticamente
-  };
-
-  const handleContinuar = () => {
-    onContinuar();
-  };
-
-  // Tipos de conta sugeridos
-  const tiposContaSugeridos = [
-    { icone: '🏦', nome: 'Conta Corrente', descricao: 'Para movimentação do dia a dia' },
-    { icone: '💰', nome: 'Conta Poupança', descricao: 'Para guardar dinheiro' },
-    { icone: '📱', nome: 'Conta Digital', descricao: 'Nubank, Inter, PicPay, etc.' },
-    { icone: '💵', nome: 'Dinheiro', descricao: 'Dinheiro físico na carteira' }
-  ];
 
   const temContas = contas && contas.length > 0;
-  const podeContinuar = temContas;
+  const podeContinuar = temContas; // Obrigatório ter pelo menos uma conta
+
+  const handleAbrirModal = useCallback(() => {
+    setModalAberto(true);
+  }, []);
+
+  const handleFecharModal = useCallback(() => {
+    setModalAberto(false);
+  }, []);
+
+  const handleCriarContasBasicas = useCallback(async () => {
+    const contasBasicas = [
+      {
+        nome: 'Conta Corrente',
+        tipo: 'conta_corrente',
+        banco: 'Principal',
+        saldo: 0,
+        cor: '#0066cc'
+      },
+      {
+        nome: 'Poupança',
+        tipo: 'poupanca',
+        banco: 'Principal',
+        saldo: 0,
+        cor: '#22c55e'
+      }
+    ];
+
+    try {
+      for (const conta of contasBasicas) {
+        await criarConta(conta);
+      }
+    } catch (error) {
+      console.error('Erro ao criar contas básicas:', error);
+    }
+  }, [criarConta]);
+
+  const handleContinuar = useCallback(() => {
+    if (temContas) {
+      const dadosContas = {
+        totalContas: contas.length,
+        saldoTotal: contas.reduce((total, conta) => total + (conta.saldo || 0), 0),
+        temContas,
+        completoEm: new Date().toISOString()
+      };
+      onContinuar(dadosContas);
+    }
+  }, [contas, temContas, onContinuar]);
+
+  const progressoPercentual = Math.round(((etapaAtual + 1) / totalEtapas) * 100);
+
+  const etapas = [
+    { numero: 1, nome: 'Intro', ativa: false, completa: true },
+    { numero: 2, nome: 'Categorias', ativa: false, completa: true },
+    { numero: 3, nome: 'Contas', ativa: true, completa: false },
+    { numero: 4, nome: 'Cartões', ativa: false, completa: false },
+    { numero: 5, nome: 'Desp.Cartão', ativa: false, completa: false },
+    { numero: 6, nome: 'Receitas', ativa: false, completa: false },
+    { numero: 7, nome: 'Desp.Fixas', ativa: false, completa: false },
+    { numero: 8, nome: 'Desp.Variáveis', ativa: false, completa: false },
+    { numero: 9, nome: 'Resumo', ativa: false, completa: false },
+    { numero: 10, nome: 'Metas', ativa: false, completa: false },
+    { numero: 11, nome: 'Fim', ativa: false, completa: false }
+  ];
 
   if (loading) {
     return (
-      <DiagnosticoEtapaLayout
-        icone="🏦"
-        titulo="Carregando contas..."
-        descricao="Aguarde enquanto carregamos suas informações"
-        temDados={false}
-        onAbrirModal={() => {}}
-        onContinuar={() => {}}
-        onVoltar={onVoltar}
-        podeContinuar={false}
-        etapaAtual={etapaAtual}
-        totalEtapas={totalEtapas}
-      />
+      <div className="diagnostico-container">
+        <div className="diagnostico-header">
+          <div className="header-row">
+            <div className="header-title">Carregando...</div>
+            <div className="header-progress">Aguarde</div>
+          </div>
+        </div>
+        <div className="diagnostico-main">
+          <div className="main-icon">⏳</div>
+          <h1 className="main-title">Carregando suas contas...</h1>
+        </div>
+      </div>
     );
   }
 
   return (
-    <>
-      <DiagnosticoEtapaLayout
-        icone="🏦"
-        titulo="Suas contas bancárias"
-        subtitulo="Onde você guarda seu dinheiro?"
-        descricao="Cadastre as contas que você usa no dia a dia. Isso nos ajuda a ter uma visão completa de onde está seu dinheiro e como ele se movimenta."
-        temDados={temContas}
-        labelBotaoPrincipal="Adicionar Conta"
-        onAbrirModal={handleAbrirModal}
-        onVoltar={onVoltar}
-        onContinuar={handleContinuar}
-        podeContinuar={podeContinuar}
-        etapaAtual={etapaAtual}
-        totalEtapas={totalEtapas}
-        dadosExistentes={
-          temContas 
-            ? `${contas.length} conta${contas.length > 1 ? 's' : ''} cadastrada${contas.length > 1 ? 's' : ''}` 
-            : null
-        }
-        dicas={[
-          "Adicione apenas as contas que você realmente usa",
-          "Você pode começar com sua conta principal e adicionar outras depois",
-          "O saldo inicial pode ser aproximado - você pode ajustar depois"
-        ]}
-        alertas={
-          !temContas ? ["Esta etapa é obrigatória para continuar o diagnóstico"] : null
-        }
-      >
-        {/* Contas existentes */}
-        {temContas && (
-          <div className="contas-existentes">
-            <h3>Suas contas cadastradas:</h3>
-            <div className="contas-lista">
-              {contas.map((conta) => (
-                <div key={conta.id} className="conta-item">
+    <div className="diagnostico-container">
+      
+      {/* Header Compacto */}
+      <div className="diagnostico-header">
+        <div className="header-row">
+          <div className="header-title">Diagnóstico Financeiro</div>
+          <div className="header-progress">
+            Etapa {etapaAtual + 1} de {totalEtapas} • {progressoPercentual}%
+          </div>
+        </div>
+
+        <div className="progress-bar">
+          <div 
+            className="progress-fill"
+            style={{ width: `${progressoPercentual}%` }}
+          />
+        </div>
+
+        <div className="steps-row">
+          {etapas.map((etapa) => (
+            <div 
+              key={etapa.numero}
+              className={`step ${etapa.ativa ? 'active' : ''} ${etapa.completa ? 'completed' : ''}`}
+            >
+              <div className="step-circle">
+                {etapa.completa ? '✓' : etapa.numero}
+              </div>
+              <div className="step-label">{etapa.nome}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Conteúdo Principal - Layout com Vídeo */}
+      <div className="diagnostico-main-with-video">
+        
+        {/* Vídeo à Esquerda */}
+        <div className="diagnostico-video-left">
+          <div className="video-container">
+            <div className="video-header">
+              <h3 className="video-title">🎬 Cadastrando suas contas</h3>
+              <p className="video-subtitle">Configure em 2 minutos</p>
+            </div>
+            
+            <div className="video-embed">
+              <iframe
+                width="100%"
+                height="200"
+                src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                title="Tutorial: Como cadastrar suas contas bancárias"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              ></iframe>
+            </div>
+            
+            <div className="video-benefits">
+              <div className="benefit-item">
+                <span className="benefit-icon">💳</span>
+                <span className="benefit-text">Controle total</span>
+              </div>
+              <div className="benefit-item">
+                <span className="benefit-icon">📊</span>
+                <span className="benefit-text">Saldo atualizado</span>
+              </div>
+              <div className="benefit-item">
+                <span className="benefit-icon">🔒</span>
+                <span className="benefit-text">Dados seguros</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Conteúdo à Direita */}
+        <div className="diagnostico-content-right">
+          <div className="main-icon">🏦</div>
+          <h1 className="main-title">Suas contas bancárias</h1>
+          <p className="main-subtitle">Onde você guarda seu dinheiro?</p>
+          <p className="main-description">
+            Cadastre as contas que você usa no dia a dia. Isso nos ajuda a ter uma visão 
+            completa de onde está seu dinheiro e como ele se movimenta.
+          </p>
+
+          {/* Status Card */}
+          <div className={`status-card ${temContas ? 'completed' : 'pending'}`}>
+            <div className="status-icon">
+              {temContas ? '✅' : '🏦'}
+            </div>
+            <div className="status-info">
+              <h3>
+                {temContas 
+                  ? `${contas.length} conta${contas.length > 1 ? 's' : ''} cadastrada${contas.length > 1 ? 's' : ''}`
+                  : 'Contas Bancárias'
+                }
+              </h3>
+              <p>
+                {temContas 
+                  ? `Saldo total: ${formatCurrency(contas.reduce((total, conta) => total + (conta.saldo || 0), 0))}`
+                  : 'Cadastre suas contas para ter controle completo das suas finanças'
+                }
+              </p>
+            </div>
+          </div>
+
+          {/* Botões de Ação */}
+          <div className="action-buttons">
+            <button
+              onClick={handleAbrirModal}
+              className="btn-primary"
+            >
+              <Plus size={14} />
+              {temContas ? 'Gerenciar Contas' : 'Adicionar Conta'}
+            </button>
+
+            {!temContas && (
+              <button
+                onClick={handleCriarContasBasicas}
+                className="btn-secondary"
+              >
+                ⚡ Criar contas básicas
+              </button>
+            )}
+          </div>
+
+          {/* Contas Existentes ou Informações */}
+          {temContas ? (
+            <div className="contas-existentes">
+              {contas.slice(0, 4).map((conta) => (
+                <div key={conta.id} className="preview-card-base">
                   <div 
                     className="conta-icone"
                     style={{ backgroundColor: conta.cor || '#6b7280' }}
                   >
-                    <Wallet size={16} />
+                    <Wallet size={14} />
                   </div>
-                  <div className="conta-info">
-                    <span className="conta-nome">{conta.nome}</span>
-                    <span className="conta-tipo">{conta.tipo}</span>
+                  <div className="item-info-base">
+                    <div className="conta-nome">{conta.nome}</div>
+                    <div className="conta-tipo">{conta.tipo?.replace('_', ' ')}</div>
                   </div>
-                  <div className="conta-saldo">
+                  <div className="value-badge-base">
                     {formatCurrency(conta.saldo || 0)}
                   </div>
                 </div>
               ))}
-            </div>
-            
-            <div className="saldo-total">
-              <strong>Saldo total: {formatCurrency(
-                contas.reduce((total, conta) => total + (conta.saldo || 0), 0)
-              )}</strong>
-            </div>
-          </div>
-        )}
-
-        {/* Sugestões de tipos de conta */}
-        {!temContas && (
-          <div className="sugestoes-contas">
-            <h3>💡 Tipos de conta mais comuns:</h3>
-            <div className="tipos-grid">
-              {tiposContaSugeridos.map((tipo, index) => (
-                <div key={index} className="tipo-conta">
-                  <div className="tipo-icone">{tipo.icone}</div>
-                  <div className="tipo-info">
-                    <span className="tipo-nome">{tipo.nome}</span>
-                    <span className="tipo-descricao">{tipo.descricao}</span>
+              {contas.length > 4 && (
+                <div className="preview-card-base mais">
+                  <div className="conta-icone">
+                    +{contas.length - 4}
+                  </div>
+                  <div className="item-info-base">
+                    <div className="conta-nome">Mais contas</div>
+                    <div className="conta-tipo">Ver todas</div>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
-            <p className="sugestoes-texto">
-              Clique no botão acima para adicionar sua primeira conta.
-            </p>
-          </div>
-        )}
+          ) : (
+            <div className="info-grid">
+              <div className="info-item success">
+                <div className="info-icon">🏦</div>
+                <div className="info-title">Corrente</div>
+                <div className="info-text">Dia a dia</div>
+              </div>
 
-        {/* Informações importantes */}
-        <div className="info-importante">
-          <div className="info-icone">ℹ️</div>
-          <div className="info-conteudo">
-            <h4>Por que precisamos disso?</h4>
-            <p>
-              As contas são a base do controle financeiro. Elas mostram onde seu dinheiro 
-              está e nos ajudam a calcular seu patrimônio líquido e fluxo de caixa.
-            </p>
-          </div>
+              <div className="info-item info">
+                <div className="info-icon">💰</div>
+                <div className="info-title">Poupança</div>
+                <div className="info-text">Reservas</div>
+              </div>
+
+              <div className="info-item warning">
+                <div className="info-icon">📱</div>
+                <div className="info-title">Digital</div>
+                <div className="info-text">App bancos</div>
+              </div>
+
+              <div className="info-item info">
+                <div className="info-icon">💵</div>
+                <div className="info-title">Dinheiro</div>
+                <div className="info-text">Físico</div>
+              </div>
+            </div>
+          )}
+
+          {/* Alerta para etapa obrigatória */}
+          {!temContas && (
+            <div className="alert-base">
+              <div className="alerta-icon">⚠️</div>
+              <div className="alerta-texto">
+                <strong>Esta etapa é obrigatória</strong> para continuar o diagnóstico
+              </div>
+            </div>
+          )}
         </div>
-      </DiagnosticoEtapaLayout>
+      </div>
 
-      {/* Modal de contas */}
-      {modalAberto && (
-        <ContasModal
-          isOpen={modalAberto}
-          onClose={handleFecharModal}
-          onSave={handleSalvar}
-          diagnosticoMode={true}
-        />
-      )}
+      {/* Navegação Inferior */}
+      <div className="navigation">
+        <div className="nav-left">
+          <button
+            onClick={onVoltar}
+            className="btn-back"
+          >
+            <ArrowLeft size={12} />
+            Voltar
+          </button>
+        </div>
+        
+        <div className="nav-right">
+          <button
+            onClick={handleContinuar}
+            disabled={!temContas}
+            className="btn-continue"
+          >
+            Continuar
+            <ArrowRight size={12} />
+          </button>
+        </div>
+      </div>
 
-      <style jsx>{`
-        .contas-existentes {
-          margin: 2rem 0;
-        }
-
-        .contas-existentes h3 {
-          margin: 0 0 1.5rem 0;
-          font-size: 1.125rem;
-          font-weight: 700;
-          color: #374151;
-          text-align: center;
-        }
-
-        .contas-lista {
-          background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-          border: 1px solid #bbf7d0;
-          border-radius: 16px;
-          padding: 1.5rem;
-          margin-bottom: 1rem;
-        }
-
-        .conta-item {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          padding: 1rem;
-          background: white;
-          border: 1px solid #e5e7eb;
-          border-radius: 12px;
-          margin-bottom: 0.75rem;
-          transition: all 0.3s ease;
-        }
-
-        .conta-item:last-child {
-          margin-bottom: 0;
-        }
-
-        .conta-item:hover {
-          border-color: #d1d5db;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-        }
-
-        .conta-icone {
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          flex-shrink: 0;
-        }
-
-        .conta-info {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-          flex: 1;
-        }
-
-        .conta-nome {
-          font-weight: 600;
-          color: #374151;
-          font-size: 0.875rem;
-        }
-
-        .conta-tipo {
-          font-size: 0.75rem;
-          color: #6b7280;
-          text-transform: capitalize;
-        }
-
-        .conta-saldo {
-          font-weight: 700;
-          color: #059669;
-          font-size: 0.875rem;
-          background: #f0fdf4;
-          padding: 0.25rem 0.75rem;
-          border-radius: 12px;
-          border: 1px solid #bbf7d0;
-        }
-
-        .saldo-total {
-          text-align: center;
-          padding: 1rem;
-          background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-          border: 1px solid #93c5fd;
-          border-radius: 12px;
-          color: #1e40af;
-          font-size: 1.125rem;
-        }
-
-        .sugestoes-contas {
-          margin: 2rem 0;
-        }
-
-        .sugestoes-contas h3 {
-          margin: 0 0 1.5rem 0;
-          font-size: 1.125rem;
-          font-weight: 700;
-          color: #374151;
-          text-align: center;
-        }
-
-        .tipos-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 1rem;
-          margin-bottom: 1.5rem;
-        }
-
-        .tipo-conta {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          padding: 1rem;
-          background: white;
-          border: 1px solid #e5e7eb;
-          border-radius: 12px;
-          transition: all 0.3s ease;
-        }
-
-        .tipo-conta:hover {
-          border-color: #667eea;
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-
-        .tipo-icone {
-          font-size: 1.5rem;
-          width: 40px;
-          height: 40px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: #f8fafc;
-          border-radius: 10px;
-          border: 1px solid #e2e8f0;
-        }
-
-        .tipo-info {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-        }
-
-        .tipo-nome {
-          font-weight: 600;
-          color: #374151;
-          font-size: 0.875rem;
-        }
-
-        .tipo-descricao {
-          font-size: 0.75rem;
-          color: #6b7280;
-        }
-
-        .sugestoes-texto {
-          text-align: center;
-          color: #6b7280;
-          font-size: 0.875rem;
-          font-style: italic;
-        }
-
-        .info-importante {
-          display: flex;
-          gap: 1rem;
-          padding: 1.5rem;
-          background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-          border: 1px solid #bae6fd;
-          border-radius: 16px;
-          margin: 2rem 0;
-        }
-
-        .info-icone {
-          font-size: 1.5rem;
-          flex-shrink: 0;
-        }
-
-        .info-conteudo h4 {
-          margin: 0 0 0.5rem 0;
-          font-size: 1rem;
-          font-weight: 700;
-          color: #0c4a6e;
-        }
-
-        .info-conteudo p {
-          margin: 0;
-          font-size: 0.875rem;
-          color: #0369a1;
-          line-height: 1.6;
-        }
-
-        @media (max-width: 768px) {
-          .tipos-grid {
-            grid-template-columns: 1fr;
-            gap: 0.75rem;
-          }
-
-          .tipo-conta,
-          .conta-item {
-            padding: 0.875rem;
-          }
-
-          .conta-icone,
-          .tipo-icone {
-            width: 36px;
-            height: 36px;
-          }
-
-          .info-importante {
-            flex-direction: column;
-            text-align: center;
-            gap: 0.75rem;
-            padding: 1.25rem;
-          }
-        }
-      `}</style>
-    </>
+      {/* Modal de Contas */}
+      <ContasModal
+        isOpen={modalAberto}
+        onClose={handleFecharModal}
+      />
+    </div>
   );
 };
 
@@ -392,7 +336,8 @@ ContasEtapa.propTypes = {
   onContinuar: PropTypes.func.isRequired,
   onVoltar: PropTypes.func.isRequired,
   etapaAtual: PropTypes.number,
-  totalEtapas: PropTypes.number
+  totalEtapas: PropTypes.number,
+  dadosExistentes: PropTypes.object
 };
 
 export default ContasEtapa;

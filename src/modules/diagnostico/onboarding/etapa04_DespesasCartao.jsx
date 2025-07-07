@@ -1,552 +1,357 @@
 // src/modules/diagnostico/onboarding/etapa04_DespesasCartao.jsx
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import DiagnosticoEtapaLayout from '@modules/diagnostico/styles/DiagnosticoEtapaLayout';
+import { ArrowRight, ArrowLeft, CreditCard, Plus, ShoppingCart } from 'lucide-react';
+import useCartoes from '@modules/cartoes/hooks/useCartoesData';
 import DespesasCartaoModal from '@modules/transacoes/components/DespesasCartaoModal';
-//import useCartoes from '@modules/cartoes/hooks/useCartoesdata';
-//import useTransacoes from '@modules/transacoes/hooks/useTransacoes';
-import { formatCurrency } from '@utils/formatCurrency';
+import { formatCurrency } from '@shared/utils/formatCurrency';
+
+// CSS refatorado
+import '@modules/diagnostico/styles/DiagnosticoOnboarding.css';
 
 const DespesasCartaoEtapa = ({ 
   onContinuar, 
   onVoltar, 
   etapaAtual = 4, 
-  totalEtapas = 11 
+  totalEtapas = 11,
+  dadosExistentes = null,
+  todosDados = null // ✅ RECEBER TODOS OS DADOS DO DIAGNÓSTICO
 }) => {
+  const { cartoes, loading } = useCartoes();
   const [modalAberto, setModalAberto] = useState(false);
-  const { cartoes } = useCartoes();
-  const { transacoes, loading } = useTransacoes();
 
-  const handleAbrirModal = () => {
+  // Por enquanto, vamos assumir que não há despesas cadastradas no diagnóstico
+  // Isso pode ser melhorado depois com hook de transações quando necessário
+  const despesasCartao = [];
+
+  // ✅ USAR DADOS DO DIAGNÓSTICO EM VEZ DE HOOK SEPARADO
+  const dadosCartoesFromDiagnostico = todosDados?.cartoes;
+  const temCartoesDiagnostico = dadosCartoesFromDiagnostico?.totalCartoes > 0;
+  
+  // ✅ LÓGICA CORRIGIDA: Se chegou até aqui via DiagnosticoRouter, confia que tem cartões
+  // Mas faz fallback para verificação local se necessário
+  const temCartoes = temCartoesDiagnostico || (cartoes && cartoes.length > 0);
+  
+  console.log('🔍 DespesasCartaoEtapa - Verificação de cartões:', {
+    dadosCartoesFromDiagnostico,
+    temCartoesDiagnostico,
+    cartoesFromHook: cartoes?.length || 0,
+    temCartoes,
+    loading
+  });
+
+  const temDespesasCartao = despesasCartao.length > 0;
+  const podeContinuar = true; // Etapa opcional - sempre pode continuar
+
+  const handleAbrirModal = useCallback(() => {
     setModalAberto(true);
-  };
+  }, []);
 
-  const handleFecharModal = () => {
+  const handleFecharModal = useCallback(() => {
     setModalAberto(false);
-  };
+  }, []);
 
-  const handleSalvar = () => {
-    console.log('✅ Despesa do cartão salva!');
-    // Modal fecha automaticamente
-  };
+  const handleContinuar = useCallback(() => {
+    const dadosDespesasCartao = {
+      totalDespesasCartao: despesasCartao.length,
+      valorTotalDespesas: despesasCartao.reduce((total, despesa) => total + (despesa.valor || 0), 0),
+      temDespesasCartao,
+      completoEm: new Date().toISOString()
+    };
+    onContinuar(dadosDespesasCartao);
+  }, [despesasCartao, temDespesasCartao, onContinuar]);
 
-  const handleContinuar = () => {
-    onContinuar();
-  };
+  const progressoPercentual = Math.round(((etapaAtual + 1) / totalEtapas) * 100);
 
-  const handlePular = () => {
-    onContinuar(); // Permite pular esta etapa
-  };
-
-  // Filtra transações de cartão
-  const despesasCartao = transacoes ? transacoes.filter(t => 
-    t.tipo === 'despesa' && t.cartao_id
-  ) : [];
-
-  // Exemplos de gastos comuns no cartão
-  const exemplosDespesas = [
-    { icone: '🛒', categoria: 'Supermercado', descricao: 'Compras do mês' },
-    { icone: '⛽', categoria: 'Combustível', descricao: 'Posto de gasolina' },
-    { icone: '🍕', categoria: 'Alimentação', descricao: 'Restaurantes e delivery' },
-    { icone: '👕', categoria: 'Roupas', descricao: 'Vestuário e calçados' },
-    { icone: '💊', categoria: 'Farmácia', descricao: 'Medicamentos e produtos' },
-    { icone: '🎬', categoria: 'Lazer', descricao: 'Cinema, shows, streaming' }
+  const etapas = [
+    { numero: 1, nome: 'Intro', ativa: false, completa: true },
+    { numero: 2, nome: 'Categorias', ativa: false, completa: true },
+    { numero: 3, nome: 'Contas', ativa: false, completa: true },
+    { numero: 4, nome: 'Cartões', ativa: false, completa: true },
+    { numero: 5, nome: 'Desp.Cartão', ativa: true, completa: false },
+    { numero: 6, nome: 'Receitas', ativa: false, completa: false },
+    { numero: 7, nome: 'Desp.Fixas', ativa: false, completa: false },
+    { numero: 8, nome: 'Desp.Variáveis', ativa: false, completa: false },
+    { numero: 9, nome: 'Resumo', ativa: false, completa: false },
+    { numero: 10, nome: 'Metas', ativa: false, completa: false },
+    { numero: 11, nome: 'Fim', ativa: false, completa: false }
   ];
 
-  const temCartoes = cartoes && cartoes.length > 0;
-  const temDespesasCartao = despesasCartao.length > 0;
-  const podeContinuar = true; // Sempre pode continuar (etapa opcional)
-
-  if (loading) {
+  // ✅ LOADING STATE MELHORADO
+  if (loading && !cartoes?.length && !dadosCartoesFromDiagnostico) {
     return (
-      <DiagnosticoEtapaLayout
-        icone="💳"
-        titulo="Carregando despesas..."
-        descricao="Aguarde enquanto carregamos suas informações"
-        temDados={false}
-        onAbrirModal={() => {}}
-        onContinuar={() => {}}
-        onVoltar={onVoltar}
-        podeContinuar={false}
-        etapaAtual={etapaAtual}
-        totalEtapas={totalEtapas}
-      />
-    );
-  }
-
-  // Se não tem cartões, pula automaticamente
-  if (!temCartoes) {
-    return (
-      <DiagnosticoEtapaLayout
-        icone="💳"
-        titulo="Gastos no cartão de crédito"
-        subtitulo="Você não tem cartões cadastrados"
-        descricao="Como você não cadastrou nenhum cartão de crédito na etapa anterior, vamos pular esta parte e continuar."
-        temDados={false}
-        labelBotaoPrincipal="Voltar e Cadastrar Cartão"
-        onAbrirModal={onVoltar}
-        onVoltar={onVoltar}
-        onContinuar={handleContinuar}
-        podeContinuar={true}
-        etapaAtual={etapaAtual}
-        totalEtapas={totalEtapas}
-        alertas={["Você pode voltar e cadastrar um cartão se quiser, ou continuar sem eles"]}
-      >
-        <div className="sem-cartoes">
-          <div className="sem-cartoes-icone">💡</div>
-          <div className="sem-cartoes-conteudo">
-            <h4>Usando apenas dinheiro e débito?</h4>
-            <p>
-              Perfeito! Isso já é um ótimo controle financeiro. Vamos continuar 
-              com as próximas etapas para mapear suas receitas e despesas.
-            </p>
+      <div className="diagnostico-container">
+        <div className="diagnostico-header">
+          <div className="header-row">
+            <div className="header-title">Carregando...</div>
+            <div className="header-progress">Aguarde</div>
           </div>
         </div>
-      </DiagnosticoEtapaLayout>
+        <div className="diagnostico-main">
+          <div className="main-icon">⏳</div>
+          <h1 className="main-title">Carregando dados dos cartões...</h1>
+        </div>
+      </div>
     );
   }
+
+  // ✅ REMOÇÃO DA VERIFICAÇÃO PROBLEMÁTICA
+  // Se chegou até aqui, o DiagnosticoRouter já verificou que tem cartões
+  // Não precisamos fazer verificação duplicada que pode causar inconsistências
+
+  // ✅ FALLBACK: Se por algum motivo não temos dados de cartões, usar dados do diagnóstico
+  const cartoesParaExibir = cartoes?.length > 0 ? cartoes : [
+    {
+      id: 'fallback-1',
+      nome: dadosCartoesFromDiagnostico?.nomeCartao || 'Cartão Principal',
+      limite: dadosCartoesFromDiagnostico?.limiteTotal || 0,
+      cor: '#6b7280',
+      bandeira: 'Cartão'
+    }
+  ];
 
   return (
-    <>
-      <DiagnosticoEtapaLayout
-        icone="💳"
-        titulo="Gastos no cartão de crédito"
-        subtitulo="Registre os principais gastos dos seus cartões"
-        descricao="Agora vamos registrar os gastos que você já fez ou planeja fazer nos seus cartões. Isso ajuda a controlar as próximas faturas."
-        temDados={temDespesasCartao}
-        labelBotaoPrincipal="Adicionar Gasto no Cartão"
-        onAbrirModal={handleAbrirModal}
-        onVoltar={onVoltar}
-        onContinuar={handleContinuar}
-        onPular={handlePular}
-        podeContinuar={podeContinuar}
-        podePular={true}
-        etapaAtual={etapaAtual}
-        totalEtapas={totalEtapas}
-        dadosExistentes={
-          temDespesasCartao 
-            ? `${despesasCartao.length} gasto${despesasCartao.length > 1 ? 's' : ''} registrado${despesasCartao.length > 1 ? 's' : ''}` 
-            : null
-        }
-        dicas={[
-          "Registre apenas os gastos principais - você pode adicionar outros depois",
-          "Inclua compras parceladas para controle das próximas faturas",
-          "Use aproximações se não lembrar do valor exato"
-        ]}
-      >
-        {/* Despesas existentes */}
-        {temDespesasCartao && (
-          <div className="despesas-existentes">
-            <h3>Gastos registrados nos cartões:</h3>
-            <div className="despesas-lista">
-              {despesasCartao.slice(0, 5).map((despesa) => {
-                const cartao = cartoes.find(c => c.id === despesa.cartao_id);
-                return (
-                  <div key={despesa.id} className="despesa-item">
-                    <div className="despesa-info">
-                      <span className="despesa-descricao">{despesa.descricao}</span>
-                      <span className="despesa-cartao">
-                        {cartao?.nome || 'Cartão não encontrado'}
-                      </span>
-                    </div>
-                    <div className="despesa-valor">
-                      {formatCurrency(despesa.valor)}
-                    </div>
-                  </div>
-                );
-              })}
-              {despesasCartao.length > 5 && (
-                <div className="despesa-item mais">
-                  <div className="despesa-info">
-                    <span className="despesa-descricao">
-                      +{despesasCartao.length - 5} outros gastos
-                    </span>
-                  </div>
-                </div>
-              )}
+    <div className="diagnostico-container">
+      
+      {/* Header Compacto */}
+      <div className="diagnostico-header">
+        <div className="header-row">
+          <div className="header-title">Diagnóstico Financeiro</div>
+          <div className="header-progress">
+            Etapa {etapaAtual + 1} de {totalEtapas} • {progressoPercentual}%
+          </div>
+        </div>
+
+        <div className="progress-bar">
+          <div 
+            className="progress-fill"
+            style={{ width: `${progressoPercentual}%` }}
+          />
+        </div>
+
+        <div className="steps-row">
+          {etapas.map((etapa) => (
+            <div 
+              key={etapa.numero}
+              className={`step ${etapa.ativa ? 'active' : ''} ${etapa.completa ? 'completed' : ''}`}
+            >
+              <div className="step-circle">
+                {etapa.completa ? '✓' : etapa.numero}
+              </div>
+              <div className="step-label">{etapa.nome}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Conteúdo Principal - Layout com Vídeo */}
+      <div className="diagnostico-main-with-video">
+        
+        {/* Vídeo à Esquerda */}
+        <div className="diagnostico-video-left">
+          <div className="video-container">
+            <div className="video-header">
+              <h3 className="video-title">🎬 Registrando gastos do cartão</h3>
+              <p className="video-subtitle">Controle em 3 minutos</p>
             </div>
             
-            <div className="total-despesas">
-              <strong>Total gasto: {formatCurrency(
-                despesasCartao.reduce((total, despesa) => total + despesa.valor, 0)
-              )}</strong>
+            <div className="video-embed">
+              <iframe
+                width="100%"
+                height="200"
+                src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                title="Tutorial: Como registrar gastos do cartão de crédito"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              ></iframe>
+            </div>
+            
+            <div className="video-benefits">
+              <div className="benefit-item">
+                <span className="benefit-icon">💡</span>
+                <span className="benefit-text">Evitar surpresas</span>
+              </div>
+              <div className="benefit-item">
+                <span className="benefit-icon">📊</span>
+                <span className="benefit-text">Controle de fatura</span>
+              </div>
+              <div className="benefit-item">
+                <span className="benefit-icon">🎯</span>
+                <span className="benefit-text">Planejamento</span>
+              </div>
             </div>
           </div>
-        )}
+        </div>
 
-        {/* Seus cartões disponíveis */}
-        <div className="cartoes-disponiveis">
-          <h3>📱 Seus cartões disponíveis:</h3>
-          <div className="cartoes-grid">
-            {cartoes.map((cartao) => (
-              <div key={cartao.id} className="cartao-disponivel">
-                <div 
-                  className="cartao-cor"
-                  style={{ backgroundColor: cartao.cor || '#6b7280' }}
-                >
-                  💳
-                </div>
-                <div className="cartao-detalhes">
-                  <span className="cartao-nome">{cartao.nome}</span>
-                  <span className="cartao-limite">
-                    Limite: {formatCurrency(cartao.limite || 0)}
-                  </span>
+        {/* Conteúdo à Direita */}
+        <div className="diagnostico-content-right">
+          <div className="main-icon">🛒</div>
+          <h1 className="main-title">Gastos no cartão de crédito</h1>
+          <p className="main-subtitle">Registre os principais gastos dos seus cartões</p>
+          <p className="main-description">
+            Vamos registrar os gastos que você já fez ou planeja fazer nos seus cartões. 
+            Isso ajuda a controlar as próximas faturas e evitar surpresas.
+          </p>
+
+          {/* ✅ STATUS CARD MELHORADO */}
+          <div className={`status-card ${temDespesasCartao ? 'completed' : 'pending'}`}>
+            <div className="status-icon">
+              {temDespesasCartao ? '✅' : '🛒'}
+            </div>
+            <div className="status-info">
+              <h3>
+                {temDespesasCartao 
+                  ? `${despesasCartao.length} gasto${despesasCartao.length > 1 ? 's' : ''} registrado${despesasCartao.length > 1 ? 's' : ''}`
+                  : 'Gastos do Cartão'
+                }
+              </h3>
+              <p>
+                {temDespesasCartao 
+                  ? `Total gasto: ${formatCurrency(despesasCartao.reduce((total, despesa) => total + (despesa.valor || 0), 0))}`
+                  : `Você tem ${dadosCartoesFromDiagnostico?.totalCartoes || cartoesParaExibir.length} cartão${(dadosCartoesFromDiagnostico?.totalCartões || cartoesParaExibir.length) > 1 ? 'ões' : ''} cadastrado${(dadosCartoesFromDiagnostico?.totalCartões || cartoesParaExibir.length) > 1 ? 's' : ''}`
+                }
+              </p>
+            </div>
+          </div>
+
+          {/* Botões de Ação */}
+          <div className="action-buttons">
+            <button
+              onClick={handleAbrirModal}
+              className="btn-primary"
+            >
+              <Plus size={14} />
+              {temDespesasCartao ? 'Gerenciar Gastos' : 'Adicionar Gasto'}
+            </button>
+          </div>
+
+          {/* Despesas Existentes ou Cartões Disponíveis */}
+          {temDespesasCartao ? (
+            <div className="despesas-existentes">
+              <p>Nenhuma despesa registrada ainda.</p>
+            </div>
+          ) : (
+            <>
+              {/* ✅ CARTÕES DISPONÍVEIS MELHORADO */}
+              <div className="cartoes-disponiveis">
+                <h4>💳 Seus cartões disponíveis:</h4>
+                <div className="cartoes-mini-grid">
+                  {cartoesParaExibir.slice(0, 2).map((cartao) => (
+                    <div key={cartao.id} className="cartao-mini">
+                      <div 
+                        className="cartao-mini-cor"
+                        style={{ backgroundColor: cartao.cor || '#6b7280' }}
+                      >
+                        <CreditCard size={12} />
+                      </div>
+                      <div className="cartao-mini-info">
+                        <span className="cartao-mini-nome">{cartao.nome}</span>
+                        <span className="cartao-mini-limite">
+                          {formatCurrency(cartao.limite || 0)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  {cartoesParaExibir.length > 2 && (
+                    <div className="cartao-mini mais">
+                      <div className="cartao-mini-cor">
+                        +{cartoesParaExibir.length - 2}
+                      </div>
+                      <div className="cartao-mini-info">
+                        <span className="cartao-mini-nome">Mais cartões</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
 
-        {/* Exemplos de despesas */}
-        {!temDespesasCartao && (
-          <div className="exemplos-despesas">
-            <h3>💡 Exemplos de gastos no cartão:</h3>
-            <div className="exemplos-grid">
-              {exemplosDespesas.map((exemplo, index) => (
-                <div key={index} className="exemplo-item">
-                  <div className="exemplo-icone">{exemplo.icone}</div>
-                  <div className="exemplo-info">
-                    <span className="exemplo-categoria">{exemplo.categoria}</span>
-                    <span className="exemplo-descricao">{exemplo.descricao}</span>
-                  </div>
+              {/* Info Grid */}
+              <div className="info-grid">
+                <div className="info-item success">
+                  <div className="info-icon">🛒</div>
+                  <div className="info-title">Compras</div>
+                  <div className="info-text">Supermercado</div>
                 </div>
-              ))}
+
+                <div className="info-item info">
+                  <div className="info-icon">⛽</div>
+                  <div className="info-title">Combustível</div>
+                  <div className="info-text">Posto</div>
+                </div>
+
+                <div className="info-item warning">
+                  <div className="info-icon">🍕</div>
+                  <div className="info-title">Delivery</div>
+                  <div className="info-text">Comida</div>
+                </div>
+
+                <div className="info-item info">
+                  <div className="info-icon">👕</div>
+                  <div className="info-title">Roupas</div>
+                  <div className="info-text">Shopping</div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Dica sobre gastos */}
+          {!temDespesasCartao && (
+            <div className="dica-gastos">
+              <div className="dica-icon">💡</div>
+              <div className="dica-texto">
+                <strong>Dica:</strong> Registre apenas os gastos principais. 
+                Você pode adicionar outros depois conforme usar o app!
+              </div>
             </div>
-            <p className="exemplos-texto">
-              Você pode registrar qualquer tipo de gasto feito no cartão.
-            </p>
-          </div>
-        )}
+          )}
 
-        {/* Informações importantes */}
-        <div className="info-importante">
-          <div className="info-icone">💡</div>
-          <div className="info-conteudo">
-            <h4>Por que registrar gastos do cartão?</h4>
-            <ul>
-              <li>Controlar o valor das próximas faturas</li>
-              <li>Evitar surpresas no vencimento</li>
-              <li>Planejar compras parceladas</li>
-              <li>Entender seus padrões de consumo</li>
-            </ul>
-          </div>
+          {/* ✅ INFO SOBRE DADOS DO DIAGNÓSTICO */}
+          {dadosCartoesFromDiagnostico && (
+            <div className="info-diagnostico">
+              <div className="info-icon">📊</div>
+              <div className="info-texto">
+                <strong>Limite total disponível:</strong> {formatCurrency(dadosCartoesFromDiagnostico.limiteTotal || 0)}
+                <br />
+                <small>Baseado nos cartões cadastrados na etapa anterior</small>
+              </div>
+            </div>
+          )}
         </div>
-      </DiagnosticoEtapaLayout>
+      </div>
 
-      {/* Modal de despesas do cartão */}
+      {/* Navegação Inferior */}
+      <div className="navigation">
+        <div className="nav-left">
+          <button
+            onClick={onVoltar}
+            className="btn-back"
+          >
+            <ArrowLeft size={12} />
+            Voltar
+          </button>
+        </div>
+        
+        <div className="nav-right">
+          <button
+            onClick={handleContinuar}
+            className="btn-continue"
+          >
+            {temDespesasCartao ? 'Continuar' : 'Pular por agora'}
+            <ArrowRight size={12} />
+          </button>
+        </div>
+      </div>
+
+      {/* Modal de Despesas do Cartão */}
       {modalAberto && (
         <DespesasCartaoModal
           isOpen={modalAberto}
           onClose={handleFecharModal}
-          onSave={handleSalvar}
-          diagnosticoMode={true}
         />
       )}
 
-      <style jsx>{`
-        .sem-cartoes {
-          display: flex;
-          gap: 1rem;
-          padding: 2rem;
-          background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-          border: 1px solid #bae6fd;
-          border-radius: 16px;
-          margin: 2rem 0;
-          text-align: center;
-          flex-direction: column;
-          align-items: center;
-        }
-
-        .sem-cartoes-icone {
-          font-size: 3rem;
-        }
-
-        .sem-cartoes-conteudo h4 {
-          margin: 0 0 1rem 0;
-          font-size: 1.25rem;
-          font-weight: 700;
-          color: #0c4a6e;
-        }
-
-        .sem-cartoes-conteudo p {
-          margin: 0;
-          font-size: 1rem;
-          color: #0369a1;
-          line-height: 1.6;
-          max-width: 400px;
-        }
-
-        .despesas-existentes {
-          margin: 2rem 0;
-        }
-
-        .despesas-existentes h3 {
-          margin: 0 0 1.5rem 0;
-          font-size: 1.125rem;
-          font-weight: 700;
-          color: #374151;
-          text-align: center;
-        }
-
-        .despesas-lista {
-          background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-          border: 1px solid #fcd34d;
-          border-radius: 16px;
-          padding: 1.5rem;
-          margin-bottom: 1rem;
-        }
-
-        .despesa-item {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 1rem;
-          background: white;
-          border: 1px solid #e5e7eb;
-          border-radius: 12px;
-          margin-bottom: 0.75rem;
-        }
-
-        .despesa-item:last-child {
-          margin-bottom: 0;
-        }
-
-        .despesa-item.mais {
-          border-style: dashed;
-          opacity: 0.7;
-        }
-
-        .despesa-info {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-        }
-
-        .despesa-descricao {
-          font-weight: 600;
-          color: #374151;
-          font-size: 0.875rem;
-        }
-
-        .despesa-cartao {
-          font-size: 0.75rem;
-          color: #6b7280;
-        }
-
-        .despesa-valor {
-          font-weight: 700;
-          color: #dc2626;
-          font-size: 0.875rem;
-        }
-
-        .total-despesas {
-          text-align: center;
-          padding: 1rem;
-          background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-          border: 1px solid #fecaca;
-          border-radius: 12px;
-          color: #991b1b;
-          font-size: 1.125rem;
-        }
-
-        .cartoes-disponiveis {
-          margin: 2rem 0;
-        }
-
-        .cartoes-disponiveis h3 {
-          margin: 0 0 1.5rem 0;
-          font-size: 1.125rem;
-          font-weight: 700;
-          color: #374151;
-          text-align: center;
-        }
-
-        .cartoes-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 1rem;
-        }
-
-        .cartao-disponivel {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          padding: 1rem;
-          background: white;
-          border: 1px solid #e5e7eb;
-          border-radius: 12px;
-          transition: all 0.3s ease;
-        }
-
-        .cartao-disponivel:hover {
-          border-color: #8b5cf6;
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(139, 92, 246, 0.1);
-        }
-
-        .cartao-cor {
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          font-size: 1.25rem;
-          flex-shrink: 0;
-        }
-
-        .cartao-detalhes {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-        }
-
-        .cartao-nome {
-          font-weight: 600;
-          color: #374151;
-          font-size: 0.875rem;
-        }
-
-        .cartao-limite {
-          font-size: 0.75rem;
-          color: #6b7280;
-        }
-
-        .exemplos-despesas {
-          margin: 2rem 0;
-        }
-
-        .exemplos-despesas h3 {
-          margin: 0 0 1.5rem 0;
-          font-size: 1.125rem;
-          font-weight: 700;
-          color: #374151;
-          text-align: center;
-        }
-
-        .exemplos-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 1rem;
-          margin-bottom: 1.5rem;
-        }
-
-        .exemplo-item {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          padding: 1rem;
-          background: white;
-          border: 1px solid #e5e7eb;
-          border-radius: 12px;
-          transition: all 0.3s ease;
-        }
-
-        .exemplo-item:hover {
-          border-color: #667eea;
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-
-        .exemplo-icone {
-          font-size: 1.5rem;
-          width: 40px;
-          height: 40px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: #f8fafc;
-          border-radius: 10px;
-          border: 1px solid #e2e8f0;
-        }
-
-        .exemplo-info {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-        }
-
-        .exemplo-categoria {
-          font-weight: 600;
-          color: #374151;
-          font-size: 0.875rem;
-        }
-
-        .exemplo-descricao {
-          font-size: 0.75rem;
-          color: #6b7280;
-        }
-
-        .exemplos-texto {
-          text-align: center;
-          color: #6b7280;
-          font-size: 0.875rem;
-          font-style: italic;
-        }
-
-        .info-importante {
-          display: flex;
-          gap: 1rem;
-          padding: 1.5rem;
-          background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-          border: 1px solid #bae6fd;
-          border-radius: 16px;
-          margin: 2rem 0;
-        }
-
-        .info-icone {
-          font-size: 1.5rem;
-          flex-shrink: 0;
-        }
-
-        .info-conteudo h4 {
-          margin: 0 0 0.75rem 0;
-          font-size: 1rem;
-          font-weight: 700;
-          color: #0c4a6e;
-        }
-
-        .info-conteudo ul {
-          margin: 0;
-          padding-left: 1.25rem;
-          color: #0369a1;
-        }
-
-        .info-conteudo li {
-          font-size: 0.875rem;
-          line-height: 1.5;
-          margin-bottom: 0.25rem;
-        }
-
-        @media (max-width: 768px) {
-          .cartoes-grid,
-          .exemplos-grid {
-            grid-template-columns: 1fr;
-            gap: 0.75rem;
-          }
-
-          .cartao-disponivel,
-          .exemplo-item,
-          .despesa-item {
-            padding: 0.875rem;
-          }
-
-          .despesa-item {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 0.5rem;
-          }
-
-          .info-importante {
-            flex-direction: column;
-            text-align: center;
-            gap: 0.75rem;
-            padding: 1.25rem;
-          }
-        }
-      `}</style>
-    </>
+    </div>
   );
 };
 
@@ -554,7 +359,9 @@ DespesasCartaoEtapa.propTypes = {
   onContinuar: PropTypes.func.isRequired,
   onVoltar: PropTypes.func.isRequired,
   etapaAtual: PropTypes.number,
-  totalEtapas: PropTypes.number
+  totalEtapas: PropTypes.number,
+  dadosExistentes: PropTypes.object,
+  todosDados: PropTypes.object // ✅ NOVA PROP OBRIGATÓRIA
 };
 
 export default DespesasCartaoEtapa;

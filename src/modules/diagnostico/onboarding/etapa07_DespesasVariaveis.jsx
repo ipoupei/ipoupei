@@ -1,298 +1,531 @@
-import React, { useState, useEffect } from 'react';
+// src/modules/diagnostico/onboarding/etapa07_DespesasVariaveis.jsx
+import React, { useState, useCallback, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { ShoppingBag, HelpCircle, TrendingDown, Calculator } from 'lucide-react';
+import { ArrowRight, ArrowLeft, ShoppingBag, Plus, HelpCircle, Calculator, TrendingDown } from 'lucide-react';
+import UnifiedTransactionModal from '@modules/transacoes/components/UnifiedTransactionModal';
+import { useTransactions } from '@modules/transacoes/store/transactionsStore';
+import { formatCurrency } from '@shared/utils/formatCurrency';
 import InputMoney from '@shared/components/ui/InputMoney';
-import { formatCurrency } from '@utils/formatCurrency';
 
+// CSS refatorado
+import '@modules/diagnostico/styles/DiagnosticoOnboarding.css';
 
+const DespesasVariaveisEtapa = ({ 
+  onContinuar, 
+  onVoltar, 
+  etapaAtual = 7, 
+  totalEtapas = 11,
+  dadosExistentes = null 
+}) => {
+  const [modalAberto, setModalAberto] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [precisaRecarregar, setPrecisaRecarregar] = useState(true);
 
-/**
- * Componente da etapa de despesas variáveis
- * Coleta dados sobre gastos que variam mensalmente (lazer, compras, imprevistos)
- */
-const DespesasVariaveisEtapa = ({ data, onUpdateData, onNext }) => {
-  // Estado local para as despesas variáveis
-  const [localData, setLocalData] = useState({
+  // Estados para estimativas manuais
+  const [estimativas, setEstimativas] = useState({
     lazer: 0,
     compras: 0,
-    imprevistos: 0
+    alimentacao: 0,
+    transporte: 0,
+    saude: 0,
+    outros: 0
   });
-  
-  // Estado para controlar erros de validação
-  const [errors, setErrors] = useState({});
-  
-  // Preenche o estado local com dados existentes (se houver)
-  useEffect(() => {
-    if (data?.situacaoFinanceira?.despesasVariaveis) {
-      setLocalData(data.situacaoFinanceira.despesasVariaveis);
+
+  // Hook de transações
+  const { 
+    transacoes, 
+    loading: loadingTransacoes,
+    setFiltros, 
+    fetchTransacoes 
+  } = useTransactions();
+
+  // Filtrar apenas despesas variáveis das transações carregadas
+  const despesasVariaveisCarregadas = transacoes.filter(t => 
+    t.tipo === 'despesa' && 
+    !t.grupo_recorrencia && 
+    !t.eh_recorrente && 
+    !t.cartao_id // Excluir despesas de cartão (já foram tratadas)
+  );
+
+  // Buscar despesas variáveis existentes
+  const carregarDespesasVariaveis = useCallback(async () => {
+    if (!precisaRecarregar) return;
+    
+    try {
+      setLoading(true);
+      console.log('🔄 Carregando despesas variáveis para diagnóstico...');
+      
+      // Configurar filtros para buscar apenas despesas
+      setFiltros({ 
+        tipos: ['despesa'],
+        categorias: [],
+        contas: [],
+        cartoes: [],
+        status: [],
+        busca: ''
+      });
+      
+      // Buscar transações (que serão filtradas automaticamente)
+      await fetchTransacoes();
+      
+      setPrecisaRecarregar(false);
+      console.log('✅ Despesas variáveis carregadas via store');
+    } catch (error) {
+      console.error('❌ Erro ao carregar despesas variáveis:', error);
+    } finally {
+      setLoading(false);
     }
-  }, [data]);
-  
-  // Lista de categorias de despesas variáveis com descrições
-  const categoriasDespesasVariaveis = [
+  }, [precisaRecarregar, setFiltros, fetchTransacoes]);
+
+  // Carregar dados existentes
+  useEffect(() => {
+    if (dadosExistentes?.estimativas) {
+      setEstimativas(dadosExistentes.estimativas);
+    }
+  }, [dadosExistentes]);
+
+  // Carregar despesas variáveis quando o componente montar
+  useEffect(() => {
+    carregarDespesasVariaveis();
+  }, [carregarDespesasVariaveis]);
+
+  const temDespesasVariaveis = despesasVariaveisCarregadas && despesasVariaveisCarregadas.length > 0;
+  const temEstimativas = Object.values(estimativas).some(valor => valor > 0);
+  const podeContinuar = temDespesasVariaveis || temEstimativas; // Pode continuar com transações OU estimativas
+
+  // Categorias de despesas variáveis
+  const categorias = [
     {
       key: 'lazer',
       nome: 'Lazer e Entretenimento',
       icone: '🎉',
-      descricao: 'Cinema, shows, viagens, restaurantes, streaming, jogos',
-      dica: 'Considere uma média mensal dos últimos 3 meses'
+      descricao: 'Cinema, shows, viagens, restaurantes',
+      cor: '#8B5CF6'
     },
     {
       key: 'compras',
       nome: 'Compras e Consumo',
       icone: '🛒',
-      descricao: 'Roupas, eletrônicos, decoração, cosméticos, presentes',
-      dica: 'Inclua compras online e físicas não essenciais'
+      descricao: 'Roupas, eletrônicos, presentes',
+      cor: '#F59E0B'
     },
     {
-      key: 'imprevistos',
-      nome: 'Imprevistos e Emergências',
-      icone: '🚨',
-      descricao: 'Reparos, multas, remédios, gastos médicos não programados',
-      dica: 'Baseie-se em uma média dos últimos 6 meses'
+      key: 'alimentacao',
+      nome: 'Alimentação Variável',
+      icone: '🍕',
+      descricao: 'Delivery, lanches, supermercado extra',
+      cor: '#EF4444'
+    },
+    {
+      key: 'transporte',
+      nome: 'Transporte Extra',
+      icone: '🚗',
+      descricao: 'Uber, táxi, combustível adicional',
+      cor: '#06B6D4'
+    },
+    {
+      key: 'saude',
+      nome: 'Saúde Variável',
+      icone: '💊',
+      descricao: 'Medicamentos, consultas extras',
+      cor: '#10B981'
+    },
+    {
+      key: 'outros',
+      nome: 'Outros Gastos',
+      icone: '📝',
+      descricao: 'Imprevistos, doações, diversos',
+      cor: '#6B7280'
     }
   ];
-  
-  // Manipulador para campos monetários
-  const handleMoneyChange = (field, value) => {
-    setLocalData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+
+  const handleAbrirModal = useCallback(() => {
+    setModalAberto(true);
+  }, []);
+
+  const handleFecharModal = useCallback(() => {
+    setModalAberto(false);
+  }, []);
+
+  const handleSalvarDespesa = useCallback(() => {
+    console.log('💾 Despesa variável salva, recarregando dados...');
+    setPrecisaRecarregar(true);
+    setModalAberto(false);
     
-    // Limpa erro do campo, se existir
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: null }));
+    // Limpar filtros e recarregar
+    setTimeout(() => {
+      carregarDespesasVariaveis();
+    }, 500);
+  }, [carregarDespesasVariaveis]);
+
+  const handleEstimativaChange = useCallback((categoria, valor) => {
+    setEstimativas(prev => ({
+      ...prev,
+      [categoria]: valor || 0
+    }));
+  }, []);
+
+  const handleContinuar = useCallback(() => {
+    if (podeContinuar) {
+      const valorTotalTransacoes = despesasVariaveisCarregadas.reduce((total, despesa) => {
+        return total + (despesa.valor || 0);
+      }, 0);
+
+      const valorTotalEstimativas = Object.values(estimativas).reduce((total, valor) => {
+        return total + valor;
+      }, 0);
+
+      // Calcular distribuição por categoria das transações
+      const despesasPorCategoria = {};
+      despesasVariaveisCarregadas.forEach(despesa => {
+        const categoria = despesa.categoria_nome || 'Outros';
+        if (!despesasPorCategoria[categoria]) {
+          despesasPorCategoria[categoria] = { quantidade: 0, valor: 0 };
+        }
+        despesasPorCategoria[categoria].quantidade += 1;
+        despesasPorCategoria[categoria].valor += despesa.valor || 0;
+      });
+
+      const dadosDespesasVariaveis = {
+        totalDespesasVariaveis: despesasVariaveisCarregadas.length,
+        valorTotalTransacoes,
+        valorTotalEstimativas,
+        valorTotalCombinado: valorTotalTransacoes + valorTotalEstimativas,
+        temDespesasVariaveis,
+        temEstimativas,
+        estimativas,
+        despesasPorCategoria,
+        metodoColeta: temDespesasVariaveis ? 'transacoes' : 'estimativas',
+        completoEm: new Date().toISOString()
+      };
+      
+      console.log('✅ Dados das despesas variáveis para diagnóstico:', dadosDespesasVariaveis);
+      onContinuar(dadosDespesasVariaveis);
     }
-  };
-  
-  // Calcula o total das despesas variáveis
-  const totalDespesasVariaveis = Object.values(localData).reduce((acc, val) => acc + val, 0);
-  
-  // Calcula percentual em relação à renda (se disponível)
-  const rendaMensal = data?.situacaoFinanceira?.rendaMensal || 0;
-  const percentualRenda = rendaMensal > 0 ? (totalDespesasVariaveis / rendaMensal) * 100 : 0;
-  
-  // Determina cor e mensagem baseada no percentual
-  const getPercentualInfo = () => {
-    if (percentualRenda === 0) {
-      return { color: 'text-gray-600', message: '' };
-    } else if (percentualRenda <= 20) {
-      return { 
-        color: 'text-green-600', 
-        message: 'Excelente controle de gastos variáveis!' 
-      };
-    } else if (percentualRenda <= 35) {
-      return { 
-        color: 'text-yellow-600', 
-        message: 'Gastos variáveis dentro de uma faixa aceitável.' 
-      };
-    } else if (percentualRenda <= 50) {
-      return { 
-        color: 'text-orange-600', 
-        message: 'Gastos variáveis elevados - oportunidade de economia.' 
-      };
-    } else {
-      return { 
-        color: 'text-red-600', 
-        message: 'Gastos variáveis muito altos - requer atenção imediata.' 
-      };
-    }
-  };
-  
-  const percentualInfo = getPercentualInfo();
-  
-  // Submete os dados e avança para a próxima etapa
-  const handleSubmit = () => {
-    // Não há validação obrigatória para despesas variáveis (podem ser zero)
-    onUpdateData('situacaoFinanceira', {
-      despesasVariaveis: localData
-    });
-    onNext();
-  };
+  }, [despesasVariaveisCarregadas, estimativas, temDespesasVariaveis, temEstimativas, podeContinuar, onContinuar]);
+
+  const progressoPercentual = Math.round(((etapaAtual + 1) / totalEtapas) * 100);
+
+  const etapas = [
+    { numero: 1, nome: 'Intro', ativa: false, completa: true },
+    { numero: 2, nome: 'Categorias', ativa: false, completa: true },
+    { numero: 3, nome: 'Contas', ativa: false, completa: true },
+    { numero: 4, nome: 'Cartões', ativa: false, completa: true },
+    { numero: 5, nome: 'Desp.Cartão', ativa: false, completa: true },
+    { numero: 6, nome: 'Receitas', ativa: false, completa: true },
+    { numero: 7, nome: 'Desp.Fixas', ativa: false, completa: true },
+    { numero: 8, nome: 'Desp.Variáveis', ativa: true, completa: false },
+    { numero: 9, nome: 'Resumo', ativa: false, completa: false },
+    { numero: 10, nome: 'Metas', ativa: false, completa: false },
+    { numero: 11, nome: 'Fim', ativa: false, completa: false }
+  ];
+
+  // Calcular totais e métricas
+  const valorTotalTransacoes = despesasVariaveisCarregadas.reduce((total, despesa) => total + (despesa.valor || 0), 0);
+  const valorTotalEstimativas = Object.values(estimativas).reduce((total, valor) => total + valor, 0);
+  const valorTotalCombinado = valorTotalTransacoes + valorTotalEstimativas;
+
+  if (loading && !despesasVariaveisCarregadas.length) {
+    return (
+      <div className="diagnostico-container">
+        <div className="diagnostico-header">
+          <div className="header-row">
+            <div className="header-title">Carregando...</div>
+            <div className="header-progress">Aguarde</div>
+          </div>
+        </div>
+        <div className="diagnostico-main">
+          <div className="main-icon">⏳</div>
+          <h1 className="main-title">Carregando suas despesas variáveis...</h1>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center mb-6">
-        <div className="p-2 rounded-full bg-orange-100 text-orange-600 mr-3">
-          <ShoppingBag size={24} />
+    <div className="diagnostico-container">
+      
+      {/* Header Compacto */}
+      <div className="diagnostico-header">
+        <div className="header-row">
+          <div className="header-title">Diagnóstico Financeiro</div>
+          <div className="header-progress">
+            Etapa {etapaAtual + 1} de {totalEtapas} • {progressoPercentual}%
+          </div>
         </div>
-        <h2 className="text-xl font-bold text-gray-800">Despesas Variáveis</h2>
-      </div>
-      
-      <p className="text-gray-600 mb-6">
-        Agora vamos falar sobre os gastos que variam de mês para mês. Estes são geralmente os mais 
-        fáceis de controlar e onde você pode encontrar oportunidades de economia.
-      </p>
-      
-      {/* Campos de despesas variáveis */}
-      <div className="space-y-6">
-        {categoriasDespesasVariaveis.map((categoria) => (
-          <div key={categoria.key} className="bg-white border border-gray-200 rounded-lg p-5">
-            <div className="flex items-start mb-3">
-              <div className="text-2xl mr-3">{categoria.icone}</div>
-              <div className="flex-1">
-                <h3 className="text-lg font-medium text-gray-800 mb-1">
-                  {categoria.nome}
-                </h3>
-                <p className="text-sm text-gray-600 mb-2">{categoria.descricao}</p>
-                <div className="flex items-center text-xs text-blue-600 mb-3">
-                  <HelpCircle size={14} className="mr-1" />
-                  <span>{categoria.dica}</span>
-                </div>
+
+        <div className="progress-bar">
+          <div 
+            className="progress-fill"
+            style={{ width: `${progressoPercentual}%` }}
+          />
+        </div>
+
+        <div className="steps-row">
+          {etapas.map((etapa) => (
+            <div 
+              key={etapa.numero}
+              className={`step ${etapa.ativa ? 'active' : ''} ${etapa.completa ? 'completed' : ''}`}
+            >
+              <div className="step-circle">
+                {etapa.completa ? '✓' : etapa.numero}
               </div>
+              <div className="step-label">{etapa.nome}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Conteúdo Principal - Layout com Vídeo */}
+      <div className="diagnostico-main-with-video">
+        
+        {/* Vídeo à Esquerda */}
+        <div className="diagnostico-video-left">
+          <div className="video-container">
+            <div className="video-header">
+              <h3 className="video-title">🎬 Controlando gastos variáveis</h3>
+              <p className="video-subtitle">Otimize em 5 minutos</p>
             </div>
             
-            <div className="flex items-center space-x-4">
-              <div className="flex-1">
-                <label htmlFor={categoria.key} className="block text-sm font-medium text-gray-700 mb-1">
-                  Gasto médio mensal
-                </label>
-                <InputMoney
-                  id={categoria.key}
-                  name={categoria.key}
-                  value={localData[categoria.key]}
-                  onChange={(value) => handleMoneyChange(categoria.key, value)}
-                  placeholder="R$ 0,00"
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    padding: '0.625rem 0.75rem',
-                    fontSize: '0.875rem',
-                    borderRadius: '0.375rem',
-                    border: '1px solid #d1d5db'
-                  }}
-                />
+            <div className="video-embed">
+              <iframe
+                width="100%"
+                height="200"
+                src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                title="Tutorial: Como controlar despesas variáveis"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              ></iframe>
+            </div>
+            
+            <div className="video-benefits">
+              <div className="benefit-item">
+                <span className="benefit-icon">💰</span>
+                <span className="benefit-text">Economizar mais</span>
               </div>
-              
-              {rendaMensal > 0 && localData[categoria.key] > 0 && (
-                <div className="text-right text-sm">
-                  <div className="text-gray-500">% da renda</div>
-                  <div className={`font-medium ${
-                    (localData[categoria.key] / rendaMensal) * 100 > 25 ? 'text-red-600' : 
-                    (localData[categoria.key] / rendaMensal) * 100 > 15 ? 'text-orange-600' : 
-                    'text-green-600'
-                  }`}>
-                    {((localData[categoria.key] / rendaMensal) * 100).toFixed(1)}%
+              <div className="benefit-item">
+                <span className="benefit-icon">🎯</span>
+                <span className="benefit-text">Foco no essencial</span>
+              </div>
+              <div className="benefit-item">
+                <span className="benefit-icon">📈</span>
+                <span className="benefit-text">Mais sobra</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Conteúdo à Direita */}
+        <div className="diagnostico-content-right">
+          <div className="main-icon">🛒</div>
+          <h1 className="main-title">Suas despesas variáveis</h1>
+          <p className="main-subtitle">Gastos que variam mês a mês</p>
+          <p className="main-description">
+            Agora vamos falar sobre os gastos que variam mensalmente - lazer, compras, 
+            alimentação extra. Estes são os mais fáceis de controlar e onde você pode economizar.
+          </p>
+
+          {/* Status Card */}
+          <div className={`status-card ${podeContinuar ? 'completed' : 'pending'}`}>
+            <div className="status-icon">
+              {podeContinuar ? '✅' : '🛒'}
+            </div>
+            <div className="status-info">
+              <h3>
+                {temDespesasVariaveis 
+                  ? `${despesasVariaveisCarregadas.length} despesa${despesasVariaveisCarregadas.length > 1 ? 's' : ''} variável${despesasVariaveisCarregadas.length > 1 ? 'eis' : ''} registrada${despesasVariaveisCarregadas.length > 1 ? 's' : ''}`
+                  : temEstimativas 
+                    ? 'Estimativas preenchidas'
+                    : 'Despesas Variáveis'
+                }
+              </h3>
+              <p>
+                {valorTotalCombinado > 0
+                  ? `Total estimado: ${formatCurrency(valorTotalCombinado)}`
+                  : 'Registre ou estime suas despesas variáveis para um diagnóstico completo'
+                }
+              </p>
+            </div>
+          </div>
+
+          {/* Botões de Ação */}
+          <div className="action-buttons">
+            <button
+              onClick={handleAbrirModal}
+              disabled={loading || loadingTransacoes}
+              className="btn-primary"
+            >
+              <Plus size={14} />
+              {temDespesasVariaveis ? 'Gerenciar Despesas' : 'Adicionar Despesa'}
+            </button>
+          </div>
+
+          {/* Despesas Existentes */}
+          {temDespesasVariaveis && (
+            <div className="despesas-existentes">
+              <h4>📊 Despesas registradas:</h4>
+              {despesasVariaveisCarregadas.slice(0, 4).map((despesa) => (
+                <div key={despesa.id} className="despesa-preview">
+                  <div className="despesa-icone">
+                    <TrendingDown size={14} />
+                  </div>
+                  <div className="item-info-base">
+                    <div className="despesa-nome">{despesa.descricao}</div>
+                    <div className="despesa-categoria">{despesa.categoria_nome || 'Despesa variável'}</div>
+                  </div>
+                  <div className="value-badge-base">
+                    {formatCurrency(despesa.valor || 0)}
+                  </div>
+                </div>
+              ))}
+              {despesasVariaveisCarregadas.length > 4 && (
+                <div className="despesa-preview mais">
+                  <div className="despesa-icone">
+                    +{despesasVariaveisCarregadas.length - 4}
+                  </div>
+                  <div className="item-info-base">
+                    <div className="despesa-nome">Mais despesas</div>
+                    <div className="despesa-categoria">Ver todas</div>
                   </div>
                 </div>
               )}
             </div>
-          </div>
-        ))}
-      </div>
-      
-      {/* Resumo total */}
-      <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-lg p-5">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center">
-            <Calculator className="h-5 w-5 text-orange-600 mr-2" />
-            <h3 className="text-lg font-medium text-gray-800">Total de Despesas Variáveis</h3>
-          </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-orange-600">
-              {formatCurrency(totalDespesasVariaveis)}
+          )}
+
+          {/* Estimativas Manuais */}
+          <div className="estimativas-section">
+            <h4>📝 Ou estime seus gastos mensais por categoria:</h4>
+            <p className="estimativas-subtitle">
+              Se você não tem todas as despesas registradas, pode estimar valores médios mensais:
+            </p>
+            
+            <div className="estimativas-grid">
+              {categorias.map((categoria) => (
+                <div key={categoria.key} className="estimativa-item">
+                  <div className="estimativa-header">
+                    <span className="categoria-icone">{categoria.icone}</span>
+                    <div className="item-info-base">
+                      <h5 className="categoria-nome">{categoria.nome}</h5>
+                      <p className="categoria-descricao">{categoria.descricao}</p>
+                    </div>
+                  </div>
+                  <div className="estimativa-input">
+                    <InputMoney
+                      value={estimativas[categoria.key]}
+                      onChange={(valor) => handleEstimativaChange(categoria.key, valor)}
+                      placeholder="R$ 0,00"
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
-            {rendaMensal > 0 && (
-              <div className={`text-sm font-medium ${percentualInfo.color}`}>
-                {percentualRenda.toFixed(1)}% da sua renda
-              </div>
-            )}
           </div>
-        </div>
-        
-        {percentualInfo.message && (
-          <div className={`text-sm ${percentualInfo.color}`}>
-            <TrendingDown size={14} className="inline mr-1" />
-            {percentualInfo.message}
-          </div>
-        )}
-        
-        {totalDespesasVariaveis > 0 && rendaMensal > 0 && (
-          <div className="mt-3 pt-3 border-t border-orange-200">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-gray-600">Gastos fixos + variáveis:</span>
-                <div className="font-medium text-gray-800">
-                  {(() => {
-                    const despesasFixas = data?.situacaoFinanceira?.despesasFixas || {};
-                    const totalFixas = Object.values(despesasFixas).reduce((acc, val) => acc + val, 0);
-                    const totalGeral = totalFixas + totalDespesasVariaveis;
-                    return formatCurrency(totalGeral);
-                  })()}
+
+          {/* Resumo dos valores */}
+          {valorTotalCombinado > 0 && (
+            <div className="resumo-variaveis">
+              <h4>📊 Resumo das suas despesas variáveis:</h4>
+              <div className="resumo-stats">
+                {valorTotalTransacoes > 0 && (
+                  <div className="stat-item">
+                    <span className="stat-label">Transações registradas:</span>
+                    <span className="stat-value stat-warning">
+                      {formatCurrency(valorTotalTransacoes)}
+                    </span>
+                  </div>
+                )}
+                {valorTotalEstimativas > 0 && (
+                  <div className="stat-item">
+                    <span className="stat-label">Estimativas adicionais:</span>
+                    <span className="stat-value stat-info">
+                      {formatCurrency(valorTotalEstimativas)}
+                    </span>
+                  </div>
+                )}
+                <div className="stat-item stat-total">
+                  <span className="stat-label">Total estimado mensal:</span>
+                  <span className="stat-value stat-primary">
+                    {formatCurrency(valorTotalCombinado)}
+                  </span>
                 </div>
               </div>
-              <div>
-                <span className="text-gray-600">Potencial de economia:</span>
-                <div className="font-medium text-green-600">
-                  {formatCurrency(totalDespesasVariaveis * 0.2)} - {formatCurrency(totalDespesasVariaveis * 0.4)}
-                </div>
+            </div>
+          )}
+
+          {/* Dicas sobre economia */}
+          <div className="dica-economia">
+            <div className="dica-icon">💡</div>
+            <div className="dica-texto">
+              <strong>Dica de economia:</strong> Despesas variáveis são onde você mais pode economizar! 
+              Comece definindo um limite mensal para cada categoria e acompanhe seus gastos semanalmente.
+            </div>
+          </div>
+
+          {/* Informação sobre opcional */}
+          {!podeContinuar && (
+            <div className="alerta-opcional">
+              <div className="alerta-icon">ℹ️</div>
+              <div className="alerta-texto">
+                <strong>Esta etapa é opcional</strong> - se você não tem certeza dos valores, 
+                pode continuar e ajustar depois no aplicativo
               </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* Loading overlay quando está carregando */}
+          {loading && (valorTotalTransacoes > 0 || temEstimativas) && (
+            <div className="loading-overlay">
+              <div className="loading-spinner-small"></div>
+              <span>Atualizando...</span>
+            </div>
+          )}
+        </div>
       </div>
-      
-      {/* Dicas de economia */}
-      {totalDespesasVariaveis > 0 && (
-        <div className="bg-blue-50 p-4 rounded-lg">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <HelpCircle className="h-5 w-5 text-blue-400" />
-            </div>
-            <div className="ml-3">
-              <h4 className="text-sm font-medium text-blue-800 mb-2">Dicas para economizar nas despesas variáveis:</h4>
-              <ul className="text-sm text-blue-700 space-y-1">
-                <li>• Defina um orçamento mensal para cada categoria</li>
-                <li>• Use a regra 24h: espere um dia antes de compras não programadas</li>
-                <li>• Compare preços e busque promoções antes de comprar</li>
-                <li>• Considere alternativas gratuitas para lazer (parques, eventos gratuitos)</li>
-                <li>• Mantenha uma reserva pequena para imprevistos reais</li>
-              </ul>
-            </div>
-          </div>
+
+      {/* Navegação Inferior */}
+      <div className="navigation">
+        <div className="nav-left">
+          <button
+            onClick={onVoltar}
+            disabled={loading || loadingTransacoes}
+            className="btn-back"
+          >
+            <ArrowLeft size={12} />
+            Voltar
+          </button>
         </div>
-      )}
-      
-      {/* Informação sobre pular */}
-      {totalDespesasVariaveis === 0 && (
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <ShoppingBag className="h-5 w-5 text-gray-400" />
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-gray-700">
-                Se você não tem gastos variáveis significativos ou prefere não informar agora, 
-                pode prosseguir. Você poderá ajustar estes valores posteriormente no aplicativo.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Controles da etapa */}
-      <div className="pt-4">
-        <button
-          onClick={handleSubmit}
-          className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-        >
-          Finalizar diagnóstico
-        </button>
         
-        <p className="mt-2 text-sm text-gray-500">
-          Esta é a última etapa do diagnóstico. Após clicar em "Finalizar", 
-          processaremos suas informações e geraremos seu relatório personalizado.
-        </p>
+        <div className="nav-right">
+          <button
+            onClick={handleContinuar}
+            disabled={loading || loadingTransacoes}
+            className="btn-continue"
+          >
+            Continuar
+            <ArrowRight size={12} />
+          </button>
+        </div>
       </div>
+
+      {/* Modal Unificado de Transações - Modo Despesa */}
+      <UnifiedTransactionModal
+        isOpen={modalAberto}
+        onClose={handleFecharModal}
+        onSave={handleSalvarDespesa}
+        tipoInicial="despesa"
+      />
+
     </div>
   );
 };
 
 DespesasVariaveisEtapa.propTypes = {
-  data: PropTypes.object,
-  onUpdateData: PropTypes.func.isRequired,
-  onNext: PropTypes.func.isRequired
+  onContinuar: PropTypes.func.isRequired,
+  onVoltar: PropTypes.func.isRequired,
+  etapaAtual: PropTypes.number,
+  totalEtapas: PropTypes.number,
+  dadosExistentes: PropTypes.object
 };
 
 export default DespesasVariaveisEtapa;

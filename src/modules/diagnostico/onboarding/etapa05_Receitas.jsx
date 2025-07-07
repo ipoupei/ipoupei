@@ -1,568 +1,436 @@
 // src/modules/diagnostico/onboarding/etapa05_Receitas.jsx
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import DiagnosticoEtapaLayout from '@modules/diagnostico/styles/DiagnosticoEtapaLayout';
-import ReceitasModal from '@modules/transacoes/components/ReceitasModal';
-import useTransacoes from '@modules/transacoes/hooks/useTransacoes';
-import { formatCurrency } from '@utils/formatCurrency';
+import { ArrowRight, ArrowLeft, DollarSign, Plus, TrendingUp } from 'lucide-react';
+import UnifiedTransactionModal from '@modules/transacoes/components/UnifiedTransactionModal';
+import { useTransactions } from '@modules/transacoes/store/transactionsStore';
+import { formatCurrency } from '@shared/utils/formatCurrency';
+
+// CSS refatorado
+import '@modules/diagnostico/styles/DiagnosticoOnboarding.css';
 
 const ReceitasEtapa = ({ 
   onContinuar, 
   onVoltar, 
   etapaAtual = 5, 
-  totalEtapas = 11 
+  totalEtapas = 11,
+  dadosExistentes = null 
 }) => {
   const [modalAberto, setModalAberto] = useState(false);
-  const { transacoes, loading } = useTransacoes();
+  const [loading, setLoading] = useState(false);
+  const [precisaRecarregar, setPrecisaRecarregar] = useState(true);
 
-  const handleAbrirModal = () => {
+  // Hook de transações
+  const { 
+    transacoes, 
+    loading: loadingTransacoes,
+    setFiltros, 
+    fetchTransacoes,
+    limparFiltros 
+  } = useTransactions();
+
+  // Filtrar apenas receitas das transações carregadas
+  const receitasCarregadas = transacoes.filter(t => t.tipo === 'receita');
+
+  // Buscar receitas existentes
+  const carregarReceitas = useCallback(async () => {
+    if (!precisaRecarregar) return;
+    
+    try {
+      setLoading(true);
+      console.log('🔄 Carregando receitas para diagnóstico...');
+      
+      // Configurar filtros para buscar apenas receitas
+      setFiltros({ 
+        tipos: ['receita'],
+        // Limpar outros filtros para pegar todas as receitas
+        categorias: [],
+        contas: [],
+        cartoes: [],
+        status: [],
+        busca: ''
+      });
+      
+      // Buscar transações (que serão filtradas automaticamente)
+      await fetchTransacoes();
+      
+      setPrecisaRecarregar(false);
+      console.log('✅ Receitas carregadas via store');
+    } catch (error) {
+      console.error('❌ Erro ao carregar receitas:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [precisaRecarregar, setFiltros, fetchTransacoes]);
+
+  // Carregar receitas quando o componente montar
+  useEffect(() => {
+    carregarReceitas();
+  }, [carregarReceitas]);
+
+  const temReceitas = receitasCarregadas && receitasCarregadas.length > 0;
+  const podeContinuar = temReceitas; // Etapa obrigatória - precisa ter pelo menos uma receita
+
+  const handleAbrirModal = useCallback(() => {
     setModalAberto(true);
-  };
+  }, []);
 
-  const handleFecharModal = () => {
+  const handleFecharModal = useCallback(() => {
     setModalAberto(false);
-  };
+  }, []);
 
-  const handleSalvar = () => {
-    console.log('✅ Receita salva!');
-    // Modal fecha automaticamente
-  };
+  const handleSalvarReceita = useCallback(() => {
+    console.log('💾 Receita salva, recarregando dados...');
+    setPrecisaRecarregar(true);
+    setModalAberto(false);
+    
+    // Limpar filtros e recarregar
+    setTimeout(() => {
+      carregarReceitas();
+    }, 500);
+  }, [carregarReceitas]);
 
-  const handleContinuar = () => {
-    onContinuar();
-  };
+  const handleContinuar = useCallback(() => {
+    console.log('🚀 handleContinuar chamado na etapa de receitas');
+    console.log('📊 Receitas carregadas:', receitasCarregadas);
+    console.log('✅ Tem receitas:', temReceitas);
+    
+    if (temReceitas) {
+      const valorTotalReceitas = receitasCarregadas.reduce((total, receita) => {
+        return total + (receita.valor || 0);
+      }, 0);
 
-  // Filtra receitas
-  const receitas = transacoes ? transacoes.filter(t => t.tipo === 'receita') : [];
+      const dadosReceitas = {
+        totalReceitas: receitasCarregadas.length,
+        valorTotalReceitas,
+        temReceitas,
+        receitasPorTipo: {
+          fixas: receitasCarregadas.filter(r => r.recorrente || r.grupo_recorrencia).length,
+          extras: receitasCarregadas.filter(r => !r.recorrente && !r.grupo_recorrencia && !r.grupo_parcelamento).length,
+          parceladas: receitasCarregadas.filter(r => r.grupo_parcelamento).length
+        },
+        completoEm: new Date().toISOString()
+      };
+      
+      console.log('✅ Dados das receitas para diagnóstico:', dadosReceitas);
+      console.log('🔄 Chamando onContinuar...');
+      onContinuar(dadosReceitas);
+    } else {
+      console.log('❌ Não tem receitas, não pode continuar');
+    }
+  }, [receitasCarregadas, temReceitas, onContinuar]);
 
-  // Tipos de receita mais comuns
-  const tiposReceita = [
-    { icone: '💼', nome: 'Salário', descricao: 'Salário mensal da empresa' },
-    { icone: '💰', nome: 'Freelance', descricao: 'Trabalhos extras e projetos' },
-    { icone: '🏠', nome: 'Aluguel', descricao: 'Renda de imóveis' },
-    { icone: '📈', nome: 'Investimentos', descricao: 'Dividendos e rendimentos' },
-    { icone: '🎁', nome: 'Extras', descricao: 'Bonificações e vendas' },
-    { icone: '👨‍👩‍👧‍👦', nome: 'Pensão', descricao: 'Aposentadoria ou pensão' }
+  const progressoPercentual = Math.round(((etapaAtual + 1) / totalEtapas) * 100);
+
+  const etapas = [
+    { numero: 1, nome: 'Intro', ativa: false, completa: true },
+    { numero: 2, nome: 'Categorias', ativa: false, completa: true },
+    { numero: 3, nome: 'Contas', ativa: false, completa: true },
+    { numero: 4, nome: 'Cartões', ativa: false, completa: true },
+    { numero: 5, nome: 'Desp.Cartão', ativa: false, completa: true },
+    { numero: 6, nome: 'Receitas', ativa: true, completa: false },
+    { numero: 7, nome: 'Desp.Fixas', ativa: false, completa: false },
+    { numero: 8, nome: 'Desp.Variáveis', ativa: false, completa: false },
+    { numero: 9, nome: 'Resumo', ativa: false, completa: false },
+    { numero: 10, nome: 'Metas', ativa: false, completa: false },
+    { numero: 11, nome: 'Fim', ativa: false, completa: false }
   ];
 
-  const temReceitas = receitas.length > 0;
-  const podeContinuar = temReceitas;
-
-  if (loading) {
+  if (loading && !receitasCarregadas.length) {
     return (
-      <DiagnosticoEtapaLayout
-        icone="💰"
-        titulo="Carregando receitas..."
-        descricao="Aguarde enquanto carregamos suas informações"
-        temDados={false}
-        onAbrirModal={() => {}}
-        onContinuar={() => {}}
-        onVoltar={onVoltar}
-        podeContinuar={false}
-        etapaAtual={etapaAtual}
-        totalEtapas={totalEtapas}
-      />
+      <div className="diagnostico-container">
+        <div className="diagnostico-header">
+          <div className="header-row">
+            <div className="header-title">Carregando...</div>
+            <div className="header-progress">Aguarde</div>
+          </div>
+        </div>
+        <div className="diagnostico-main">
+          <div className="main-icon">⏳</div>
+          <h1 className="main-title">Carregando suas receitas...</h1>
+        </div>
+      </div>
     );
   }
 
   return (
-    <>
-      <DiagnosticoEtapaLayout
-        icone="💰"
-        titulo="Suas fontes de renda"
-        subtitulo="De onde vem seu dinheiro?"
-        descricao="Registre todas as suas fontes de renda - salário, freelances, aluguéis, investimentos. Isso é fundamental para entender sua capacidade financeira."
-        temDados={temReceitas}
-        labelBotaoPrincipal="Adicionar Receita"
-        onAbrirModal={handleAbrirModal}
-        onVoltar={onVoltar}
-        onContinuar={handleContinuar}
-        podeContinuar={podeContinuar}
-        etapaAtual={etapaAtual}
-        totalEtapas={totalEtapas}
-        dadosExistentes={
-          temReceitas 
-            ? `${receitas.length} fonte${receitas.length > 1 ? 's' : ''} de renda registrada${receitas.length > 1 ? 's' : ''}` 
-            : null
-        }
-        dicas={[
-          "Inclua todas as fontes de renda, mesmo as irregulares",
-          "Para rendas variáveis, use uma média mensal",
-          "Registre o valor líquido (depois dos descontos)"
-        ]}
-        alertas={
-          !temReceitas ? ["Esta etapa é obrigatória - precisamos saber sua renda para o diagnóstico"] : null
-        }
-      >
-        {/* Receitas existentes */}
-        {temReceitas && (
-          <div className="receitas-existentes">
-            <h3>Suas fontes de renda:</h3>
-            <div className="receitas-lista">
-              {receitas.map((receita) => (
-                <div key={receita.id} className="receita-item">
-                  <div className="receita-info">
-                    <span className="receita-descricao">{receita.descricao}</span>
-                    <span className="receita-tipo">
-                      {receita.recorrente ? 'Renda fixa' : 'Renda variável'}
-                    </span>
-                  </div>
-                  <div className="receita-valor">
-                    {formatCurrency(receita.valor)}
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            <div className="total-receitas">
-              <strong>Renda total mensal: {formatCurrency(
-                receitas.reduce((total, receita) => total + receita.valor, 0)
-              )}</strong>
-            </div>
-          </div>
-        )}
-
-        {/* Tipos de receita sugeridos */}
-        {!temReceitas && (
-          <div className="sugestoes-receitas">
-            <h3>💡 Tipos de renda mais comuns:</h3>
-            <div className="tipos-grid">
-              {tiposReceita.map((tipo, index) => (
-                <div key={index} className="tipo-receita">
-                  <div className="tipo-icone">{tipo.icone}</div>
-                  <div className="tipo-info">
-                    <span className="tipo-nome">{tipo.nome}</span>
-                    <span className="tipo-descricao">{tipo.descricao}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <p className="sugestoes-texto">
-              Clique no botão acima para adicionar suas fontes de renda.
-            </p>
-          </div>
-        )}
-
-        {/* Informações importantes */}
-        <div className="info-importante">
-          <div className="info-icone">💡</div>
-          <div className="info-conteudo">
-            <h4>Dicas para registrar sua renda:</h4>
-            <ul>
-              <li><strong>Renda fixa:</strong> Salário, aposentadoria, pensão</li>
-              <li><strong>Renda variável:</strong> Freelances, vendas, comissões</li>
-              <li><strong>Renda passiva:</strong> Aluguéis, dividendos, juros</li>
-              <li><strong>Valores líquidos:</strong> Já descontados impostos e contribuições</li>
-            </ul>
+    <div className="diagnostico-container">
+      
+      {/* Header Compacto */}
+      <div className="diagnostico-header">
+        <div className="header-row">
+          <div className="header-title">Diagnóstico Financeiro</div>
+          <div className="header-progress">
+            Etapa {etapaAtual + 1} de {totalEtapas} • {progressoPercentual}%
           </div>
         </div>
 
-        {/* Classificação de renda */}
-        {temReceitas && (
-          <div className="classificacao-renda">
-            <h4>📊 Análise da sua renda:</h4>
-            <div className="renda-cards">
-              {(() => {
-                const totalRenda = receitas.reduce((total, receita) => total + receita.valor, 0);
-                const rendaFixa = receitas
-                  .filter(r => r.recorrente)
-                  .reduce((total, receita) => total + receita.valor, 0);
-                const rendaVariavel = totalRenda - rendaFixa;
-                const percentualFixa = totalRenda > 0 ? (rendaFixa / totalRenda) * 100 : 0;
+        <div className="progress-bar">
+          <div 
+            className="progress-fill"
+            style={{ width: `${progressoPercentual}%` }}
+          />
+        </div>
 
-                return (
-                  <>
-                    <div className="renda-card fixa">
-                      <div className="card-header">
-                        <span className="card-icone">🏦</span>
-                        <span className="card-titulo">Renda Fixa</span>
-                      </div>
-                      <div className="card-valor">{formatCurrency(rendaFixa)}</div>
-                      <div className="card-percentual">{percentualFixa.toFixed(1)}% do total</div>
-                    </div>
-                    
-                    <div className="renda-card variavel">
-                      <div className="card-header">
-                        <span className="card-icone">📈</span>
-                        <span className="card-titulo">Renda Variável</span>
-                      </div>
-                      <div className="card-valor">{formatCurrency(rendaVariavel)}</div>
-                      <div className="card-percentual">{(100 - percentualFixa).toFixed(1)}% do total</div>
-                    </div>
-                  </>
-                );
-              })()}
+        <div className="steps-row">
+          {etapas.map((etapa) => (
+            <div 
+              key={etapa.numero}
+              className={`step ${etapa.ativa ? 'active' : ''} ${etapa.completa ? 'completed' : ''}`}
+            >
+              <div className="step-circle">
+                {etapa.completa ? '✓' : etapa.numero}
+              </div>
+              <div className="step-label">{etapa.nome}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Conteúdo Principal - Layout com Vídeo */}
+      <div className="diagnostico-main-with-video">
+        
+        {/* Vídeo à Esquerda */}
+        <div className="diagnostico-video-left">
+          <div className="video-container">
+            <div className="video-header">
+              <h3 className="video-title">🎬 Cadastrando suas receitas</h3>
+              <p className="video-subtitle">Organize em 3 minutos</p>
             </div>
             
-            <div className="renda-analise">
-              {(() => {
-                const totalRenda = receitas.reduce((total, receita) => total + receita.valor, 0);
-                const rendaFixa = receitas
-                  .filter(r => r.recorrente)
-                  .reduce((total, receita) => total + receita.valor, 0);
-                const percentualFixa = totalRenda > 0 ? (rendaFixa / totalRenda) * 100 : 0;
-
-                if (percentualFixa >= 80) {
-                  return (
-                    <div className="analise-item excelente">
-                      <span className="analise-icone">🎯</span>
-                      <span>Excelente! Sua renda é bem estável e previsível.</span>
-                    </div>
-                  );
-                } else if (percentualFixa >= 60) {
-                  return (
-                    <div className="analise-item boa">
-                      <span className="analise-icone">👍</span>
-                      <span>Boa estabilidade financeira com alguma renda extra.</span>
-                    </div>
-                  );
-                } else if (percentualFixa >= 40) {
-                  return (
-                    <div className="analise-item atencao">
-                      <span className="analise-icone">⚠️</span>
-                      <span>Renda mista - cuidado com o planejamento da parte variável.</span>
-                    </div>
-                  );
-                } else {
-                  return (
-                    <div className="analise-item cuidado">
-                      <span className="analise-icone">🚨</span>
-                      <span>Renda muito variável - importante ter reserva de emergência.</span>
-                    </div>
-                  );
-                }
-              })()}
+            <div className="video-embed">
+              <iframe
+                width="100%"
+                height="200"
+                src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                title="Tutorial: Como cadastrar suas fontes de renda"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              ></iframe>
+            </div>
+            
+            <div className="video-benefits">
+              <div className="benefit-item">
+                <span className="benefit-icon">💰</span>
+                <span className="benefit-text">Controle total</span>
+              </div>
+              <div className="benefit-item">
+                <span className="benefit-icon">📊</span>
+                <span className="benefit-text">Planejamento</span>
+              </div>
+              <div className="benefit-item">
+                <span className="benefit-icon">🎯</span>
+                <span className="benefit-text">Metas claras</span>
+              </div>
             </div>
           </div>
-        )}
-      </DiagnosticoEtapaLayout>
+        </div>
 
-      {/* Modal de receitas */}
-      {modalAberto && (
-        <ReceitasModal
-          isOpen={modalAberto}
-          onClose={handleFecharModal}
-          onSave={handleSalvar}
-          diagnosticoMode={true}
-        />
-      )}
+        {/* Conteúdo à Direita */}
+        <div className="diagnostico-content-right">
+          <div className="main-icon">💰</div>
+          <h1 className="main-title">Suas fontes de renda</h1>
+          <p className="main-subtitle">De onde vem seu dinheiro?</p>
+          <p className="main-description">
+            Registre todas as suas fontes de renda - salário, freelances, aluguéis, investimentos. 
+            Isso é fundamental para entender sua capacidade financeira e fazer um diagnóstico preciso.
+          </p>
 
-      <style jsx>{`
-        .receitas-existentes {
-          margin: 2rem 0;
-        }
+          {/* Status Card */}
+          <div className={`status-card ${temReceitas ? 'completed' : 'pending'}`}>
+            <div className="status-icon">
+              {temReceitas ? '✅' : '💰'}
+            </div>
+            <div className="status-info">
+              <h3>
+                {temReceitas 
+                  ? `${receitasCarregadas.length} fonte${receitasCarregadas.length > 1 ? 's' : ''} de renda registrada${receitasCarregadas.length > 1 ? 's' : ''}`
+                  : 'Fontes de Renda'
+                }
+              </h3>
+              <p>
+                {temReceitas 
+                  ? `Renda total: ${formatCurrency(receitasCarregadas.reduce((total, receita) => total + (receita.valor || 0), 0))}`
+                  : 'Cadastre suas fontes de renda para um diagnóstico completo'
+                }
+              </p>
+            </div>
+          </div>
 
-        .receitas-existentes h3 {
-          margin: 0 0 1.5rem 0;
-          font-size: 1.125rem;
-          font-weight: 700;
-          color: #374151;
-          text-align: center;
-        }
+          {/* Botões de Ação */}
+          <div className="action-buttons">
+            <button
+              onClick={handleAbrirModal}
+              disabled={loading || loadingTransacoes}
+              className="btn-primary"
+            >
+              <Plus size={14} />
+              {temReceitas ? 'Gerenciar Receitas' : 'Adicionar Receita'}
+            </button>
+          </div>
 
-        .receitas-lista {
-          background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-          border: 1px solid #bbf7d0;
-          border-radius: 16px;
-          padding: 1.5rem;
-          margin-bottom: 1rem;
-        }
+          {/* Receitas Existentes ou Informações */}
+          {temReceitas ? (
+            <div className="receitas-existentes">
+              {receitasCarregadas.slice(0, 4).map((receita) => {
+                // Determinar tipo da receita
+                let tipoReceita = 'Renda extra';
+                if (receita.grupo_recorrencia || receita.eh_recorrente) {
+                  tipoReceita = 'Renda fixa';
+                } else if (receita.grupo_parcelamento) {
+                  tipoReceita = 'Renda parcelada';
+                }
 
-        .receita-item {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 1rem;
-          background: white;
-          border: 1px solid #e5e7eb;
-          border-radius: 12px;
-          margin-bottom: 0.75rem;
-        }
+                return (
+                  <div key={receita.id} className="preview-card-base">
+                    <div className="receita-icone">
+                      <DollarSign size={14} />
+                    </div>
+                    <div className="item-info-base">
+                      <div className="receita-nome">{receita.descricao}</div>
+                      <div className="receita-tipo">{tipoReceita}</div>
+                    </div>
+                    <div className="value-badge-base">
+                      {formatCurrency(receita.valor || 0)}
+                    </div>
+                  </div>
+                );
+              })}
+              {receitasCarregadas.length > 4 && (
+                <div className="preview-card-base mais">
+                  <div className="receita-icone">
+                    +{receitasCarregadas.length - 4}
+                  </div>
+                  <div className="item-info-base">
+                    <div className="receita-nome">Mais receitas</div>
+                    <div className="receita-tipo">Ver todas</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="info-grid">
+              <div className="info-item success">
+                <div className="info-icon">💼</div>
+                <div className="info-title">Salário</div>
+                <div className="info-text">Trabalho CLT</div>
+              </div>
 
-        .receita-item:last-child {
-          margin-bottom: 0;
-        }
+              <div className="info-item info">
+                <div className="info-icon">💻</div>
+                <div className="info-title">Freelance</div>
+                <div className="info-text">Projetos extras</div>
+              </div>
 
-        .receita-info {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-        }
+              <div className="info-item warning">
+                <div className="info-icon">🏠</div>
+                <div className="info-title">Aluguel</div>
+                <div className="info-text">Renda passiva</div>
+              </div>
 
-        .receita-descricao {
-          font-weight: 600;
-          color: #374151;
-          font-size: 0.875rem;
-        }
+              <div className="info-item info">
+                <div className="info-icon">📈</div>
+                <div className="info-title">Investimentos</div>
+                <div className="info-text">Dividendos</div>
+              </div>
+            </div>
+          )}
 
-        .receita-tipo {
-          font-size: 0.75rem;
-          color: #6b7280;
-        }
+          {/* Resumo das receitas quando existem */}
+          {temReceitas && (
+            <div className="resumo-receitas">
+              <h4>📊 Resumo das suas receitas:</h4>
+              <div className="resumo-stats">
+                <div className="stat-item">
+                  <span className="stat-label">Receitas fixas:</span>
+                  <span className="stat-value">
+                    {receitasCarregadas.filter(r => r.recorrente || r.grupo_recorrencia).length}
+                  </span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-label">Receitas extras:</span>
+                  <span className="stat-value">
+                    {receitasCarregadas.filter(r => !r.recorrente && !r.grupo_recorrencia && !r.grupo_parcelamento).length}
+                  </span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-label">Receitas parceladas:</span>
+                  <span className="stat-value">
+                    {receitasCarregadas.filter(r => r.grupo_parcelamento).length}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
-        .receita-valor {
-          font-weight: 700;
-          color: #059669;
-          font-size: 0.875rem;
-        }
+          {/* Alerta para etapa obrigatória */}
+          {!temReceitas && (
+            <div className="alert-base">
+              <div className="alerta-icon">⚠️</div>
+              <div className="alerta-texto">
+                <strong>Esta etapa é obrigatória</strong> para continuar o diagnóstico - 
+                precisamos conhecer sua renda para análises precisas
+              </div>
+            </div>
+          )}
 
-        .total-receitas {
-          text-align: center;
-          padding: 1rem;
-          background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-          border: 1px solid #93c5fd;
-          border-radius: 12px;
-          color: #1e40af;
-          font-size: 1.125rem;
-        }
+          {/* Dicas sobre receitas */}
+          {!temReceitas && (
+            <div className="dica-receitas">
+              <div className="dica-icon">💡</div>
+              <div className="dica-texto">
+                <strong>Dicas:</strong> Inclua todas as fontes de renda, mesmo as irregulares. 
+                Para rendas variáveis, use uma média mensal. Registre valores líquidos!
+              </div>
+            </div>
+          )}
 
-        .sugestoes-receitas {
-          margin: 2rem 0;
-        }
+          {/* Loading overlay quando está carregando */}
+          {loading && receitasCarregadas.length > 0 && (
+            <div className="loading-overlay">
+              <div className="loading-spinner-small"></div>
+              <span>Atualizando...</span>
+            </div>
+          )}
+        </div>
+      </div>
 
-        .sugestoes-receitas h3 {
-          margin: 0 0 1.5rem 0;
-          font-size: 1.125rem;
-          font-weight: 700;
-          color: #374151;
-          text-align: center;
-        }
+      {/* Navegação Inferior */}
+      <div className="navigation">
+        <div className="nav-left">
+          <button
+            onClick={onVoltar}
+            disabled={loading || loadingTransacoes}
+            className="btn-back"
+          >
+            <ArrowLeft size={12} />
+            Voltar
+          </button>
+        </div>
+        
+        <div className="nav-right">
+          <button
+            onClick={handleContinuar}
+            disabled={!temReceitas || loading || loadingTransacoes}
+            className="btn-continue"
+          >
+            Continuar
+            <ArrowRight size={12} />
+          </button>
+        </div>
+      </div>
 
-        .tipos-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 1rem;
-          margin-bottom: 1.5rem;
-        }
+      {/* Modal Unificado de Transações - Modo Receita */}
+      <UnifiedTransactionModal
+        isOpen={modalAberto}
+        onClose={handleFecharModal}
+        onSave={handleSalvarReceita}
+        tipoInicial="receita"
+      />
 
-        .tipo-receita {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          padding: 1rem;
-          background: white;
-          border: 1px solid #e5e7eb;
-          border-radius: 12px;
-          transition: all 0.3s ease;
-        }
 
-        .tipo-receita:hover {
-          border-color: #10b981;
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1);
-        }
-
-        .tipo-icone {
-          font-size: 1.5rem;
-          width: 40px;
-          height: 40px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: #f8fafc;
-          border-radius: 10px;
-          border: 1px solid #e2e8f0;
-        }
-
-        .tipo-info {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-        }
-
-        .tipo-nome {
-          font-weight: 600;
-          color: #374151;
-          font-size: 0.875rem;
-        }
-
-        .tipo-descricao {
-          font-size: 0.75rem;
-          color: #6b7280;
-        }
-
-        .sugestoes-texto {
-          text-align: center;
-          color: #6b7280;
-          font-size: 0.875rem;
-          font-style: italic;
-        }
-
-        .info-importante {
-          display: flex;
-          gap: 1rem;
-          padding: 1.5rem;
-          background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-          border: 1px solid #bae6fd;
-          border-radius: 16px;
-          margin: 2rem 0;
-        }
-
-        .info-icone {
-          font-size: 1.5rem;
-          flex-shrink: 0;
-        }
-
-        .info-conteudo h4 {
-          margin: 0 0 0.75rem 0;
-          font-size: 1rem;
-          font-weight: 700;
-          color: #0c4a6e;
-        }
-
-        .info-conteudo ul {
-          margin: 0;
-          padding-left: 1.25rem;
-          color: #0369a1;
-        }
-
-        .info-conteudo li {
-          font-size: 0.875rem;
-          line-height: 1.5;
-          margin-bottom: 0.5rem;
-        }
-
-        .classificacao-renda {
-          margin: 2rem 0;
-          padding: 1.5rem;
-          background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%);
-          border: 1px solid #fcd34d;
-          border-radius: 16px;
-        }
-
-        .classificacao-renda h4 {
-          margin: 0 0 1.5rem 0;
-          font-size: 1.125rem;
-          font-weight: 700;
-          color: #92400e;
-          text-align: center;
-        }
-
-        .renda-cards {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 1rem;
-          margin-bottom: 1.5rem;
-        }
-
-        .renda-card {
-          background: white;
-          border: 1px solid #e5e7eb;
-          border-radius: 12px;
-          padding: 1rem;
-          text-align: center;
-        }
-
-        .renda-card.fixa {
-          border-color: #10b981;
-          background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-        }
-
-        .renda-card.variavel {
-          border-color: #3b82f6;
-          background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-        }
-
-        .card-header {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-          margin-bottom: 0.75rem;
-        }
-
-        .card-icone {
-          font-size: 1.25rem;
-        }
-
-        .card-titulo {
-          font-weight: 600;
-          font-size: 0.875rem;
-          color: #374151;
-        }
-
-        .card-valor {
-          font-size: 1.25rem;
-          font-weight: 700;
-          color: #374151;
-          margin-bottom: 0.5rem;
-        }
-
-        .card-percentual {
-          font-size: 0.75rem;
-          color: #6b7280;
-        }
-
-        .renda-analise {
-          text-align: center;
-        }
-
-        .analise-item {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-          padding: 1rem;
-          border-radius: 12px;
-          font-size: 0.875rem;
-          font-weight: 500;
-        }
-
-        .analise-item.excelente {
-          background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-          color: #166534;
-          border: 1px solid #bbf7d0;
-        }
-
-        .analise-item.boa {
-          background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-          color: #1e40af;
-          border: 1px solid #93c5fd;
-        }
-
-        .analise-item.atencao {
-          background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-          color: #92400e;
-          border: 1px solid #fcd34d;
-        }
-
-        .analise-item.cuidado {
-          background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-          color: #991b1b;
-          border: 1px solid #fecaca;
-        }
-
-        @media (max-width: 768px) {
-          .tipos-grid,
-          .renda-cards {
-            grid-template-columns: 1fr;
-            gap: 0.75rem;
-          }
-
-          .tipo-receita,
-          .receita-item {
-            padding: 0.875rem;
-          }
-
-          .receita-item {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 0.5rem;
-          }
-
-          .info-importante,
-          .classificacao-renda {
-            padding: 1.25rem;
-          }
-
-          .info-importante {
-            flex-direction: column;
-            text-align: center;
-            gap: 0.75rem;
-          }
-        }
-      `}</style>
-    </>
+    </div>
   );
 };
 
@@ -570,7 +438,8 @@ ReceitasEtapa.propTypes = {
   onContinuar: PropTypes.func.isRequired,
   onVoltar: PropTypes.func.isRequired,
   etapaAtual: PropTypes.number,
-  totalEtapas: PropTypes.number
+  totalEtapas: PropTypes.number,
+  dadosExistentes: PropTypes.object
 };
 
 export default ReceitasEtapa;

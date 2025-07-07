@@ -1,8 +1,15 @@
 // src/modules/diagnostico/onboarding/etapa00_IntroPercepcao.jsx
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import DiagnosticoEtapaLayout from '@modules/diagnostico/styles/DiagnosticoEtapaLayout';
-import Button from '@shared/components/ui/Button';
+import { X, ArrowRight, ArrowLeft, CheckCircle } from 'lucide-react';
+
+// Hooks que você criou
+import { usePercepcaoFinanceira } from '@modules/diagnostico/hooks/usePercepcaoFinanceira';
+import useDiagnosticoPercepcaoStore from '@modules/diagnostico/store/diagnosticoPercepcaoStore';
+
+
+// CSS original
+import '@modules/diagnostico/styles/DiagnosticoOnboarding.css';
 
 const IntroPercepcaoEtapa = ({ 
   onContinuar, 
@@ -11,398 +18,355 @@ const IntroPercepcaoEtapa = ({
   totalEtapas = 11,
   dadosExistentes = null 
 }) => {
-  const [dadosPercepcao, setDadosPercepcao] = useState({
-    controleFinanceiro: '',
-    disciplinaGastos: '',
-    planejamentoFuturo: '',
-    sentimentoGeral: ''
-  });
-  
+  // Usar o store que você criou
+  const { 
+    percepcao, 
+    setPercepcao, 
+    salvarPercepcaoAsync, 
+    carregarPercepcaoAsync,
+    isPercepcaoCompleta 
+  } = useDiagnosticoPercepcaoStore();
+
   const [modalAberto, setModalAberto] = useState(false);
+  const [salvando, setSalvando] = useState(false);
 
-  // Verifica se todos os campos foram preenchidos
-  const percepcaoCompleta = Object.values(dadosPercepcao).every(valor => valor !== '');
+  const percepcaoCompleta = isPercepcaoCompleta();
 
-  const handleAbrirModal = () => {
+  // Carregar dados existentes quando o componente monta
+  useEffect(() => {
+    carregarPercepcaoAsync();
+  }, [carregarPercepcaoAsync]);
+
+  const handleAbrirModal = useCallback(() => {
     setModalAberto(true);
-  };
+  }, []);
 
-  const handleFecharModal = () => {
+  const handleFecharModal = useCallback(() => {
     setModalAberto(false);
-  };
+  }, []);
 
-  const handleSelecionarResposta = (pergunta, resposta) => {
-    setDadosPercepcao(prev => ({
-      ...prev,
-      [pergunta]: resposta
-    }));
-  };
+  const handleSelecionarResposta = useCallback((pergunta, resposta) => {
+    setPercepcao({ [pergunta]: resposta });
+  }, [setPercepcao]);
 
-  const handleContinuar = () => {
-    if (percepcaoCompleta) {
-      // Salvar dados da percepção
-      onContinuar(dadosPercepcao);
+  const handleSalvar = useCallback(async () => {
+    if (!percepcaoCompleta) return;
+
+    setSalvando(true);
+    try {
+      await salvarPercepcaoAsync();
+      handleFecharModal();
+      console.log('✅ Dados salvos com sucesso!');
+    } catch (error) {
+      console.error('❌ Erro ao salvar:', error);
+      alert('Erro ao salvar. Tente novamente.');
+    } finally {
+      setSalvando(false);
     }
-  };
+  }, [percepcaoCompleta, salvarPercepcaoAsync]);
+
+  const handleContinuar = useCallback(async () => {
+    if (!percepcaoCompleta) {
+      setModalAberto(true);
+      return;
+    }
+
+    // Se os dados não estão salvos, salvar primeiro
+    if (modalAberto) {
+      await handleSalvar();
+      return;
+    }
+
+    // Continuar para próxima etapa
+    onContinuar(percepcao);
+  }, [percepcaoCompleta, modalAberto, handleSalvar, onContinuar, percepcao]);
 
   const perguntas = [
     {
       id: 'controleFinanceiro',
       pergunta: 'Como você avalia seu controle financeiro atual?',
       opcoes: [
-        { valor: 'nenhum', label: '😰 Não tenho controle nenhum', cor: '#ef4444' },
-        { valor: 'pouco', label: '😐 Tenho pouco controle', cor: '#f97316' },
-        { valor: 'parcial', label: '🙂 Tenho controle parcial', cor: '#eab308' },
-        { valor: 'total', label: '😎 Tenho controle total', cor: '#22c55e' }
+        { valor: 'nenhum', label: '😰 Não tenho controle nenhum' },
+        { valor: 'pouco', label: '😐 Tenho pouco controle' },
+        { valor: 'parcial', label: '🙂 Tenho controle parcial' },
+        { valor: 'total', label: '😎 Tenho controle total' }
       ]
     },
     {
       id: 'disciplinaGastos',
       pergunta: 'Com que frequência você controla seus gastos?',
       opcoes: [
-        { valor: 'nunca', label: '🤷‍♂️ Nunca controlo', cor: '#ef4444' },
-        { valor: 'raramente', label: '😅 Raramente', cor: '#f97316' },
-        { valor: 'as-vezes', label: '🤔 Às vezes', cor: '#eab308' },
-        { valor: 'sempre', label: '💪 Sempre controlo', cor: '#22c55e' }
+        { valor: 'nunca', label: '🤷‍♂️ Nunca controlo' },
+        { valor: 'raramente', label: '😅 Raramente' },
+        { valor: 'as-vezes', label: '🤔 Às vezes' },
+        { valor: 'sempre', label: '💪 Sempre controlo' }
       ]
     },
     {
       id: 'planejamentoFuturo',
       pergunta: 'Você planeja seu futuro financeiro?',
       opcoes: [
-        { valor: 'nao', label: '😟 Não penso nisso', cor: '#ef4444' },
-        { valor: 'pensando', label: '🤯 Estou pensando em começar', cor: '#f97316' },
-        { valor: 'sim-basico', label: '📝 Sim, tenho planos básicos', cor: '#eab308' },
-        { valor: 'sim-planos', label: '🎯 Sim, tenho planos detalhados', cor: '#22c55e' }
+        { valor: 'nao', label: '😟 Não penso nisso' },
+        { valor: 'pensando', label: '🤯 Estou pensando em começar' },
+        { valor: 'sim-basico', label: '📝 Sim, tenho planos básicos' },
+        { valor: 'sim-planos', label: '🎯 Sim, tenho planos detalhados' }
       ]
     },
     {
       id: 'sentimentoGeral',
       pergunta: 'Como você se sente em relação ao dinheiro?',
       opcoes: [
-        { valor: 'ansioso', label: '😰 Ansioso e preocupado', cor: '#ef4444' },
-        { valor: 'confuso', label: '😵 Confuso, não sei o que fazer', cor: '#f97316' },
-        { valor: 'esperancoso', label: '😊 Esperançoso, quero melhorar', cor: '#eab308' },
-        { valor: 'confiante', label: '😎 Confiante no meu futuro', cor: '#22c55e' }
+        { valor: 'ansioso', label: '😰 Ansioso e preocupado' },
+        { valor: 'confuso', label: '😵 Confuso, não sei o que fazer' },
+        { valor: 'esperancoso', label: '😊 Esperançoso, quero melhorar' },
+        { valor: 'confiante', label: '😎 Confiante no meu futuro' }
       ]
     }
   ];
 
-  // Modal de percepção personalizado
-  const ModalPercepcao = () => (
-    modalAberto && (
-      <div className="modal-overlay" onClick={handleFecharModal}>
-        <div className="modal-container percepcao-modal" onClick={(e) => e.stopPropagation()}>
-          <div className="modal-header">
-            <h2>Como você se vê financeiramente?</h2>
-            <p>Responda com sinceridade para um diagnóstico mais preciso</p>
-            <button 
-              className="modal-close"
-              onClick={handleFecharModal}
+  const progressoPercentual = Math.round(((etapaAtual + 1) / totalEtapas) * 100);
+
+  const etapas = [
+    { numero: 1, nome: 'Intro', ativa: true, completa: percepcaoCompleta },
+    { numero: 2, nome: 'Categorias', ativa: false, completa: false },
+    { numero: 3, nome: 'Contas', ativa: false, completa: false },
+    { numero: 4, nome: 'Cartões', ativa: false, completa: false },
+    { numero: 5, nome: 'Desp.Cartão', ativa: false, completa: false },
+    { numero: 6, nome: 'Receitas', ativa: false, completa: false },
+    { numero: 7, nome: 'Desp.Fixas', ativa: false, completa: false },
+    { numero: 8, nome: 'Desp.Variáveis', ativa: false, completa: false },
+    { numero: 9, nome: 'Resumo', ativa: false, completa: false },
+    { numero: 10, nome: 'Metas', ativa: false, completa: false },
+    { numero: 11, nome: 'Fim', ativa: false, completa: false }
+  ];
+
+  return (
+    <div className="diagnostico-container">
+      
+      {/* Header Compacto */}
+      <div className="diagnostico-header">
+        <div className="header-row">
+          <div className="header-title">Diagnóstico Financeiro</div>
+          <div className="header-progress">
+            Etapa {etapaAtual + 1} de {totalEtapas} • {progressoPercentual}%
+          </div>
+        </div>
+
+        <div className="progress-bar">
+          <div 
+            className="progress-fill"
+            style={{ width: `${progressoPercentual}%` }}
+          />
+        </div>
+
+        <div className="steps-row">
+          {etapas.map((etapa) => (
+            <div 
+              key={etapa.numero}
+              className={`step ${etapa.ativa ? 'active' : ''} ${etapa.completa ? 'completed' : ''}`}
             >
-              ✕
+              <div className="step-circle">
+                {etapa.completa ? '✓' : etapa.numero}
+              </div>
+              <div className="step-label">{etapa.nome}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Layout Principal - Vídeo à Esquerda, Conteúdo à Direita */}
+      <div className="diagnostico-main-with-video">
+        
+        {/* Vídeo à Esquerda */}
+        <div className="diagnostico-video-left">
+          <div className="video-container">
+            <div className="video-header">
+              <h3 className="video-title">🎬 Introdução ao diagnóstico</h3>
+              <p className="video-subtitle">Conheça o processo em 4 minutos</p>
+            </div>
+            
+            <div className="video-embed">
+              <iframe
+                width="100%"
+                height="200"
+                src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                title="Introdução: Como funciona o diagnóstico financeiro"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              ></iframe>
+            </div>
+            
+            <div className="video-benefits">
+              <div className="benefit-item">
+                <span className="benefit-icon">🔍</span>
+                <span className="benefit-text">Análise personalizada</span>
+              </div>
+              <div className="benefit-item">
+                <span className="benefit-icon">📈</span>
+                <span className="benefit-text">Estratégias práticas</span>
+              </div>
+              <div className="benefit-item">
+                <span className="benefit-icon">🎯</span>
+                <span className="benefit-text">Metas alcançáveis</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Conteúdo à Direita */}
+        <div className="diagnostico-content-right">
+          <div className="main-icon">🎯</div>
+          <h1 className="main-title">Bem-vindo ao seu diagnóstico financeiro!</h1>
+          <p className="main-subtitle">Vamos entender sua situação atual para criar um plano personalizado</p>
+          <p className="main-description">
+            Primeiro, queremos conhecer como você se relaciona com o dinheiro hoje. 
+            Não existem respostas certas ou erradas - seja honesto conosco!
+          </p>
+
+          {/* Status Card */}
+          <div className={`status-card ${percepcaoCompleta ? 'completed' : 'pending'}`}>
+            <div className="status-icon">
+              {percepcaoCompleta ? '✅' : '📝'}
+            </div>
+            <div className="status-info">
+              <h3>
+                {percepcaoCompleta ? 'Questionário Respondido' : 'Questionário de Percepção'}
+              </h3>
+              <p>
+                {percepcaoCompleta 
+                  ? 'Todas as 4 perguntas foram respondidas'
+                  : '4 perguntas rápidas sobre sua relação com o dinheiro'
+                }
+              </p>
+            </div>
+          </div>
+
+          {/* Botões de Ação */}
+          <div className="action-buttons">
+            <button
+              onClick={handleAbrirModal}
+              className="btn-primary"
+            >
+              <span>📝</span>
+              {percepcaoCompleta ? 'Revisar' : 'Responder'}
             </button>
           </div>
-          
-          <div className="modal-content">
-            {perguntas.map((pergunta) => (
-              <div key={pergunta.id} className="pergunta-grupo">
-                <h3>{pergunta.pergunta}</h3>
-                <div className="opcoes-grid">
-                  {pergunta.opcoes.map((opcao) => (
-                    <button
-                      key={opcao.valor}
-                      className={`opcao-btn ${
-                        dadosPercepcao[pergunta.id] === opcao.valor ? 'selecionada' : ''
-                      }`}
-                      onClick={() => handleSelecionarResposta(pergunta.id, opcao.valor)}
-                      style={{ 
-                        borderColor: dadosPercepcao[pergunta.id] === opcao.valor ? opcao.cor : '#e5e7eb' 
-                      }}
-                    >
-                      {opcao.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          <div className="modal-footer">
-            <Button 
-              onClick={handleFecharModal}
-              variant="outline"
-            >
-              Cancelar
-            </Button>
-            <Button 
-              onClick={() => {
-                handleFecharModal();
-                if (percepcaoCompleta) handleContinuar();
-              }}
-              disabled={!percepcaoCompleta}
-              variant="primary"
-            >
-              Salvar Respostas
-            </Button>
+
+          {/* Grid de Informações */}
+          <div className="info-grid">
+            <div className="info-item success">
+              <div className="info-icon">📊</div>
+              <div className="info-title">Análise Completa</div>
+              <div className="info-text">Situação detalhada</div>
+            </div>
+
+            <div className="info-item info">
+              <div className="info-icon">🎯</div>
+              <div className="info-title">Plano Personalizado</div>
+              <div className="info-text">Estratégias específicas</div>
+            </div>
+
+            <div className="info-item warning">
+              <div className="info-icon">🚀</div>
+              <div className="info-title">Resultados Reais</div>
+              <div className="info-text">Ferramentas práticas</div>
+            </div>
+
+            <div className="info-item info">
+              <div className="info-icon">⏱️</div>
+              <div className="info-title">10-15 min</div>
+              <div className="info-text">Dados reais</div>
+            </div>
           </div>
         </div>
       </div>
-    )
-  );
 
-  return (
-    <>
-      <DiagnosticoEtapaLayout
-        icone="🎯"
-        titulo="Bem-vindo ao seu diagnóstico financeiro!"
-        subtitulo="Vamos entender sua situação atual para criar um plano personalizado"
-        descricao="Primeiro, queremos conhecer como você se relaciona com o dinheiro hoje. Não existem respostas certas ou erradas - seja honesto conosco!"
-        temDados={percepcaoCompleta}
-        labelBotaoPrincipal="Responder Questionário"
-        onAbrirModal={handleAbrirModal}
-        onVoltar={onVoltar}
-        onContinuar={handleContinuar}
-        podeVoltar={false}
-        podeContinuar={percepcaoCompleta}
-        etapaAtual={etapaAtual}
-        totalEtapas={totalEtapas}
-        dadosExistentes={
-          percepcaoCompleta 
-            ? "Questionário de percepção respondido completamente" 
-            : null
-        }
-        dicas={[
-          "Seja honesto em suas respostas - isso nos ajuda a criar um plano mais eficaz",
-          "Não se preocupe se suas respostas não são 'perfeitas' - estamos aqui para melhorar juntos",
-          "Leva apenas 2 minutos para responder todas as perguntas"
-        ]}
-        className="primeira-etapa"
-      >
-        {/* Conteúdo adicional da etapa */}
-        <div className="intro-cards">
-          <div className="intro-card">
-            <div className="card-icone">📊</div>
-            <h3>Análise Completa</h3>
-            <p>Vamos analisar sua situação financeira atual de forma detalhada</p>
-          </div>
-          
-          <div className="intro-card">
-            <div className="card-icone">🎯</div>
-            <h3>Plano Personalizado</h3>
-            <p>Você receberá um plano específico para sua situação e objetivos</p>
-          </div>
-          
-          <div className="intro-card">
-            <div className="card-icone">🚀</div>
-            <h3>Resultados Reais</h3>
-            <p>Ferramentas práticas para transformar sua vida financeira</p>
+      {/* Navegação Inferior */}
+      <div className="navigation">
+        <div className="nav-left">
+          {/* Primeira etapa, sem botão voltar */}
+        </div>
+        
+        <div className="nav-right">
+          <button
+            onClick={handleContinuar}
+            disabled={!percepcaoCompleta || salvando}
+            className="btn-continue"
+          >
+            {salvando ? 'Salvando...' : 'Continuar'}
+            <ArrowRight size={12} />
+          </button>
+        </div>
+      </div>
+
+      {/* Modal */}
+      {modalAberto && (
+        <div className="modal-overlay" onClick={handleFecharModal}>
+          <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+            
+            <div className="modal-header">
+              <h2 className="modal-title">Como você se vê financeiramente?</h2>
+              <p className="modal-subtitle">4 perguntas para um diagnóstico preciso</p>
+              <button 
+                className="modal-close"
+                onClick={handleFecharModal}
+                aria-label="Fechar modal"
+              >
+                <X size={12} />
+              </button>
+            </div>
+            
+            <div className="modal-content">
+              {perguntas.map((pergunta, index) => (
+                <div key={pergunta.id} className="question-group">
+                  <label className="question-label">
+                    {index + 1}. {pergunta.pergunta}
+                  </label>
+                  <div className="options-grid">
+                    {pergunta.opcoes.map((opcao) => (
+                      <button
+                        key={opcao.valor}
+                        type="button"
+                        className={`option ${
+                          percepcao[pergunta.id] === opcao.valor ? 'selected' : ''
+                        }`}
+                        onClick={() => handleSelecionarResposta(pergunta.id, opcao.valor)}
+                      >
+                        <span className="option-text">{opcao.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="navigation">
+              <div className="nav-left">
+                <button 
+                  onClick={handleFecharModal}
+                  className="btn-back"
+                >
+                  <ArrowLeft size={12} />
+                  Cancelar
+                </button>
+              </div>
+              
+              <div className="nav-right">
+                <button 
+                  onClick={handleSalvar}
+                  disabled={!percepcaoCompleta || salvando}
+                  className="btn-continue"
+                >
+                  {salvando ? 'Salvando...' : 'Salvar'}
+                  <CheckCircle size={12} />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-
-        <div className="tempo-estimado">
-          <p><strong>⏱️ Tempo estimado:</strong> 10-15 minutos</p>
-          <p><strong>💡 Processo:</strong> Cada etapa cadastra seus dados reais no aplicativo</p>
-        </div>
-      </DiagnosticoEtapaLayout>
-
-      <ModalPercepcao />
-
-      <style jsx>{`
-        .modal-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.6);
-          backdrop-filter: blur(8px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-          padding: 1rem;
-        }
-
-        .percepcao-modal {
-          background: white;
-          border-radius: 24px;
-          max-width: 800px;
-          width: 100%;
-          max-height: 90vh;
-          overflow: hidden;
-          animation: slideUp 0.3s ease-out;
-        }
-
-        .modal-header {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
-          padding: 2rem;
-          text-align: center;
-          position: relative;
-        }
-
-        .modal-header h2 {
-          margin: 0 0 0.5rem 0;
-          font-size: 1.5rem;
-          font-weight: 700;
-        }
-
-        .modal-header p {
-          margin: 0;
-          opacity: 0.9;
-        }
-
-        .modal-close {
-          position: absolute;
-          top: 1rem;
-          right: 1rem;
-          background: rgba(255, 255, 255, 0.2);
-          border: none;
-          color: white;
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .modal-content {
-          padding: 2rem;
-          max-height: 60vh;
-          overflow-y: auto;
-        }
-
-        .pergunta-grupo {
-          margin-bottom: 2rem;
-        }
-
-        .pergunta-grupo h3 {
-          margin: 0 0 1rem 0;
-          font-size: 1.125rem;
-          font-weight: 600;
-          color: #374151;
-        }
-
-        .opcoes-grid {
-          display: grid;
-          gap: 0.75rem;
-        }
-
-        .opcao-btn {
-          display: flex;
-          align-items: center;
-          justify-content: flex-start;
-          padding: 1rem;
-          border: 2px solid #e5e7eb;
-          background: white;
-          border-radius: 12px;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          font-size: 0.875rem;
-          font-weight: 500;
-          text-align: left;
-        }
-
-        .opcao-btn:hover {
-          border-color: #667eea;
-          background: #f8fafc;
-        }
-
-        .opcao-btn.selecionada {
-          background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
-        }
-
-        .modal-footer {
-          padding: 1.5rem 2rem;
-          border-top: 1px solid #f1f5f9;
-          display: flex;
-          gap: 1rem;
-          justify-content: flex-end;
-        }
-
-        .intro-cards {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-          gap: 1.5rem;
-          margin: 2rem 0;
-        }
-
-        .intro-card {
-          background: white;
-          border: 1px solid #e5e7eb;
-          border-radius: 16px;
-          padding: 1.5rem;
-          text-align: center;
-          transition: all 0.3s ease;
-        }
-
-        .intro-card:hover {
-          border-color: #667eea;
-          transform: translateY(-2px);
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-        }
-
-        .card-icone {
-          font-size: 2.5rem;
-          margin-bottom: 1rem;
-        }
-
-        .intro-card h3 {
-          margin: 0 0 0.5rem 0;
-          font-size: 1.125rem;
-          font-weight: 700;
-          color: #374151;
-        }
-
-        .intro-card p {
-          margin: 0;
-          font-size: 0.875rem;
-          color: #6b7280;
-          line-height: 1.5;
-        }
-
-        .tempo-estimado {
-          background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-          border: 1px solid #bae6fd;
-          border-radius: 12px;
-          padding: 1.5rem;
-          text-align: center;
-          margin: 2rem 0;
-        }
-
-        .tempo-estimado p {
-          margin: 0.5rem 0;
-          color: #0369a1;
-          font-weight: 500;
-        }
-
-        @media (max-width: 768px) {
-          .percepcao-modal {
-            margin: 1rem;
-            border-radius: 16px;
-          }
-
-          .modal-header {
-            padding: 1.5rem;
-          }
-
-          .modal-content {
-            padding: 1.5rem;
-          }
-
-          .intro-cards {
-            grid-template-columns: 1fr;
-            gap: 1rem;
-          }
-
-          .intro-card {
-            padding: 1.25rem;
-          }
-        }
-      `}</style>
-    </>
+      )}
+    </div>
   );
 };
 

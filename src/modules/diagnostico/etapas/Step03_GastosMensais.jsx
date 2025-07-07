@@ -169,7 +169,7 @@ const Step03_GastosMensais = () => {
               {categorias.map((categoria) => (
                 <div key={categoria.key} className="categoria-item">
                   <div className="categoria-header">
-                    <div className="categoria-info">
+                    <div className="item-info-base">
                       <div 
                         className="categoria-icon"
                         style={{ color: categoria.color }}

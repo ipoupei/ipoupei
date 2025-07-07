@@ -1,500 +1,372 @@
 // src/modules/diagnostico/onboarding/etapa03_Cartoes.jsx
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { CreditCard } from 'lucide-react';
-import DiagnosticoEtapaLayout from '@modules/diagnostico/styles/DiagnosticoEtapaLayout';
+import { ArrowRight, ArrowLeft, CreditCard, Plus } from 'lucide-react';
+import { useCartoesData } from '@modules/cartoes/hooks/useCartoesData';
+import { useCartoesStore } from '@modules/cartoes/store/useCartoesStore';
 import CartoesModal from '@modules/cartoes/components/CartoesModal';
-import useCartoes from '@modules/cartoes/hooks/useCartoesData';
-import { formatCurrency } from '@utils/formatCurrency';
+import { formatCurrency } from '@shared/utils/formatCurrency';
 
-const CartoesEtapa = ({ 
-  onContinuar, 
-  onVoltar, 
-  etapaAtual = 3, 
-  totalEtapas = 11 
-}) => {
+
+// CSS refatorado
+import '@modules/diagnostico/styles/DiagnosticoOnboarding.css';
+import '@shared/styles/globals.css';
+
+const CartoesEtapa = ({ onContinuar, onVoltar, etapaAtual = 3, totalEtapas = 11, dadosExistentes = null }) => {
+  // ✅ Hook para funções de busca
+  const { fetchCartoes, loading } = useCartoesData();
+  
+  // ✅ Store para dados dos cartões
+  const { 
+    cartoes, 
+    setCartoes,
+    loadingStates 
+  } = useCartoesStore();
+  
   const [modalAberto, setModalAberto] = useState(false);
-  const { cartoes, loading } = useCartoes();
-
-  const handleAbrirModal = () => {
-    setModalAberto(true);
-  };
-
-  const handleFecharModal = () => {
-    setModalAberto(false);
-  };
-
-  const handleSalvar = () => {
-    console.log('✅ Cartão salvo!');
-    // Modal fecha automaticamente
-  };
-
-  const handleContinuar = () => {
-    onContinuar();
-  };
-
-  const handlePular = () => {
-    onContinuar(); // Permite pular esta etapa
-  };
-
-  // Bandeiras mais comuns
-  const bandeirasComuns = [
-    { nome: 'Visa', icone: '💳', cor: '#1a365d' },
-    { nome: 'Mastercard', icone: '💳', cor: '#eb1c26' },
-    { nome: 'Elo', icone: '💳', cor: '#ffcc02' },
-    { nome: 'American Express', icone: '💳', cor: '#006fcf' }
-  ];
-
   const temCartoes = cartoes && cartoes.length > 0;
-  const podeContinuar = true; // Sempre pode continuar (etapa opcional)
+
+  // ✅ Carregar cartões e atualizar store
+  const carregarCartoes = useCallback(async () => {
+    try {
+      const cartoesCarregados = await fetchCartoes();
+      setCartoes(cartoesCarregados || []); // ✅ Atualizar store
+    } catch (error) {
+      console.error('Erro ao carregar cartões:', error);
+      setCartoes([]);
+    }
+  }, [fetchCartoes, setCartoes]);
+
+  useEffect(() => {
+    carregarCartoes();
+  }, [carregarCartoes]);
+
+  const handleFecharModal = useCallback(() => {
+    setModalAberto(false);
+    carregarCartoes(); // Recarregar após fechar modal
+  }, [carregarCartoes]);
+  
+
+  const handleAbrirModal = useCallback(() => {
+  setModalAberto(true);
+}, []);
+
+
+// ✅ NOVA FUNÇÃO que usa os dados atualizados
+const encontrarProximaEtapaComDados = (etapaAtualIndex, dadosAtualizados) => {
+  let proximaEtapa = etapaAtualIndex + 1;
+  
+  while (proximaEtapa < totalEtapas && devePularEtapaComDados(proximaEtapa, dadosAtualizados)) {
+    console.log(`🔄 Pulando etapa ${proximaEtapa}: ${etapas[proximaEtapa].titulo}`);
+    proximaEtapa++;
+  }
+  
+  console.log(`✅ Próxima etapa válida encontrada: ${proximaEtapa}`);
+  return proximaEtapa;
+};
+
+// ✅ NOVA FUNÇÃO que recebe os dados como parâmetro
+const devePularEtapaComDados = (indiceEtapa, dados) => {
+  const etapa = etapas[indiceEtapa];
+  
+  if (!etapa.condicional) return false;
+  
+  if (etapa.id === 'despesas-cartao') {
+    const dadosCartoes = dados.cartoes;
+    const temCartoes = dadosCartoes && dadosCartoes.totalCartoes > 0;
+    
+    console.log('🔍 Verificando etapa despesas-cartao COM DADOS ATUALIZADOS:', { 
+      dadosCartoes, 
+      temCartoes,
+      totalCartoes: dadosCartoes?.totalCartoes,
+      resultado: !temCartoes
+    });
+    
+    return !temCartoes;
+  }
+  
+  return false;
+};
+// ✅ VERSÃO CORRETA (simples):
+const handleContinuar = useCallback(() => {
+  const dadosCartoes = {
+    totalCartoes: cartoes?.length || 0,
+    limiteTotal: cartoes?.reduce((total, cartao) => total + (cartao.limite || 0), 0) || 0,
+    temCartoes,
+    completoEm: new Date().toISOString()
+  };
+  
+  console.log('🎯 Dados dos cartões sendo enviados:', dadosCartoes);
+  onContinuar(dadosCartoes);
+}, [cartoes, temCartoes, onContinuar]);
+
+
+
+
+
+  const progressoPercentual = Math.round(((etapaAtual + 1) / totalEtapas) * 100);
+
+  const etapas = [
+    { numero: 1, nome: 'Intro', ativa: false, completa: true },
+    { numero: 2, nome: 'Categorias', ativa: false, completa: true },
+    { numero: 3, nome: 'Contas', ativa: false, completa: true },
+    { numero: 4, nome: 'Cartões', ativa: true, completa: false },
+    { numero: 5, nome: 'Desp.Cartão', ativa: false, completa: false },
+    { numero: 6, nome: 'Receitas', ativa: false, completa: false },
+    { numero: 7, nome: 'Desp.Fixas', ativa: false, completa: false },
+    { numero: 8, nome: 'Desp.Variáveis', ativa: false, completa: false },
+    { numero: 9, nome: 'Resumo', ativa: false, completa: false },
+    { numero: 10, nome: 'Metas', ativa: false, completa: false },
+    { numero: 11, nome: 'Fim', ativa: false, completa: false }
+  ];
 
   if (loading) {
     return (
-      <DiagnosticoEtapaLayout
-        icone="💳"
-        titulo="Carregando cartões..."
-        descricao="Aguarde enquanto carregamos suas informações"
-        temDados={false}
-        onAbrirModal={() => {}}
-        onContinuar={() => {}}
-        onVoltar={onVoltar}
-        podeContinuar={false}
-        etapaAtual={etapaAtual}
-        totalEtapas={totalEtapas}
-      />
+      <div className="diagnostico-container">
+        <div className="diagnostico-header">
+          <div className="header-row">
+            <div className="header-title">Carregando...</div>
+            <div className="header-progress">Aguarde</div>
+          </div>
+        </div>
+        <div className="diagnostico-main">
+          <div className="main-icon">⏳</div>
+          <h1 className="main-title">Carregando seus cartões...</h1>
+        </div>
+      </div>
     );
   }
 
   return (
-    <>
-      <DiagnosticoEtapaLayout
-        icone="💳"
-        titulo="Seus cartões de crédito"
-        subtitulo="Controle seus cartões para evitar surpresas"
-        descricao="Cadastre seus cartões de crédito para ter controle total sobre limites, faturas e gastos. Se você não usa cartão, pode pular esta etapa."
-        temDados={temCartoes}
-        labelBotaoPrincipal="Adicionar Cartão"
-        onAbrirModal={handleAbrirModal}
-        onVoltar={onVoltar}
-        onContinuar={handleContinuar}
-        onPular={handlePular}
-        podeContinuar={podeContinuar}
-        podePular={true}
-        etapaAtual={etapaAtual}
-        totalEtapas={totalEtapas}
-        dadosExistentes={
-          temCartoes 
-            ? `${cartoes.length} cartão${cartoes.length > 1 ? 'ões' : ''} cadastrado${cartoes.length > 1 ? 's' : ''}` 
-            : null
-        }
-        dicas={[
-          "Cadastre apenas os cartões que você usa regularmente",
-          "Informe o limite real para controle mais preciso",
-          "Você pode ajustar os dados depois conforme usar o app"
-        ]}
-      >
-        {/* Cartões existentes */}
-        {temCartoes && (
-          <div className="cartoes-existentes">
-            <h3>Seus cartões cadastrados:</h3>
-            <div className="cartoes-lista">
-              {cartoes.map((cartao) => {
-                const limiteDisponivel = (cartao.limite || 0) - 0; // Assumindo gasto zero para o diagnóstico
-                const percentualUso = cartao.limite > 0 ? 0 : 0; // Sem gastos ainda
+    <div className="diagnostico-container">
+      
+      {/* Header Compacto */}
+      <div className="diagnostico-header">
+        <div className="header-row">
+          <div className="header-title">Diagnóstico Financeiro</div>
+          <div className="header-progress">
+            Etapa {etapaAtual + 1} de {totalEtapas} • {progressoPercentual}%
+          </div>
+        </div>
+
+        <div className="progress-bar">
+          <div 
+            className="progress-fill"
+            style={{ width: `${progressoPercentual}%` }}
+          />
+        </div>
+
+        <div className="steps-row">
+          {etapas.map((etapa) => (
+            <div 
+              key={etapa.numero}
+              className={`step ${etapa.ativa ? 'active' : ''} ${etapa.completa ? 'completed' : ''}`}
+            >
+              <div className="step-circle">
+                {etapa.completa ? '✓' : etapa.numero}
+              </div>
+              <div className="step-label">{etapa.nome}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Conteúdo Principal - Layout com Vídeo */}
+      <div className="diagnostico-main-with-video">
+        
+        {/* Vídeo à Esquerda */}
+        <div className="diagnostico-video-left">
+          <div className="video-container">
+            <div className="video-header">
+              <h3 className="video-title">🎬 Controlando cartões de crédito</h3>
+              <p className="video-subtitle">Aprenda em 4 minutos</p>
+            </div>
+            
+            <div className="video-embed">
+              <iframe
+                width="100%"
+                height="200"
+                src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                title="Tutorial: Como controlar cartões de crédito"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              ></iframe>
+            </div>
+            
+            <div className="video-benefits">
+              <div className="benefit-item">
+                <span className="benefit-icon">🎯</span>
+                <span className="benefit-text">Evitar surpresas</span>
+              </div>
+              <div className="benefit-item">
+                <span className="benefit-icon">📊</span>
+                <span className="benefit-text">Controle de limite</span>
+              </div>
+              <div className="benefit-item">
+                <span className="benefit-icon">💰</span>
+                <span className="benefit-text">Planejar compras</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Conteúdo à Direita */}
+        <div className="diagnostico-content-right">
+          <div className="main-icon">💳</div>
+          <h1 className="main-title">Seus cartões de crédito</h1>
+          <p className="main-subtitle">Controle seus cartões para evitar surpresas</p>
+          <p className="main-description">
+            Cadastre seus cartões de crédito para ter controle total sobre limites, faturas 
+            e gastos. Se você não usa cartão, pode pular esta etapa tranquilamente.
+          </p>
+
+          {/* Status Card */}
+          <div className={`status-card ${temCartoes ? 'completed' : 'pending'}`}>
+            <div className="status-icon">
+              {temCartoes ? '✅' : '💳'}
+            </div>
+            <div className="status-info">
+              <h3>
+                {temCartoes 
+                  ? `${cartoes.length} cartão${cartoes.length > 1 ? 'ões' : ''} cadastrado${cartoes.length > 1 ? 's' : ''}`
+                  : 'Cartões de Crédito'
+                }
+              </h3>
+              <p>
+                {temCartoes 
+                  ? `Limite total: ${formatCurrency(cartoes.reduce((total, cartao) => total + (cartao.limite || 0), 0))}`
+                  : 'Cadastre seus cartões para ter controle sobre faturas e gastos'
+                }
+              </p>
+            </div>
+          </div>
+
+          {/* Botões de Ação */}
+          <div className="action-buttons">
+            <button
+              onClick={handleAbrirModal}
+              className="btn-primary"
+            >
+              <Plus size={14} />
+              {temCartoes ? 'Gerenciar Cartões' : 'Adicionar Cartão'}
+            </button>
+          </div>
+
+          {/* Cartões Existentes ou Informações */}
+          {temCartoes ? (
+            <div className="cartoes-existentes">
+              {cartoes.slice(0, 3).map((cartao) => {
+                const percentualUso = 0; // Sem gastos ainda no diagnóstico
                 
                 return (
-                  <div key={cartao.id} className="cartao-item">
-                    <div className="cartao-header">
-                      <div 
-                        className="cartao-icone"
-                        style={{ backgroundColor: cartao.cor || '#6b7280' }}
-                      >
-                        <CreditCard size={16} />
-                      </div>
-                      <div className="cartao-info">
-                        <span className="cartao-nome">{cartao.nome}</span>
-                        <span className="cartao-bandeira">{cartao.bandeira || 'Cartão'}</span>
-                      </div>
-                      <div className="cartao-status">
-                        <span className="limite-disponivel">
-                          {formatCurrency(limiteDisponivel)}
-                        </span>
-                        <span className="limite-total">
-                          de {formatCurrency(cartao.limite || 0)}
-                        </span>
-                      </div>
+                  <div key={cartao.id} className="preview-card-base">
+                    <div 
+                      className="cartao-icone"
+                      style={{ backgroundColor: cartao.cor || '#6b7280' }}
+                    >
+                      <CreditCard size={14} />
                     </div>
-                    
-                    <div className="cartao-barra">
-                      <div 
-                        className="barra-uso"
-                        style={{ width: `${percentualUso}%` }}
-                      />
+                    <div className="cartao-info">
+                      <div className="cartao-nome">{cartao.nome}</div>
+                      <div className="cartao-bandeira">{cartao.bandeira || 'Cartão'}</div>
                     </div>
-                    
-                    <div className="cartao-detalhes">
-                      <span>Fechamento: dia {cartao.dia_fechamento || 1}</span>
-                      <span>Vencimento: dia {cartao.dia_vencimento || 10}</span>
+                    <div className="cartao-limite">
+                      <div className="limite-valor">
+                        {formatCurrency(cartao.limite || 0)}
+                      </div>
+                      <div className="limite-label">Limite</div>
                     </div>
                   </div>
                 );
               })}
-            </div>
-            
-            <div className="limite-total-resumo">
-              <strong>Limite total: {formatCurrency(
-                cartoes.reduce((total, cartao) => total + (cartao.limite || 0), 0)
-              )}</strong>
-            </div>
-          </div>
-        )}
-
-        {/* Sugestões quando não tem cartões */}
-        {!temCartoes && (
-          <div className="sugestoes-cartoes">
-            <h3>💡 Bandeiras mais comuns:</h3>
-            <div className="bandeiras-grid">
-              {bandeirasComuns.map((bandeira, index) => (
-                <div key={index} className="bandeira-item">
-                  <div 
-                    className="bandeira-icone"
-                    style={{ backgroundColor: bandeira.cor }}
-                  >
-                    {bandeira.icone}
+              {cartoes.length > 3 && (
+                <div className="preview-card-base mais">
+                  <div className="cartao-icone">
+                    +{cartoes.length - 3}
                   </div>
-                  <span className="bandeira-nome">{bandeira.nome}</span>
+                  <div className="cartao-info">
+                    <div className="cartao-nome">Mais cartões</div>
+                    <div className="cartao-bandeira">Ver todos</div>
+                  </div>
                 </div>
-              ))}
+              )}
             </div>
-            <p className="sugestoes-texto">
-              Você pode adicionar cartões de qualquer banco ou bandeira.
-            </p>
-          </div>
-        )}
+          ) : (
+            <div className="info-grid">
+              <div className="info-item success">
+                <div className="info-icon">💳</div>
+                <div className="info-title">Visa</div>
+                <div className="info-text">Mais usado</div>
+              </div>
 
-        {/* Informações sobre cartões */}
-        <div className="info-cartoes">
-          <div className="info-icone">💡</div>
-          <div className="info-conteudo">
-            <h4>Por que controlar cartões?</h4>
-            <ul>
-              <li>Evitar surpresas na fatura</li>
-              <li>Controlar o limite disponível</li>
-              <li>Planejar compras parceladas</li>
-              <li>Identificar gastos desnecessários</li>
-            </ul>
-          </div>
+              <div className="info-item info">
+                <div className="info-icon">💳</div>
+                <div className="info-title">Mastercard</div>
+                <div className="info-text">Popular</div>
+              </div>
+
+              <div className="info-item warning">
+                <div className="info-icon">💳</div>
+                <div className="info-title">Elo</div>
+                <div className="info-text">Nacional</div>
+              </div>
+
+              <div className="info-item info">
+                <div className="info-icon">✋</div>
+                <div className="info-title">Sem cartão</div>
+                <div className="info-text">Pode pular</div>
+              </div>
+            </div>
+          )}
+
+          {/* Dica sobre cartões */}
+          {!temCartoes && (
+            <div className="preview-card-base">
+              <div className="dica-icon">💡</div>
+              <div className="dica-texto">
+                <strong>Dica:</strong> Muitas pessoas preferem usar apenas dinheiro ou débito. 
+                Esta etapa é totalmente opcional - você pode pular tranquilamente!
+              </div>
+            </div>
+          )}
         </div>
+      </div>
 
-        {/* Opção para quem não usa cartão */}
-        {!temCartoes && (
-          <div className="sem-cartao">
-            <div className="sem-cartao-icone">✋</div>
-            <div className="sem-cartao-conteudo">
-              <h4>Não usa cartão de crédito?</h4>
-              <p>
-                Sem problemas! Muitas pessoas preferem usar apenas dinheiro ou débito. 
-                Você pode pular esta etapa e continuar o diagnóstico.
-              </p>
-            </div>
-          </div>
-        )}
-      </DiagnosticoEtapaLayout>
+      {/* Navegação Inferior */}
+      <div className="navigation">
+        <div className="nav-left">
+          <button
+            onClick={onVoltar}
+            className="btn-back"
+          >
+            <ArrowLeft size={12} />
+            Voltar
+          </button>
+        </div>
+        
+        <div className="nav-right">
+          <button
+            onClick={handleContinuar}
+            className="btn-continue"
+          >
+            {temCartoes ? 'Continuar' : 'Pular por agora'}
+            <ArrowRight size={12} />
+          </button>
+        </div>
+      </div>
 
-      {/* Modal de cartões */}
+      {/* Modal de Cartões */}
       {modalAberto && (
         <CartoesModal
           isOpen={modalAberto}
           onClose={handleFecharModal}
-          onSave={handleSalvar}
-          diagnosticoMode={true}
         />
       )}
 
-      <style jsx>{`
-        .cartoes-existentes {
-          margin: 2rem 0;
-        }
+      {/* Estilos específicos para cartões */}
 
-        .cartoes-existentes h3 {
-          margin: 0 0 1.5rem 0;
-          font-size: 1.125rem;
-          font-weight: 700;
-          color: #374151;
-          text-align: center;
-        }
-
-        .cartoes-lista {
-          background: linear-gradient(135deg, #faf5ff 0%, #e9d5ff 100%);
-          border: 1px solid #ddd6fe;
-          border-radius: 16px;
-          padding: 1.5rem;
-          margin-bottom: 1rem;
-        }
-
-        .cartao-item {
-          background: white;
-          border: 1px solid #e5e7eb;
-          border-radius: 12px;
-          padding: 1rem;
-          margin-bottom: 1rem;
-          transition: all 0.3s ease;
-        }
-
-        .cartao-item:last-child {
-          margin-bottom: 0;
-        }
-
-        .cartao-item:hover {
-          border-color: #8b5cf6;
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(139, 92, 246, 0.1);
-        }
-
-        .cartao-header {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          margin-bottom: 0.75rem;
-        }
-
-        .cartao-icone {
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          flex-shrink: 0;
-        }
-
-        .cartao-info {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-          flex: 1;
-        }
-
-        .cartao-nome {
-          font-weight: 600;
-          color: #374151;
-          font-size: 0.875rem;
-        }
-
-        .cartao-bandeira {
-          font-size: 0.75rem;
-          color: #6b7280;
-          text-transform: capitalize;
-        }
-
-        .cartao-status {
-          text-align: right;
-        }
-
-        .limite-disponivel {
-          display: block;
-          font-weight: 700;
-          color: #059669;
-          font-size: 0.875rem;
-        }
-
-        .limite-total {
-          font-size: 0.75rem;
-          color: #6b7280;
-        }
-
-        .cartao-barra {
-          height: 6px;
-          background: #e5e7eb;
-          border-radius: 3px;
-          overflow: hidden;
-          margin-bottom: 0.75rem;
-        }
-
-        .barra-uso {
-          height: 100%;
-          background: linear-gradient(90deg, #10b981, #059669);
-          border-radius: 3px;
-          transition: width 0.3s ease;
-        }
-
-        .cartao-detalhes {
-          display: flex;
-          justify-content: space-between;
-          font-size: 0.75rem;
-          color: #6b7280;
-        }
-
-        .limite-total-resumo {
-          text-align: center;
-          padding: 1rem;
-          background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-          border: 1px solid #93c5fd;
-          border-radius: 12px;
-          color: #1e40af;
-          font-size: 1.125rem;
-        }
-
-        .sugestoes-cartoes {
-          margin: 2rem 0;
-        }
-
-        .sugestoes-cartoes h3 {
-          margin: 0 0 1.5rem 0;
-          font-size: 1.125rem;
-          font-weight: 700;
-          color: #374151;
-          text-align: center;
-        }
-
-        .bandeiras-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-          gap: 1rem;
-          margin-bottom: 1.5rem;
-        }
-
-        .bandeira-item {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 1rem;
-          background: white;
-          border: 1px solid #e5e7eb;
-          border-radius: 12px;
-          transition: all 0.3s ease;
-        }
-
-        .bandeira-item:hover {
-          border-color: #8b5cf6;
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-
-        .bandeira-icone {
-          width: 32px;
-          height: 32px;
-          border-radius: 8px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-        }
-
-        .bandeira-nome {
-          font-size: 0.75rem;
-          font-weight: 600;
-          color: #374151;
-          text-align: center;
-        }
-
-        .sugestoes-texto {
-          text-align: center;
-          color: #6b7280;
-          font-size: 0.875rem;
-          font-style: italic;
-        }
-
-        .info-cartoes {
-          display: flex;
-          gap: 1rem;
-          padding: 1.5rem;
-          background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-          border: 1px solid #bae6fd;
-          border-radius: 16px;
-          margin: 2rem 0;
-        }
-
-        .info-icone {
-          font-size: 1.5rem;
-          flex-shrink: 0;
-        }
-
-        .info-conteudo h4 {
-          margin: 0 0 0.75rem 0;
-          font-size: 1rem;
-          font-weight: 700;
-          color: #0c4a6e;
-        }
-
-        .info-conteudo ul {
-          margin: 0;
-          padding-left: 1.25rem;
-          color: #0369a1;
-        }
-
-        .info-conteudo li {
-          font-size: 0.875rem;
-          line-height: 1.5;
-          margin-bottom: 0.25rem;
-        }
-
-        .sem-cartao {
-          display: flex;
-          gap: 1rem;
-          padding: 1.5rem;
-          background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-          border: 1px solid #bbf7d0;
-          border-radius: 16px;
-          margin: 2rem 0;
-        }
-
-        .sem-cartao-icone {
-          font-size: 1.5rem;
-          flex-shrink: 0;
-        }
-
-        .sem-cartao-conteudo h4 {
-          margin: 0 0 0.5rem 0;
-          font-size: 1rem;
-          font-weight: 700;
-          color: #166534;
-        }
-
-        .sem-cartao-conteudo p {
-          margin: 0;
-          font-size: 0.875rem;
-          color: #047857;
-          line-height: 1.6;
-        }
-
-        @media (max-width: 768px) {
-          .bandeiras-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 0.75rem;
-          }
-
-          .bandeira-item {
-            padding: 0.875rem;
-          }
-
-          .cartao-header {
-            flex-wrap: wrap;
-            gap: 0.75rem;
-          }
-
-          .cartao-status {
-            text-align: left;
-            width: 100%;
-          }
-
-          .cartao-detalhes {
-            flex-direction: column;
-            gap: 0.25rem;
-          }
-
-          .info-cartoes,
-          .sem-cartao {
-            flex-direction: column;
-            text-align: center;
-            gap: 0.75rem;
-            padding: 1.25rem;
-          }
-        }
-      `}</style>
-    </>
+    </div>
   );
 };
 
@@ -502,7 +374,8 @@ CartoesEtapa.propTypes = {
   onContinuar: PropTypes.func.isRequired,
   onVoltar: PropTypes.func.isRequired,
   etapaAtual: PropTypes.number,
-  totalEtapas: PropTypes.number
+  totalEtapas: PropTypes.number,
+  dadosExistentes: PropTypes.object
 };
 
 export default CartoesEtapa;

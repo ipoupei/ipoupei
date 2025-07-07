@@ -1,206 +1,498 @@
-import React, { useState, useEffect } from 'react';
-import { format, subMonths, addMonths } from 'date-fns';
+import React, { useState } from 'react';
+import { format, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { formatCurrency } from '@utils/formatCurrency';
+import { formatCurrency } from '@shared/utils/formatCurrency';
+import useProjecaoCombinada from '../hooks/useProjecaoCombinada';
 
 /**
- * Componente para exibir projeção de saldo em gráfico
- * Mostra o histórico e projeção de saldo mensal
+ * 📈 PROJEÇÃO DE SALDO SIMPLES - iPoupei
+ * ✅ Abordagem direta e funcional
+ * ✅ 3 linhas simultâneas no modo comparar
+ * ✅ Debug otimizado para identificar problemas
  */
-const ProjecaoSaldoGraph = ({ data, mesAtual, anoAtual }) => {
-  const [dadosGrafico, setDadosGrafico] = useState([]);
-  const [periodoExibicao, setPeriodoExibicao] = useState({ inicio: 5, fim: 12 }); // 5 meses antes, 12 meses depois
+const ProjecaoSaldoSimples = () => {
+  const [periodoSelecionado, setPeriodoSelecionado] = useState('medio');
+  const [tipoAtivo, setTipoAtivo] = useState('planejada');
   
-  // Dados mockados para histórico e projeção
-  const dadosMockados = [
-    { mes: 'Dez/24', saldo: 10500 },
-    { mes: 'Jan/25', saldo: 13600 },
-    { mes: 'Fev/25', saldo: 12900 },
-    { mes: 'Mar/25', saldo: 14900 },
-    { mes: 'Abr/25', saldo: 18100 },
-    { mes: 'Mai/25', saldo: 21400 }, // Mês atual
-    { mes: 'Jun/25', saldo: 24000 }, // Projeção
-    { mes: 'Jul/25', saldo: 26300 },
-    { mes: 'Ago/25', saldo: 28800 },
-    { mes: 'Set/25', saldo: 30700 },
-    { mes: 'Out/25', saldo: 33100 },
-    { mes: 'Nov/25', saldo: 35600 },
-    { mes: 'Dez/25', saldo: 37900 },
-    { mes: 'Jan/26', saldo: 40500 },
-    { mes: 'Fev/26', saldo: 43200 },
-    { mes: 'Mar/26', saldo: 46000 },
-    { mes: 'Abr/26', saldo: 49800 },
-    { mes: 'Mai/26', saldo: 53000 }
-  ];
+  // 📊 Configurações de período
+  const periodosConfig = {
+    curto: { meses: 6, label: '6M' },
+    medio: { meses: 12, label: '12M' },
+    longo: { meses: 18, label: '18M' }
+  };
 
-  // Prepara os dados para o gráfico
-  useEffect(() => {
-    // Vamos separar os dados em duas partes: histórico (até mês atual) e projeção (meses futuros)
-    const mesAtualFormatado = format(new Date(anoAtual, mesAtual), 'MMM/yy', { locale: ptBR });
-    
-    // Indicamos o índice do mês atual (Maio 2025 nos dados mockados)
-    const indiceMesAtual = dadosMockados.findIndex(item => 
-      item.mes.toLowerCase() === mesAtualFormatado.toLowerCase()
-    );
-    
-    // Seleciona dados baseado no período configurado
-    const inicioIndice = Math.max(0, indiceMesAtual - periodoExibicao.inicio);
-    const fimIndice = Math.min(dadosMockados.length - 1, indiceMesAtual + periodoExibicao.fim);
-    
-    // Filtra e mapeia os dados para incluir a propriedade 'tipo' (histórico ou projeção)
-    const dadosFiltrados = dadosMockados
-      .slice(inicioIndice, fimIndice + 1)
-      .map((item, index) => {
-        const ehHistorico = index <= (indiceMesAtual - inicioIndice);
-        return {
-          ...item,
-          tipo: ehHistorico ? 'historico' : 'projecao',
-          mes: item.mes.charAt(0).toUpperCase() + item.mes.slice(1) // Capitaliza o nome do mês
-        };
-      });
-    
-    setDadosGrafico(dadosFiltrados);
-  }, [mesAtual, anoAtual, periodoExibicao]);
+  const mesesProjecao = periodosConfig[periodoSelecionado].meses;
+  
+  // 🔄 Hook dos dados
+  const {
+    dadosRecorrentes,
+    dadosHistoricos,
+    loading,
+    error
+  } = useProjecaoCombinada(mesesProjecao);
 
-  // Tooltip personalizado
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      const ehProjecao = data.tipo === 'projecao';
+  // 📊 GERAR DADOS SIMPLES
+  const gerarDadosSimples = () => {
+    const saldoAtual = 108799; // Pegando do exemplo
+    const dataBase = new Date();
+    
+    const dados = []; // Array único para o gráfico
+    
+    let saldoAcumPlanejado = saldoAtual;
+    let saldoAcumEstatistico = saldoAtual;
+    let saldoAcumCombinado = saldoAtual;
+    
+    for (let i = 1; i <= mesesProjecao; i++) {
+      const dataProjecao = addMonths(dataBase, i);
+      const mes = format(dataProjecao, 'MMM/yy', { locale: ptBR });
+      const mesAno = format(dataProjecao, 'yyyy-MM');
       
-      return (
-        <div className="custom-tooltip" style={{
-          backgroundColor: 'white',
-          padding: '10px',
-          border: '1px solid #ccc',
-          borderRadius: '4px'
-        }}>
-          <p className="tooltip-label" style={{ fontWeight: 'bold', marginBottom: '5px' }}>
-            {data.mes}
-          </p>
-          <p className="tooltip-value" style={{ color: data.saldo >= 0 ? '#10B981' : '#EF4444' }}>
-            {formatCurrency(data.saldo)}
-          </p>
-          {ehProjecao && (
-            <p style={{ fontSize: '0.8rem', color: '#718096', marginTop: '5px' }}>
-              (Projeção)
-            </p>
-          )}
-        </div>
-      );
+      // 📋 DADOS PLANEJADOS
+      const dadosMes = dadosRecorrentes.resumoPorMes?.find(r => r.mes === mesAno);
+      const saldoMensalPlanejado = dadosMes?.saldo || 0;
+      saldoAcumPlanejado += saldoMensalPlanejado;
+      
+      // 📊 DADOS ESTATÍSTICOS
+      const mediana = dadosHistoricos.medianaSaldo || 0;
+      saldoAcumEstatistico += mediana;
+      
+      // 🔄 DADOS COMBINADOS
+      const saldoMensalCombinado = dadosMes ? (saldoMensalPlanejado + mediana) / 2 : mediana;
+      saldoAcumCombinado += saldoMensalCombinado;
+      
+      // Objeto único com todas as linhas
+      dados.push({
+        mes,
+        planejado: saldoAcumPlanejado,
+        estatistico: saldoAcumEstatistico,
+        combinado: saldoAcumCombinado,
+        saldoMensalPlanejado,
+        saldoMensalEstatistico: mediana,
+        saldoMensalCombinado
+      });
     }
     
-    return null;
+    return dados;
   };
 
-  // Define gradiente para o gráfico
-  const renderGradient = () => {
+  const dados = gerarDadosSimples();
+
+  // 🔍 DEBUG: Log apenas quando necessário
+  React.useEffect(() => {
+    if (tipoAtivo === 'comparar') {
+      console.log('🔍 Debug - Modo Comparar:', {
+        tipoAtivo,
+        dadosLength: dados.length,
+        primeirosDados: dados.slice(0, 2),
+        propriedades: Object.keys(dados[0] || {}),
+        temTodasPropriedades: dados[0] && dados[0].planejado && dados[0].estatistico && dados[0].combinado
+      });
+    }
+  }, [tipoAtivo, dados]);
+
+  // 📊 OBTER DATAKEY ATIVO
+  const obterDataKey = () => {
+    switch(tipoAtivo) {
+      case 'planejada': return 'planejado';
+      case 'estatistica': return 'estatistico';
+      case 'comparar': return 'combinado'; // Linha principal no comparar
+      default: return 'planejado';
+    }
+  };
+
+  const dataKeyAtivo = obterDataKey();
+
+  // 🎨 CORES
+  const cores = {
+    planejada: '#3B82F6',
+    estatistica: '#10B981',
+    comparar: '#8B5CF6'
+  };
+
+  // 📊 TOOLTIP SIMPLES
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (!active || !payload || payload.length === 0) return null;
+
+    const data = payload[0].payload;
+    
+    // Obter valor baseado no tipo ativo
+    let valor, saldoMensal;
+    if (tipoAtivo === 'planejada') {
+      valor = data.planejado;
+      saldoMensal = data.saldoMensalPlanejado;
+    } else if (tipoAtivo === 'estatistica') {
+      valor = data.estatistico;
+      saldoMensal = data.saldoMensalEstatistico;
+    } else {
+      valor = data.combinado;
+      saldoMensal = data.saldoMensalCombinado;
+    }
+    
+    const corBorda = valor >= 0 ? '#10B981' : '#EF4444';
+
     return (
-      <defs>
-        <linearGradient id="saldoGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8}/>
-          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.2}/>
-        </linearGradient>
-      </defs>
+      <div style={{
+        backgroundColor: 'white',
+        padding: '12px 16px',
+        border: `2px solid ${corBorda}`,
+        borderRadius: '8px',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+        minWidth: '200px'
+      }}>
+        <div style={{ fontWeight: 'bold', marginBottom: '6px', color: '#1F2937' }}>
+          📅 {label}
+        </div>
+        <div style={{ fontSize: '18px', fontWeight: 'bold', color: corBorda, marginBottom: '6px' }}>
+          {formatCurrency(valor)}
+        </div>
+        <div style={{ fontSize: '12px', color: '#6B7280' }}>
+          💰 Saldo mensal: {formatCurrency(saldoMensal)}
+        </div>
+        {tipoAtivo === 'comparar' && (
+          <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '4px' }}>
+            📋 Planejado: {formatCurrency(data.planejado)}<br/>
+            📊 Estatístico: {formatCurrency(data.estatistico)}
+          </div>
+        )}
+      </div>
     );
   };
 
-  // Estilo separado para o container e legendas
-  const containerStyle = {
-    width: '100%',
-    height: 350
-  };
-
-  // Verifica se existem dados para renderizar
-  if (!dadosGrafico || dadosGrafico.length === 0) {
+  // 🔄 LOADING E ERROR
+  if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: '20px' }}>
-        <p>Carregando dados do gráfico...</p>
+      <div style={{ textAlign: 'center', padding: '40px' }}>
+        <div style={{ fontSize: '48px', marginBottom: '16px' }}>📊</div>
+        <h3>Carregando projeção...</h3>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ textAlign: 'center', padding: '40px' }}>
+        <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+        <h3>Erro ao carregar</h3>
+        <p>{error}</p>
       </div>
     );
   }
 
   return (
-    <div className="projecao-saldo-container">
-      {/* Legenda personalizada */}
-      <div className="projecao-legenda">
-        <div className="legenda-item">
-          <span className="legenda-cor historico"></span>
-          <span className="legenda-texto">Histórico</span>
-        </div>
-        <div className="legenda-item">
-          <span className="legenda-cor projecao"></span>
-          <span className="legenda-texto">Projeção</span>
+    <div className="projecao-simples">
+      
+      {/* 🎮 CONTROLES */}
+      <div className="controles">
+        <div className="controles-linha">
+          <div className="grupo">
+            <label>📊 Tipo:</label>
+            <div className="botoes">
+              <button 
+                onClick={() => {
+                  console.log('🔘 Clicando em Planejada');
+                  setTipoAtivo('planejada');
+                }}
+                className={tipoAtivo === 'planejada' ? 'ativo' : ''}
+              >
+                📋 Planejada
+              </button>
+              <button 
+                onClick={() => {
+                  console.log('🔘 Clicando em Estatística');
+                  setTipoAtivo('estatistica');
+                }}
+                className={tipoAtivo === 'estatistica' ? 'ativo' : ''}
+              >
+                📊 Estatística
+              </button>
+              <button 
+                onClick={() => {
+                  console.log('🔘 Clicando em Comparar');
+                  setTipoAtivo('comparar');
+                }}
+                className={tipoAtivo === 'comparar' ? 'ativo' : ''}
+              >
+                🔄 Comparar
+              </button>
+            </div>
+          </div>
+
+          <div className="grupo">
+            <label>⏱️ Período:</label>
+            <div className="botoes">
+              {Object.entries(periodosConfig).map(([periodo, config]) => (
+                <button
+                  key={periodo}
+                  onClick={() => setPeriodoSelecionado(periodo)}
+                  className={periodoSelecionado === periodo ? 'ativo' : ''}
+                >
+                  {config.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
-      
-      {/* Componente gráfico */}
-      <div style={containerStyle}>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart
-            data={dadosGrafico}
-            margin={{
-              top: 10,
-              right: 30,
-              left: 20,
-              bottom: 20,
-            }}
-          >
-            {renderGradient()}
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+
+      {/* 📊 GRÁFICO */}
+      <div className="grafico">
+        <ResponsiveContainer width="100%" height={400}>
+          <LineChart data={dados} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
             <XAxis 
-              dataKey="mes"
-              tick={{ fontSize: 12 }}
-              tickMargin={10}
+              dataKey="mes" 
+              tick={{ fontSize: 12, fill: '#6B7280' }}
+              axisLine={{ stroke: '#D1D5DB' }}
             />
             <YAxis 
               tickFormatter={(value) => formatCurrency(value, { minimumFractionDigits: 0 })}
-              tick={{ fontSize: 12 }}
+              tick={{ fontSize: 12, fill: '#6B7280' }}
+              axisLine={{ stroke: '#D1D5DB' }}
             />
             <Tooltip content={<CustomTooltip />} />
-            <ReferenceLine y={0} stroke="#718096" strokeWidth={1} />
+            <ReferenceLine y={0} stroke="#EF4444" strokeWidth={1} strokeDasharray="5 5" />
             
-            {/* Linha para Histórico */}
-            <Line
-              type="monotone"
-              dataKey="saldo"
-              stroke="#3B82F6"
-              strokeWidth={3}
-              dot={{ r: 4, strokeWidth: 2 }}
-              activeDot={{ r: 6, strokeWidth: 0 }}
-              name="Saldo"
-            />
+            {/* MODO SIMPLES: UMA LINHA */}
+            {tipoAtivo !== 'comparar' && (
+              <Line
+                type="monotone"
+                dataKey={dataKeyAtivo}
+                stroke={cores[tipoAtivo]}
+                strokeWidth={3}
+                dot={{ fill: cores[tipoAtivo], r: 4 }}
+                activeDot={{ r: 6 }}
+                strokeDasharray={tipoAtivo === 'estatistica' ? "5 5" : "0"}
+              />
+            )}
+            
+            {/* MODO COMPARAR: TRÊS LINHAS */}
+            {tipoAtivo === 'comparar' && (
+              <>
+                {console.log('🎯 Renderizando 3 linhas no modo comparar!')}
+                <Line
+                  type="monotone"
+                  dataKey="planejado"
+                  stroke="#FF0000"  // ← TESTE: Vermelho forte
+                  strokeWidth={5}   // ← TESTE: Bem grosso
+                  strokeDasharray="8 4"
+                  dot={false}
+                  name="Planejada"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="estatistico"
+                  stroke="#00FF00"  // ← TESTE: Verde forte
+                  strokeWidth={5}   // ← TESTE: Bem grosso
+                  strokeDasharray="4 4"
+                  dot={false}
+                  name="Estatística"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="combinado"
+                  stroke="#0000FF"  // ← TESTE: Azul forte
+                  strokeWidth={5}   // ← TESTE: Bem grosso
+                  dot={{ fill: '#0000FF', r: 6 }}
+                  activeDot={{ r: 8 }}
+                  name="Combinada"
+                />
+              </>
+            )}
           </LineChart>
         </ResponsiveContainer>
       </div>
-      
-      {/* Controles de período (opcional) */}
-      <div className="periodo-controles">
-        <div className="periodo-label">Período de visualização:</div>
-        <div className="periodo-botoes">
-          <button 
-            onClick={() => setPeriodoExibicao({ inicio: 3, fim: 6 })}
-            className={`periodo-botao ${periodoExibicao.inicio === 3 ? 'ativo' : ''}`}
-          >
-            Curto prazo
-          </button>
-          <button 
-            onClick={() => setPeriodoExibicao({ inicio: 5, fim: 12 })}
-            className={`periodo-botao ${periodoExibicao.inicio === 5 ? 'ativo' : ''}`}
-          >
-            Médio prazo
-          </button>
-          <button 
-            onClick={() => setPeriodoExibicao({ inicio: 5, fim: 24 })}
-            className={`periodo-botao ${periodoExibicao.fim === 24 ? 'ativo' : ''}`}
-          >
-            Longo prazo
-          </button>
-        </div>
+
+      {/* 📋 LEGENDA */}
+      <div className="legenda">
+        {tipoAtivo !== 'comparar' && (
+          <div className="item">
+            <div className="cor" style={{ backgroundColor: cores[tipoAtivo] }}></div>
+            <span>📊 Projeção {tipoAtivo}</span>
+          </div>
+        )}
+        
+        {tipoAtivo === 'comparar' && (
+          <>
+            <div className="item">
+              <div className="cor roxa" style={{ backgroundColor: '#0000FF' }}></div>
+              <span>🔄 Combinada</span>
+            </div>
+            <div className="item">
+              <div className="cor azul-tracejada" style={{ backgroundColor: '#FF0000' }}></div>
+              <span>📋 Planejada</span>
+            </div>
+            <div className="item">
+              <div className="cor verde-pontilhada" style={{ backgroundColor: '#00FF00' }}></div>
+              <span>📊 Estatística</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ⚠️ DISCLAIMER */}
+      <div className="disclaimer">
+        <small>
+          <strong>⚠️ Aviso:</strong> Projeções são estimativas baseadas em dados históricos. 
+          Use como guia para planejamento.
+        </small>
       </div>
     </div>
   );
 };
 
-export default ProjecaoSaldoGraph;
+// 🎨 ESTILOS SIMPLES
+const styles = `
+.projecao-simples {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  margin: 20px 0;
+}
+
+.controles {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.controles-linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+
+.grupo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.grupo label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.botoes {
+  display: flex;
+  gap: 8px;
+}
+
+.botoes button {
+  padding: 8px 16px;
+  border: 2px solid #E5E7EB;
+  background: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.botoes button:hover {
+  border-color: #3B82F6;
+  transform: translateY(-1px);
+}
+
+.botoes button.ativo {
+  background: #3B82F6;
+  border-color: #3B82F6;
+  color: white;
+}
+
+.grafico {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  margin-bottom: 20px;
+}
+
+.legenda {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.legenda .item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #374151;
+}
+
+.legenda .cor {
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.azul-tracejada {
+  background: repeating-linear-gradient(
+    to right,
+    #3B82F6 0px,
+    #3B82F6 8px,
+    transparent 8px,
+    transparent 12px
+  );
+}
+
+.verde-pontilhada {
+  background: repeating-linear-gradient(
+    to right,
+    #10B981 0px,
+    #10B981 4px,
+    transparent 4px,
+    transparent 8px
+  );
+}
+
+.disclaimer {
+  padding: 12px;
+  background: rgba(107, 114, 128, 0.1);
+  border-radius: 8px;
+  border-left: 4px solid #6B7280;
+}
+
+.disclaimer small {
+  color: #4B5563;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+@media (max-width: 768px) {
+  .controles-linha {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+  
+  .grupo {
+    justify-content: center;
+  }
+  
+  .legenda {
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+`;
+
+// Injetar estilos
+if (typeof document !== 'undefined') {
+  const styleSheet = document.createElement("style");
+  styleSheet.innerText = styles;
+  document.head.appendChild(styleSheet);
+}
+
+export default ProjecaoSaldoSimples;

@@ -15,8 +15,8 @@ import Card from '@shared/components/ui/Card';
 import Button from '@shared/components/ui/Button';
 
 // Modals
-import DespesasModal from '@modules/transacoes/components/DespesasModal';
-import ReceitasModal from '@modules/transacoes/components/ReceitasModal';
+import DespesasModal from '@modules/transacoes/components/DespesasModalEdit';
+import ReceitasModal from '@modules/transacoes/components/ReceitasModalEdit';
 import ImportacaoModal from '@modules/transacoes/components/ImportacaoModal';
 
 // Utils
