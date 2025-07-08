@@ -2,7 +2,7 @@
 import React from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 
-// Importar todas as etapas com os nomes corretos
+// Importar todas as etapas com os nomes correto
 import Step01_WelcomeDiagnostico from '@modules/diagnostico/etapas/Step01_WelcomeDiagnostico.jsx';
 import Step02_Renda from '@modules/diagnostico/etapas/Step02_Renda';
 import Step03_GastosMensais from '@modules/diagnostico/etapas/Step03_GastosMensais';
