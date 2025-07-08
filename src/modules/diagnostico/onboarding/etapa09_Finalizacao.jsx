@@ -1,7 +1,7 @@
 // src/modules/diagnostico/onboarding/etapa09_Finalizacao.jsx
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { ArrowRight, CheckCircle, Trophy, Star, TrendingUp, Target, Gift, Sparkles } from 'lucide-react';
+import { ArrowRight, CheckCircle, Trophy, Star, TrendingUp, Target, Gift, Sparkles, RotateCcw } from 'lucide-react';
 
 // CSS refatorado
 import '@modules/diagnostico/styles/DiagnosticoOnboarding.css';
@@ -142,6 +142,23 @@ const FinalizacaoEtapa = ({
       onContinuar(dadosFinalizacao);
       setLoading(false);
     }, 2000);
+  };
+
+  // ✅ FUNÇÃO REFAZER DIAGNÓSTICO (igual ao DiagnosticoRoute.jsx)
+  const handleRefazerDiagnostico = () => {
+    console.log('🧹 Limpeza completa do diagnóstico...');
+    
+    // Limpar TUDO relacionado ao diagnóstico
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+      if (key.includes('diagnostico')) {
+        localStorage.removeItem(key);
+        console.log(`🗑️ Removido: ${key}`);
+      }
+    });
+    
+    console.log('✅ Limpeza concluída - recarregando...');
+    window.location.reload();
   };
 
   const progressoPercentual = 100; // 100% completo
@@ -354,9 +371,19 @@ const FinalizacaoEtapa = ({
 
       </div>
 
-      {/* Navegação Final */}
+      {/* ✅ NAVEGAÇÃO FINAL COM DOIS BOTÕES */}
       <div className="navigation final">
-        <div className="nav-center">
+        <div className="nav-left">
+          <button
+            onClick={handleRefazerDiagnostico}
+            className="btn-refazer"
+          >
+            <RotateCcw size={16} />
+            Refazer Diagnóstico
+          </button>
+        </div>
+        
+        <div className="nav-right">
           <button
             onClick={handleFinalizarDiagnostico}
             disabled={loading}
@@ -377,7 +404,6 @@ const FinalizacaoEtapa = ({
           </button>
         </div>
       </div>
-
 
     </div>
   );
