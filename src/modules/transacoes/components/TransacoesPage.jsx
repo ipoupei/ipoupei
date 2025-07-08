@@ -18,6 +18,8 @@ import Button from '@shared/components/ui/Button';
 import DespesasModal from '@modules/transacoes/components/DespesasModalEdit';
 import ReceitasModal from '@modules/transacoes/components/ReceitasModalEdit';
 import ImportacaoModal from '@modules/transacoes/components/ImportacaoModal';
+import DespesasCartaoModalEdit from '@modules/transacoes/components/DespesasCartaoModalEdit';
+
 
 // Utils
 import formatCurrency from '@shared/utils/formatCurrency';
@@ -51,6 +53,8 @@ const TransacoesPage = () => {
   const [transacaoParaConfirm, setTransacaoParaConfirm] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
   const [groupByCard, setGroupByCard] = useState(false);
+  const [showDespesasCartaoModal, setShowDespesasCartaoModal] = useState(false);
+
 
   // Estados para funcionalidades
   const [sortConfig, setSortConfig] = useState({ key: 'data', direction: 'desc' });
@@ -636,9 +640,9 @@ const applyFilters = () => {
 
   // Ações das transações
   const handleToggleEfetivado = (transacao) => {
-    // Bloquear alteração de efetivado para transações de cartão
-    if (transacao.cartao_id) {
-      alert('Transações de cartão de crédito devem ser gerenciadas pela tela de Fatura do Cartão.');
+    // Bloquear alteração apenas para transações de cartão já efetivadas
+    if (transacao.cartao_id && transacao.efetivado) {
+      alert('Transações de cartão já efetivadas só podem ser gerenciadas pela tela de Fatura do Cartão.');
       return;
     }
     
@@ -648,9 +652,9 @@ const applyFilters = () => {
   };
 
   const handleDeleteTransacao = (transacao) => {
-    // Bloquear exclusão de transações de cartão
-    if (transacao.cartao_id) {
-      alert('Transações de cartão de crédito só podem ser excluídas pela tela de Fatura do Cartão.');
+    // Bloquear exclusão apenas para transações de cartão já efetivadas
+    if (transacao.cartao_id && transacao.efetivado) {
+      alert('Transações de cartão já efetivadas só podem ser excluídas pela tela de Fatura do Cartão.');
       return;
     }
     
@@ -660,19 +664,22 @@ const applyFilters = () => {
   };
 
   const handleEditTransacao = (transacao) => {
-    // Bloquear edição de transações de cartão
-    if (transacao.cartao_id) {
-      alert('Transações de cartão de crédito só podem ser editadas pela tela de Fatura do Cartão.');
-      return;
-    }
-    
-    setTransacaoEditando(transacao);
-    if (transacao.tipo === 'receita') {
-      setShowReceitasModal(true);
-    } else {
-      setShowDespesasModal(true);
-    }
-  };
+  // Bloquear edição apenas para transações de cartão já efetivadas
+  if (transacao.cartao_id && transacao.efetivado) {
+    alert('Transações de cartão já efetivadas só podem ser editadas pela tela de Fatura do Cartão.');
+    return;
+  }
+  
+  setTransacaoEditando(transacao);
+  if (transacao.tipo === 'receita') {
+    setShowReceitasModal(true);
+  } else if (transacao.cartao_id) {
+    // Usar modal específico para cartão se não estiver efetivada
+    setShowDespesasCartaoModal(true);
+  } else {
+    setShowDespesasModal(true);
+  }
+};
 
 // ✅ SUBSTITUIR COMPLETAMENTE a função executeConfirmAction no TransacoesPage.jsx
 
@@ -747,7 +754,7 @@ const executeConfirmAction = async () => {
   const TransactionRow = ({ transacao }) => {
     const isReceita = transacao.tipo === 'receita';
     const isFatura = transacao.tipo === 'fatura';
-    const isCartaoTransacao = transacao.cartao_id && !isFatura;
+    const isCartaoTransacao = transacao.cartao_id && !isFatura && transacao.efetivado;
     
     return (
       <tr className={`transaction-row ${!transacao.efetivado ? 'pending' : ''}`}>
@@ -1264,7 +1271,7 @@ const executeConfirmAction = async () => {
   // Modal de Edição com Alerta para Transações de Cartão
   const EditModalWrapper = ({ children, isOpen, onClose }) => {
     // Verificar se a transação sendo editada é de cartão
-    if (isOpen && transacaoEditando && transacaoEditando.cartao_id) {
+    if (isOpen && transacaoEditando && transacaoEditando.cartao_id && transacaoEditando.efetivado) {
       return (
         <div className="modal-overlay active">
           <div className="forms-modal-container">
@@ -1806,6 +1813,19 @@ const executeConfirmAction = async () => {
           isOpen={showImportacaoModal}
           onClose={() => setShowImportacaoModal(false)}
           onSave={fetchTransacoes}
+        />
+      )}
+      
+      {/* Modal de Despesas de Cartão */}
+      {showDespesasCartaoModal && (
+        <DespesasCartaoModalEdit
+          isOpen={showDespesasCartaoModal}
+          onClose={() => {
+            setShowDespesasCartaoModal(false);
+            setTransacaoEditando(null);
+          }}
+          onSave={fetchTransacoes}
+          transacaoEditando={transacaoEditando}
         />
       )}
     </PageContainer>

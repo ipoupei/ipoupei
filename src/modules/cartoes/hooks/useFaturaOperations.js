@@ -667,6 +667,7 @@ export const useFaturaOperations = () => {
           valor_parcela: valorParcelaFinal,
           numero_parcelas: numero_parcelas,
           parcela_atual: i,
+          total_parcelas: numero_parcelas, // ✅ ADICIONAR esta linha
           grupo_parcelamento: grupoParcelamento,
           data: data_compra,
           fatura_vencimento: dataVencimentoFinal,

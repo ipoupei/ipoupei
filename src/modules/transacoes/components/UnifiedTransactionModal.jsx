@@ -31,6 +31,7 @@ import { useAuthStore } from '@modules/auth/store/authStore';
 import { useUIStore } from '@store/uiStore';
 import { useTransactions } from '../store/transactionsStore';
 
+
 // ===== HOOKS DE DADOS =====
 import useContas from '@modules/contas/hooks/useContas';
 import useCategorias from '@modules/categorias/hooks/useCategorias';
@@ -47,24 +48,6 @@ import InputMoney from '@shared/components/ui/InputMoney';
 import '@modules/transacoes/styles/UnifiedTransactionModal.css';
 
 
-
-/**
- * MODAL UNIFICADO DE TRANSAÇÕES - ESTRATÉGIA HÍBRIDA INTELIGENTE
- * 
- * Este componente unifica os 4 modais existentes:
- * - ReceitasModal (receitas extras, mensais e parceladas)
- * - DespesasModal (despesas extras, fixas e parceladas)
- * - DespesasCartaoModal (compras no cartão à vista e parceladas)
- * - TransferenciasModal (transferências entre contas)
- * 
- * CARACTERÍSTICAS:
- * - Estado unificado inteligente
- * - Renderização condicional por tipo
- * - Validações específicas por contexto
- * - Auto-detecção de tipo na edição
- * - Preview dinâmico no header
- */
-
 // ===== FUNÇÃO AUXILIAR: DEBOUNCE =====
 const debounce = (func, wait) => {
   let timeout;
@@ -78,6 +61,7 @@ const debounce = (func, wait) => {
   };
 };
 
+
 // ===== COMPONENTE PRINCIPAL =====
 const UnifiedTransactionModal = ({ 
   isOpen, 
@@ -86,6 +70,13 @@ const UnifiedTransactionModal = ({
   transacaoEditando = null,
   tipoInicial = 'receita' // receita|despesa|cartao|transferencia
 }) => {
+  
+
+    const { 
+    criarDespesaCartao: criarDespesaCartaoHook,
+    criarDespesaParcelada: criarDespesaParceladaHook,
+    loading: faturaLoading 
+  } = useFaturaOperations();
   
   // ===== HOOKS DE DADOS =====
   const { contas = [], loading: loadingContas } = useContas() || {};
@@ -1047,17 +1038,35 @@ const renderCartaoFields = () => (
           <Hash size={14} />
           Parcelas
         </label>
-        <select
-          className="input-select"
-          value={transactionData.numero_parcelas}
-          onChange={(e) => handleInputChange('numero_parcelas', parseInt(e.target.value))}
-          disabled={loading}
-        >
-          <option value={1}>1x à vista</option>
-          {Array.from({length: 23}, (_, i) => i + 2).map(num => (
-            <option key={num} value={num}>{num}x</option>
-          ))}
-        </select>
+           <div className="input-number-container">
+            <input
+              type="number"
+              min="1"
+              max="60"
+              value={transactionData.numero_parcelas}
+              onChange={(e) => handleInputChange('numero_parcelas', parseInt(e.target.value) || 1)}
+              disabled={loading}
+              className="input-number"
+            />
+            <div className="input-number-controls">
+              <button
+                type="button"
+                onClick={() => handleInputChange('numero_parcelas', Math.min(60, transactionData.numero_parcelas + 1))}
+                disabled={loading || transactionData.numero_parcelas >= 60}
+                className="input-number-btn"
+              >
+                <ChevronUp size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleInputChange('numero_parcelas', Math.max(1, transactionData.numero_parcelas - 1))}
+                disabled={loading || transactionData.numero_parcelas <= 1}
+                className="input-number-btn"
+              >
+                <ChevronDown size={12} />
+              </button>
+            </div>
+          </div>
       </div>
     </div>
 
@@ -1371,6 +1380,8 @@ const criarReceitaDespesa = useCallback(async () => {
     conta_id: transactionData.conta_id,
     valor: valorNumerico,
     tipo: transactionData.tipo,
+    tipo_receita: transactionData.tipo === 'receita' ? transactionData.subtipo : null,
+    tipo_despesa: transactionData.tipo === 'despesa' ? transactionData.subtipo : null,
     observacoes: transactionData.observacoes.trim() || null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -1477,17 +1488,8 @@ const criarReceitaDespesa = useCallback(async () => {
 // ===== CRIAR DESPESA DE CARTÃO =====
 const criarDespesaCartao = useCallback(async () => {
   const valorNumerico = getValorNumerico();
-  console.log('🔍 DEBUG criarDespesaCartao:', {
-    valorNumerico,
-    cartao_id: transactionData.cartao_id,
-    categoria_id: transactionData.categoria_id,
-    categoria_texto: transactionData.categoria_texto,
-    descricao: transactionData.descricao,
-    data: transactionData.data,
-    fatura_vencimento: transactionData.fatura_vencimento
-  });
-
-  // Criar categoria se não existe
+  
+  // Criar categoria se não existe (manter esta parte)
   let categoriaId = transactionData.categoria_id;
   if (!categoriaId && transactionData.categoria_texto.trim()) {
     try {
@@ -1509,77 +1511,56 @@ const criarDespesaCartao = useCallback(async () => {
       throw new Error('Erro ao criar categoria: ' + error.message);
     }
   }
-const valorPorParcela = valorNumerico / transactionData.numero_parcelas;
-  
-  let transacoesCriadas = [];
 
   if (transactionData.numero_parcelas > 1) {
-    // Criar parcelas
-    const grupoParcelamento = crypto.randomUUID();
+    // Usar hook para parcelada
+    const resultado = await criarDespesaParceladaHook({
+      cartao_id: transactionData.cartao_id,
+      categoria_id: categoriaId,
+      subcategoria_id: transactionData.subcategoria_id || null,
+      descricao: transactionData.descricao.trim(),
+      valor_total: valorNumerico,
+      numero_parcelas: transactionData.numero_parcelas,
+      data_compra: transactionData.data,
+      fatura_vencimento: transactionData.fatura_vencimento,
+      observacoes: transactionData.observacoes.trim() || null
+    });
     
-    for (let i = 1; i <= transactionData.numero_parcelas; i++) {
-      // Calcular data de vencimento de cada parcela (próximos meses)
-      const dataVencimento = new Date(transactionData.fatura_vencimento);
-      dataVencimento.setMonth(dataVencimento.getMonth() + (i - 1));
-      
-      transacoesCriadas.push({
-        usuario_id: user.id,
-        cartao_id: transactionData.cartao_id,
-        categoria_id: categoriaId,
-        subcategoria_id: transactionData.subcategoria_id || null,
-        descricao: `${transactionData.descricao.trim()} (${i}/${transactionData.numero_parcelas})`,
-        valor: valorPorParcela, // Valor total (para cada parcela)
-        data: transactionData.data,
-        tipo: 'despesa',
-        fatura_vencimento: dataVencimento.toISOString().split('T')[0],
-        // Campos de parcelamento
-        numero_parcelas: transactionData.numero_parcelas,
-        parcela_atual: i,
-        total_parcelas: transactionData.numero_parcelas,
-        grupo_parcelamento: grupoParcelamento,
-        efetivado: false,
-        observacoes: transactionData.observacoes.trim() || null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      });
+    if (!resultado.success) {
+      throw new Error(resultado.error);
     }
+    
+    const mensagem = `Compra parcelada em ${transactionData.numero_parcelas}x criada com sucesso!`;
+    return { success: true, message: mensagem };
+    
   } else {
-    // Transação única (à vista)
-    transacoesCriadas = [{
-      usuario_id: user.id,
+    // Usar hook para à vista
+    const resultado = await criarDespesaCartaoHook({
       cartao_id: transactionData.cartao_id,
       categoria_id: categoriaId,
       subcategoria_id: transactionData.subcategoria_id || null,
       descricao: transactionData.descricao.trim(),
       valor: valorNumerico,
-      data: transactionData.data,
-      tipo: 'despesa',
+      data_compra: transactionData.data,
       fatura_vencimento: transactionData.fatura_vencimento,
-      numero_parcelas: 1,
-      parcela_atual: 1,
-      total_parcelas: 1,
-      efetivado: false,
-      observacoes: transactionData.observacoes.trim() || null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }];
+      observacoes: transactionData.observacoes.trim() || null
+    });
+    
+    if (!resultado.success) {
+      throw new Error(resultado.error);
+    }
+    
+    return { success: true, message: 'Compra no cartão registrada com sucesso!' };
   }
-  // Inserir todas as transações
-  const { error } = await supabase.from('transacoes').insert(transacoesCriadas);
-  if (error) throw error;
+}, [user.id, transactionData, getValorNumerico, criarDespesaCartaoHook, criarDespesaParceladaHook, supabase]);
 
-  // Mensagem baseada no parcelamento
-  const mensagem = transactionData.numero_parcelas > 1 
-    ? `Compra parcelada em ${transactionData.numero_parcelas}x criada com sucesso!`
-    : 'Compra no cartão registrada com sucesso!';
 
-  return { success: true, message: mensagem };
-}, [user.id, transactionData, getValorNumerico]);
 
 // ===== HANDLER PRINCIPAL PARA SALVAR =====
 const handleSalvar = useCallback(async (continuar = false) => {
   try {
-    setLoading(true);
+    setLoading(true || faturaLoading);
+
     
     // Validação básica
     if (!validateForm()) {
