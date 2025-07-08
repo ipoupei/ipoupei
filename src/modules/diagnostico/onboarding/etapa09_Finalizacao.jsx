@@ -376,7 +376,7 @@ const FinalizacaoEtapa = ({
         <div className="nav-left">
           <button
             onClick={handleRefazerDiagnostico}
-            className="btn-refazer"
+            className="btn-primary"
           >
             <RotateCcw size={16} />
             Refazer Diagnóstico
