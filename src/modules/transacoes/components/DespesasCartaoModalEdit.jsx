@@ -39,6 +39,7 @@ const DespesasCartaoModalEdit = ({ isOpen, onClose, onSave, transacaoEditando })
   // Estados principais
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [dadosCarregados, setDadosCarregados] = useState(false);
 
   // Estados para dados
   const [cartoes, setCartoes] = useState([]);
@@ -65,7 +66,7 @@ const DespesasCartaoModalEdit = ({ isOpen, onClose, onSave, transacaoEditando })
   const [transacaoInfo, setTransacaoInfo] = useState(null);
   const [valorOriginal, setValorOriginal] = useState(0);
 
-  // Estado do formulário (SEM observacoes)
+  // Estado do formulário
   const [formData, setFormData] = useState({
     valor: '',
     data: new Date().toISOString().split('T')[0],
@@ -119,17 +120,19 @@ const DespesasCartaoModalEdit = ({ isOpen, onClose, onSave, transacaoEditando })
 
   // ===== FUNÇÕES UTILITÁRIAS =====
   const formatarValor = useCallback((valor) => {
+    if (!valor && valor !== 0) return '';
+    
     // Se contém operadores matemáticos, não formatar
-    if (/[+\-*/()]/.test(valor)) {
+    if (typeof valor === 'string' && /[+\-*/()]/.test(valor)) {
       return valor;
     }
     
-    // Formatação normal apenas para números puros
-    const apenasNumeros = valor.toString().replace(/\D/g, '');
-    if (!apenasNumeros || apenasNumeros === '0') return '';
-    const valorEmCentavos = parseInt(apenasNumeros, 10);
-    const valorEmReais = valorEmCentavos / 100;
-    return valorEmReais.toLocaleString('pt-BR', { 
+    // Garantir que é um número
+    const numeroValor = typeof valor === 'number' ? valor : parseFloat(valor);
+    if (isNaN(numeroValor)) return '';
+    
+    // Formatação normal para números
+    return numeroValor.toLocaleString('pt-BR', { 
       minimumFractionDigits: 2, 
       maximumFractionDigits: 2 
     });
@@ -214,8 +217,9 @@ const DespesasCartaoModalEdit = ({ isOpen, onClose, onSave, transacaoEditando })
       
       if (error) throw error;
       setCartoes(data || []);
+      console.log('✅ Cartões carregados:', data?.length || 0);
     } catch (error) {
-      console.error('Erro ao carregar cartões:', error);
+      console.error('❌ Erro ao carregar cartões:', error);
       showNotification('Erro ao carregar cartões', 'error');
     }
   }, [user, showNotification]);
@@ -224,16 +228,28 @@ const DespesasCartaoModalEdit = ({ isOpen, onClose, onSave, transacaoEditando })
     if (!user) return;
     
     setLoading(true);
+    console.log('🔄 Carregando dados do modal...');
+    
     try {
       const [categoriasRes, subcategoriasRes] = await Promise.all([
         supabase.from('categorias').select('*').eq('usuario_id', user.id).eq('tipo', 'despesa').eq('ativo', true).order('nome'),
         supabase.from('subcategorias').select('*').eq('usuario_id', user.id).eq('ativo', true).order('nome')
       ]);
 
+      if (categoriasRes.error) throw categoriasRes.error;
+      if (subcategoriasRes.error) throw subcategoriasRes.error;
+
       setCategorias(categoriasRes.data || []);
       setSubcategorias(subcategoriasRes.data || []);
+      setDadosCarregados(true);
+      
+      console.log('✅ Dados carregados:', {
+        categorias: categoriasRes.data?.length || 0,
+        subcategorias: subcategoriasRes.data?.length || 0
+      });
+      
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
+      console.error('❌ Erro ao carregar dados:', error);
       showNotification('Erro ao carregar dados', 'error');
     } finally {
       setLoading(false);
@@ -263,20 +279,38 @@ const DespesasCartaoModalEdit = ({ isOpen, onClose, onSave, transacaoEditando })
 
   // ===== PREENCHER FORMULÁRIO PARA EDIÇÃO =====
   const preencherFormularioEdicao = useCallback(async () => {
-    if (!transacaoEditando || !categorias.length) return;
+    if (!transacaoEditando || !dadosCarregados) {
+      console.log('🚫 Não é possível preencher formulário ainda:', {
+        temTransacao: !!transacaoEditando,
+        dadosCarregados
+      });
+      return;
+    }
     
-    console.log('🖊️ Preenchendo formulário para edição:', transacaoEditando);
+    console.log('🖊️ Preenchendo formulário para edição:', {
+      transacao: transacaoEditando,
+      valor: transacaoEditando.valor,
+      valorTipo: typeof transacaoEditando.valor
+    });
     
-    const valorFormatado = transacaoEditando.valor ? 
-      transacaoEditando.valor.toLocaleString('pt-BR', { 
-        minimumFractionDigits: 2, 
-        maximumFractionDigits: 2 
-      }) : '';
+    // CORREÇÃO: Melhor tratamento do valor
+    let valorFormatado = '';
+    if (transacaoEditando.valor !== null && transacaoEditando.valor !== undefined) {
+      const valorNum = Number(transacaoEditando.valor);
+      if (!isNaN(valorNum) && valorNum > 0) {
+        valorFormatado = valorNum.toLocaleString('pt-BR', { 
+          minimumFractionDigits: 2, 
+          maximumFractionDigits: 2 
+        });
+        console.log('💰 Valor formatado:', valorFormatado, 'de', valorNum);
+      }
+    }
     
     const categoria = categorias.find(c => c.id === transacaoEditando.categoria_id);
     let subcategoriaTexto = '';
     let subcategoriaId = '';
 
+    // Carregar subcategoria se existir
     if (transacaoEditando.subcategoria_id) {
       console.log('🔍 Carregando subcategoria:', transacaoEditando.subcategoria_id);
       
@@ -293,6 +327,7 @@ const DespesasCartaoModalEdit = ({ isOpen, onClose, onSave, transacaoEditando })
           subcategoriaId = subcategoriaData.id;
           console.log('✅ Subcategoria carregada:', subcategoriaData.nome);
           
+          // Carregar todas as subcategorias da categoria
           const subcategoriasCarregadas = await getSubcategoriasPorCategoria(transacaoEditando.categoria_id);
           setSubcategorias(prev => {
             const semCategoriasAntigas = prev.filter(sub => sub.categoria_id !== transacaoEditando.categoria_id);
@@ -304,20 +339,35 @@ const DespesasCartaoModalEdit = ({ isOpen, onClose, onSave, transacaoEditando })
       }
     }
     
-    // SEM observacoes
-    setFormData({
+    // Formatar data corretamente
+    let dataFormatada = new Date().toISOString().split('T')[0];
+    if (transacaoEditando.data) {
+      try {
+        const dataObj = new Date(transacaoEditando.data);
+        if (!isNaN(dataObj.getTime())) {
+          dataFormatada = dataObj.toISOString().split('T')[0];
+        }
+      } catch (error) {
+        console.warn('⚠️ Erro ao formatar data:', error);
+      }
+    }
+    
+    const novoFormData = {
       valor: valorFormatado,
-      data: transacaoEditando.data || new Date().toISOString().split('T')[0],
-      descricao: transacaoEditando.descricao || '', // Permite vazio
+      data: dataFormatada,
+      descricao: transacaoEditando.descricao || '',
       categoria: transacaoEditando.categoria_id || '',
       categoriaTexto: categoria?.nome || '',
       subcategoria: subcategoriaId,
       subcategoriaTexto: subcategoriaTexto,
       cartao: transacaoEditando.cartao_id || ''
-    });
+    };
+
+    console.log('📝 Dados do formulário preenchidos:', novoFormData);
+    setFormData(novoFormData);
 
     console.log('✅ Formulário preenchido para edição');
-  }, [transacaoEditando, categorias, user?.id, getSubcategoriasPorCategoria]);
+  }, [transacaoEditando, dadosCarregados, categorias, user?.id, getSubcategoriasPorCategoria]);
 
   // ===== IDENTIFICAR TIPO E GRUPO =====
   useEffect(() => {
@@ -379,25 +429,30 @@ const DespesasCartaoModalEdit = ({ isOpen, onClose, onSave, transacaoEditando })
     }
   }, [errors]);
 
-  // Handle de valor
-  const handleValorChange = useCallback((valorNumericoRecebido) => {
+  // Handle de valor - CORRIGIDO
+  const handleValorChange = useCallback((valorRecebido) => {
+    console.log('💰 Handle valor change:', valorRecebido, typeof valorRecebido);
+    
     // Se receber um número do InputMoney (calculadora processou)
-    if (typeof valorNumericoRecebido === 'number') {
-      const valorFormatado = valorNumericoRecebido.toLocaleString('pt-BR', { 
+    if (typeof valorRecebido === 'number') {
+      const valorFormatado = valorRecebido.toLocaleString('pt-BR', { 
         minimumFractionDigits: 2, 
         maximumFractionDigits: 2 
       });
       setFormData(prev => ({ ...prev, valor: valorFormatado }));
+      console.log('💰 Valor formatado (número):', valorFormatado);
     } else {
-      setFormData(prev => ({ ...prev, valor: valorNumericoRecebido }));
+      // String vinda do input
+      setFormData(prev => ({ ...prev, valor: valorRecebido }));
+      console.log('💰 Valor string:', valorRecebido);
     }
     
     // Verificar mudança de valor para grupos
     if (transacaoInfo && transacaoInfo.isParcelada) {
-      if (typeof valorNumericoRecebido === 'number') {
-        const novoValor = valorNumericoRecebido;
+      if (typeof valorRecebido === 'number') {
+        const novoValor = valorRecebido;
         
-        if (novoValor !== valorOriginal && novoValor > 0) {
+        if (Math.abs(novoValor - valorOriginal) > 0.01 && novoValor > 0) { // Usar tolerância para float
           setMostrarEscopoEdicao(true);
         } else {
           setMostrarEscopoEdicao(false);
@@ -571,7 +626,6 @@ const DespesasCartaoModalEdit = ({ isOpen, onClose, onSave, transacaoEditando })
 
   // ===== RESET FORM =====
   const resetForm = useCallback(() => {
-    // SEM observacoes
     setFormData({
       valor: '',
       data: new Date().toISOString().split('T')[0],
@@ -590,6 +644,7 @@ const DespesasCartaoModalEdit = ({ isOpen, onClose, onSave, transacaoEditando })
     setCategoriaDropdownOpen(false);
     setSubcategoriaDropdownOpen(false);
     setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
+    setDadosCarregados(false);
   }, []);
 
   // ===== VALIDAÇÃO =====
@@ -602,14 +657,12 @@ const DespesasCartaoModalEdit = ({ isOpen, onClose, onSave, transacaoEditando })
     if (!formData.data) {
       newErrors.data = "Data é obrigatória";
     }
-    // REMOVIDO: Validação obrigatória de descrição
     if (!formData.categoria && !formData.categoriaTexto.trim()) {
       newErrors.categoria = "Categoria é obrigatória";
     }
     if (!formData.cartao) {
       newErrors.cartao = "Cartão é obrigatório";
     }
-    // REMOVIDO: Validação de observações
     
     if (transacaoInfo && mostrarEscopoEdicao && !escopoEdicao) {
       newErrors.escopoEdicao = "Escolha o escopo da alteração";
@@ -644,16 +697,18 @@ const DespesasCartaoModalEdit = ({ isOpen, onClose, onSave, transacaoEditando })
         return true;
       }
 
-      // CORRIGIDO - descrição sempre preenchida (campo obrigatório no banco)
+      // CORRIGIDO - descrição sempre preenchida
       const dadosAtualizacao = {
         data: formData.data,
-        descricao: formData.descricao.trim() || 'Compra cartão', // Valor padrão se vazio
+        descricao: formData.descricao.trim() || 'Compra cartão',
         categoria_id: formData.categoria,
         subcategoria_id: formData.subcategoria || null,
         cartao_id: formData.cartao,
         valor: valorNumerico,
         updated_at: new Date().toISOString()
       };
+
+      console.log('📝 Atualizando transação com dados:', dadosAtualizacao);
 
       const { error } = await supabase
         .from('transacoes')
@@ -706,26 +761,43 @@ const DespesasCartaoModalEdit = ({ isOpen, onClose, onSave, transacaoEditando })
     onClose();
   }, [resetForm, onClose]);
 
-  // ===== EFFECTS =====
+  // ===== EFFECTS PRINCIPAIS =====
+  
+  // Effect para carregar dados iniciais quando modal abre
   useEffect(() => {
     if (isOpen && user) {
-      carregarCartoes();
-      carregarDados();
+      console.log('🚀 Modal aberto, carregando dados...');
+      setDadosCarregados(false);
+      Promise.all([
+        carregarCartoes(),
+        carregarDados()
+      ]).then(() => {
+        console.log('✅ Todos os dados carregados');
+      });
     }
   }, [isOpen, user, carregarCartoes, carregarDados]);
 
+  // Effect para preencher formulário após dados carregados
   useEffect(() => {
-    if (isOpen && categorias.length > 0 && transacaoEditando) {
+    if (isOpen && dadosCarregados && transacaoEditando) {
+      console.log('📝 Dados carregados, preenchendo formulário...');
       preencherFormularioEdicao();
     }
-  }, [isOpen, categorias.length, transacaoEditando, preencherFormularioEdicao]);
+  }, [isOpen, dadosCarregados, transacaoEditando, preencherFormularioEdicao]);
 
+  // Effect para focar no input de valor
   useEffect(() => {
-    if (isOpen && transacaoEditando) {
-      setTimeout(() => valorInputRef.current?.focus(), 150);
+    if (isOpen && dadosCarregados && formData.valor) {
+      setTimeout(() => {
+        if (valorInputRef.current) {
+          valorInputRef.current.focus();
+          console.log('🎯 Foco definido no input de valor');
+        }
+      }, 200);
     }
-  }, [isOpen, transacaoEditando]);
+  }, [isOpen, dadosCarregados, formData.valor]);
 
+  // Effect para tecla ESC
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape' && isOpen) {
@@ -738,6 +810,17 @@ const DespesasCartaoModalEdit = ({ isOpen, onClose, onSave, transacaoEditando })
       return () => document.removeEventListener('keydown', handleEscape);
     }
   }, [isOpen, handleCancelar]);
+
+  // Effect para debug - monitorar mudanças no formData
+  useEffect(() => {
+    if (formData.valor) {
+      console.log('📊 FormData atualizado:', {
+        valor: formData.valor,
+        valorNumerico,
+        transacaoEditando: transacaoEditando?.id
+      });
+    }
+  }, [formData.valor, valorNumerico, transacaoEditando?.id]);
 
   if (!isOpen) return null;
 
@@ -803,10 +886,12 @@ const DespesasCartaoModalEdit = ({ isOpen, onClose, onSave, transacaoEditando })
         </div>
 
         <div className="modal-body">
-          {loading ? (
+          {loading || !dadosCarregados ? (
             <div className="loading-container">
               <div className="loading-spinner"></div>
-              <p className="loading-text">Carregando dados...</p>
+              <p className="loading-text">
+                {loading ? 'Carregando dados...' : 'Preparando formulário...'}
+              </p>
             </div>
           ) : (
             <form onSubmit={handleSubmit}>
@@ -1006,7 +1091,7 @@ const DespesasCartaoModalEdit = ({ isOpen, onClose, onSave, transacaoEditando })
                 </div>
               )}
 
-              {/* DESCRIÇÃO - OPCIONAL NA INTERFACE MAS OBRIGATÓRIA NO BANCO */}
+              {/* DESCRIÇÃO */}
               <div className="flex flex-col mb-3">
                 <label className="form-label">
                   <FileText size={14} />
@@ -1194,7 +1279,7 @@ const DespesasCartaoModalEdit = ({ isOpen, onClose, onSave, transacaoEditando })
           <button
             type="submit"
             onClick={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || !dadosCarregados}
             className="btn-primary"
           >
             {submitting ? (

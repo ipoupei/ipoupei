@@ -834,7 +834,7 @@
 /* ================== INPUT VARIANTS ================== */
 .input-disabled {
   background-color: #f9fafb !important;
-  color: #9ca3af !important;
+  color: #af9d9cdd !important;
   cursor: not-allowed !important;
   border-color: #e5e7eb !important;
   opacity: 0.8;

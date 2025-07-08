@@ -718,7 +718,7 @@ const CategoriasModal = ({ isOpen, onClose }) => {
                 <div className="footer-left">
                   <button 
                     type="button"
-                    className="button tertiary"
+                    className="btn-primary"
                     onClick={handleAbrirSugeridas}
                     style={{ zIndex: 15, position: 'relative', pointerEvents: 'auto' }}
                   >

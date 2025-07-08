@@ -109,7 +109,7 @@
 
 .categorias-subtitle {
   margin: 0;
-  color: var(--color-gray-500);
+  color: var(--color-gray-600);
   font-size: var(--font-size-sm);
 }
 
@@ -2868,7 +2868,7 @@
   font-family: var(--font-family-base);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-normal);
-  color: var(--color-gray-500);
+  color: var(--color-gray-600);
   margin: var(--spacing-1) 0 0 0;
   line-height: var(--line-height-base);
 }
@@ -2979,7 +2979,7 @@
 
 .secao-subtitle {
   font-size: var(--font-size-xs);
-  color: var(--color-gray-500);
+  color: var(--color-gray-600);
   margin: 0;
 }
 
