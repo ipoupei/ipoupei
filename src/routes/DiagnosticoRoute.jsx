@@ -76,6 +76,9 @@ const DiagnosticoRoute = () => {
       return <DiagnosticoCompleto onRefazer={() => {
         localStorage.removeItem('diagnostico-completo');
         localStorage.removeItem('diagnostico-data-conclusao');
+        localStorage.removeItem('diagnostico-dados');        // ← ADICIONAR
+        localStorage.removeItem('diagnostico-etapa');        // ← ADICIONAR
+        localStorage.removeItem('diagnostico-dados-finais'); // ← ADICIONAR
         window.location.reload();
       }} />;
     }
