@@ -156,7 +156,48 @@ const DiagnosticoRouter = () => {
 
   // Carregar dados salvos no localStorage
   useEffect(() => {
+    // ✅ AUTO-DETECTAR se precisa limpar dados antigos
+    const diagnosticoCompleto = localStorage.getItem('diagnostico-completo');
     const dadosSalvos = localStorage.getItem('diagnostico-dados');
+    const etapaSalva = localStorage.getItem('diagnostico-etapa');
+    
+    // Se já completou E tem dados salvos E está tentando acessar novamente
+    if (diagnosticoCompleto && dadosSalvos && etapaSalva) {
+      console.log('🔄 Diagnóstico já completo detectado - perguntando se quer refazer...');
+      
+      const desejaRefazer = window.confirm(
+        'Você já completou o diagnóstico. Deseja refazer do início?'
+      );
+      
+      if (desejaRefazer) {
+        console.log('🧹 Usuário escolheu refazer - limpando dados...');
+        Object.keys(localStorage).forEach(key => {
+          if (key.includes('diagnostico')) {
+            localStorage.removeItem(key);
+          }
+        });
+        setEtapaAtual(0);
+        setDadosColetados({
+          intro_percepcao: null,
+          categorias: null,
+          contas: null,
+          cartoes: null,
+          despesas_cartao: null,
+          receitas: null,
+          despesas_fixas: null,
+          despesas_variaveis: null,
+          resumo_financeiro: null,
+          finalizacao: null
+        });
+        return; // Não carregar dados antigos
+      } else {
+        // Usuário não quer refazer, ir para dashboard
+        navigate('/dashboard');
+        return;
+      }
+    }
+
+    // Resto do código existente...
     if (dadosSalvos) {
       try {
         const dadosParsed = JSON.parse(dadosSalvos);
@@ -167,7 +208,6 @@ const DiagnosticoRouter = () => {
       }
     }
 
-    const etapaSalva = localStorage.getItem('diagnostico-etapa');
     if (etapaSalva) {
       const etapaNumero = parseInt(etapaSalva, 10);
       if (etapaNumero >= 0 && etapaNumero < totalEtapas) {
@@ -175,7 +215,7 @@ const DiagnosticoRouter = () => {
         setEtapaAtual(etapaNumero);
       }
     }
-  }, [totalEtapas]);
+  }, [totalEtapas, navigate]);
 
   // Salvar dados sempre que mudarem
   useEffect(() => {
