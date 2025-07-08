@@ -1,5 +1,5 @@
 // src/modules/cartoes/hooks/useCartoesData.js
-// ✅ AJUSTADO: Para trabalhar com a nova lógica de efetivação + conta_id
+// ✅ REFATORADO: Para trabalhar com parcelas de outras faturas + nova lógica de efetivação + conta_id
 
 import { useState, useCallback } from 'react';
 import { supabase } from '@lib/supabaseClient';
@@ -7,6 +7,7 @@ import useAuth from '@modules/auth/hooks/useAuth';
 
 /**
  * Hook para leitura de dados relacionados a cartões
+ * ✅ NOVO: Suporte para buscar parcelas de outras faturas quando necessário
  * ✅ AJUSTADO: Considera campo conta_id nas transações efetivadas
  */
 export const useCartoesData = () => {
@@ -103,7 +104,32 @@ export const useCartoesData = () => {
     }
   };
 
-  // ✅ BUSCAR CARTÕES ATIVOS COM DADOS CALCULADOS
+  const calcularDataParcela = (faturaVencimento, diaCompraOriginal) => {
+  try {
+    // Extrair ano e mês da fatura de vencimento
+    const dataFatura = new Date(faturaVencimento + 'T12:00:00.000Z');
+    const anoFatura = dataFatura.getUTCFullYear();
+    const mesFatura = dataFatura.getUTCMonth();
+    
+    // Usar o dia da compra original, mas no mês/ano da fatura
+    const diaOriginal = new Date(diaCompraOriginal + 'T12:00:00.000Z').getUTCDate();
+    
+    // Criar data da parcela no mês da fatura
+    let dataParcela = new Date(Date.UTC(anoFatura, mesFatura, diaOriginal));
+    
+    // Se o dia não existe no mês da fatura (ex: 31 em fevereiro), usar último dia
+    if (dataParcela.getUTCDate() !== diaOriginal) {
+      dataParcela = new Date(Date.UTC(anoFatura, mesFatura + 1, 0)); // Último dia do mês
+    }
+    
+    return dataParcela.toISOString().split('T')[0];
+  } catch (err) {
+    console.error('❌ Erro ao calcular data da parcela:', err);
+    return diaCompraOriginal; // Fallback para data original
+  }
+};
+
+  // ✅ BUSCAR CARTÕES ATIVOS COM DADOS CALCULADOS (mantida)
   const fetchCartoes = useCallback(async () => {
     if (!user?.id) return [];
 
@@ -169,7 +195,7 @@ export const useCartoesData = () => {
     }
   }, [user?.id]);
 
-  // ✅ BUSCAR RESUMO CONSOLIDADO POR MÊS
+  // ✅ BUSCAR RESUMO CONSOLIDADO POR MÊS (mantida)
   const fetchResumoConsolidado = useCallback(async (mesSelecionado) => {
     if (!user?.id) return null;
 
@@ -250,23 +276,23 @@ export const useCartoesData = () => {
     }
   }, [user?.id]);
 
-  // ✅ AJUSTADO: BUSCAR TRANSAÇÕES DE FATURA com informações da conta
-  const fetchTransacoesFatura = useCallback(async (cartaoId, faturaVencimento, incluirTodas = true) => {
+  // ✅ NOVA LÓGICA: BUSCAR TRANSAÇÕES DE FATURA com suporte a parcelas externas
+  const fetchTransacoesFatura = useCallback(async (cartaoId, faturaVencimento, incluirParcelasExternas = false) => {
     if (!user?.id || !cartaoId || !faturaVencimento) return [];
 
     try {
       setLoading(true);
       setError(null);
 
-      console.log('🎯 Buscando transações com nova lógica:', {
+      console.log('🎯 NOVA LÓGICA: Buscando transações com suporte a parcelas externas:', {
         cartaoId,
         faturaVencimento,
-        faturaVencimentoType: typeof faturaVencimento,
+        incluirParcelasExternas,
         user: user.id
       });
 
-      // ✅ AJUSTADO: Query incluindo conta_id para transações efetivadas
-      let query = supabase
+      // ✅ ETAPA 1: Buscar transações da fatura atual
+      const { data: transacoesFaturaAtual, error: faturaError } = await supabase
         .from('transacoes')
         .select(`
           id,
@@ -291,64 +317,133 @@ export const useCartoesData = () => {
         .eq('fatura_vencimento', faturaVencimento)
         .order('data', { ascending: false });
 
-      // Se incluirTodas for false, filtrar apenas efetivadas
-      if (!incluirTodas) {
-        query = query.eq('efetivado', true);
+      if (faturaError) throw faturaError;
+
+      console.log('📦 Transações da fatura atual:', transacoesFaturaAtual?.length || 0);
+
+      let todasTransacoes = [...(transacoesFaturaAtual || [])];
+
+      // ✅ ETAPA 2: Se solicitado, buscar parcelas relacionadas de outras faturas
+      if (incluirParcelasExternas) {
+        // Identificar grupos de parcelamento
+        const gruposParcelamento = [...new Set(
+          transacoesFaturaAtual
+            .filter(t => t.grupo_parcelamento)
+            .map(t => t.grupo_parcelamento)
+        )];
+
+        console.log('🔗 Grupos de parcelamento encontrados:', gruposParcelamento.length);
+
+        if (gruposParcelamento.length > 0) {
+          // Buscar TODAS as parcelas dos grupos encontrados (de outras faturas)
+          const { data: parcelasExternas, error: parcelasError } = await supabase
+            .from('transacoes')
+            .select(`
+              id,
+              cartao_id,
+              categoria_id,
+              subcategoria_id,
+              descricao,
+              valor,
+              data,
+              efetivado,
+              data_efetivacao,
+              conta_id,
+              parcela_atual,
+              total_parcelas,
+              numero_parcelas,
+              fatura_vencimento,
+              grupo_parcelamento,
+              observacoes
+            `)
+            .eq('usuario_id', user.id)
+            .eq('cartao_id', cartaoId)
+            .in('grupo_parcelamento', gruposParcelamento)
+            .neq('fatura_vencimento', faturaVencimento) // ✅ APENAS outras faturas
+            .order('parcela_atual', { ascending: true });
+
+          if (!parcelasError && parcelasExternas) {
+            console.log('🔗 Parcelas externas encontradas:', parcelasExternas.length);
+            
+            // Marcar como externas para tratamento diferenciado
+            const parcelasComMarcacao = parcelasExternas.map(p => ({
+              ...p,
+              eh_parcela_externa: true,
+              pode_editar: !p.efetivado,
+              pode_excluir: !p.efetivado
+            }));
+
+            todasTransacoes = [...todasTransacoes, ...parcelasComMarcacao];
+          }
+        }
       }
 
-      const { data: transacoes, error: supabaseError } = await query;
+      // ✅ ETAPA 3: Marcar transações da fatura atual
+      const transacoesMarcadas = todasTransacoes.map(t => ({
+        ...t,
+        eh_da_fatura_atual: t.fatura_vencimento === faturaVencimento,
+        eh_parcela_externa: t.eh_parcela_externa || false,
+        pode_editar: t.pode_editar !== undefined ? t.pode_editar : !t.efetivado,
+        pode_excluir: t.pode_excluir !== undefined ? t.pode_excluir : !t.efetivado
+      }));
 
-      console.log('📦 Resultado da query ajustada:', { 
-        transacoes, 
-        error: supabaseError, 
-        count: transacoes?.length 
+      // ✅ ETAPA 4: Enriquecer com dados de categoria e conta
+const transacoesEnriquecidas = await Promise.all(
+  transacoesMarcadas.map(async (transacao) => {
+    let categoria = null;
+    let conta = null;
+    
+    // Buscar categoria
+    if (transacao.categoria_id) {
+      const { data: catData } = await supabase
+        .from('categorias')
+        .select('nome, cor, icone')
+        .eq('id', transacao.categoria_id)
+        .single();
+      
+      categoria = catData;
+    }
+
+    // Buscar informações da conta se transação foi efetivada
+    if (transacao.conta_id) {
+      const { data: contaData } = await supabase
+        .from('contas')
+        .select('nome, tipo, banco')
+        .eq('id', transacao.conta_id)
+        .single();
+      
+      conta = contaData;
+    }
+
+    // ✅ NOVO: Calcular data correta da parcela
+    let dataExibicao = transacao.data;
+    
+    // Se é uma parcela, calcular data baseada na fatura
+    if (transacao.grupo_parcelamento && transacao.fatura_vencimento) {
+      dataExibicao = calcularDataParcela(transacao.fatura_vencimento, transacao.data);
+    }
+
+    return {
+      ...transacao,
+      data_exibicao: dataExibicao, // ✅ NOVA PROPRIEDADE: Data correta para exibir
+      categoria_nome: categoria?.nome || 'Sem categoria',
+      categoria_cor: categoria?.cor || '#6B7280',
+      categoria_icone: categoria?.icone || 'help',
+      conta_pagamento_nome: conta?.nome || null,
+      conta_pagamento_tipo: conta?.tipo || null,
+      conta_pagamento_banco: conta?.banco || null
+    };
+  })
+);
+
+      console.log('✅ NOVA LÓGICA: Transações processadas:', {
+        total: transacoesEnriquecidas.length,
+        faturaAtual: transacoesEnriquecidas.filter(t => t.eh_da_fatura_atual).length,
+        parcelasExternas: transacoesEnriquecidas.filter(t => t.eh_parcela_externa).length
       });
 
-      if (supabaseError) throw supabaseError;
+      return transacoesEnriquecidas;
 
-      // ✅ AJUSTADO: Buscar categorias E contas separadamente
-      const transacoesComDados = await Promise.all(
-        (transacoes || []).map(async (transacao) => {
-          let categoria = null;
-          let conta = null;
-          
-          // Buscar categoria
-          if (transacao.categoria_id) {
-            const { data: catData } = await supabase
-              .from('categorias')
-              .select('nome, cor, icone')
-              .eq('id', transacao.categoria_id)
-              .single();
-            
-            categoria = catData;
-          }
-
-          // ✅ NOVO: Buscar informações da conta se transação foi efetivada
-          if (transacao.conta_id) {
-            const { data: contaData } = await supabase
-              .from('contas')
-              .select('nome, tipo, banco')
-              .eq('id', transacao.conta_id)
-              .single();
-            
-            conta = contaData;
-          }
-
-          return {
-            ...transacao,
-            categoria_nome: categoria?.nome || 'Sem categoria',
-            categoria_cor: categoria?.cor || '#6B7280',
-            categoria_icone: categoria?.icone || 'help',
-            // ✅ NOVO: Informações da conta que pagou (se efetivada)
-            conta_pagamento_nome: conta?.nome || null,
-            conta_pagamento_tipo: conta?.tipo || null,
-            conta_pagamento_banco: conta?.banco || null
-          };
-        })
-      );
-
-      console.log('✅ Transações processadas com nova lógica:', transacoesComDados);
-      return transacoesComDados;
     } catch (err) {
       setError(err.message);
       console.error('❌ Erro ao buscar transações da fatura:', err);
@@ -358,7 +453,100 @@ export const useCartoesData = () => {
     }
   }, [user?.id]);
 
-  // ✅ AJUSTADO: BUSCAR FATURAS DISPONÍVEIS com informações de pagamento
+  // ✅ NOVA FUNÇÃO: Buscar parcelas completas de um grupo específico
+  const fetchParcelasCompletas = useCallback(async (grupoParcelamento) => {
+    if (!user?.id || !grupoParcelamento) return [];
+
+    try {
+      console.log('🔗 Buscando parcelas completas do grupo:', grupoParcelamento);
+
+      const { data: parcelas, error } = await supabase
+        .from('transacoes')
+        .select(`
+          id,
+          cartao_id,
+          categoria_id,
+          subcategoria_id,
+          descricao,
+          valor,
+          data,
+          efetivado,
+          data_efetivacao,
+          conta_id,
+          parcela_atual,
+          total_parcelas,
+          numero_parcelas,
+          fatura_vencimento,
+          grupo_parcelamento,
+          observacoes
+        `)
+        .eq('usuario_id', user.id)
+        .eq('grupo_parcelamento', grupoParcelamento)
+        .order('parcela_atual', { ascending: true });
+
+      if (error) throw error;
+
+      // Enriquecer com dados de categoria
+const parcelasComDados = await Promise.all(
+  (parcelas || []).map(async (parcela) => {
+    let categoria = null;
+    let conta = null;
+    
+    // Buscar categoria
+    if (parcela.categoria_id) {
+      const { data: catData } = await supabase
+        .from('categorias')
+        .select('nome, cor, icone')
+        .eq('id', parcela.categoria_id)
+        .single();
+      
+      categoria = catData;
+    }
+
+    // Buscar informações da conta se transação foi efetivada
+    if (parcela.conta_id) {
+      const { data: contaData } = await supabase
+        .from('contas')
+        .select('nome, tipo, banco')
+        .eq('id', parcela.conta_id)
+        .single();
+      
+      conta = contaData;
+    }
+
+    // ✅ NOVO: Calcular data correta da parcela
+    let dataExibicao = parcela.data;
+    
+    // Se é uma parcela, calcular data baseada na fatura
+    if (parcela.grupo_parcelamento && parcela.fatura_vencimento) {
+      dataExibicao = calcularDataParcela(parcela.fatura_vencimento, parcela.data);
+    }
+
+    return {
+      ...parcela,
+      data_exibicao: dataExibicao, // ✅ NOVA PROPRIEDADE: Data correta para exibir
+      categoria_nome: categoria?.nome || 'Sem categoria',
+      categoria_cor: categoria?.cor || '#6B7280',
+      categoria_icone: categoria?.icone || 'help',
+      conta_pagamento_nome: conta?.nome || null,
+      conta_pagamento_tipo: conta?.tipo || null,
+      conta_pagamento_banco: conta?.banco || null,
+      pode_editar: !parcela.efetivado,
+      pode_excluir: !parcela.efetivado
+    };
+  })
+);
+
+      console.log('✅ Parcelas completas carregadas:', parcelasComDados.length);
+      return parcelasComDados;
+
+    } catch (err) {
+      console.error('❌ Erro ao buscar parcelas completas:', err);
+      return [];
+    }
+  }, [user?.id]);
+
+  // ✅ AJUSTADO: BUSCAR FATURAS DISPONÍVEIS com informações de pagamento (mantida)
   const fetchFaturasDisponiveis = useCallback(async (cartaoId) => {
     if (!user?.id || !cartaoId) return [];
 
@@ -541,7 +729,7 @@ export const useCartoesData = () => {
     }
   }, [user?.id]);
 
-  // ✅ AJUSTADO: VERIFICAR STATUS DE FATURA com informações de pagamento
+  // ✅ AJUSTADO: VERIFICAR STATUS DE FATURA com informações de pagamento (mantida)
   const verificarStatusFatura = useCallback(async (cartaoId, faturaVencimento) => {
     if (!user?.id || !cartaoId || !faturaVencimento) {
       return { 
@@ -700,7 +888,8 @@ export const useCartoesData = () => {
     
     // Funções de leitura ajustadas para nova lógica
     fetchCartoes,
-    fetchTransacoesFatura, // ✅ AJUSTADO: Inclui informações da conta
+    fetchTransacoesFatura, // ✅ NOVA LÓGICA: Suporte a parcelas externas
+    fetchParcelasCompletas, // ✅ NOVA FUNÇÃO: Buscar parcelas completas
     fetchFaturasDisponiveis, // ✅ AJUSTADO: Inclui informações de pagamento
     fetchResumoConsolidado,
     fetchGastosPorCategoria,

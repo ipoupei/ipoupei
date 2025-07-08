@@ -89,6 +89,8 @@ const Sidebar = ({
           comingSoon: false,
           variant: 'transacao'
         },
+        
+/*
         {
           id: 'receita',
           label: 'Nova Receita',
@@ -126,6 +128,7 @@ const Sidebar = ({
           comingSoon: false,
           variant: 'transferencia'
         }
+*/
       ]
     },
 

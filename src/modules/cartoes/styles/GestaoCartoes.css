@@ -730,7 +730,7 @@
   font-size: 0.75rem;
   color: #2563EB;
   background-color: #DBEAFE;
-  padding: 0.125rem 0.25rem;
+  padding: 0.125rem 1.25rem;
   border-radius: 0.25rem;
 }
 
@@ -797,7 +797,7 @@
   border-left: 2px solid #E5E7EB;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0rem;
 }
 
 .parcela-item {
@@ -835,7 +835,7 @@
 }
 
 .parcela-item__status {
-  padding: 0.125rem 0.25rem;
+  padding: .125rem 0.25rem;
   border-radius: 0.25rem;
   font-weight: 500;
 }
@@ -2323,4 +2323,323 @@
 @keyframes fadeIn {
   0% { opacity: 0; }
   100% { opacity: 1; }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ===================================
+   ESTILOS PARA PARCELAS EXTERNAS
+   ================================== */
+
+/* Indicadores de fatura externa */
+.transacao-item__fatura-externa,
+.parcela-item__externa {
+  background: #FEF3C7;
+  color: #92400E;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  margin-left: 8px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.transacao-item__fatura-externa::before {
+  content: "📅";
+  font-size: 8px;
+}
+
+.parcela-item__externa::before {
+  content: "🔗";
+  font-size: 8px;
+}
+
+/* Indicador de fatura no item da parcela */
+.parcela-item__fatura {
+  font-size: 10px;
+  color: #6B7280;
+  margin-left: 4px;
+  font-weight: 400;
+}
+
+/* Controles para expandir parcelas */
+.transacao-item__controles-parcela {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #E5E7EB;
+}
+
+.transacao-item__controles-parcela button {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid #D1D5DB;
+  background: #F9FAFB;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.transacao-item__controles-parcela button:hover {
+  background: #F3F4F6;
+  border-color: #9CA3AF;
+}
+
+.btn-parcelas-externas {
+  background: #EFF6FF !important;
+  border-color: #DBEAFE !important;
+  color: #1D4ED8 !important;
+}
+
+.btn-parcelas-externas:hover {
+  background: #DBEAFE !important;
+  border-color: #93C5FD !important;
+}
+
+/* Botões de ação desabilitados */
+.action-button--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.action-button--disabled:hover {
+  opacity: 0.4;
+  transform: none;
+}
+
+/* Parcelas externas com estilo diferenciado */
+.parcela-item--externa {
+  background: #FFFBEB;
+  border-left: 3px solid #F59E0B;
+  padding-left: 12px;
+}
+
+.parcela-item--externa .parcela-item__numero {
+  color: #D97706;
+  font-weight: 600;
+}
+
+/* Separador visual para parcelas externas */
+.parcelas-separador {
+  display: flex;
+  align-items: center;
+  margin: 12px 0 8px 0;
+  color: #6B7280;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.parcelas-separador::before,
+.parcelas-separador::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #E5E7EB;
+}
+
+.parcelas-separador::before {
+  margin-right: 12px;
+}
+
+.parcelas-separador::after {
+  margin-left: 12px;
+}
+
+/* Loading para carregamento de parcelas externas */
+.parcelas-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  color: #6B7280;
+  font-size: 12px;
+}
+
+.parcelas-loading-spinner {
+  width: 12px;
+  height: 12px;
+  border: 1px solid #E5E7EB;
+  border-top-color: #3B82F6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 8px;
+}
+
+/* Tooltip para parcelas externas */
+.parcela-tooltip {
+  position: relative;
+}
+
+.parcela-tooltip:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1F2937;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  white-space: nowrap;
+  z-index: 10;
+  margin-bottom: 4px;
+}
+
+.parcela-tooltip:hover::before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: #1F2937;
+  z-index: 10;
+}
+
+/* Status de parcelas com cores diferenciadas */
+.parcela-item__status--verde {
+  background: #DCFCE7;
+  color: #166534;
+}
+
+.parcela-item__status--amarelo {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.transacao-item__status--verde {
+  background: #DCFCE7;
+  color: #166534;
+}
+
+.transacao-item__status--amarelo {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+/* Sidebar status colors */
+.sidebar-card__status.status-verde {
+  color: #166534;
+  background: #DCFCE7;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.sidebar-card__status.status-amarelo {
+  color: #92400E;
+  background: #FEF3C7;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+/* Animações para transições suaves */
+.transacao-item__parcelas {
+  transition: all 0.3s ease;
+}
+
+.parcela-item {
+  transition: all 0.2s ease;
+}
+
+.parcela-item:hover {
+  background: #F9FAFB;
+}
+
+.parcela-item--externa:hover {
+  background: #FEF3C7;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .transacao-item__controles-parcela {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .transacao-item__fatura-externa,
+  .parcela-item__externa {
+    font-size: 9px;
+    padding: 1px 4px;
+  }
+  
+  .parcelas-separador {
+    font-size: 11px;
+    margin: 8px 0 4px 0;
+  }
+}
+
+/* Estados de hover para melhor UX */
+.transacao-item:hover .transacao-item__fatura-externa {
+  background: #F59E0B;
+  color: white;
+  transform: scale(1.05);
+}
+
+.parcela-item:hover .parcela-item__externa {
+  background: #3B82F6;
+  color: white;
+  transform: scale(1.05);
+}
+
+/* Indicador de quantidade de parcelas externas */
+.parcelas-externas-badge {
+  background: #3B82F6;
+  color: white;
+  font-size: 9px;
+  padding: 2px 5px;
+  border-radius: 10px;
+  margin-left: 4px;
+  font-weight: 600;
+}
+
+/* Estilo para botão "Ver todas as parcelas" */
+.btn-parcelas-completas {
+  background: linear-gradient(135deg, #3B82F6, #1D4ED8);
+  color: white;
+  border: none;
+  font-weight: 600;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-parcelas-completas::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.btn-parcelas-completas:hover::before {
+  left: 100%;
+}
+
+.btn-parcelas-completas:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }

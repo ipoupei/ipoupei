@@ -280,12 +280,13 @@ const ListaTransacoes = ({
                 <div className="transacao-item__detalhes">
                   <p className="transacao-item__descricao">{transacao.descricao || 'Transação'}</p>
                   <div className="transacao-item__meta">
-                    <span className="transacao-item__data">
-                      {transacao.data ? new Date(transacao.data).toLocaleDateString('pt-BR', { 
+                   <span className="transacao-item__data">
+                    {(transacao.data_exibicao || transacao.data) ? 
+                      new Date(transacao.data_exibicao || transacao.data).toLocaleDateString('pt-BR', { 
                         day: '2-digit', 
                         month: '2-digit' 
                       }) : 'Data'}
-                    </span>
+                  </span>
                     {transacao.parcela_atual && transacao.total_parcelas && (
                       <>
                         <span className="transacao-item__separador">•</span>
@@ -355,10 +356,11 @@ const ListaTransacoes = ({
                       <span className="parcela-item__numero">{parcela.parcela_atual || `${idx + 1}`}</span>
                       <span className="parcela-item__separador">•</span>
                       <span className="parcela-item__data">
-                        {parcela.data ? new Date(parcela.data).toLocaleDateString('pt-BR', { 
-                          day: '2-digit', 
-                          month: '2-digit' 
-                        }) : 'Data'}
+                        {(parcela.data_exibicao || parcela.data) ? 
+                          new Date(parcela.data_exibicao || parcela.data).toLocaleDateString('pt-BR', { 
+                            day: '2-digit', 
+                            month: '2-digit' 
+                          }) : 'Data'}
                       </span>
                     </div>
                     <div className="parcela-item__valores">
