@@ -762,7 +762,7 @@ const Dashboard = () => {
                 <TrendingUp size={20} className="dashboard__chart-icon" />
                 <h3 className="dashboard__chart-title">Receitas por categoria</h3>
               </div>
-              <Link to="/relatorios/categorias?tipo=receitas" className="dashboard__chart-action dashboard__chart-action--receitas">
+              <Link to="/transacoes?filter=receitas" className="dashboard__chart-action dashboard__chart-action--receitas">
                 Ver todas
                 <ExternalLink size={14} />
               </Link>
@@ -795,7 +795,7 @@ const Dashboard = () => {
                 <BarChart3 size={20} className="dashboard__chart-icon" />
                 <h3 className="dashboard__chart-title">Despesas por categoria</h3>
               </div>
-              <Link to="/relatorios/categorias?tipo=despesas" className="dashboard__chart-action dashboard__chart-action--despesas">
+              <Link to="/transacoes?filter=despesas" className="dashboard__chart-action dashboard__chart-action--despesas">
                 Ver todas
                 <ExternalLink size={14} />
               </Link>
