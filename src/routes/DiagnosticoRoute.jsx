@@ -73,14 +73,21 @@ const DiagnosticoRoute = () => {
     const diasDesdeCompletacao = (new Date() - dataCompletacao) / (1000 * 60 * 60 * 24);
     
     if (diasDesdeCompletacao < 30) {
-      return <DiagnosticoCompleto onRefazer={() => {
-        localStorage.removeItem('diagnostico-completo');
-        localStorage.removeItem('diagnostico-data-conclusao');
-        localStorage.removeItem('diagnostico-dados');        // ← ADICIONAR
-        localStorage.removeItem('diagnostico-etapa');        // ← ADICIONAR
-        localStorage.removeItem('diagnostico-dados-finais'); // ← ADICIONAR
-        window.location.reload();
-      }} />;
+        <DiagnosticoCompleto onRefazer={() => {
+          console.log('🧹 Limpeza completa do diagnóstico...');
+          
+          // Limpar TUDO relacionado ao diagnóstico
+          const keys = Object.keys(localStorage);
+          keys.forEach(key => {
+            if (key.includes('diagnostico')) {
+              localStorage.removeItem(key);
+              console.log(`🗑️ Removido: ${key}`);
+            }
+          });
+          
+          console.log('✅ Limpeza concluída - recarregando...');
+          window.location.reload();
+        }} />
     }
   }
 
