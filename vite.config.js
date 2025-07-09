@@ -26,6 +26,7 @@ export default defineConfig({
     loader: 'jsx',
     include: /src\/.*\.[jt]sx?$/,
     exclude: [],
+    
     drop: ['console', 'debugger'], // 👈 Aqui silencia tudo em produção
   },
   optimizeDeps: {

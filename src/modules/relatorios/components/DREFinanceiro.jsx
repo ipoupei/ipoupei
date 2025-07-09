@@ -17,6 +17,8 @@ import {
   Eye,
   EyeOff,
   Settings,
+  Clock,
+  Briefcase,
   Info
 } from 'lucide-react';
 import { supabase } from '@lib/supabaseClient';
@@ -41,13 +43,46 @@ const formatCurrencyDREComplete = (value) => {
 };
 
 
+
+
+
+
+// ➕ ADICIONAR estas 2 funções após formatCurrencyDREComplete:
+
+// Função para formatar horas trabalhadas
+const formatHorasTrabalho = (valor, valorHora) => {
+  if (!valorHora || valorHora <= 0 || !valor || valor <= 0) return '0h';
+  
+  const horas = Math.round(valor / valorHora);
+  return `${horas}h`;
+};
+
+// Função para gerar mensagem motivacional
+const gerarMensagemMotivacional = (horas) => {
+  if (horas < 1) return "⚡ Menos de 1 hora de trabalho";
+  if (horas < 4) return "☕ Algumas horas de trabalho";
+  if (horas < 8) return "🕐 Meio dia de trabalho";
+  if (horas < 16) return "📅 1-2 dias de trabalho";
+  if (horas < 40) return "📆 Menos de 1 semana";
+  if (horas < 80) return "🗓️ 1-2 semanas de trabalho";
+  if (horas < 160) return "📊 Quase 1 mês de trabalho";
+  if (horas < 320) return "⏰ 1-2 meses de trabalho";
+  return "🚨 Mais de 2 meses de trabalho!";
+};
+
 const DREFinanceiro = () => {
-  const { user } = useAuth();
+const { user } = useAuth();
+  
   const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear());
   const [categoriaExpandida, setCategoriaExpandida] = useState({});
   const [dadosDRE, setDadosDRE] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  const [modoHoras, setModoHoras] = useState(false);
+  const [valorHoraTrabalhada, setValorHoraTrabalhada] = useState(null);
+  const [loadingValorHora, setLoadingValorHora] = useState(false);
+  const [dadosHora, setDadosHora] = useState(null);
   
   // NOVOS ESTADOS
   const [modoCompacto, setModoCompacto] = useState(false);
@@ -57,6 +92,8 @@ const DREFinanceiro = () => {
 
   const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
   const anosDisponiveis = [2023, 2024, 2025, 2026];
+
+
 
   // Buscar dados do DRE com parâmetro de não efetivadas
   const buscarDadosDRE = async () => {
@@ -103,12 +140,105 @@ const DREFinanceiro = () => {
     }
   };
 
-  // Carregar dados quando componente monta ou parâmetros mudam
-  useEffect(() => {
-    if (user?.id) {
-      buscarDadosDRE();
+// ✅ SUBSTITUA sua função buscarValorHoraTrabalhada por esta versão corrigida:
+
+const buscarValorHoraTrabalhada = async () => {
+  if (!user?.id) return;
+
+  setLoadingValorHora(true);
+  try {
+    console.log('🔍 Buscando valor da hora para usuário:', user.id);
+    
+    // ✅ CORRIGIDO: Chamar a função RPC COM o parâmetro correto
+    const { data, error } = await supabase.rpc('ip_prod_buscar_valor_hora_trabalhada', {
+      p_usuario_id: user.id
+    });
+
+    if (error) {
+      console.error('❌ Erro RPC ao buscar valor da hora:', error);
+      // ✅ FALLBACK: Se RPC falhar, buscar direto da tabela
+      return await buscarValorHoraFallback();
     }
-  }, [user?.id, anoSelecionado, incluirNaoEfetivadas]);
+
+    if (data && data.length > 0) {
+      const dadosHora = data[0];
+      console.log('✅ Dados da hora encontrados via RPC:', dadosHora);
+      setDadosHora(dadosHora);
+      setValorHoraTrabalhada(dadosHora.valor_hora_trabalhada);
+      return;
+    }
+
+    // Se não retornou dados via RPC, usar fallback
+    await buscarValorHoraFallback();
+
+  } catch (err) {
+    console.error('❌ Erro inesperado ao buscar valor da hora:', err);
+    await buscarValorHoraFallback();
+  } finally {
+    setLoadingValorHora(false);
+  }
+};
+
+// ✅ ADICIONAR TAMBÉM esta função fallback:
+const buscarValorHoraFallback = async () => {
+  try {
+    console.log('🔄 Usando fallback para buscar dados do usuário...');
+    
+    // ✅ CORRIGIDO: Buscar apenas colunas que EXISTEM na tabela
+    const { data, error } = await supabase
+      .from('perfil_usuario')
+      .select('renda_mensal, media_horas_trabalhadas_mes')
+      .eq('id', user.id)
+      .single();
+
+    if (error) {
+      console.error('❌ Erro ao buscar perfil:', error);
+      throw new Error(error.message);
+    }
+
+    if (!data) {
+      throw new Error('Perfil não encontrado');
+    }
+
+    console.log('✅ Dados do perfil encontrados:', data);
+
+    // ✅ Calcular valor da hora localmente
+    const temDadosCompletos = data.renda_mensal && data.media_horas_trabalhadas_mes && data.media_horas_trabalhadas_mes > 0;
+    
+    let valorHoraCalculado = null;
+    if (temDadosCompletos) {
+      valorHoraCalculado = data.renda_mensal / data.media_horas_trabalhadas_mes;
+    }
+
+    const dadosCompletos = {
+      valor_hora_trabalhada: valorHoraCalculado,
+      renda_mensal: data.renda_mensal,
+      horas_mes: data.media_horas_trabalhadas_mes,
+      tem_dados_completos: temDadosCompletos,
+      calculado_automaticamente: true
+    };
+
+    setDadosHora(dadosCompletos);
+    setValorHoraTrabalhada(valorHoraCalculado);
+
+  } catch (err) {
+    console.error('❌ Erro no fallback:', err);
+    setDadosHora(null);
+    setValorHoraTrabalhada(null);
+  }
+};
+
+  // Carregar dados quando componente monta ou parâmetros mudam
+// ➕ MODIFICAR o useEffect existente para:
+useEffect(() => {
+  if (user?.id) {
+    buscarDadosDRE();
+    // ➕ ADICIONAR esta linha:
+    if (!dadosHora) {
+      buscarValorHoraTrabalhada();
+    }
+  }
+}, [user?.id, anoSelecionado, incluirNaoEfetivadas]);
 
   // Handler para mudança de ano
   const handleAnoChange = (novoAno) => {
@@ -130,11 +260,88 @@ const DREFinanceiro = () => {
     }
   };
 
+// ➕ ADICIONAR nova função toggle:
+const toggleModoHoras = async () => {
+  if (!modoHoras && !valorHoraTrabalhada) {
+    setLoadingValorHora(true);
+    
+    try {
+      // Buscar direto da tabela perfil_usuario
+      const { data, error } = await supabase
+        .from('perfil_usuario')
+        .select('renda_mensal, media_horas_trabalhadas_mes') // ← REMOVER valor_hora_trabalhada
+        .eq('id', user.id)
+        .single();
+
+      
+
+      if (supabaseError) {
+        console.error('Erro ao buscar perfil:', supabaseError);
+        alert('Erro ao buscar dados do perfil. Tente novamente.');
+        return;
+      }
+
+      
+      console.log('Dados do perfil:', data);
+
+      if (!data) {
+        alert('Perfil não encontrado. Complete seu diagnóstico financeiro.');
+        return;
+      }
+
+      // Verificar se tem dados necessários
+      const temRendaEHoras = data.renda_mensal && data.media_horas_trabalhadas_mes && data.media_horas_trabalhadas_mes > 0;
+      
+      if (!temRendaEHoras) {
+        alert('Para usar a conversão em horas, complete seu diagnóstico financeiro com dados de renda e horas trabalhadas.');
+        return;
+      }
+
+      // Calcular valor da hora se não existir
+
+      
+      let valorHora = data.valor_hora_trabalhada;
+      if (!valorHora) {
+        valorHora = data.renda_mensal / data.media_horas_trabalhadas_mes;
+        
+        // Salvar o valor calculado
+        await supabase
+          .from('perfil_usuario')
+          .update({ valor_hora_trabalhada: valorHora })
+          .eq('id', user.id);
+      }
+
+      console.log('Valor da hora:', valorHora);
+
+      // Tudo OK, ativar modo horas
+      setDadosHora({
+        valor_hora_trabalhada: valorHora,
+        renda_mensal: data.renda_mensal,
+        horas_mes: data.media_horas_trabalhadas_mes,
+        tem_dados_completos: true,
+        calculado_automaticamente: !data.valor_hora_trabalhada
+      });
+      setValorHoraTrabalhada(valorHora);
+      setModoHoras(true);
+
+    } catch (err) {
+      console.error('Erro ao buscar dados:', err);
+      alert('Erro inesperado. Tente novamente.');
+    } finally {
+      setLoadingValorHora(false);
+    }
+  } else {
+    setModoHoras(!modoHoras);
+  }
+};
+
   // Toggle para incluir não efetivadas
   const toggleIncluirNaoEfetivadas = () => {
     setIncluirNaoEfetivadas(!incluirNaoEfetivadas);
   };
 
+
+  
   // Toggle seção receitas
   const toggleReceitas = () => {
     setReceitasExpandidas(!receitasExpandidas);
@@ -164,6 +371,25 @@ const DREFinanceiro = () => {
       setCategoriaExpandida(novasCategorias);
     }
   };
+
+
+// ➕ ADICIONAR estas 2 funções:
+const formatarValor = (valor, ehDespesa = false) => {
+  if (modoHoras && valorHoraTrabalhada && ehDespesa) {
+    return formatHorasTrabalho(valor, valorHoraTrabalhada);
+  }
+  return formatCurrencyDRE(valor);
+};
+
+const gerarTooltip = (valor, ehDespesa = false) => {
+  if (!modoHoras || !valorHoraTrabalhada || !ehDespesa) {
+    return formatCurrencyDREComplete(valor || 0);
+  }
+  
+  const horas = valor / valorHoraTrabalhada;
+  const mensagem = gerarMensagemMotivacional(horas);
+  return `${formatCurrencyDREComplete(valor || 0)} = ${formatHorasTrabalho(valor, valorHoraTrabalhada)}\n${mensagem}`;
+};
 
   // Função para calcular intensidade do mapa de calor
   const calcularIntensidadeCalor = (valor, valores, tipo) => {
@@ -262,6 +488,8 @@ const DREFinanceiro = () => {
     const isExpanded = categoriaExpandida[chaveExpansao];
     const corTexto = tipo === 'receitas' ? 'text-success' : 'text-danger';
     const corFundo = tipo === 'receitas' ? 'categoria-receita' : 'categoria-despesa';
+    const ehDespesa = tipo === 'despesas';
+
 
     let valoresMensais = [];
     if (categoria.valores_mensais) {
@@ -298,7 +526,14 @@ const DREFinanceiro = () => {
                   <span className="badge-variacao">
                     <AlertTriangle size={12} />
                     Alta Variação
+                    {modoHoras && ehDespesa && valorHoraTrabalhada && (
+                      <span className="badge-horas">
+                        <Clock size={12} />
+                        {formatHorasTrabalho(categoria.total_anual || 0, valorHoraTrabalhada)}
+                      </span>
+                    )}
                   </span>
+                  
                 )}
               </div>
             </div>
@@ -311,12 +546,13 @@ const DREFinanceiro = () => {
             return (
               <td key={mesIndex} className={`valor-cell ${corTexto} ${corCalor}`}>
                 <div className="valor-container">
+                  
                   <span 
                     className="valor-texto" 
-                    title={formatCurrencyDREComplete(valor || 0)}
-                    >
-                    {formatCurrencyDRE(valor || 0)}
-                    </span>
+                    title={gerarTooltip(valor, ehDespesa)}
+                  >
+                    {formatarValor(valor || 0, ehDespesa)}
+                  </span>
                   {isAnomalia && (
                     <div className="anomalia-indicator" title="Variação significativa">
                       <AlertTriangle size={8} />
@@ -327,7 +563,12 @@ const DREFinanceiro = () => {
             );
           })}
           <td className={`total-cell ${corTexto}`}>
-            <span className="total-valor">{formatCurrencyDRE(categoria.total_anual || 0)}</span>
+            <span 
+              className="total-valor"
+              title={gerarTooltip(categoria.total_anual || 0, ehDespesa)}
+            >
+              {formatarValor(categoria.total_anual || 0, ehDespesa)}
+            </span>
           </td>
         </tr>
         
@@ -367,17 +608,29 @@ const DREFinanceiro = () => {
                 
                 return (
                   <td key={mesIndex} className={`subcategoria-valor ${corCalor}`}>
-                    <span className="subcategoria-valor-texto">
-                      {formatCurrencyDRE(valor || 0)}
+                    <span 
+                      className="subcategoria-valor-texto"
+                      title={modoHoras && valorHoraTrabalhada && ehDespesa ? 
+                        `R$ ${formatCurrencyDREComplete(valor || 0)} = ${formatHorasTrabalho(valor || 0, valorHoraTrabalhada)}` : 
+                        `R$ ${formatCurrencyDREComplete(valor || 0)}`
+                      }
+                    >
+                      {modoHoras && valorHoraTrabalhada && ehDespesa ? 
+                        formatHorasTrabalho(valor || 0, valorHoraTrabalhada) : 
+                        formatCurrencyDRE(valor || 0)
+                      }
                     </span>
-                  </td>
+                </td>
                 );
               })}
-              <td className="subcategoria-total">
-                <span className="subcategoria-total-texto">
-                  {formatCurrencyDRE(subcat.total_anual || 0)}
-                </span>
-              </td>
+                <td className="subcategoria-total">
+                  <span className="subcategoria-total-texto">
+                    {modoHoras && valorHoraTrabalhada && ehDespesa ? 
+                      formatHorasTrabalho(subcat.total_anual || 0, valorHoraTrabalhada) : 
+                      formatCurrencyDRE(subcat.total_anual || 0)
+                    }
+                  </span>
+                </td>
             </tr>
           );
         })}
@@ -532,6 +785,17 @@ const DREFinanceiro = () => {
             </button>
           </div>
 
+          <div className="control-group">
+            <button
+              onClick={toggleModoHoras}
+              className={`toggle-button ${modoHoras ? 'active' : ''}`}
+              title="Converter despesas para horas de trabalho"
+              disabled={loadingValorHora}
+            >
+              {loadingValorHora ? <RefreshCw size={16} className="animate-spin" /> : modoHoras ? <Clock size={16} /> : <Briefcase size={16} />}
+              <span>{loadingValorHora ? 'Carregando...' : 'Ver em Horas'}</span>
+            </button>
+          </div>
           <div className="control-group">
             <button
               onClick={toggleModoCompacto}
@@ -729,13 +993,25 @@ const DREFinanceiro = () => {
                   const totalMes = calcularTotalMensal(dadosDRE.despesas, index);
                   return (
                     <td key={index} className="secao-total text-danger">
-                      <span className="secao-valor">{formatCurrencyDRE(totalMes)}</span>
+                      <span className="secao-valor">
+                        {modoHoras && valorHoraTrabalhada ? 
+                          formatHorasTrabalho(totalMes, valorHoraTrabalhada) : 
+                          formatCurrencyDRE(totalMes)
+                        }
+                      </span>
                     </td>
                   );
                 })}
-                <td className="secao-total-anual text-danger">
-                  <span className="secao-total-valor">{formatCurrencyDRE(indicadores.totalDespesas)}</span>
-                </td>
+
+                  <td className="secao-total-anual text-danger">
+                    <span className="secao-total-valor">
+                      {modoHoras && valorHoraTrabalhada ? 
+                        formatHorasTrabalho(indicadores.totalDespesas, valorHoraTrabalhada) : 
+                        formatCurrencyDRE(indicadores.totalDespesas)
+                      }
+                    </span>
+                  </td>
+
               </tr>
               
               {/* Categorias de Despesas - só exibe se expandido */}

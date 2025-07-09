@@ -11,7 +11,12 @@ const useDiagnosticoPercepcaoStore = create(
         controleFinanceiro: '',
         disciplinaGastos: '',
         planejamentoFuturo: '',
-        sentimentoGeral: ''
+        sentimentoGeral: '',
+        // ➕ Novos campos para renda e trabalho
+        rendaMensal: '',
+        horasTrabalhadasMes: '',
+        tipoRenda: '',
+        valorHoraTrabalhada: 0
       },
       etapasCompletas: {
         intro: false,
@@ -51,7 +56,12 @@ const useDiagnosticoPercepcaoStore = create(
             controleFinanceiro: '',
             disciplinaGastos: '',
             planejamentoFuturo: '',
-            sentimentoGeral: ''
+            sentimentoGeral: '',
+            // ➕ Resetar novos campos também
+            rendaMensal: '',
+            horasTrabalhadasMes: '',
+            tipoRenda: '',
+            valorHoraTrabalhada: 0
           },
           error: null
         }),
@@ -128,6 +138,11 @@ const useDiagnosticoPercepcaoStore = create(
             percepcao_controle: percepcao.controleFinanceiro,
             percepcao_gastos: percepcao.disciplinaGastos,
             disciplina_financeira: percepcao.planejamentoFuturo,
+            // ➕ Novos campos de renda e horas
+            renda_mensal: percepcao.rendaMensal ? parseFloat(percepcao.rendaMensal.replace(/[^\d,]/g, '').replace(',', '.')) : null,
+            media_horas_trabalhadas_mes: percepcao.horasTrabalhadasMes ? parseInt(percepcao.horasTrabalhadasMes) : null,
+            tipo_renda: percepcao.tipoRenda || null,
+            // valor_hora_trabalhada será calculado automaticamente pelo trigger do banco
             relacao_dinheiro: JSON.stringify(percepcao),
             updated_at: new Date().toISOString()
           };
@@ -197,6 +212,8 @@ const useDiagnosticoPercepcaoStore = create(
               percepcao_controle,
               percepcao_gastos,
               disciplina_financeira,
+              renda_mensal,
+              tipo_renda,
               relacao_dinheiro,
               diagnostico_completo,
               data_diagnostico,
@@ -216,7 +233,15 @@ const useDiagnosticoPercepcaoStore = create(
               sentimentoGeral: data.sentimento_financeiro || '',
               controleFinanceiro: data.percepcao_controle || '',
               disciplinaGastos: data.percepcao_gastos || '',
-              planejamentoFuturo: data.disciplina_financeira || ''
+              planejamentoFuturo: data.disciplina_financeira || '',
+              // ➕ Novos campos de renda e horas
+              rendaMensal: data.renda_mensal ? new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+              }).format(data.renda_mensal) : '',
+              horasTrabalhadasMes: data.media_horas_trabalhadas_mes?.toString() || '',
+              tipoRenda: data.tipo_renda || '',
+              valorHoraTrabalhada: data.valor_hora_trabalhada || 0
             };
 
             // Se há dados JSON, tentar fazer merge
@@ -261,7 +286,16 @@ const useDiagnosticoPercepcaoStore = create(
       // Actions de utilidade
       isPercepcaoCompleta: () => {
         const { percepcao } = get();
-        const camposObrigatorios = ['controleFinanceiro', 'disciplinaGastos', 'planejamentoFuturo', 'sentimentoGeral'];
+        const camposObrigatorios = [
+          'controleFinanceiro', 
+          'disciplinaGastos', 
+          'planejamentoFuturo', 
+          'sentimentoGeral',
+          // ➕ Novos campos obrigatórios
+          'rendaMensal',
+          'horasTrabalhadasMes', 
+          'tipoRenda'
+        ];
         return camposObrigatorios.every(campo => percepcao[campo] && percepcao[campo] !== '');
       },
 
@@ -279,6 +313,7 @@ const useDiagnosticoPercepcaoStore = create(
         const { percepcao } = get();
         const erros = [];
 
+        // Validações das perguntas de percepção (mantidas como estavam)
         if (!percepcao.controleFinanceiro) {
           erros.push('Selecione como você avalia seu controle financeiro');
         }
@@ -290,6 +325,22 @@ const useDiagnosticoPercepcaoStore = create(
         }
         if (!percepcao.sentimentoGeral) {
           erros.push('Selecione como você se sente em relação ao dinheiro');
+        }
+
+        // ➕ Novas validações para renda e horas
+        if (!percepcao.rendaMensal) {
+          erros.push('Informe sua renda mensal');
+        }
+        if (!percepcao.horasTrabalhadasMes) {
+          erros.push('Informe quantas horas trabalha por mês');
+        }
+        if (!percepcao.tipoRenda) {
+          erros.push('Selecione o tipo da sua renda');
+        }
+
+        // Validações adicionais de formato
+        if (percepcao.horasTrabalhadasMes && (parseInt(percepcao.horasTrabalhadasMes) < 1 || parseInt(percepcao.horasTrabalhadasMes) > 744)) {
+          erros.push('Horas trabalhadas deve estar entre 1 e 744 por mês');
         }
 
         return {

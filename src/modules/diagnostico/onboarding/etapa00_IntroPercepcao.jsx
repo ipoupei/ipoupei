@@ -1,12 +1,11 @@
 // src/modules/diagnostico/onboarding/etapa00_IntroPercepcao.jsx
 import React, { useState, useCallback, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { X, ArrowRight, ArrowLeft, CheckCircle } from 'lucide-react';
+import { X, ArrowRight, ArrowLeft, CheckCircle, Calculator, Clock, DollarSign } from 'lucide-react';
 
 // Hooks que você criou
 import { usePercepcaoFinanceira } from '@modules/diagnostico/hooks/usePercepcaoFinanceira';
 import useDiagnosticoPercepcaoStore from '@modules/diagnostico/store/diagnosticoPercepcaoStore';
-
 
 // CSS original
 import '@modules/diagnostico/styles/DiagnosticoOnboarding.css';
@@ -29,8 +28,22 @@ const IntroPercepcaoEtapa = ({
 
   const [modalAberto, setModalAberto] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  // ➕ NOVO: Estado para controlar qual etapa do modal está ativa
+  const [etapaModal, setEtapaModal] = useState(1); // 1: Percepção, 2: Renda e Horas
 
   const percepcaoCompleta = isPercepcaoCompleta();
+
+  // ➕ NOVO: Verificar se apenas as perguntas de percepção estão completas
+  const percepcaoBasicaCompleta = ['controleFinanceiro', 'disciplinaGastos', 'planejamentoFuturo', 'sentimentoGeral']
+    .every(campo => percepcao[campo] && percepcao[campo] !== '');
+
+  // ➕ NOVO: Verificar se dados de renda estão completos
+  const rendaCompleta = ['rendaMensal', 'horasTrabalhadasMes', 'tipoRenda']
+    .every(campo => percepcao[campo] && percepcao[campo] !== '');
+
+  // ➕ NOVO: Calcular valor da hora trabalhada
+  const valorHora = percepcao.rendaMensal && percepcao.horasTrabalhadasMes ? 
+    (parseFloat(percepcao.rendaMensal.replace(/[^\d,]/g, '').replace(',', '.')) / parseInt(percepcao.horasTrabalhadasMes)).toFixed(2) : 0;
 
   // Carregar dados existentes quando o componente monta
   useEffect(() => {
@@ -39,15 +52,45 @@ const IntroPercepcaoEtapa = ({
 
   const handleAbrirModal = useCallback(() => {
     setModalAberto(true);
+    setEtapaModal(1); // Sempre começar na primeira etapa
   }, []);
 
   const handleFecharModal = useCallback(() => {
     setModalAberto(false);
+    setEtapaModal(1); // Reset para primeira etapa
   }, []);
 
   const handleSelecionarResposta = useCallback((pergunta, resposta) => {
     setPercepcao({ [pergunta]: resposta });
   }, [setPercepcao]);
+
+  // ➕ NOVO: Função para formatar moeda
+  const formatarMoeda = (valor) => {
+    const numero = valor.replace(/\D/g, '');
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(numero / 100);
+  };
+
+  // ➕ NOVO: Handler para mudança na renda
+  const handleRendaChange = (e) => {
+    const valor = e.target.value;
+    setPercepcao({ rendaMensal: formatarMoeda(valor) });
+  };
+
+  // ➕ NOVO: Navegação entre etapas do modal
+  const handleProximaEtapaModal = useCallback(() => {
+    if (etapaModal === 1 && percepcaoBasicaCompleta) {
+      setEtapaModal(2);
+    }
+  }, [etapaModal, percepcaoBasicaCompleta]);
+
+  const handleVoltarEtapaModal = useCallback(() => {
+    if (etapaModal === 2) {
+      setEtapaModal(1);
+    }
+  }, [etapaModal]);
 
   const handleSalvar = useCallback(async () => {
     if (!percepcaoCompleta) return;
@@ -220,25 +263,38 @@ const IntroPercepcaoEtapa = ({
           <h1 className="main-title">Bem-vindo ao seu diagnóstico financeiro!</h1>
           <p className="main-subtitle">Vamos entender sua situação atual para criar um plano personalizado</p>
           <p className="main-description">
-            Primeiro, queremos conhecer como você se relaciona com o dinheiro hoje. 
-            Não existem respostas certas ou erradas - seja honesto conosco!
+            {/* ➕ ALTERADO: Texto atualizado */}
+            Primeiro, queremos conhecer como você se relaciona com o dinheiro e sua situação de renda. 
+            Seja honesto conosco para um diagnóstico mais preciso!
           </p>
 
-          {/* Status Card */}
-          <div className={`status-card ${percepcaoCompleta ? 'completed' : 'pending'}`}>
-            <div className="status-icon">
-              {percepcaoCompleta ? '✅' : '📝'}
+          {/* ➕ ALTERADO: Status Cards Grid (ao invés de card único) */}
+          <div className="status-cards-grid">
+            <div className={`status-card ${percepcaoBasicaCompleta ? 'completed' : 'pending'}`}>
+              <div className="status-icon">
+                {percepcaoBasicaCompleta ? '✅' : '📝'}
+              </div>
+              <div className="status-info">
+                <h3>Percepção Financeira</h3>
+                <p>4 perguntas sobre sua relação com o dinheiro</p>
+              </div>
             </div>
-            <div className="status-info">
-              <h3>
-                {percepcaoCompleta ? 'Questionário Respondido' : 'Questionário de Percepção'}
-              </h3>
-              <p>
-                {percepcaoCompleta 
-                  ? 'Todas as 4 perguntas foram respondidas'
-                  : '4 perguntas rápidas sobre sua relação com o dinheiro'
-                }
-              </p>
+
+            <div className={`status-card ${rendaCompleta ? 'completed' : 'pending'}`}>
+              <div className="status-icon">
+                {rendaCompleta ? '✅' : '💰'}
+              </div>
+              <div className="status-info">
+                <h3>Renda e Trabalho</h3>
+                <p>Informações sobre sua renda e horas trabalhadas</p>
+                {/* ➕ NOVO: Preview do valor da hora */}
+                {valorHora > 0 && (
+                  <div className="valor-hora-preview">
+                    <Calculator size={14} />
+                    <span>R$ {valorHora}/hora</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -249,7 +305,8 @@ const IntroPercepcaoEtapa = ({
               className="btn-primary"
             >
               <span>📝</span>
-              {percepcaoCompleta ? 'Revisar' : 'Responder'}
+              {/* ➕ ALTERADO: Texto do botão */}
+              {percepcaoCompleta ? 'Revisar' : 'Responder'} Questionário
             </button>
           </div>
 
@@ -300,14 +357,36 @@ const IntroPercepcaoEtapa = ({
         </div>
       </div>
 
-      {/* Modal */}
+      {/* ➕ MODAL COMPLETAMENTE NOVO com Múltiplas Etapas */}
       {modalAberto && (
         <div className="modal-overlay" onClick={handleFecharModal}>
-          <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-container modal-large" onClick={(e) => e.stopPropagation()}>
             
             <div className="modal-header">
-              <h2 className="modal-title">Como você se vê financeiramente?</h2>
-              <p className="modal-subtitle">4 perguntas para um diagnóstico preciso</p>
+              {/* ➕ NOVO: Indicadores de progresso do modal */}
+              <div className="modal-progress">
+                <div className="modal-step-indicators">
+                  <div className={`step-indicator ${etapaModal >= 1 ? 'active' : ''} ${percepcaoBasicaCompleta ? 'completed' : ''}`}>
+                    <span>{percepcaoBasicaCompleta ? '✓' : '1'}</span>
+                    <span>Percepção</span>
+                  </div>
+                  <div className="step-connector"></div>
+                  <div className={`step-indicator ${etapaModal >= 2 ? 'active' : ''} ${rendaCompleta ? 'completed' : ''}`}>
+                    <span>{rendaCompleta ? '✓' : '2'}</span>
+                    <span>Renda</span>
+                  </div>
+                </div>
+              </div>
+
+              <h2 className="modal-title">
+                {etapaModal === 1 ? 'Como você se vê financeiramente?' : 'Qual sua renda e carga horária?'}
+              </h2>
+              <p className="modal-subtitle">
+                {etapaModal === 1 
+                  ? '4 perguntas para um diagnóstico preciso'
+                  : 'Vamos calcular o valor da sua hora trabalhada'
+                }
+              </p>
               <button 
                 className="modal-close"
                 onClick={handleFecharModal}
@@ -318,49 +397,159 @@ const IntroPercepcaoEtapa = ({
             </div>
             
             <div className="modal-content">
-              {perguntas.map((pergunta, index) => (
-                <div key={pergunta.id} className="question-group">
-                  <label className="question-label">
-                    {index + 1}. {pergunta.pergunta}
-                  </label>
-                  <div className="options-grid">
-                    {pergunta.opcoes.map((opcao) => (
-                      <button
-                        key={opcao.valor}
-                        type="button"
-                        className={`option ${
-                          percepcao[pergunta.id] === opcao.valor ? 'selected' : ''
-                        }`}
-                        onClick={() => handleSelecionarResposta(pergunta.id, opcao.valor)}
-                      >
-                        <span className="option-text">{opcao.label}</span>
-                      </button>
-                    ))}
+              {etapaModal === 1 && (
+                // ➕ Etapa 1: Percepção Financeira (mantida como estava)
+                <div className="etapa-percepcao">
+                  {perguntas.map((pergunta, index) => (
+                    <div key={pergunta.id} className="question-group">
+                      <label className="question-label">
+                        {index + 1}. {pergunta.pergunta}
+                      </label>
+                      <div className="options-grid">
+                        {pergunta.opcoes.map((opcao) => (
+                          <button
+                            key={opcao.valor}
+                            type="button"
+                            className={`option ${
+                              percepcao[pergunta.id] === opcao.valor ? 'selected' : ''
+                            }`}
+                            onClick={() => handleSelecionarResposta(pergunta.id, opcao.valor)}
+                          >
+                            <span className="option-text">{opcao.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {etapaModal === 2 && (
+                // ➕ NOVA: Etapa 2 - Renda e Horas Trabalhadas
+                <div className="etapa-renda">
+                  <div className="renda-form-grid">
+                    
+                    {/* Tipo de Renda */}
+                    <div className="form-group full-width">
+                      <label className="question-label">
+                        <DollarSign size={16} />
+                        Como você caracteriza sua renda?
+                      </label>
+                      <div className="options-grid renda-tipo">
+                        {[
+                          { valor: 'fixa', label: '💼 Salário Fixo', desc: 'CLT, funcionário público' },
+                          { valor: 'variavel', label: '📈 Renda Variável', desc: 'Comissões, freelancer' },
+                          { valor: 'mista', label: '⚖️ Mista', desc: 'Fixo + variável' },
+                          { valor: 'autonomo', label: '🏪 Autônomo', desc: 'Negócio próprio' }
+                        ].map((tipo) => (
+                          <button
+                            key={tipo.valor}
+                            type="button"
+                            className={`option-renda ${percepcao.tipoRenda === tipo.valor ? 'selected' : ''}`}
+                            onClick={() => setPercepcao({ tipoRenda: tipo.valor })}
+                          >
+                            <div className="option-content">
+                              <span className="option-text">{tipo.label}</span>
+                              <span className="option-desc">{tipo.desc}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Renda Mensal */}
+                    <div className="form-group">
+                      <label className="form-label">
+                        <DollarSign size={16} />
+                        Renda média mensal
+                      </label>
+                      <input
+                        type="text"
+                        value={percepcao.rendaMensal || ''}
+                        onChange={handleRendaChange}
+                        placeholder="R$ 0,00"
+                        className="form-input money-input"
+                      />
+                      <span className="form-hint">Considere sua renda líquida média</span>
+                    </div>
+
+                    {/* Horas Trabalhadas */}
+                    <div className="form-group">
+                      <label className="form-label">
+                        <Clock size={16} />
+                        Horas por mês
+                      </label>
+                      <input
+                        type="number"
+                        value={percepcao.horasTrabalhadasMes || ''}
+                        onChange={(e) => setPercepcao({ horasTrabalhadasMes: e.target.value })}
+                        placeholder="160"
+                        min="1"
+                        max="744"
+                        className="form-input"
+                      />
+                      <span className="form-hint">Exemplo: 40h/semana ≈ 160h/mês</span>
+                    </div>
+
+                    {/* Valor da Hora Calculado */}
+                    {valorHora > 0 && (
+                      <div className="valor-hora-resultado">
+                        <div className="resultado-header">
+                          <Calculator size={20} />
+                          <h3>Valor da sua hora:</h3>
+                        </div>
+                        <div className="resultado-valor">R$ {valorHora}</div>
+                        <p className="resultado-desc">
+                          Este cálculo te ajudará a tomar melhores decisões sobre tempo vs dinheiro
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
-              ))}
+              )}
             </div>
             
             <div className="navigation">
               <div className="nav-left">
-                <button 
-                  onClick={handleFecharModal}
-                  className="btn-back"
-                >
-                  <ArrowLeft size={12} />
-                  Cancelar
-                </button>
+                {etapaModal === 1 ? (
+                  <button 
+                    onClick={handleFecharModal}
+                    className="btn-back"
+                  >
+                    <ArrowLeft size={12} />
+                    Cancelar
+                  </button>
+                ) : (
+                  <button 
+                    onClick={handleVoltarEtapaModal}
+                    className="btn-back"
+                  >
+                    <ArrowLeft size={12} />
+                    Voltar
+                  </button>
+                )}
               </div>
               
               <div className="nav-right">
-                <button 
-                  onClick={handleSalvar}
-                  disabled={!percepcaoCompleta || salvando}
-                  className="btn-continue"
-                >
-                  {salvando ? 'Salvando...' : 'Salvar'}
-                  <CheckCircle size={12} />
-                </button>
+                {etapaModal === 1 ? (
+                  <button 
+                    onClick={handleProximaEtapaModal}
+                    disabled={!percepcaoBasicaCompleta}
+                    className="btn-continue"
+                  >
+                    Próximo
+                    <ArrowRight size={12} />
+                  </button>
+                ) : (
+                  <button 
+                    onClick={handleSalvar}
+                    disabled={!percepcaoCompleta || salvando}
+                    className="btn-continue"
+                  >
+                    {salvando ? 'Salvando...' : 'Salvar'}
+                    <CheckCircle size={12} />
+                  </button>
+                )}
               </div>
             </div>
           </div>
