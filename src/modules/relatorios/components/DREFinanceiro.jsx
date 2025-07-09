@@ -28,6 +28,13 @@ import '@modules/relatorios/styles/DREFinanceiro.css';
 
 const formatCurrencyDRE = (value) => {
   return new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(Math.round(value));
+};
+
+const formatCurrencyDREComplete = (value) => {
+  return new Intl.NumberFormat('pt-BR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   }).format(value);
@@ -304,7 +311,12 @@ const DREFinanceiro = () => {
             return (
               <td key={mesIndex} className={`valor-cell ${corTexto} ${corCalor}`}>
                 <div className="valor-container">
-                  <span className="valor-texto">{formatCurrencyDRE(valor || 0)}</span>
+                  <span 
+                    className="valor-texto" 
+                    title={formatCurrencyDREComplete(valor || 0)}
+                    >
+                    {formatCurrencyDRE(valor || 0)}
+                    </span>
                   {isAnomalia && (
                     <div className="anomalia-indicator" title="Variação significativa">
                       <AlertTriangle size={8} />

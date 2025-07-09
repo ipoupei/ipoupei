@@ -363,7 +363,7 @@
 
 .dre-tabela {
   width: 100%;
-  min-width: 1200px; /* AUMENTADO para caber valores */
+  min-width: 1000px; /* AUMENTADO para caber valores */
   border-collapse: collapse;
   background: white;
   font-size: 0.7rem; /* Fonte um pouco maior para legibilidade */
@@ -395,21 +395,21 @@
 
 /* ===== LARGURAS OTIMIZADAS PARA VALORES CORPORATIVOS ===== */
 .coluna-categoria {
-  width: 220px; /* AUMENTADO para nomes completos */
-  min-width: 220px;
+  width: 150px; /* AUMENTADO para nomes completos */
+  min-width: 150px;
   text-align: left !important;
 }
 
 .coluna-mes {
-  width: 88px; /* OTIMIZADO para valores até 999.999,99 */
-  min-width: 88px;
-  text-align: right !important;
+  width: 50px; /* OTIMIZADO para valores até 999.999,99 */
+  min-width: 50px;
+  text-align: center !important;
 }
 
 .coluna-total {
-  width: 100px; /* OTIMIZADO para totais anuais */
-  min-width: 100px;
-  text-align: right !important;
+  width: 75px; /* OTIMIZADO para totais anuais */
+  min-width: 75px;
+  text-align: center !important;
   background: #f7fafc;
 }
 
@@ -453,7 +453,7 @@
 
 .secao-total {
   padding: 0.5rem 0.375rem;
-  text-align: right;
+  text-align: center;
   font-weight: 600;
   border-right: 1px solid #e2e8f0;
   vertical-align: middle;
@@ -471,7 +471,7 @@
 
 .secao-total-anual {
   padding: 0.5rem 0.375rem;
-  text-align: right;
+  text-align: center;
   font-weight: 700;
   background: #f7fafc;
   font-size: 0.75rem;
@@ -495,37 +495,23 @@
   border-left: 3px solid #f56565;
 }
 
-/* ===== LINHAS DE CATEGORIA ULTRA COMPACTAS ===== */
+/* ===== LINHAS DE CATEGORIA CORRIGIDAS ===== */
 .categoria-row {
   cursor: pointer;
   transition: all 0.2s ease;
   border-bottom: 1px solid #f7fafc;
-  height: 28px; /* ALTURA FIXA ULTRA COMPACTA */
-  min-height: 28px;
-}
-
-.categoria-row:hover {
-  background: rgba(102, 126, 234, 0.04);
-}
-
-.categoria-receita {
-  background: rgba(72, 187, 120, 0.02);
-  border-left: 2px solid #48bb78;
-}
-
-.categoria-despesa {
-  background: rgba(245, 101, 101, 0.02);
-  border-left: 2px solid #f56565;
+  height: 35px; /* AUMENTADO para 35px */
+  min-height: 35px;
 }
 
 .categoria-nome {
-  padding: 0.375rem; /* REDUZIDO */
+  padding: 0.5rem 0.375rem; /* AUMENTADO o padding */
   border-bottom: 1px solid #f7fafc;
   border-right: 1px solid #e2e8f0;
   width: 220px;
   min-width: 220px;
   vertical-align: middle;
-  height: 35px;
+  height: 35px; /* MANTÉM 35px */
 }
 
 .categoria-header {
@@ -533,24 +519,50 @@
   align-items: center;
   gap: 0.375rem;
   height: 100%;
-}
-
-.categoria-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-  flex: 1;
-  min-width: 0;
+  line-height: 1.2; /* ADICIONAR para melhor espaçamento */
 }
 
 .categoria-titulo {
   font-weight: 600;
   font-size: 0.7rem;
-  line-height: 1.1;
+  line-height: 1.2; /* AUMENTADO de 1.1 para 1.2 */
   color: #2d3748;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* TAMBÉM AJUSTAR AS CÉLULAS DE VALOR */
+.valor-cell {
+  padding: 0.5rem 0.375rem; /* AUMENTADO padding */
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 1px solid #f7fafc;
+  border-right: 1px solid #e2e8f0;
+  position: relative;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.7rem;
+  width: 88px;
+  min-width: 88px;
+  vertical-align: middle;
+  transition: all 0.2s ease;
+  height: 35px; /* AUMENTADO para 35px */
+  line-height: 1.2; /* MELHORAR legibilidade */
+}
+
+.total-cell {
+  padding: 0.5rem 0.375rem; /* AUMENTADO padding */
+  text-align: left;
+  font-weight: 700;
+  border-bottom: 1px solid #f7fafc;
+  background: #f7fafc;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.7rem;
+  width: 100px;
+  min-width: 100px;
+  vertical-align: middle;
+  height: 35px; /* AUMENTADO para 35px */
+  line-height: 1.2; /* MELHORAR legibilidade */
 }
 
 .badge-variacao {
@@ -616,7 +628,7 @@
 
 .subcategoria-valor {
   padding: 0.5rem 0.375rem; /* AUMENTADO padding */
-  text-align: right;
+  text-align: left;
   color: #4a5568;
   font-size: 0.65rem;
   border-bottom: 1px solid #f7fafc;
@@ -638,7 +650,7 @@
 
 .subcategoria-total {
   padding: 0.5rem 0.375rem; /* AUMENTADO padding */
-  text-align: right;
+  text-align: left;
   color: #4a5568;
   font-size: 0.65rem;
   font-weight: 500;
@@ -659,7 +671,7 @@
 /* ===== CÉLULAS DE VALOR ULTRA COMPACTAS ===== */
 .valor-cell {
   padding: 0.375rem; /* REDUZIDO */
-  text-align: right;
+  text-align: left !important;
   font-weight: 600;
   border-bottom: 1px solid #f7fafc;
   border-right: 1px solid #e2e8f0;
@@ -1624,4 +1636,47 @@
   .anomalia-indicator {
     animation: none !important;
   }
+}
+/* Adicionar ao final do arquivo DREFinanceiro.css */
+.valor-texto,
+.total-valor,
+.saldo-valor-texto,
+.secao-valor {
+  cursor: help;
+  position: relative;
+}
+
+.valor-texto:hover,
+.total-valor:hover,
+.saldo-valor-texto:hover,
+.secao-valor:hover {
+  text-decoration: underline;
+}
+
+/* Tooltip customizado (opcional) */
+.valor-tooltip {
+  position: relative;
+  cursor: help;
+}
+
+.valor-tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #2d3748;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.625rem;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  z-index: 1000;
+}
+
+.valor-tooltip:hover::after {
+  opacity: 1;
 }
