@@ -39,7 +39,7 @@ const useContas = () => {
 
       // ✅ Buscar contas ativas (saldos já calculados pelos triggers)
       const { data: contasAtivas, error: erroAtivas } = await supabase
-        .rpc('obter_saldos_por_conta', {
+        .rpc('ip_prod_obter_saldos_por_conta', {
           p_usuario_id: user.id,
           p_incluir_inativas: false
         });
@@ -53,7 +53,7 @@ const useContas = () => {
       let contasArquiv = [];
       if (incluirArquivadas) {
         const { data: todasContas, error: erroTodasContas } = await supabase
-          .rpc('obter_saldos_por_conta', {
+          .rpc('ip_prod_obter_saldos_por_conta', {
             p_usuario_id: user.id,
             p_incluir_inativas: true
           });
@@ -313,7 +313,7 @@ const corrigirSaldoConta = useCallback(async (contaId, novoSaldo, metodo = 'ajus
       // Calcula qual deveria ser o saldo inicial para resultar no saldo desejado
       
       // 1. Buscar soma de todas as transações efetivadas da conta
-      const { data: somaTransacoes, error: erroSoma } = await supabase.rpc('calcular_soma_transacoes_conta', {
+      const { data: somaTransacoes, error: erroSoma } = await supabase.rpc('ip_prod_calcular_soma_transacoes_conta', {
         p_conta_id: contaId,
         p_usuario_id: user.id
       });
@@ -446,7 +446,7 @@ const corrigirSaldoConta = useCallback(async (contaId, novoSaldo, metodo = 'ajus
 
     try {
       const { data, error } = await supabase
-        .rpc('validar_consistencia_saldos', { p_usuario_id: user.id });
+        .rpc('ip_prod_validar_consistencia_saldos', { p_usuario_id: user.id });
 
       if (error) {
         console.error('Erro ao validar consistência:', error);
@@ -483,7 +483,7 @@ const corrigirSaldoConta = useCallback(async (contaId, novoSaldo, metodo = 'ajus
       console.log('🔄 Recalculando saldos via SQL...');
 
       const { data, error } = await supabase
-        .rpc('recalcular_saldos_usuario', { p_usuario_id: user.id });
+        .rpc('ip_prod_recalcular_saldos_usuario', { p_usuario_id: user.id });
 
       if (error) {
         console.error('Erro ao recalcular saldos:', error);

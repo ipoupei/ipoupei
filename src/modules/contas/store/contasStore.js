@@ -77,10 +77,10 @@ const useContasStore = create(
         console.log(`🔍 [${currentFetchCount}] incluirArquivadas: ${incluirArquivadas} | forceRefresh: ${forceRefresh}`);
 
         // ✅ PASSO 1: Buscar contas ativas via RPC
-        console.log(`🔄 [${currentFetchCount}] Executando RPC obter_saldos_por_conta (ativas)...`);
+        console.log(`🔄 [${currentFetchCount}] Executando RPC ip_prod_obter_saldos_por_conta (ativas)...`);
         
         const { data: contasAtivas, error: erroAtivas } = await supabase
-          .rpc('obter_saldos_por_conta', {
+          .rpc('ip_prod_obter_saldos_por_conta', {
             p_usuario_id: user.id,
             p_incluir_inativas: false
           });
@@ -108,10 +108,10 @@ const useContasStore = create(
         // ✅ PASSO 2: Buscar contas inativas se necessário
         let contasInativas = [];
         if (incluirArquivadas) {
-          console.log(`🔄 [${currentFetchCount}] Executando RPC obter_saldos_por_conta (todas)...`);
+          console.log(`🔄 [${currentFetchCount}] Executando RPC ip_prod_obter_saldos_por_conta (todas)...`);
           
           const { data: todasContas, error: erroTodas } = await supabase
-            .rpc('obter_saldos_por_conta', {
+            .rpc('ip_prod_obter_saldos_por_conta', {
               p_usuario_id: user.id,
               p_incluir_inativas: true
             });

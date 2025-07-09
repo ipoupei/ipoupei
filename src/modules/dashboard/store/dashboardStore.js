@@ -267,7 +267,7 @@ buscarDadosCartoesReais: async (usuarioId, periodo) => {
     // 📡 ETAPA 2: Buscar transações do período (GASTO DO MÊS)
     // ============================
     const { data: transacoesPeriodo, error: transacoesPeriodoError } = await supabase
-      .rpc('ip_buscar_transacoes_periodo', {
+      .rpc('ip_prod_buscar_transacoes_periodo', {
         p_usuario_id: usuarioId,
         p_data_inicio: periodo.inicio,
         p_data_fim: periodo.fim

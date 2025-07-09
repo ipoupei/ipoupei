@@ -144,7 +144,7 @@ export const useTransactionsStore = create(
             fim: filtros.dataFim || format(filtros.periodo.fim, 'yyyy-MM-dd')
           };
 
-          const { data, error } = await supabase.rpc('ip_buscar_transacoes_periodo', {
+          const { data, error } = await supabase.rpc('ip_prod_buscar_transacoes_periodo', {
             p_usuario_id: userId,
             p_data_inicio: periodoEfetivo.inicio,
             p_data_fim: periodoEfetivo.fim
@@ -183,7 +183,7 @@ export const useTransactionsStore = create(
           return transacoesFinais;
 
         } catch (rpcError) {
-          console.warn('⚠️ RPC ip_buscar_transacoes_periodo falhou, usando query manual como fallback:', rpcError);
+          console.warn('⚠️ RPC ip_prod_buscar_transacoes_periodo falhou, usando query manual como fallback:', rpcError);
           return await get().fetchTransacoesManual();
         }
 
@@ -452,7 +452,7 @@ export const useTransactionsStore = create(
         }
 
         // Chamar RPC
-        const { data, error } = await supabase.rpc('ip_atualizar_efetivacao_transacao', {
+        const { data, error } = await supabase.rpc('ip_prod_atualizar_efetivacao_transacao', {
           p_transacao_id: transacaoId,
           p_usuario_id: userData.user.id,
           p_efetivado: novoStatus

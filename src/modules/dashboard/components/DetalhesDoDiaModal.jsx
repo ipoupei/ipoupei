@@ -66,11 +66,11 @@ const DetalhesDoDiaModal = ({ isOpen, onClose, dia }) => {
 
       // ✅ Chamadas paralelas das funções RPC para máxima performance
       const [detalhesResult, resumoResult] = await Promise.all([
-        supabase.rpc('gpt_detalhes_do_dia', {
+        supabase.rpc('ip_prod_detalhes_do_dia', {
           p_usuario_id: user.id,
           p_data_especifica: dataFormatada
         }),
-        supabase.rpc('gpt_resumo_do_dia', {
+        supabase.rpc('ip_prod_resumo_do_dia', {
           p_usuario_id: user.id,
           p_data_especifica: dataFormatada
         })
@@ -78,12 +78,12 @@ const DetalhesDoDiaModal = ({ isOpen, onClose, dia }) => {
 
       // ✅ Verificar erros nas funções RPC
       if (detalhesResult.error) {
-        console.error('❌ Erro na função gpt_detalhes_do_dia:', detalhesResult.error);
+        console.error('❌ Erro na função ip_prod_detalhes_do_dia:', detalhesResult.error);
         throw new Error(`Erro ao buscar detalhes: ${detalhesResult.error.message}`);
       }
 
       if (resumoResult.error) {
-        console.error('❌ Erro na função gpt_resumo_do_dia:', resumoResult.error);
+        console.error('❌ Erro na função ip_prod_resumo_do_dia:', resumoResult.error);
         throw new Error(`Erro ao buscar resumo: ${resumoResult.error.message}`);
       }
 
@@ -172,7 +172,7 @@ const DetalhesDoDiaModal = ({ isOpen, onClose, dia }) => {
       console.log('🔍 Executando diagnóstico das funções RPC...');
       
       // Primeiro, teste simples de conectividade
-      const { data: testSimple, error: simpleError } = await supabase.rpc('gpt_test_simple');
+      const { data: testSimple, error: simpleError } = await supabase.rpc('ip_prod_gpt_test_simple');
       
       if (simpleError) {
         console.error('❌ Erro no teste simples:', simpleError);
@@ -183,7 +183,7 @@ const DetalhesDoDiaModal = ({ isOpen, onClose, dia }) => {
       }
 
       // Teste completo de diagnóstico
-      const { data: testResult, error: testError } = await supabase.rpc('gpt_test_functions', {
+      const { data: testResult, error: testError } = await supabase.rpc('ip_prod_test_functions', {
         p_usuario_id: user.id
       });
       

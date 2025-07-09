@@ -193,7 +193,7 @@ console.log('🔍 [TESTE]:', {
     
     const { default: supabase } = await import('@lib/supabaseClient');
     
-    const { data, error } = await supabase.rpc('ip_buscar_transacoes_periodo', {
+    const { data, error } = await supabase.rpc('ip_prod_buscar_transacoes_periodo', {
       p_usuario_id: user.id,
       p_data_inicio: periodoEfetivo.inicio,
       p_data_fim: periodoEfetivo.fim
