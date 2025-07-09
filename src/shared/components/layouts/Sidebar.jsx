@@ -208,14 +208,13 @@ const Sidebar = ({
           comingSoon: false,
           variant: 'despesa'
         },
-
         {
           id: 'relatorios',
           label: 'Relatórios',
           icon: BarChart3,
-          path: null,
+          path: '/relatorios/dre',  // ← DIRETO PRO DRE
           modalType: null,
-          comingSoon: true,
+          comingSoon: false,        // ← ATIVAR
           variant: null
         },
         {

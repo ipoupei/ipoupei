@@ -1,0 +1,1627 @@
+/* =====================================================
+   DRE FINANCEIRO - ULTRA COMPACTO (ESTILO CORPORATIVO)
+   ===================================================== */
+
+/* ===== RESET E BASE ===== */
+.dre-financeiro {
+  width: 100%;
+  max-width: 100%;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  min-height: 100vh;
+  font-family: 'Inter', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.75rem;
+  line-height: 1.2; /* Reduzido para compactar */
+  color: #1a202c;
+}
+
+/* ===== HEADER COMPACTO ===== */
+.dre-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  gap: 1rem;
+}
+
+.dre-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.title-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+  color: white;
+  flex-shrink: 0;
+}
+
+.title-content h1 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1a202c;
+  margin: 0 0 0.125rem 0;
+  letter-spacing: -0.025em;
+}
+
+.title-subtitle {
+  font-size: 0.75rem;
+  color: #718096;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.badge-nao-efetivadas {
+  padding: 0.125rem 0.375rem;
+  background: #fed7d7;
+  color: #c53030;
+  border-radius: 4px;
+  font-size: 0.625rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ===== CONTROLES COMPACTOS ===== */
+.dre-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.modern-select,
+.toggle-button,
+.dre-controls .btn,
+.dre-controls button {
+  height: 32px;
+  padding: 0 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: white;
+  color: #4a5568;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-width: fit-content;
+  box-sizing: border-box;
+}
+
+.modern-select {
+  min-width: 70px;
+  padding-right: 1.5rem;
+}
+
+.toggle-button {
+  min-width: 90px;
+}
+
+.dre-controls .btn {
+  min-width: 80px;
+}
+
+.modern-select:focus,
+.toggle-button:focus,
+.dre-controls button:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+.toggle-button:hover,
+.dre-controls button:hover {
+  border-color: #cbd5e0;
+  background: #f7fafc;
+}
+
+.toggle-button.active {
+  border-color: #667eea;
+  background: #667eea;
+  color: white;
+}
+
+/* ===== CARDS DE RESUMO COMPACTOS ===== */
+.dre-resumo {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.resumo-card {
+  padding: 1rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.resumo-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+}
+
+.resumo-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.1);
+}
+
+.resumo-receitas::before {
+  background: linear-gradient(90deg, #48bb78 0%, #38a169 100%);
+}
+
+.resumo-despesas::before {
+  background: linear-gradient(90deg, #f56565 0%, #e53e3e 100%);
+}
+
+.resumo-saldo.positivo::before {
+  background: linear-gradient(90deg, #4299e1 0%, #3182ce 100%);
+}
+
+.resumo-saldo.negativo::before {
+  background: linear-gradient(90deg, #ed8936 0%, #dd6b20 100%);
+}
+
+.resumo-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  height: 100%;
+}
+
+.resumo-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.resumo-receitas .resumo-icon {
+  background: rgba(72, 187, 120, 0.1);
+  color: #38a169;
+}
+
+.resumo-despesas .resumo-icon {
+  background: rgba(245, 101, 101, 0.1);
+  color: #e53e3e;
+}
+
+.resumo-saldo .resumo-icon {
+  background: rgba(66, 153, 225, 0.1);
+  color: #3182ce;
+}
+
+.resumo-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.resumo-label {
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #718096;
+  margin: 0 0 0.25rem 0;
+}
+
+.resumo-valor {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0 0 0.125rem 0;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.resumo-meta {
+  font-size: 0.625rem;
+  color: #718096;
+  margin: 0;
+  font-weight: 500;
+}
+
+/* ===== LEGENDA COMPACTA ===== */
+.dre-legenda {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.legenda-header {
+  margin-bottom: 1rem;
+}
+
+.legenda-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.legenda-title h3 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin: 0;
+}
+
+.legenda-content {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.legenda-secao h4 {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+  color: #2d3748;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.legenda-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.legenda-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+  color: #4a5568;
+  line-height: 1.3;
+}
+
+.cor-exemplo {
+  width: 1rem;
+  height: 0.75rem;
+  border-radius: 3px;
+  border: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.legenda-indicadores {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.indicador-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+  color: #4a5568;
+}
+
+/* ===== TABELA ULTRA COMPACTA (ESTILO CORPORATIVO) ===== */
+.dre-tabela-card {
+  margin-bottom: 1rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  overflow: hidden;
+}
+
+.dre-tabela-container {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 70vh;
+}
+
+.dre-tabela {
+  width: 100%;
+  min-width: 1200px; /* AUMENTADO para caber valores */
+  border-collapse: collapse;
+  background: white;
+  font-size: 0.7rem; /* Fonte um pouco maior para legibilidade */
+  table-layout: fixed;
+  line-height: 1; /* ULTRA COMPACTO */
+}
+
+.tabela-header {
+  background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.tabela-header th {
+  padding: 0.5rem 0.375rem; /* REDUZIDO */
+  text-align: left;
+  font-weight: 600;
+  color: #2d3748;
+  font-size: 0.65rem;
+  border-right: 1px solid #e2e8f0;
+  line-height: 1.1;
+  vertical-align: middle;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  height: 28px; /* ALTURA FIXA ULTRA COMPACTA */
+}
+
+/* ===== LARGURAS OTIMIZADAS PARA VALORES CORPORATIVOS ===== */
+.coluna-categoria {
+  width: 220px; /* AUMENTADO para nomes completos */
+  min-width: 220px;
+  text-align: left !important;
+}
+
+.coluna-mes {
+  width: 88px; /* OTIMIZADO para valores até 999.999,99 */
+  min-width: 88px;
+  text-align: right !important;
+}
+
+.coluna-total {
+  width: 100px; /* OTIMIZADO para totais anuais */
+  min-width: 100px;
+  text-align: right !important;
+  background: #f7fafc;
+}
+
+/* ===== SEÇÕES HEADER ULTRA COMPACTAS ===== */
+.secao-header {
+  background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+  border-bottom: 1px solid #e2e8f0;
+  font-weight: 600;
+  height: 32px; /* ALTURA FIXA COMPACTA */
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.secao-header:hover {
+  background: linear-gradient(135deg, #edf2f7 0%, #e2e8f0 100%);
+}
+
+.secao-header-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.375rem;
+  height: 100%;
+}
+
+.categoria-count {
+  font-size: 0.6rem;
+  color: #718096;
+  font-weight: 400;
+  background: rgba(113, 128, 150, 0.1);
+  padding: 0.125rem 0.375rem;
+  border-radius: 3px;
+}
+
+.secao-titulo {
+  padding: 0;
+  border-right: 1px solid #e2e8f0;
+  width: 220px;
+  min-width: 220px;
+}
+
+.secao-total {
+  padding: 0.5rem 0.375rem;
+  text-align: right;
+  font-weight: 600;
+  border-right: 1px solid #e2e8f0;
+  vertical-align: middle;
+  width: 88px;
+  min-width: 88px;
+  height: 32px;
+}
+
+.secao-valor {
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap; /* EVITA QUEBRA DE LINHA */
+}
+
+.secao-total-anual {
+  padding: 0.5rem 0.375rem;
+  text-align: right;
+  font-weight: 700;
+  background: #f7fafc;
+  font-size: 0.75rem;
+  vertical-align: middle;
+  width: 100px;
+  min-width: 100px;
+  height: 32px;
+}
+
+.secao-total-valor {
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap; /* EVITA QUEBRA DE LINHA */
+}
+
+.receitas-header {
+  border-left: 3px solid #48bb78;
+}
+
+.despesas-header {
+  border-left: 3px solid #f56565;
+}
+
+/* ===== LINHAS DE CATEGORIA ULTRA COMPACTAS ===== */
+.categoria-row {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid #f7fafc;
+  height: 28px; /* ALTURA FIXA ULTRA COMPACTA */
+  min-height: 28px;
+}
+
+.categoria-row:hover {
+  background: rgba(102, 126, 234, 0.04);
+}
+
+.categoria-receita {
+  background: rgba(72, 187, 120, 0.02);
+  border-left: 2px solid #48bb78;
+}
+
+.categoria-despesa {
+  background: rgba(245, 101, 101, 0.02);
+  border-left: 2px solid #f56565;
+}
+
+.categoria-nome {
+  padding: 0.375rem; /* REDUZIDO */
+  border-bottom: 1px solid #f7fafc;
+  border-right: 1px solid #e2e8f0;
+  width: 220px;
+  min-width: 220px;
+  vertical-align: middle;
+  height: 35px;
+}
+
+.categoria-header {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 100%;
+}
+
+.categoria-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.categoria-titulo {
+  font-weight: 600;
+  font-size: 0.7rem;
+  line-height: 1.1;
+  color: #2d3748;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badge-variacao {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.0625rem 0.25rem;
+  background: #fed7d7;
+  color: #c53030;
+  border-radius: 3px;
+  font-size: 0.5625rem;
+  font-weight: 500;
+  width: fit-content;
+  align-self: flex-start;
+}
+
+/* ===== SUBCATEGORIAS ULTRA COMPACTAS ===== */
+.subcategoria-row {
+  background: rgba(0, 0, 0, 0.01);
+  border-bottom: 1px solid #f7fafc;
+  height: 30px; /* AUMENTADO de 24px para 30px */
+  min-height: 30px;
+  transition: all 0.2s ease;
+}
+
+.subcategoria-row:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.subcategoria-nome {
+  padding: 0.5rem 0.375rem; /* AUMENTADO padding */
+  border-bottom: 1px solid #f7fafc;
+  border-right: 1px solid #e2e8f0;
+  width: 220px;
+  min-width: 220px;
+  vertical-align: middle;
+  height: 30px; /* AUMENTADO de 24px para 30px */
+}
+
+.subcategoria-header {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-left: 1rem;
+  height: 100%;
+  line-height: 1.2; /* ADICIONAR para melhor espaçamento */
+}
+
+.subcategoria-bullet {
+  color: #a0aec0;
+  font-weight: bold;
+  font-size: 0.75rem;
+}
+
+.subcategoria-texto {
+  color: #4a5568;
+  font-size: 0.65rem;
+  line-height: 1.2; /* AUMENTADO de 1.1 para 1.2 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.subcategoria-valor {
+  padding: 0.5rem 0.375rem; /* AUMENTADO padding */
+  text-align: right;
+  color: #4a5568;
+  font-size: 0.65rem;
+  border-bottom: 1px solid #f7fafc;
+  border-right: 1px solid #e2e8f0;
+  font-variant-numeric: tabular-nums;
+  width: 88px;
+  min-width: 88px;
+  vertical-align: middle;
+  height: 30px; /* AUMENTADO de 24px para 30px */
+  line-height: 1.2; /* MELHORAR legibilidade */
+  white-space: nowrap;
+}
+
+
+.subcategoria-valor-texto {
+  font-size: 0.65rem;
+  line-height: 1;
+}
+
+.subcategoria-total {
+  padding: 0.5rem 0.375rem; /* AUMENTADO padding */
+  text-align: right;
+  color: #4a5568;
+  font-size: 0.65rem;
+  font-weight: 500;
+  border-bottom: 1px solid #f7fafc;
+  font-variant-numeric: tabular-nums;
+  width: 100px;
+  min-width: 100px;
+  vertical-align: middle;
+  height: 30px; /* AUMENTADO de 24px para 30px */
+  line-height: 1.2; /* MELHORAR legibilidade */
+  white-space: nowrap;
+}
+.subcategoria-total-texto {
+  font-size: 0.65rem;
+  line-height: 1;
+}
+
+/* ===== CÉLULAS DE VALOR ULTRA COMPACTAS ===== */
+.valor-cell {
+  padding: 0.375rem; /* REDUZIDO */
+  text-align: right;
+  font-weight: 600;
+  border-bottom: 1px solid #f7fafc;
+  border-right: 1px solid #e2e8f0;
+  position: relative;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.7rem;
+  width: 88px;
+  min-width: 88px;
+  vertical-align: middle;
+  transition: all 0.2s ease;
+  height: 28px;
+  line-height: 1;
+}
+
+.valor-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  position: relative;
+  height: 100%;
+}
+
+.valor-texto {
+  font-size: 0.7rem;
+  line-height: 1;
+  white-space: nowrap; /* EVITA QUEBRA DE LINHA */
+}
+
+.total-cell {
+  padding: 0.375rem;
+  text-align: right;
+  font-weight: 700;
+  border-bottom: 1px solid #f7fafc;
+  background: #f7fafc;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.7rem;
+  width: 100px;
+  min-width: 100px;
+  vertical-align: middle;
+  height: 28px;
+  line-height: 1;
+}
+
+.total-valor {
+  font-size: 0.7rem;
+  line-height: 1;
+  white-space: nowrap; /* EVITA QUEBRA DE LINHA */
+}
+
+/* ===== MAPAS DE CALOR SUAVES ===== */
+.heatmap-green-high {
+  background: linear-gradient(135deg, rgba(72, 187, 120, 0.12) 0%, rgba(56, 161, 105, 0.08) 100%);
+  border-left: 2px solid #48bb78;
+  color: #1a202c;
+}
+
+.heatmap-green-medium {
+  background: linear-gradient(135deg, rgba(72, 187, 120, 0.08) 0%, rgba(56, 161, 105, 0.06) 100%);
+  border-left: 2px solid #68d391;
+  color: #1a202c;
+}
+
+.heatmap-green-low {
+  background: linear-gradient(135deg, rgba(72, 187, 120, 0.06) 0%, rgba(56, 161, 105, 0.04) 100%);
+  border-left: 2px solid #9ae6b4;
+  color: #1a202c;
+}
+
+.heatmap-red-high {
+  background: linear-gradient(135deg, rgba(245, 101, 101, 0.12) 0%, rgba(229, 62, 62, 0.08) 100%);
+  border-left: 2px solid #f56565;
+  color: #1a202c;
+}
+
+.heatmap-red-medium {
+  background: linear-gradient(135deg, rgba(245, 101, 101, 0.08) 0%, rgba(229, 62, 62, 0.06) 100%);
+  border-left: 2px solid #fc8181;
+  color: #1a202c;
+}
+
+.heatmap-red-low {
+  background: linear-gradient(135deg, rgba(245, 101, 101, 0.06) 0%, rgba(229, 62, 62, 0.04) 100%);
+  border-left: 2px solid #feb2b2;
+  color: #1a202c;
+}
+
+.heatmap-neutral {
+  background: white;
+  border-left: 2px solid transparent;
+  color: #1a202c;
+}
+
+/* ===== SALDO LÍQUIDO COMPACTO ===== */
+.saldo-liquido-row {
+  background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+  border-top: 2px solid #4299e1;
+  border-bottom: 1px solid #2d3748;
+  font-weight: 700;
+  height: 36px; /* ALTURA FIXA */
+  min-height: 36px;
+  color: white;
+}
+
+.saldo-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.375rem;
+  color: white;
+  height: 100%;
+}
+
+.saldo-titulo {
+  padding: 0;
+  border-right: 1px solid #4a5568;
+  width: 220px;
+  min-width: 220px;
+}
+
+.saldo-cell {
+  padding: 0.5rem 0.375rem;
+  text-align: right;
+  font-weight: 700;
+  position: relative;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.7rem;
+  width: 88px;
+  min-width: 88px;
+  border-right: 1px solid #4a5568;
+  vertical-align: middle;
+  height: 36px;
+  line-height: 1;
+}
+
+.saldo-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  height: 100%;
+}
+
+.saldo-valor-texto {
+  color: white;
+  font-size: 0.7rem;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+}
+
+.saldo-emoji {
+  font-size: 0.625rem;
+}
+
+.saldo-total {
+  padding: 0.5rem 0.375rem;
+  text-align: right;
+  font-weight: 700;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  width: 100px;
+  min-width: 100px;
+  vertical-align: middle;
+  height: 36px;
+  line-height: 1;
+}
+
+.saldo-total-valor {
+  font-size: 0.75rem;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+}
+
+.saldo-total.positivo {
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  color: white;
+}
+
+.saldo-total.negativo {
+  background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+  color: white;
+}
+
+/* ===== INDICADORES COMPACTOS ===== */
+.dre-indicadores {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.indicador-card {
+  padding: 1rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+}
+
+.indicador-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+}
+
+.indicador-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.1);
+}
+
+.indicador-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.indicador-header h3 {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin: 0;
+}
+
+.indicador-content {
+  text-align: center;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.indicador-valor {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0 0 0.375rem 0;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.indicador-valor.positivo {
+  color: #38a169;
+}
+
+.indicador-valor.negativo {
+  color: #e53e3e;
+}
+
+.indicador-titulo {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin: 0 0 0.125rem 0;
+  color: #2d3748;
+  word-break: break-word;
+}
+
+.indicador-subtitulo {
+  font-size: 0.625rem;
+  color: #718096;
+  margin: 0 0 0.375rem 0;
+  font-variant-numeric: tabular-nums;
+  word-break: break-word;
+}
+
+.indicador-meta {
+  font-size: 0.625rem;
+  color: #4a5568;
+  margin: 0;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.indicador-barra {
+  width: 100%;
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 0.375rem 0;
+}
+
+.indicador-progresso {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  transition: width 0.3s ease;
+}
+
+/* ===== INSIGHTS COMPACTOS ===== */
+.dre-insights {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.insights-header {
+  margin-bottom: 1rem;
+}
+
+.insights-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.insights-title h3 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin: 0;
+}
+
+.insights-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.insight-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: #f7fafc;
+  border-radius: 8px;
+  border-left: 3px solid #e2e8f0;
+  min-height: 48px;
+}
+
+.insight-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.insight-icon.success {
+  background: rgba(72, 187, 120, 0.1);
+  color: #38a169;
+}
+
+.insight-item:has(.insight-icon.success) {
+  border-left-color: #38a169;
+}
+
+.insight-icon.warning {
+  background: rgba(237, 137, 54, 0.1);
+  color: #dd6b20;
+}
+
+.insight-item:has(.insight-icon.warning) {
+  border-left-color: #dd6b20;
+}
+
+.insight-icon.info {
+  background: rgba(66, 153, 225, 0.1);
+  color: #3182ce;
+}
+
+.insight-item:has(.insight-icon.info) {
+  border-left-color: #3182ce;
+}
+
+.insight-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.insight-titulo {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin: 0 0 0.25rem 0;
+  line-height: 1.3;
+}
+
+.insight-descricao {
+  font-size: 0.6875rem;
+  color: #4a5568;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ===== ANOMALIAS COMPACTAS ===== */
+.anomalia-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  background: linear-gradient(135deg, #fbd38d 0%, #f6ad55 100%);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+  color: #c05621;
+  flex-shrink: 0;
+}
+
+@keyframes pulse {
+  0%, 100% { 
+    opacity: 1; 
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.7; 
+    transform: scale(1.05);
+  }
+}
+
+/* ===== CORES UTILITÁRIAS ===== */
+.text-success { color: #38a169 !important; }
+.text-danger { color: #e53e3e !important; }
+.text-primary { color: #667eea !important; }
+.text-muted { color: #718096 !important; }
+.text-dark { color: #2d3748 !important; }
+
+/* ===== SCROLLBAR COMPACTA ===== */
+.dre-tabela-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dre-tabela-container::-webkit-scrollbar-track {
+  background: #f7fafc;
+  border-radius: 4px;
+}
+
+.dre-tabela-container::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #cbd5e0 0%, #a0aec0 100%);
+  border-radius: 4px;
+  border: 1px solid #f7fafc;
+}
+
+.dre-tabela-container::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #a0aec0 0%, #718096 100%);
+}
+
+.dre-tabela-container::-webkit-scrollbar-corner {
+  background: #f7fafc;
+}
+
+/* ===== ESTADOS COMPACTOS ===== */
+.dre-loading,
+.dre-error,
+.dre-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  min-height: 200px;
+}
+
+.dre-loading p,
+.dre-error p,
+.dre-empty p {
+  color: #718096;
+  margin: 0.75rem 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.dre-error h3,
+.dre-empty h3 {
+  color: #2d3748;
+  margin: 0.75rem 0 0.375rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* ===== RESPONSIVIDADE ULTRA COMPACTA ===== */
+@media (max-width: 1400px) {
+  .dre-indicadores {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .dre-tabela {
+    min-width: 1100px;
+  }
+  
+  .coluna-categoria {
+    width: 200px;
+    min-width: 200px;
+  }
+  
+  .coluna-mes {
+    width: 80px;
+    min-width: 80px;
+  }
+  
+  .coluna-total {
+    width: 90px;
+    min-width: 90px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .dre-financeiro {
+    padding: 0.75rem;
+  }
+  
+  .dre-header {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: stretch;
+  }
+  
+  .dre-controls {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  
+  .dre-resumo {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  
+  .resumo-card {
+    min-height: 70px;
+  }
+  
+  .dre-tabela {
+    font-size: 0.65rem;
+    min-width: 1000px;
+  }
+  
+  .coluna-categoria {
+    width: 180px;
+    min-width: 180px;
+  }
+  
+  .coluna-mes {
+    width: 75px;
+    min-width: 75px;
+  }
+  
+  .coluna-total {
+    width: 85px;
+    min-width: 85px;
+  }
+}
+
+@media (max-width: 768px) {
+  .dre-financeiro {
+    padding: 0.5rem;
+  }
+  
+  .dre-header {
+    padding: 0.75rem;
+  }
+  
+  .title-content h1 {
+    font-size: 1rem;
+  }
+  
+  .title-subtitle {
+    font-size: 0.6875rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.125rem;
+  }
+  
+  .dre-controls {
+    gap: 0.375rem;
+  }
+  
+  .modern-select,
+  .toggle-button,
+  .dre-controls button {
+    height: 28px;
+    font-size: 0.6875rem;
+    padding: 0 0.5rem;
+  }
+  
+  .toggle-button {
+    min-width: 80px;
+  }
+  
+  .dre-controls .btn {
+    min-width: 70px;
+  }
+  
+  .resumo-card {
+    padding: 0.75rem;
+    min-height: 60px;
+  }
+  
+  .resumo-valor {
+    font-size: 1rem;
+  }
+  
+  .resumo-icon {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .dre-legenda,
+  .dre-insights {
+    padding: 0.75rem;
+  }
+  
+  .dre-tabela {
+    font-size: 0.6rem;
+    min-width: 900px;
+  }
+  
+  .coluna-categoria {
+    width: 160px;
+    min-width: 160px;
+  }
+  
+  .coluna-mes {
+    width: 70px;
+    min-width: 70px;
+  }
+  
+  .coluna-total {
+    width: 80px;
+    min-width: 80px;
+  }
+  
+  .categoria-row {
+    height: 26px;
+    min-height: 26px;
+  }
+  
+  .subcategoria-row {
+    height: 22px;
+    min-height: 22px;
+  }
+  
+  .saldo-liquido-row {
+    height: 32px;
+    min-height: 32px;
+  }
+  
+  .dre-indicadores {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  
+  .indicador-card {
+    padding: 0.75rem;
+    min-height: 80px;
+  }
+  
+  .indicador-valor {
+    font-size: 0.875rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .dre-financeiro {
+    padding: 0.375rem;
+  }
+  
+  .dre-header {
+    padding: 0.5rem;
+  }
+  
+  .title-icon {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .title-content h1 {
+    font-size: 0.875rem;
+  }
+  
+  .title-subtitle {
+    font-size: 0.625rem;
+  }
+  
+  .dre-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.375rem;
+  }
+  
+  .modern-select,
+  .toggle-button,
+  .dre-controls button {
+    height: 32px;
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .resumo-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.5rem;
+  }
+  
+  .resumo-icon {
+    margin: 0 auto;
+    width: 24px;
+    height: 24px;
+  }
+  
+  .resumo-valor {
+    font-size: 0.875rem;
+  }
+  
+  .dre-tabela {
+    font-size: 0.55rem;
+    min-width: 800px;
+  }
+  
+  .coluna-categoria {
+    width: 140px;
+    min-width: 140px;
+  }
+  
+  .coluna-mes {
+    width: 60px;
+    min-width: 60px;
+  }
+  
+  .coluna-total {
+    width: 70px;
+    min-width: 70px;
+  }
+  
+  .categoria-row {
+    height: 24px;
+    min-height: 24px;
+  }
+  
+  .subcategoria-row {
+    height: 20px;
+    min-height: 20px;
+  }
+  
+  .saldo-liquido-row {
+    height: 28px;
+    min-height: 28px;
+  }
+  
+  .tabela-header th {
+    padding: 0.375rem 0.25rem;
+    font-size: 0.6rem;
+    height: 24px;
+  }
+  
+  .dre-indicadores {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  
+  .indicador-card {
+    min-height: 70px;
+  }
+  
+  .insight-item {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.5rem;
+  }
+  
+  .insight-icon {
+    margin: 0 auto;
+  }
+}
+
+/* ===== VALORES ABREVIADOS PARA TELAS PEQUENAS ===== */
+.valor-abreviado {
+  font-size: 0.625rem;
+  color: #718096;
+  display: none;
+}
+
+@media (max-width: 360px) {
+  .valor-texto {
+    display: none;
+  }
+  
+  .valor-abreviado {
+    display: inline;
+  }
+  
+  .dre-tabela {
+    min-width: 700px;
+  }
+  
+  .coluna-categoria {
+    width: 120px;
+    min-width: 120px;
+  }
+  
+  .coluna-mes {
+    width: 50px;
+    min-width: 50px;
+  }
+  
+  .coluna-total {
+    width: 60px;
+    min-width: 60px;
+  }
+}
+
+/* ===== IMPRESSÃO ULTRA COMPACTA ===== */
+@media print {
+  .dre-financeiro {
+    background: white !important;
+    padding: 0.5rem;
+    font-size: 0.6rem;
+    color: black !important;
+    line-height: 1;
+  }
+  
+  .dre-controls,
+  .dre-legenda,
+  .dre-insights {
+    display: none !important;
+  }
+  
+  .dre-header {
+    box-shadow: none !important;
+    border: 1px solid #000;
+    margin-bottom: 0.5rem;
+    background: white !important;
+    padding: 0.5rem;
+  }
+  
+  .title-content h1 {
+    font-size: 1rem;
+  }
+  
+  .dre-resumo {
+    margin-bottom: 0.5rem;
+  }
+  
+  .resumo-card {
+    box-shadow: none !important;
+    border: 1px solid #000;
+    background: white !important;
+    padding: 0.5rem;
+    min-height: 50px;
+  }
+  
+  .dre-tabela-card {
+    box-shadow: none !important;
+    border: 1px solid #000;
+    background: white !important;
+  }
+  
+  .dre-tabela {
+    font-size: 0.55rem;
+    background: white !important;
+    line-height: 1;
+  }
+  
+  .categoria-row,
+  .subcategoria-row {
+    height: auto !important;
+    min-height: 18px !important;
+  }
+  
+  .saldo-liquido-row {
+    height: auto !important;
+    min-height: 24px !important;
+  }
+  
+  .anomalia-indicator,
+  .badge-variacao {
+    display: none !important;
+  }
+  
+  .saldo-emoji {
+    display: none !important;
+  }
+  
+  .saldo-liquido-row {
+    background: #f0f0f0 !important;
+    color: black !important;
+  }
+  
+  .saldo-valor-texto,
+  .saldo-total-valor {
+    color: black !important;
+    text-shadow: none !important;
+  }
+  
+  .dre-indicadores {
+    page-break-before: always;
+  }
+  
+  .resumo-card,
+  .indicador-card,
+  .categoria-row {
+    page-break-inside: avoid;
+  }
+}
+
+/* ===== ACESSIBILIDADE ===== */
+.toggle-button:focus,
+.modern-select:focus,
+.dre-controls button:focus {
+  outline: 2px solid #667eea;
+  outline-offset: 1px;
+}
+
+.categoria-row:focus,
+.secao-header:focus {
+  outline: 2px solid #667eea;
+  outline-offset: -1px;
+}
+
+@media (prefers-contrast: high) {
+  .heatmap-green-high,
+  .heatmap-green-medium,
+  .heatmap-green-low {
+    background: rgba(72, 187, 120, 0.25) !important;
+    color: #000 !important;
+  }
+  
+  .heatmap-red-high,
+  .heatmap-red-medium,
+  .heatmap-red-low {
+    background: rgba(245, 101, 101, 0.25) !important;
+    color: #000 !important;
+  }
+  
+  .saldo-valor-texto,
+  .saldo-total-valor {
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .anomalia-indicator {
+    animation: none !important;
+  }
+}

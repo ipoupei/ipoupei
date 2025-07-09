@@ -31,7 +31,10 @@ const ReceitasModalEdit = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   const { user } = useAuthStore();
   const { showNotification } = useUIStore();
   const { updateGrupoValor, isParceladaOuRecorrente } = useTransactions();
-  
+  const [dadosOriginais, setDadosOriginais] = useState({
+  categoria: '',
+  subcategoria: ''
+});
   const valorInputRef = useRef(null);
 
   // Validação obrigatória
@@ -307,98 +310,143 @@ const ReceitasModalEdit = ({ isOpen, onClose, onSave, transacaoEditando }) => {
 
   // ===== PREENCHER FORMULÁRIO PARA EDIÇÃO =====
   const preencherFormularioEdicao = useCallback(async () => {
-    if (!transacaoEditando || !dadosCarregados) {
-      console.log('🚫 Não é possível preencher formulário ainda:', {
-        temTransacao: !!transacaoEditando,
-        dadosCarregados
-      });
-      return;
-    }
-    
-    console.log('🖊️ Preenchendo formulário para edição:', {
-      transacao: transacaoEditando,
-      valor: transacaoEditando.valor,
-      valorTipo: typeof transacaoEditando.valor
+  if (!transacaoEditando || !dadosCarregados) {
+    console.log('🚫 Não é possível preencher formulário ainda:', {
+      temTransacao: !!transacaoEditando,
+      dadosCarregados
     });
+    return;
+  }
+  
+  console.log('🖊️ Preenchendo formulário para edição:', {
+    transacao: transacaoEditando,
+    valor: transacaoEditando.valor,
+    valorTipo: typeof transacaoEditando.valor
+  });
+  
+  // CORREÇÃO: Melhor tratamento do valor
+  let valorFormatado = '';
+  if (transacaoEditando.valor !== null && transacaoEditando.valor !== undefined) {
+    const valorNum = Number(transacaoEditando.valor);
+    if (!isNaN(valorNum) && valorNum > 0) {
+      valorFormatado = valorNum.toLocaleString('pt-BR', { 
+        minimumFractionDigits: 2, 
+        maximumFractionDigits: 2 
+      });
+      console.log('💰 Valor formatado:', valorFormatado, 'de', valorNum);
+    }
+  }
+  
+  const categoria = categorias.find(c => c.id === transacaoEditando.categoria_id);
+  let subcategoriaTexto = '';
+  let subcategoriaId = '';
+
+  // Carregar subcategoria se existir
+  if (transacaoEditando.subcategoria_id) {
+    console.log('🔍 Carregando subcategoria:', transacaoEditando.subcategoria_id);
     
-    // CORREÇÃO: Melhor tratamento do valor
-    let valorFormatado = '';
-    if (transacaoEditando.valor !== null && transacaoEditando.valor !== undefined) {
-      const valorNum = Number(transacaoEditando.valor);
-      if (!isNaN(valorNum) && valorNum > 0) {
-        valorFormatado = valorNum.toLocaleString('pt-BR', { 
-          minimumFractionDigits: 2, 
-          maximumFractionDigits: 2 
+    try {
+      const { data: subcategoriaData, error } = await supabase
+        .from('subcategorias')
+        .select('*')
+        .eq('id', transacaoEditando.subcategoria_id)
+        .eq('usuario_id', user.id)
+        .single();
+
+      if (!error && subcategoriaData) {
+        subcategoriaTexto = subcategoriaData.nome;
+        subcategoriaId = subcategoriaData.id;
+        console.log('✅ Subcategoria carregada:', subcategoriaData.nome);
+        
+        // Carregar todas as subcategorias da categoria
+        const subcategoriasCarregadas = await getSubcategoriasPorCategoria(transacaoEditando.categoria_id);
+        setSubcategorias(prev => {
+          const semCategoriasAntigas = prev.filter(sub => sub.categoria_id !== transacaoEditando.categoria_id);
+          return [...semCategoriasAntigas, ...subcategoriasCarregadas];
         });
-        console.log('💰 Valor formatado:', valorFormatado, 'de', valorNum);
       }
+    } catch (error) {
+      console.error('❌ Erro ao carregar subcategoria:', error);
     }
-    
-    const categoria = categorias.find(c => c.id === transacaoEditando.categoria_id);
-    let subcategoriaTexto = '';
-    let subcategoriaId = '';
-
-    // Carregar subcategoria se existir
-    if (transacaoEditando.subcategoria_id) {
-      console.log('🔍 Carregando subcategoria:', transacaoEditando.subcategoria_id);
-      
-      try {
-        const { data: subcategoriaData, error } = await supabase
-          .from('subcategorias')
-          .select('*')
-          .eq('id', transacaoEditando.subcategoria_id)
-          .eq('usuario_id', user.id)
-          .single();
-
-        if (!error && subcategoriaData) {
-          subcategoriaTexto = subcategoriaData.nome;
-          subcategoriaId = subcategoriaData.id;
-          console.log('✅ Subcategoria carregada:', subcategoriaData.nome);
-          
-          // Carregar todas as subcategorias da categoria
-          const subcategoriasCarregadas = await getSubcategoriasPorCategoria(transacaoEditando.categoria_id);
-          setSubcategorias(prev => {
-            const semCategoriasAntigas = prev.filter(sub => sub.categoria_id !== transacaoEditando.categoria_id);
-            return [...semCategoriasAntigas, ...subcategoriasCarregadas];
-          });
-        }
-      } catch (error) {
-        console.error('❌ Erro ao carregar subcategoria:', error);
+  }
+  
+  // Formatar data corretamente
+  let dataFormatada = new Date().toISOString().split('T')[0];
+  if (transacaoEditando.data) {
+    try {
+      const dataObj = new Date(transacaoEditando.data);
+      if (!isNaN(dataObj.getTime())) {
+        dataFormatada = dataObj.toISOString().split('T')[0];
       }
+    } catch (error) {
+      console.warn('⚠️ Erro ao formatar data:', error);
     }
-    
-    // Formatar data corretamente
-    let dataFormatada = new Date().toISOString().split('T')[0];
-    if (transacaoEditando.data) {
-      try {
-        const dataObj = new Date(transacaoEditando.data);
-        if (!isNaN(dataObj.getTime())) {
-          dataFormatada = dataObj.toISOString().split('T')[0];
-        }
-      } catch (error) {
-        console.warn('⚠️ Erro ao formatar data:', error);
-      }
-    }
-    
-    const novoFormData = {
-      valor: valorFormatado,
-      data: dataFormatada,
-      descricao: transacaoEditando.descricao || '',
-      categoria: transacaoEditando.categoria_id || '',
-      categoriaTexto: categoria?.nome || '',
-      subcategoria: subcategoriaId,
-      subcategoriaTexto: subcategoriaTexto,
-      conta: transacaoEditando.conta_id || '',
-      efetivado: transacaoEditando.efetivado ?? true
-    };
+  }
+  
+  const novoFormData = {
+    valor: valorFormatado,
+    data: dataFormatada,
+    descricao: transacaoEditando.descricao || '',
+    categoria: transacaoEditando.categoria_id || '',
+    categoriaTexto: categoria?.nome || '',
+    subcategoria: subcategoriaId,
+    subcategoriaTexto: subcategoriaTexto,
+    conta: transacaoEditando.conta_id || '',
+    efetivado: transacaoEditando.efetivado ?? true
+  };
 
-    console.log('📝 Dados do formulário preenchidos:', novoFormData);
-    setFormData(novoFormData);
+  console.log('📝 Dados do formulário preenchidos:', novoFormData);
+  setFormData(novoFormData);
 
-    console.log('✅ Formulário preenchido para edição');
-  }, [transacaoEditando, dadosCarregados, categorias, user?.id, getSubcategoriasPorCategoria]);
+  // NOVO: Armazenar dados originais para comparação
+  setDadosOriginais({
+    categoria: transacaoEditando.categoria_id || '',
+    subcategoria: subcategoriaId
+  });
+
+  console.log('✅ Formulário preenchido para edição');
+}, [transacaoEditando, dadosCarregados, categorias, user?.id, getSubcategoriasPorCategoria]);
+
+const verificarAlteracoesGrupo = useCallback(() => {
+  if (!transacaoInfo || (!transacaoInfo.isParcelada && !transacaoInfo.isRecorrente)) {
+    setMostrarEscopoEdicao(false);
+    return;
+  }
+
+  // Verificar se valor foi alterado
+  const valorAlterado = Math.abs(valorNumerico - valorOriginal) > 0.01 && valorNumerico > 0;
+  
+  // Verificar se categoria foi alterada
+  const categoriaAlterada = formData.categoria !== dadosOriginais.categoria;
+  
+  // Verificar se subcategoria foi alterada
+  const subcategoriaAlterada = formData.subcategoria !== dadosOriginais.subcategoria;
+
+  const temAlteracao = valorAlterado || categoriaAlterada || subcategoriaAlterada;
+
+  console.log('🔍 Verificando alterações em grupo:', {
+    valorAlterado,
+    categoriaAlterada,
+    subcategoriaAlterada,
+    temAlteracao,
+    valorNumerico,
+    valorOriginal,
+    categoriaAtual: formData.categoria,
+    categoriaOriginal: dadosOriginais.categoria,
+    subcategoriaAtual: formData.subcategoria,
+    subcategoriaOriginal: dadosOriginais.subcategoria
+  });
+
+  setMostrarEscopoEdicao(temAlteracao);
+}, [formData.categoria, formData.subcategoria, dadosOriginais, valorNumerico, valorOriginal, transacaoInfo]);
+
+
 
   // ===== IDENTIFICAR TIPO E GRUPO =====
+useEffect(() => {
+  verificarAlteracoesGrupo();
+}, [verificarAlteracoesGrupo]);
+
   useEffect(() => {
     if (transacaoEditando) {
       console.log('🔍 Analisando transação para edição:', transacaoEditando);
@@ -513,21 +561,25 @@ const ReceitasModalEdit = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   }, [errors.categoria]);
 
   const handleSelecionarCategoria = useCallback(async (categoria) => {
-    setFormData(prev => ({
-      ...prev,
-      categoria: categoria.id,
-      categoriaTexto: categoria.nome,
-      subcategoria: '',
-      subcategoriaTexto: ''
-    }));
-    setCategoriaDropdownOpen(false);
-    
-    const subcategoriasCarregadas = await getSubcategoriasPorCategoria(categoria.id);
-    setSubcategorias(prev => {
-      const semCategoriasAntigas = prev.filter(sub => sub.categoria_id !== categoria.id);
-      return [...semCategoriasAntigas, ...subcategoriasCarregadas];
-    });
-  }, [getSubcategoriasPorCategoria]);
+  setFormData(prev => ({
+    ...prev,
+    categoria: categoria.id,
+    categoriaTexto: categoria.nome,
+    subcategoria: '',
+    subcategoriaTexto: ''
+  }));
+  setCategoriaDropdownOpen(false);
+  
+  const subcategoriasCarregadas = await getSubcategoriasPorCategoria(categoria.id);
+  setSubcategorias(prev => {
+    const semCategoriasAntigas = prev.filter(sub => sub.categoria_id !== categoria.id);
+    return [...semCategoriasAntigas, ...subcategoriasCarregadas];
+  });
+
+  // NOVO: Verificar alterações após selecionar categoria
+  setTimeout(() => verificarAlteracoesGrupo(), 100);
+}, [getSubcategoriasPorCategoria, verificarAlteracoesGrupo]);
+
 
   const handleCategoriaBlur = useCallback(() => {
     const timer = setTimeout(() => {
@@ -562,14 +614,18 @@ const ReceitasModalEdit = ({ isOpen, onClose, onSave, transacaoEditando }) => {
     }
   }, [categoriaSelecionada]);
 
-  const handleSelecionarSubcategoria = useCallback((subcategoria) => {
-    setFormData(prev => ({
-      ...prev,
-      subcategoria: subcategoria.id,
-      subcategoriaTexto: subcategoria.nome
-    }));
-    setSubcategoriaDropdownOpen(false);
-  }, []);
+const handleSelecionarSubcategoria = useCallback((subcategoria) => {
+  setFormData(prev => ({
+    ...prev,
+    subcategoria: subcategoria.id,
+    subcategoriaTexto: subcategoria.nome
+  }));
+  setSubcategoriaDropdownOpen(false);
+
+  // NOVO: Verificar alterações após selecionar subcategoria
+  setTimeout(() => verificarAlteracoesGrupo(), 100);
+}, [verificarAlteracoesGrupo]);
+
 
   const handleSubcategoriaBlur = useCallback(() => {
     const timer = setTimeout(() => {
@@ -654,28 +710,29 @@ const ReceitasModalEdit = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   }, [confirmacao, user.id, showNotification]);
 
   // ===== RESET FORM =====
-  const resetForm = useCallback(() => {
-    setFormData({
-      valor: '',
-      data: new Date().toISOString().split('T')[0],
-      descricao: '',
-      categoria: '',
-      categoriaTexto: '',
-      subcategoria: '',
-      subcategoriaTexto: '',
-      conta: '',
-      efetivado: true
-    });
-    setErrors({});
-    setEscopoEdicao('atual');
-    setMostrarEscopoEdicao(false);
-    setTransacaoInfo(null);
-    setValorOriginal(0);
-    setCategoriaDropdownOpen(false);
-    setSubcategoriaDropdownOpen(false);
-    setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
-    setDadosCarregados(false);
-  }, []);
+const resetForm = useCallback(() => {
+  setFormData({
+    valor: '',
+    data: new Date().toISOString().split('T')[0],
+    descricao: '',
+    categoria: '',
+    categoriaTexto: '',
+    subcategoria: '',
+    subcategoriaTexto: '',
+    conta: '',
+    efetivado: true
+  });
+  setErrors({});
+  setEscopoEdicao('atual');
+  setMostrarEscopoEdicao(false);
+  setTransacaoInfo(null);
+  setValorOriginal(0);
+  setDadosOriginais({ categoria: '', subcategoria: '' }); // NOVO
+  setCategoriaDropdownOpen(false);
+  setSubcategoriaDropdownOpen(false);
+  setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
+  setDadosCarregados(false);
+}, []);
 
   // ===== VALIDAÇÃO =====
   const validateForm = useCallback(() => {
@@ -704,15 +761,51 @@ const ReceitasModalEdit = ({ isOpen, onClose, onSave, transacaoEditando }) => {
 
   // ===== ATUALIZAR TRANSAÇÃO =====
   const atualizarTransacao = useCallback(async () => {
-    try {
-      if (transacaoInfo && mostrarEscopoEdicao && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente)) {
-        console.log('🔄 Atualizando grupo de transações:', {
-          transacaoId: transacaoEditando.id,
-          escopoEdicao,
-          valorNumerico,
-          transacaoInfo
-        });
+  try {
+    if (transacaoInfo && mostrarEscopoEdicao && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente)) {
+      console.log('🔄 Atualizando grupo de transações:', {
+        transacaoId: transacaoEditando.id,
+        escopoEdicao,
+        valorNumerico,
+        categoria: formData.categoria,
+        subcategoria: formData.subcategoria,
+        transacaoInfo
+      });
 
+      // Se apenas categoria/subcategoria foram alteradas, fazer update manual
+      const valorAlterado = Math.abs(valorNumerico - valorOriginal) > 0.01;
+      const categoriaAlterada = formData.categoria !== dadosOriginais.categoria;
+      const subcategoriaAlterada = formData.subcategoria !== dadosOriginais.subcategoria;
+
+      if ((categoriaAlterada || subcategoriaAlterada) && !valorAlterado) {
+        // Update de categoria/subcategoria para grupo
+        const campoGrupo = transacaoInfo.isParcelada ? 'grupo_parcelamento' : 'grupo_recorrencia';
+        const grupoId = transacaoEditando[campoGrupo];
+
+        let query = supabase
+          .from('transacoes')
+          .update({
+            categoria_id: formData.categoria,
+            subcategoria_id: formData.subcategoria || null,
+            updated_at: new Date().toISOString()
+          })
+          .eq(campoGrupo, grupoId)
+          .eq('usuario_id', user.id);
+
+        // Aplicar filtro de escopo
+        if (escopoEdicao === 'atual') {
+          query = query.eq('id', transacaoEditando.id);
+        } else if (escopoEdicao === 'futuras') {
+          query = query.gte('data', transacaoEditando.data);
+        }
+
+        const { error } = await query;
+        if (error) throw error;
+
+        showNotification('Categoria/subcategoria atualizada com sucesso!', 'success');
+        return true;
+      } else {
+        // Update de valor (usando função existente)
         const resultado = await updateGrupoValor(
           transacaoEditando.id,
           escopoEdicao,
@@ -726,35 +819,37 @@ const ReceitasModalEdit = ({ isOpen, onClose, onSave, transacaoEditando }) => {
         showNotification(resultado.message || 'Transações atualizadas com sucesso!', 'success');
         return true;
       }
-
-      // CORRIGIDO - descrição sempre preenchida
-      const dadosAtualizacao = {
-        data: formData.data,
-        descricao: formData.descricao.trim() || 'Receita',
-        categoria_id: formData.categoria,
-        subcategoria_id: formData.subcategoria || null,
-        conta_id: formData.conta,
-        valor: valorNumerico,
-        efetivado: formData.efetivado,
-        updated_at: new Date().toISOString()
-      };
-
-      console.log('📝 Atualizando transação com dados:', dadosAtualizacao);
-
-      const { error } = await supabase
-        .from('transacoes')
-        .update(dadosAtualizacao)
-        .eq('id', transacaoEditando.id)
-        .eq('usuario_id', user.id);
-
-      if (error) throw error;
-
-      showNotification('Receita atualizada com sucesso!', 'success');
-      return true;
-    } catch (error) {
-      console.error('❌ Erro ao atualizar receita:', error);
     }
-  }, [formData, valorNumerico, transacaoEditando, user.id, showNotification, transacaoInfo, mostrarEscopoEdicao, escopoEdicao, updateGrupoValor]);
+
+    // CORRIGIDO - descrição sempre preenchida
+    const dadosAtualizacao = {
+      data: formData.data,
+      descricao: formData.descricao.trim() || 'Receita',
+      categoria_id: formData.categoria,
+      subcategoria_id: formData.subcategoria || null,
+      conta_id: formData.conta,
+      valor: valorNumerico,
+      efetivado: formData.efetivado,
+      updated_at: new Date().toISOString()
+    };
+
+    console.log('📝 Atualizando transação com dados:', dadosAtualizacao);
+
+    const { error } = await supabase
+      .from('transacoes')
+      .update(dadosAtualizacao)
+      .eq('id', transacaoEditando.id)
+      .eq('usuario_id', user.id);
+
+    if (error) throw error;
+
+    showNotification('Receita atualizada com sucesso!', 'success');
+    return true;
+  } catch (error) {
+    console.error('❌ Erro ao atualizar receita:', error);
+    throw error;
+  }
+}, [formData, valorNumerico, transacaoEditando, user.id, showNotification, transacaoInfo, mostrarEscopoEdicao, escopoEdicao, updateGrupoValor, valorOriginal, dadosOriginais]);
 
   // ===== SUBMISSÃO =====
   const handleSubmit = useCallback(async (e) => {

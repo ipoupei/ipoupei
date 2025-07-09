@@ -6,10 +6,11 @@ import ResetPassword from '@modules/auth/pages/ResetPassword';
 import UserProfile from '@modules/usuarios/components/UserProfile';
 import TransacoesRouteHandler from '@modules/transacoes/components/TransacoesRouteHandler.jsx';
 import ImportacaoPage from '@modules/transacoes/components/ImportacaoPage.jsx';
-import RelatoriosHome from '@modules/relatorios/components/RelatoriosHome.jsx';
+//import RelatoriosHome from '@modules/relatorios/components/RelatoriosHome.jsx';
 import RelatorioCategoria from '@modules/relatorios/components/RelatorioCategoria.jsx';
 import RelatorioEvolucao from '@modules/relatorios/components/RelatorioEvolucao.jsx';
 import RelatorioProjecao from '@modules/relatorios/components/RelatorioProjecao.jsx';
+import DREFinanceiro from '@modules/relatorios/components/DREFinanceiro.jsx';
 import AuthCallback from '@modules/auth/pages/AuthCallback';
 import ProtectedRoute from '@modules/auth/components/ProtectedRoute';
 import MainLayout from '@shared/components/layouts/MainLayout';
@@ -18,14 +19,6 @@ import DiagnosticoEmocionalRouter from '@modules/diagnostico/router/DiagnosticoE
 import DiagnosticoRoute from './DiagnosticoRoute';
 import GestaoCartoes from '@modules/cartoes/components/GestaoCartoes';
 
-/**
- * Componente para gerenciar as rotas da aplicação
- * ATUALIZADO: Integração com MainLayout para rotas principais
- * NOVO: Rota /susto-consciente para diagnóstico emocional
- * NOVO: Rotas /cartoes para gestão de cartões de crédito
- * NOVO: Rota /transacoes/importar para importação de transações
- * Rotas especiais (login, reset, callback) ficam fora do layout
- */
 const AppRoutes = () => {
   return (
     <BrowserRouter>
@@ -129,11 +122,23 @@ const AppRoutes = () => {
             <Route path="*" element={<Navigate to="gestao" replace />} />
           </Route>
 
-          {/* Relatórios */}
-          <Route path="relatorios" element={<RelatoriosHome />} />
-          <Route path="relatorios/categorias" element={<RelatorioCategoria />} />
-          <Route path="relatorios/evolucao" element={<RelatorioEvolucao />} />
-          <Route path="relatorios/projecoes" element={<RelatorioProjecao />} />
+          {/* RELATÓRIOS - EXPANDIDO COM DRE FINANCEIRO */}
+          <Route path="relatorios">
+            <Route path="relatorios/dre" element={<DREFinanceiro />} />
+
+
+            
+            {/* 🆕 NOVA ROTA: DRE Financeiro Pessoal */}
+            <Route path="dre" element={<DREFinanceiro />} />
+            
+            {/* Aliases para compatibilidade */}
+            <Route path="dre-financeiro" element={<Navigate to="/relatorios/dre" replace />} />
+            <Route path="demonstrativo" element={<Navigate to="/relatorios/dre" replace />} />
+            <Route path="resultado" element={<Navigate to="/relatorios/dre" replace />} />
+            
+            {/* Rota padrão para /relatorios/qualquer-coisa-inexistente */}
+            <Route path="*" element={<Navigate to="/relatorios" replace />} />
+          </Route>
           
           {/* CONFIGURAÇÕES - UserProfile na área principal */}
           <Route path="configuracoes" element={<UserProfile />} />
