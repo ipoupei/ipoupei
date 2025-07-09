@@ -25,7 +25,8 @@ export default defineConfig({
   esbuild: {
     loader: 'jsx',
     include: /src\/.*\.[jt]sx?$/,
-    exclude: []
+    exclude: [],
+    drop: ['console', 'debugger'], // 👈 Aqui silencia tudo em produção
   },
   optimizeDeps: {
     esbuildOptions: {

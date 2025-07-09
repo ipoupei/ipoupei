@@ -693,59 +693,247 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Card de Cartão - Aprimorado */}
-          <div 
-            className={`dashboard__summary-card dashboard__summary-card--cartao ${flippedCards.cartaoCredito ? 'dashboard__summary-card--flipped' : ''}`}
-            onClick={() => handleCardFlip('cartaoCredito')}
-            onKeyDown={(e) => handleCardKeyDown(e, 'cartaoCredito')}
-            role="button"
-            tabIndex={0}
-            aria-label="Detalhes dos cartões de crédito"
-          >
-            <div className="dashboard__card-inner">
-              <div className="dashboard__card-face dashboard__card-face--front">
-                <div className="dashboard__card-header">
-                  <div className="dashboard__card-icon">
-                    <CreditCard size={24} />
-                  </div>
-                </div>
-                <div className="dashboard__card-content">
-                  <h3 className="dashboard__card-title">Cartões</h3>
-                  <p className="dashboard__card-value">{formatCurrency(dadosSeguroCartao.atual)}</p>
-                  <span className="dashboard__card-subtitle">
-                    Limite: {formatCurrency(dadosSeguroCartao.limite)}
+{/* Card de Cartão - Status Correto */}
+<div 
+  className={`dashboard__summary-card dashboard__summary-card--cartao ${flippedCards.cartaoCredito ? 'dashboard__summary-card--flipped' : ''}`}
+  onClick={() => handleCardFlip('cartaoCredito')}
+  onKeyDown={(e) => handleCardKeyDown(e, 'cartaoCredito')}
+  role="button"
+  tabIndex={0}
+  aria-label="Detalhes dos cartões de crédito"
+>
+  <div className="dashboard__card-inner">
+    {/* FRENTE DO CARD */}
+    <div className="dashboard__card-face dashboard__card-face--front">
+      <div className="dashboard__card-header">
+        <div className="dashboard__card-icon">
+          <CreditCard size={24} />
+        </div>
+        <div className="dashboard__card-status">
+          {/* ✅ LÓGICA CORRIGIDA: Status baseado na fatura do mês */}
+          {data?.cartaoCredito?.temFaturaPendente ? (
+            <span className="dashboard__status-badge dashboard__status-badge--warning">
+              Fatura pendente
+            </span>
+          ) : data?.cartaoCredito?.atual > 0 ? (
+            <span className="dashboard__status-badge dashboard__status-badge--success">
+              Fatura paga
+            </span>
+          ) : (
+            <span className="dashboard__status-badge dashboard__status-badge--neutral">
+              Sem movimentação
+            </span>
+          )}
+        </div>
+      </div>
+       <div className="dashboard__card-content">
+        <h3 className="dashboard__card-title">Cartões de Crédito</h3>
+        
+        {/* ✅ VALOR: Gasto do mês */}
+        <p className="dashboard__card-value">
+          {formatCurrency(data?.cartaoCredito?.atual || 0)}
+        </p>
+        
+        {/* ✅ SUBTITLE: Status contextual */}
+        <span className="dashboard__card-subtitle">
+          {data?.cartaoCredito?.temFaturaPendente 
+            ? 'Fatura atual pendente' 
+            : data?.cartaoCredito?.atual > 0 
+              ? 'Gasto no mês (pago)' 
+              : 'Sem gastos no mês'
+          }
+        </span>
+        
+
+
+
+        
+        {/* ✅ INDICADOR DE LIMITE - REFATORADO */}
+{data?.cartaoCredito?.limite > 0 && (
+  <div className="dashboard__card-progress">
+    <div className="dashboard__progress-bar">
+      <div 
+        className="dashboard__progress-fill"
+        style={{
+          // ✅ CORRIGIDO: Usar usoLimite em vez de total
+          width: `${Math.min(100, ((data?.cartaoCredito?.usoLimite || 0) / data.cartaoCredito.limite) * 100)}%`,
+          // ✅ COR DINÂMICA: Verde se fatura paga, laranja se pendente
+          backgroundColor: data?.cartaoCredito?.temFaturaPendente ? '#F59E0B' : '#10B981'
+        }}
+      />
+    </div>
+    
+    {/* ✅ INFORMAÇÕES MELHORADAS */}
+    <div className="dashboard__progress-info">
+      <span className="dashboard__progress-text">
+        {formatCurrency(data?.cartaoCredito?.disponivel || 0)} disponível
+      </span>
+      <span className="dashboard__progress-percentage">
+        {Math.round(((data?.cartaoCredito?.usoLimite || 0) / data.cartaoCredito.limite) * 100)}% usado
+      </span>
+    </div>
+    
+    {/* ✅ INFO CONTEXTUAL: Só aparece quando há diferença entre gasto do mês e uso do limite */}
+    {(data?.cartaoCredito?.usoLimite || 0) > (data?.cartaoCredito?.atual || 0) && (
+      <div className="dashboard__limit-info">
+        <span className="dashboard__limit-detail">
+          {formatCurrency(data?.cartaoCredito?.usoLimite || 0)} comprometido no limite
+        </span>
+      </div>
+    )}
+  </div>
+)}
+
+
+      </div>
+    </div>
+    
+    {/* VERSO DO CARD - Detalhamento por cartão */}
+    <div className="dashboard__card-face dashboard__card-face--back">
+      <div className="dashboard__card-details">
+        <h4 className="dashboard__details-title">💳 Cartões Detalhados</h4>
+        <div className="dashboard__details-list">
+          {data?.cartoesDetalhados?.length > 0 ? (
+            data.cartoesDetalhados.map((cartao, index) => (
+              <div key={cartao.id || index} className="dashboard__detail-item">
+                <div className="dashboard__detail-header">
+                  <span className="dashboard__detail-label">
+                    {cartao.nome}
+                    {cartao.bandeira && (
+                      <span className="dashboard__card-bandeira">{cartao.bandeira}</span>
+                    )}
+                  </span>
+                  <span className="dashboard__detail-value">
+                    {formatCurrency(cartao.usado || 0)}
                   </span>
                 </div>
-              </div>
-              
-              <div className="dashboard__card-face dashboard__card-face--back">
-                <div className="dashboard__card-details">
-                  <h4 className="dashboard__details-title">💳 Cartões Detalhados</h4>
-                  <div className="dashboard__details-list">
-                    {cartoesDetalhados.length > 0 ? (
-                      cartoesDetalhados.map((cartao, index) => (
-                        <div key={index} className="dashboard__detail-item">
-                          <span className="dashboard__detail-label">{cartao.nome}</span>
-                          <span className="dashboard__detail-value">{formatCurrency(cartao.usado)}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="dashboard__detail-item">
-                        <span className="dashboard__detail-label">Nenhum cartão</span>
-                        <span className="dashboard__detail-value">R$ 0,00</span>
-                      </div>
-                    )}
-                    <div className="dashboard__detail-item dashboard__detail-item--total">
-                      <span className="dashboard__detail-label">💰 Disponível</span>
-                      <span className="dashboard__detail-value">
-                        {formatCurrency(Math.max(0, dadosSeguroCartao.limite - dadosSeguroCartao.atual))}
-                      </span>
-                    </div>
+                
+                {/* Barra de progresso por cartão */}
+                <div className="dashboard__detail-progress">
+                  <div className="dashboard__mini-progress-bar">
+                    <div 
+                      className="dashboard__mini-progress-fill"
+                      style={{
+                        width: `${Math.min(100, cartao.percentualUso || 0)}%`,
+                        backgroundColor: cartao.cor || '#3B82F6'
+                      }}
+                    />
                   </div>
+                  <span className="dashboard__mini-progress-text">
+                    {formatCurrency(cartao.disponivel || 0)} livre
+                  </span>
                 </div>
+                
+                {/* Status da fatura */}
+                {cartao.pendente > 0 && (
+                  <div className="dashboard__detail-status">
+                    <span className="dashboard__status-badge dashboard__status-badge--pending">
+                      {formatCurrency(cartao.pendente)} pendente
+                    </span>
+                  </div>
+                )}
               </div>
+            ))
+          ) : (
+            <div className="dashboard__detail-item dashboard__detail-item--empty">
+              <span className="dashboard__detail-label">Nenhum cartão ativo</span>
+              <span className="dashboard__detail-value">R$ 0,00</span>
             </div>
-          </div>
+          )}
+          
+{/* ✅ RESUMO TOTAL - SOLUÇÃO FINAL COM CSS INLINE */}
+<div style={{ 
+  borderTop: '1px solid #E5E7EB', 
+  paddingTop: '1rem', 
+  marginTop: '1rem',
+  background: '#f9fafb',
+  borderRadius: '0.5rem',
+  padding: '1rem 0.5rem'
+}}>
+  
+  {/* Total Pendente */}
+  <div style={{ 
+    display: 'flex', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    marginBottom: '0.5rem',
+    padding: '0.25rem 0'
+  }}>
+    <span style={{ 
+      fontSize: '0.75rem',
+      color: '#6b7280',
+      fontWeight: '500'
+    }}>
+      💰 Total Pendente
+    </span>
+    <span style={{ 
+      fontSize: '0.875rem',
+      color: '#1f2937',
+      fontWeight: '600',
+      fontVariantNumeric: 'tabular-nums'
+    }}>
+      {formatCurrency(data?.cartaoCredito?.usoLimite || 0)}
+    </span>
+  </div>
+  
+  {/* Limite Total */}
+  <div style={{ 
+    display: 'flex', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    marginBottom: '0.5rem',
+    padding: '0.25rem 0'
+  }}>
+    <span style={{ 
+      fontSize: '0.75rem',
+      color: '#6b7280',
+      fontWeight: '500'
+    }}>
+      🎯 Limite Total
+    </span>
+    <span style={{ 
+      fontSize: '0.875rem',
+      color: '#1f2937',
+      fontWeight: '600',
+      fontVariantNumeric: 'tabular-nums'
+    }}>
+      {formatCurrency(data?.cartaoCredito?.limite || 0)}
+    </span>
+  </div>
+  
+  {/* Gasto no Mês (quando diferente) */}
+  {(data?.cartaoCredito?.atual || 0) !== (data?.cartaoCredito?.usoLimite || 0) && (
+    <div style={{ 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center',
+      padding: '0.25rem 0'
+    }}>
+      <span style={{ 
+        fontSize: '0.75rem',
+        color: '#6b7280',
+        fontWeight: '500'
+      }}>
+        📅 Gasto no Mês
+      </span>
+      <span style={{ 
+        fontSize: '0.875rem',
+        color: '#1f2937',
+        fontWeight: '600',
+        fontVariantNumeric: 'tabular-nums'
+      }}>
+        {formatCurrency(data?.cartaoCredito?.atual || 0)}
+      </span>
+    </div>
+  )}
+  
+</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
         </div>
       </section>
 

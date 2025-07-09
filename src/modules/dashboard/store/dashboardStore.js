@@ -232,6 +232,193 @@ const useDashboardStore = create((set, get) => ({
     }
   },
 
+
+
+buscarDadosCartoesReais: async (usuarioId, periodo) => {
+  try {
+    console.log('💳 Buscando dados REAIS dos cartões (separando valores):', {
+      usuario: usuarioId.substring(0, 8) + '...',
+      periodo: periodo
+    });
+
+    // ============================
+    // 📡 ETAPA 1: Buscar cartões básicos
+    // ============================
+    const { data: cartoesData, error: cartoesError } = await supabase
+      .from('cartoes')
+      .select('id, nome, limite, bandeira, cor, ativo, dia_fechamento, dia_vencimento')
+      .eq('usuario_id', usuarioId)
+      .eq('ativo', true)
+      .order('nome');
+
+    if (cartoesError) {
+      console.error('❌ Erro ao buscar cartões:', cartoesError);
+      return { cartoesDetalhados: [], limiteTotal: 0, gastoMes: 0, usoLimite: 0 };
+    }
+
+    const cartoes = cartoesData || [];
+    console.log('📋 Cartões encontrados:', cartoes.length);
+
+    if (cartoes.length === 0) {
+      return { cartoesDetalhados: [], limiteTotal: 0, gastoMes: 0, usoLimite: 0 };
+    }
+
+    // ============================
+    // 📡 ETAPA 2: Buscar transações do período (GASTO DO MÊS)
+    // ============================
+    const { data: transacoesPeriodo, error: transacoesPeriodoError } = await supabase
+      .rpc('ip_buscar_transacoes_periodo', {
+        p_usuario_id: usuarioId,
+        p_data_inicio: periodo.inicio,
+        p_data_fim: periodo.fim
+      });
+
+    if (transacoesPeriodoError) {
+      console.error('❌ Erro ao buscar transações do período:', transacoesPeriodoError);
+    }
+
+    // ============================
+    // 📡 ETAPA 3: Buscar TODAS as faturas pendentes (USO DO LIMITE)
+    // ============================
+    const { data: todasFaturasPendentes, error: pendenteError } = await supabase
+      .from('transacoes')
+      .select('cartao_id, valor')
+      .eq('usuario_id', usuarioId)
+      .eq('tipo', 'despesa')
+      .eq('efetivado', false)  // ✅ TODAS as faturas pendentes (qualquer período)
+      .in('cartao_id', cartoes.map(c => c.id));
+
+    if (pendenteError) {
+      console.error('❌ Erro ao buscar todas as faturas pendentes:', pendenteError);
+    }
+
+    const transacoesPeriodoData = transacoesPeriodo || [];
+    const faturasPendentesData = todasFaturasPendentes || [];
+
+    console.log('📊 Dados coletados:', {
+      transacoesPeriodo: transacoesPeriodoData.length,
+      faturasPendentesGlobais: faturasPendentesData.length
+    });
+
+    // ============================
+    // 📊 ETAPA 4: Processar dados por cartão
+    // ============================
+    let limiteTotal = 0;
+    let gastoMesTotal = 0;          // ✅ GASTO DO MÊS SELECIONADO
+    let usoLimiteTotal = 0;         // ✅ USO REAL DO LIMITE (todas as pendentes)
+    let gastoPendenteMesTotal = 0;  // ✅ DEFINIR NO ESCOPO CORRETO
+    const cartoesDetalhados = [];
+
+    for (const cartao of cartoes) {
+      const limite = parseFloat(cartao.limite) || 0;
+      limiteTotal += limite;
+
+      // ✅ A) CALCULAR GASTO DO MÊS (período selecionado)
+      const transacoesMesCartao = transacoesPeriodoData.filter(t => 
+        t.cartao_id === cartao.id && 
+        t.tipo === 'despesa'
+      );
+
+      const gastoEfetivadoMes = transacoesMesCartao
+        .filter(t => t.efetivado === true)
+        .reduce((total, t) => total + (parseFloat(t.valor) || 0), 0);
+
+      const gastoPendenteMes = transacoesMesCartao
+        .filter(t => t.efetivado === false || t.efetivado === null)
+        .reduce((total, t) => total + (parseFloat(t.valor) || 0), 0);
+
+      const gastoMesCartao = gastoEfetivadoMes + gastoPendenteMes;
+
+      // ✅ B) CALCULAR USO DO LIMITE (todas as faturas pendentes)
+      const faturasPendentesCartao = faturasPendentesData.filter(t => 
+        t.cartao_id === cartao.id
+      );
+
+      const usoLimiteCartao = faturasPendentesCartao
+        .reduce((total, t) => total + (parseFloat(t.valor) || 0), 0);
+
+      // ✅ Adicionar aos totais globais
+      gastoMesTotal += gastoMesCartao;
+      usoLimiteTotal += usoLimiteCartao;
+      gastoPendenteMesTotal += gastoPendenteMes; // ✅ SOMAR CORRETAMENTE
+
+      cartoesDetalhados.push({
+        id: cartao.id,
+        nome: cartao.nome,
+        usado: gastoMesCartao,              // ✅ GASTO DO MÊS (para exibição)
+        usoLimite: usoLimiteCartao,         // ✅ USO DO LIMITE (para barra)
+        limite: limite,
+        bandeira: cartao.bandeira,
+        cor: cartao.cor,
+        
+        // Detalhamento
+        efetivado: gastoEfetivadoMes,
+        pendente: gastoPendenteMes,
+        disponivel: Math.max(0, limite - usoLimiteCartao), // ✅ Baseado no uso real
+        percentualUso: limite > 0 ? (usoLimiteCartao / limite) * 100 : 0, // ✅ Baseado no uso real
+        
+        // Debug detalhado
+        debug: {
+          gastoMes: gastoMesCartao,
+          gastoEfetivado: gastoEfetivadoMes,
+          gastoPendente: gastoPendenteMes,
+          usoLimiteGlobal: usoLimiteCartao,
+          transacoesMes: transacoesMesCartao.length,
+          faturasPendentesGlobais: faturasPendentesCartao.length
+        }
+      });
+    }
+
+    console.log('✅ Processamento com VALORES SEPARADOS (CORRIGIDO):', {
+      cartoes: cartoesDetalhados.length,
+      limiteTotal,
+      gastoMesTotal,              // ✅ Para exibir no card
+      usoLimiteTotal,             // ✅ Para calcular disponível e barra
+      gastoPendenteMesTotal,      // ✅ Pendente apenas do mês
+      limiteLivre: limiteTotal - usoLimiteTotal
+    });
+
+    // ✅ RETORNO CORRIGIDO
+    return { 
+      cartoesDetalhados,
+      limiteTotal,
+      gastoMes: gastoMesTotal,                // ✅ GASTO DO MÊS (exibição)
+      usoLimite: usoLimiteTotal,              // ✅ USO DO LIMITE (cálculos)
+      limiteLivre: limiteTotal - usoLimiteTotal,
+      
+      // ✅ Para compatibilidade (CORRIGIDO)
+      dividaTotal: gastoMesTotal,             // Total gasto no mês
+      faturaAtual: gastoPendenteMesTotal,     // ✅ CORRIGIDO: Pendente do mês
+      
+      debug: {
+        fonte: 'VALORES_SEPARADOS_CORRIGIDOS',
+        gastoMes: gastoMesTotal,
+        usoLimite: usoLimiteTotal,
+        gastoPendenteMes: gastoPendenteMesTotal,
+        explicacao: 'gastoMes=período_selecionado | usoLimite=todas_pendentes | faturaAtual=pendente_mes'
+      }
+    };
+
+  } catch (err) {
+    console.error('❌ Erro ao buscar dados dos cartões:', err);
+    return { 
+      cartoesDetalhados: [], 
+      limiteTotal: 0, 
+      gastoMes: 0, 
+      usoLimite: 0,
+      error: err.message 
+    };
+  }
+},
+
+
+
+
+
+
+
+
+
   // ============================
   // 📊 BUSCAR TRANSAÇÕES DO MÊS (QUERY DIRETA)
   // ============================
@@ -330,6 +517,7 @@ const useDashboardStore = create((set, get) => ({
     }
   },
 
+
   // ============================
   // 🚀 FUNÇÃO PRINCIPAL - QUERY DIRETA
   // ============================
@@ -368,17 +556,21 @@ const useDashboardStore = create((set, get) => ({
       // ============================
       const [dadosSaldos, dadosCartoes, dadosTransacoes] = await Promise.all([
         get().buscarSaldosContas(usuarioId),
-        get().buscarDadosCartoes(usuarioId),
+        get().buscarDadosCartoesReais(usuarioId, periodo),
         get().buscarTransacoesMes(usuarioId, periodo)
       ]);
 
-      console.log('✅ Dados coletados:', {
-        saldoTotal: dadosSaldos.saldoTotal,
-        contas: dadosSaldos.contasDetalhadas.length,
-        cartoes: dadosCartoes.cartoesDetalhados.length,
-        receitas: dadosTransacoes.receitasAtual,
-        despesas: dadosTransacoes.despesasAtual
-      });
+console.log('✅ Dados coletados (DEBUG DETALHADO):', {
+  saldoTotal: dadosSaldos.saldoTotal,
+  contas: dadosSaldos.contasDetalhadas.length,
+  cartoes: dadosCartoes.cartoesDetalhados.length,
+  gastoMesCartoes: dadosCartoes.gastoMes,         // ✅ NOVO DEBUG
+  usoLimiteCartoes: dadosCartoes.usoLimite,       // ✅ NOVO DEBUG
+  limiteTotal: dadosCartoes.limiteTotal,          // ✅ NOVO DEBUG
+  receitas: dadosTransacoes.receitasAtual,
+  despesas: dadosTransacoes.despesasAtual,
+  dadosCartoesCompletos: dadosCartoes             // ✅ DEBUG COMPLETO
+});
 
       // ============================
       // 🏗️ CONSTRUIR ESTRUTURA COMPATÍVEL
@@ -399,10 +591,33 @@ const useDashboardStore = create((set, get) => ({
           previsto: dadosTransacoes.despesasPrevisto,
           categorias: dadosTransacoes.despesasPorCategoria
         },
-        cartaoCredito: {
-          atual: dadosCartoes.dividaTotal,
-          limite: dadosCartoes.limiteTotal
-        },
+cartaoCredito: {
+  atual: dadosCartoes.gastoMes || 0,              // ✅ GASTO DO MÊS (valor exibido)
+  usoLimite: dadosCartoes.usoLimite || 0,         // ✅ USO REAL DO LIMITE (barra)
+  limite: dadosCartoes.limiteTotal || 0,
+  disponivel: dadosCartoes.limiteLivre || 0,
+  
+  // ✅ LÓGICA CORRIGIDA: Fatura pendente baseada no mês atual
+  temFaturaPendente: (dadosCartoes.faturaAtual || 0) > 0,  // Pendente DO MÊS
+  statusFatura: (dadosCartoes.faturaAtual || 0) > 0 ? 'pendente' : 'paga',
+  
+  // ✅ NOVO: Distinguir entre fatura do mês vs outras faturas
+  faturaDoMes: dadosCartoes.faturaAtual || 0,     // Pendente apenas do mês atual
+  outrasFaturas: (dadosCartoes.usoLimite || 0) - (dadosCartoes.faturaAtual || 0), // Outras faturas pendentes
+  
+  // Para compatibilidade
+  total: dadosCartoes.gastoMes || 0,
+  efetivado: (dadosCartoes.gastoMes || 0) - (dadosCartoes.faturaAtual || 0),
+  
+  // ✅ DEBUG melhorado
+  debug: {
+    gastoMes: dadosCartoes.gastoMes,
+    usoLimite: dadosCartoes.usoLimite,
+    faturaAtual: dadosCartoes.faturaAtual,        // ✅ Deve ser 0 se mês está pago
+    limiteLivre: dadosCartoes.limiteLivre,
+    fonte: 'buscarDadosCartoesReais'
+  }
+},
 
         // Arrays detalhados para cards (verso)
         contasDetalhadas: dadosSaldos.contasDetalhadas,
