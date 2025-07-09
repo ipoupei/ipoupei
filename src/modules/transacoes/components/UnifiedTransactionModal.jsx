@@ -922,7 +922,7 @@ const renderReceitaDespesaFields = () => (
                 </label>
                 <div className="recurrence-info">
                   <span className="recurrence-auto-text">
-                    Criará automaticamente por 20 anos
+                    Criará automaticamente por 5 anos
                   </span>
                   <small className="recurrence-help-text">
                     Você pode cancelar ou editar quando quiser
@@ -1411,11 +1411,11 @@ const criarReceitaDespesa = useCallback(async () => {
       const totalRecorrencias = transactionData.subtipo === 'previsivel' ? 
         (() => {
           switch (transactionData.frequencia) {
-            case 'semanal': return 20 * 52;   // 20 anos, 52 semanas por ano
-            case 'quinzenal': return 20 * 26; // 20 anos, 26 quinzenas por ano
-            case 'mensal': return 20 * 12;    // 20 anos, 12 meses por ano
-            case 'anual': return 20;          // 20 anos
-            default: return 20 * 12;          // Default: 20 anos mensais
+            case 'semanal': return 5 * 52;   // 5 anos, 52 semanas por ano
+            case 'quinzenal': return 5 * 26; // 5 anos, 26 quinzenas por ano
+            case 'mensal': return 5 * 12;    // 5 anos, 12 meses por ano
+            case 'anual': return 5;          // 5 anos
+            default: return 5 * 12;          // Default: 5 anos mensais
           }
         })() : 
         transactionData.numero_parcelas; // Para parceladas, usar o número definido pelo usuário
