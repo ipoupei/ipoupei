@@ -426,11 +426,7 @@
   color: var(--color-text-primary);
 }
 
-.input-label-required::after {
-  content: '*';
-  color: var(--color-danger);
-  margin-left: 2px;
-}
+
 
 .input-base {
   width: 100%;

@@ -903,3 +903,9 @@ div[data-modal="unified-transaction"] .forms-modal-container {
   line-height: 1.2;
   margin-top: 2px;
 }
+/* ===== REMOVER APENAS OS ASTERISCOS VERMELHOS GERADOS VIA CSS ===== */
+div[data-modal="unified-transaction"] .form-label::after,
+div[data-modal="unified-transaction"] label::after {
+  display: none !important;
+  content: none !important;
+}

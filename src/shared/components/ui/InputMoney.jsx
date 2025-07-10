@@ -1,15 +1,12 @@
-// src/shared/components/ui/InputMoney.jsx - VERSÃO CORRIGIDA DEFINITIVA
+// src/shared/components/ui/InputMoney.jsx - VERSÃO COM CORREÇÃO INLINE DE ESTILOS
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 
 /**
  * Componente para campos de entrada monetários
- * ✅ CORREÇÃO 1: Bloqueio de pontos para evitar confusão com separador decimal
- * ✅ CORREÇÃO 2: Evento onPaste customizado para controlar colagem
- * ✅ CORREÇÃO 3: Validação em tempo real de casas decimais
- * ✅ CORREÇÃO 4: Validação de vírgulas por número individual
- * ✅ CORREÇÃO 5: Evitar processamento duplo no blur
- * ✅ CORREÇÃO 6: Fix definitivo para operadores após vírgula
+ * ✅ CORREÇÃO INLINE: Estilos ajustados para consistência visual
+ * ✅ MANTÉM: Toda funcionalidade de calculadora e validação
+ * ✅ SEGURO: Apenas mudanças nos estilos inline, sem dependências CSS
  */
 const InputMoney = ({
   name,
@@ -215,23 +212,14 @@ const InputMoney = ({
   const handleChange = useCallback((e) => {
     const newValue = e.target.value;
     
-    console.log('🔍 DEBUG handleChange:', {
-      newValue: newValue,
-      inputValue: inputValue,
-      enableCalculator: enableCalculator
-    });
-    
     let finalValue = newValue;
     
     if (!enableCalculator && !allowNegative) {
       finalValue = newValue.replace('-', '');
-      console.log('🔧 Removido minus (não-calculadora):', finalValue);
     }
 
     // ✅ CORREÇÃO 3: Validação em tempo real de casas decimais CORRIGIDA
     if (!validarCasasDecimais(finalValue)) {
-      console.log('⚠️ Casas decimais inválidas, corrigindo...');
-      
       // Se é expressão matemática, corrigir apenas a parte decimal problemática
       if (/[+\-*/()]/.test(finalValue)) {
         // Dividir por operadores, corrigir cada número e reconstruir
@@ -239,36 +227,29 @@ const InputMoney = ({
           const partes = match.split(',');
           return `${partes[0]},${partes[1].substring(0, 2)}`;
         });
-        console.log('🔧 Expressão corrigida:', finalValue);
       } else {
         // Para números simples, correção normal
         if (finalValue.includes(',')) {
           const partes = finalValue.split(',');
           if (partes[1] && partes[1].length > 2) {
             finalValue = `${partes[0]},${partes[1].substring(0, 2)}`;
-            console.log('🔧 Casas decimais cortadas:', finalValue);
           }
         }
       }
     }
     
-    console.log('✅ Final value para setInputValue:', finalValue);
     setInputValue(finalValue);
     setExpressaoOriginal('');
     
     // Só converte se não for expressão matemática
     if (!enableCalculator || !/[+\-*/()\s]/.test(finalValue)) {
-      console.log('🔢 Convertendo para número...');
       const numericValue = stringToNumber(finalValue);
-      console.log('🔢 Valor numérico:', numericValue);
       
       if (onChange) {
         onChange(numericValue);
       }
-    } else {
-      console.log('➕ Expressão matemática detectada, não convertendo ainda');
     }
-  }, [allowNegative, enableCalculator, stringToNumber, onChange, validarCasasDecimais, inputValue]);
+  }, [allowNegative, enableCalculator, stringToNumber, onChange, validarCasasDecimais]);
 
   // ✅ CORREÇÃO 2: Evento onPaste customizado para controlar colagem
   const handlePaste = useCallback((e) => {
@@ -379,14 +360,6 @@ const InputMoney = ({
   // ✅ CORREÇÃO 6: Navegação por teclado SIMPLIFICADA e DEFINITIVA
   const handleKeyDown = useCallback((e) => {
     const char = e.key;
-    
-    // 🔍 DEBUG: Log da tecla pressionada
-    console.log('🔍 DEBUG InputMoney handleKeyDown:', {
-      key: char,
-      inputValue: inputValue,
-      enableCalculator: enableCalculator,
-      cursorPos: e.target.selectionStart
-    });
 
     // ✅ LISTA COMPLETA de teclas SEMPRE permitidas
     const alwaysAllowedKeys = [
@@ -402,8 +375,6 @@ const InputMoney = ({
 
     // ✅ PERMITIR teclas especiais SEMPRE
     if (alwaysAllowedKeys.includes(char)) {
-      console.log('✅ Tecla especial permitida:', char);
-      
       // Ações especiais para algumas teclas
       if (char === 'Enter' || char === 'Tab') {
         handleBlur(e);
@@ -426,21 +397,18 @@ const InputMoney = ({
 
     // ❌ SEMPRE BLOQUEAR: Pontos
     if (char === '.') {
-      console.log('❌ Bloqueando ponto');
       e.preventDefault();
       return;
     }
 
     // ✅ SEMPRE PERMITIR: Números (0-9)
     if (/^[0-9]$/.test(char)) {
-      console.log('✅ Permitindo número:', char);
       if (onKeyDown) onKeyDown(e);
       return;
     }
 
     // ✅ PERMITIR: Operadores matemáticos (se calculadora habilitada)
     if (enableCalculator && /^[+\-*/()]$/.test(char)) {
-      console.log('✅ Permitindo operador:', char);
       if (onKeyDown) onKeyDown(e);
       return;
     }
@@ -449,14 +417,11 @@ const InputMoney = ({
     if (char === ',') {
       const posicao = e.target.selectionStart || 0;
       const podeVirgula = validarVirgulaAtual(inputValue, posicao);
-      console.log('🔍 Validando vírgula:', { posicao, podeVirgula });
       
       if (podeVirgula) {
-        console.log('✅ Permitindo vírgula');
         if (onKeyDown) onKeyDown(e);
         return;
       } else {
-        console.log('❌ Bloqueando vírgula duplicada');
         e.preventDefault();
         return;
       }
@@ -466,88 +431,112 @@ const InputMoney = ({
     if (char === '-') {
       if (enableCalculator) {
         // No modo calculadora, minus é operador
-        console.log('✅ Permitindo minus (operador)');
         if (onKeyDown) onKeyDown(e);
         return;
       } else if (allowNegative && !inputValue.includes('-')) {
         // No modo normal, minus apenas se permitir negativos
-        console.log('✅ Permitindo minus (negativo)');
         if (onKeyDown) onKeyDown(e);
         return;
       }
     }
 
     // ❌ BLOQUEAR: Qualquer outro caractere
-    console.log('❌ Bloqueando caractere:', char);
     e.preventDefault();
     
   }, [inputValue, allowNegative, enableCalculator, value, formatCurrency, onKeyDown, handleBlur, validarVirgulaAtual]);
 
-  // Classes CSS
-  const inputClasses = [
-    'input-money',
-    className,
-    isFocused && 'input-money-focused',
-    !isValid && 'input-money-invalid',
-    disabled && 'input-money-disabled',
-    allowNegative && 'input-money-allow-negative',
-    enableCalculator && 'input-money-calculator-enabled'
-  ].filter(Boolean).join(' ');
+  // ===== 🎨 ESTILOS INLINE PADRÃO DA PLATAFORMA =====
+  
+  // Estilo base que replica exatamente os inputs do modal
+  const inputStyleBase = {
+    width: '100%',
+    padding: '10px 16px',
+    border: '2px solid #E9ECEF',
+    borderRadius: '8px',
+    fontSize: '14px',
+    fontFamily: "'Roboto', sans-serif",
+    background: 'white',
+    color: '#333333',
+    outline: 'none',
+    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+    height: '44px',
+    minHeight: '44px',
+    lineHeight: '1.5',
+    boxSizing: 'border-box',
+    transition: 'all 0.25s ease',
+    textAlign: 'right',
+    fontVariantNumeric: 'tabular-nums',
+    ...style // Permite override externo
+  };
 
-  // Estilos
+  // Modificações baseadas no estado
+  const inputStyleFinal = {
+    ...inputStyleBase,
+    // Focus state
+    ...(isFocused && { 
+      borderColor: isValid ? '#008080' : '#DC3545',
+      boxShadow: isValid ? 
+        '0 0 0 3px rgba(0, 128, 128, 0.1)' : 
+        '0 0 0 3px rgba(239, 68, 68, 0.1)'
+    }),
+    // Error state
+    ...(!isValid && { 
+      borderColor: '#DC3545',
+      boxShadow: '0 0 0 3px rgba(239, 68, 68, 0.1)'
+    }),
+    // Disabled state
+    ...(disabled && { 
+      opacity: 0.6,
+      cursor: 'not-allowed',
+      background: '#F8F9FA'
+    })
+  };
+
+  // Container style
   const containerStyle = {
     position: 'relative',
     display: 'inline-block',
     width: '100%'
   };
 
-  const inputStyle = {
-    ...style,
-    fontFamily: 'monospace',
-    textAlign: 'right',
-    transition: 'all 0.2s ease',
-    ...(isFocused && { 
-      borderColor: isValid ? '#10b981' : '#ef4444',
-      boxShadow: `0 0 0 2px ${isValid ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`
-    }),
-    ...(isFocused && { transform: 'scale(1.02)' }),
-    ...(!isValid && { 
-      backgroundColor: '#fef2f2',
-      borderColor: '#ef4444'
-    }),
-    ...(disabled && { 
-      opacity: 0.6,
-      cursor: 'not-allowed'
-    })
+  // Feedback styles
+  const feedbackStyleBase = {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    fontSize: '12px',
+    padding: '4px 8px',
+    borderRadius: '0 0 4px 4px',
+    zIndex: 10,
+    fontFamily: "'Roboto', sans-serif"
   };
 
   const errorStyle = {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    background: '#fee2e2',
-    color: '#dc2626',
-    fontSize: '0.75rem',
-    padding: '4px 8px',
-    borderRadius: '0 0 4px 4px',
-    border: '1px solid #fecaca',
-    zIndex: 10
+    ...feedbackStyleBase,
+    background: '#FEE2E2',
+    color: '#DC2626',
+    border: '1px solid #FECACA'
   };
 
   const calculatorFeedbackStyle = {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    background: '#dbeafe',
-    color: '#1d4ed8',
-    fontSize: '0.75rem',
-    padding: '4px 8px',
-    borderRadius: '0 0 4px 4px',
-    border: '1px solid #93c5fd',
-    zIndex: 10
+    ...feedbackStyleBase,
+    background: '#DBEAFE',
+    color: '#1D4ED8',
+    border: '1px solid #93C5FD'
   };
+
+  // Classes CSS para compatibilidade (se houver CSS externo)
+  const inputClasses = [
+    'input-money',
+    'input-text', // Classe padrão do modal
+    className,
+    isFocused && 'input-money-focused',
+    !isValid && 'input-money-invalid error',
+    disabled && 'input-money-disabled',
+    allowNegative && 'input-money-allow-negative',
+    enableCalculator && 'input-money-calculator-enabled'
+  ].filter(Boolean).join(' ');
 
   return (
     <div style={containerStyle}>
@@ -566,7 +555,7 @@ const InputMoney = ({
         disabled={disabled}
         tabIndex={tabIndex}
         className={inputClasses}
-        style={inputStyle}
+        style={inputStyleFinal}
         {...props}
       />
       

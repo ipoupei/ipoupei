@@ -7,13 +7,10 @@ import {
   Calendar, 
   DollarSign, 
   PieChart, 
-  Download, 
   RefreshCw, 
   AlertTriangle,
   BarChart3,
   Filter,
-  Minimize2,
-  Maximize2,
   Eye,
   EyeOff,
   Settings,
@@ -41,13 +38,6 @@ const formatCurrencyDREComplete = (value) => {
     maximumFractionDigits: 2
   }).format(value);
 };
-
-
-
-
-
-
-// ➕ ADICIONAR estas 2 funções após formatCurrencyDREComplete:
 
 // Função para formatar horas trabalhadas
 const formatHorasTrabalho = (valor, valorHora) => {
@@ -84,16 +74,12 @@ const { user } = useAuth();
   const [loadingValorHora, setLoadingValorHora] = useState(false);
   const [dadosHora, setDadosHora] = useState(null);
   
-  // NOVOS ESTADOS
-  const [modoCompacto, setModoCompacto] = useState(false);
   const [incluirNaoEfetivadas, setIncluirNaoEfetivadas] = useState(false);
   const [receitasExpandidas, setReceitasExpandidas] = useState(true);
   const [despesasExpandidas, setDespesasExpandidas] = useState(true);
 
   const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
   const anosDisponiveis = [2023, 2024, 2025, 2026];
-
-
 
   // Buscar dados do DRE com parâmetro de não efetivadas
   const buscarDadosDRE = async () => {
@@ -140,8 +126,6 @@ const { user } = useAuth();
     }
   };
 
-// ✅ SUBSTITUA sua função buscarValorHoraTrabalhada por esta versão corrigida:
-
 const buscarValorHoraTrabalhada = async () => {
   if (!user?.id) return;
 
@@ -149,14 +133,12 @@ const buscarValorHoraTrabalhada = async () => {
   try {
     console.log('🔍 Buscando valor da hora para usuário:', user.id);
     
-    // ✅ CORRIGIDO: Chamar a função RPC COM o parâmetro correto
     const { data, error } = await supabase.rpc('ip_prod_buscar_valor_hora_trabalhada', {
       p_usuario_id: user.id
     });
 
     if (error) {
       console.error('❌ Erro RPC ao buscar valor da hora:', error);
-      // ✅ FALLBACK: Se RPC falhar, buscar direto da tabela
       return await buscarValorHoraFallback();
     }
 
@@ -179,12 +161,10 @@ const buscarValorHoraTrabalhada = async () => {
   }
 };
 
-// ✅ ADICIONAR TAMBÉM esta função fallback:
 const buscarValorHoraFallback = async () => {
   try {
     console.log('🔄 Usando fallback para buscar dados do usuário...');
     
-    // ✅ CORRIGIDO: Buscar apenas colunas que EXISTEM na tabela
     const { data, error } = await supabase
       .from('perfil_usuario')
       .select('renda_mensal, media_horas_trabalhadas_mes')
@@ -202,7 +182,6 @@ const buscarValorHoraFallback = async () => {
 
     console.log('✅ Dados do perfil encontrados:', data);
 
-    // ✅ Calcular valor da hora localmente
     const temDadosCompletos = data.renda_mensal && data.media_horas_trabalhadas_mes && data.media_horas_trabalhadas_mes > 0;
     
     let valorHoraCalculado = null;
@@ -228,12 +207,9 @@ const buscarValorHoraFallback = async () => {
   }
 };
 
-  // Carregar dados quando componente monta ou parâmetros mudam
-// ➕ MODIFICAR o useEffect existente para:
 useEffect(() => {
   if (user?.id) {
     buscarDadosDRE();
-    // ➕ ADICIONAR esta linha:
     if (!dadosHora) {
       buscarValorHoraTrabalhada();
     }
@@ -245,43 +221,23 @@ useEffect(() => {
     setAnoSelecionado(novoAno);
   };
 
-  // Toggle para modo compacto
-  const toggleModoCompacto = () => {
-    setModoCompacto(!modoCompacto);
-    if (!modoCompacto) {
-      // Ao ativar modo compacto, colapsar todas as categorias
-      setReceitasExpandidas(false);
-      setDespesasExpandidas(false);
-      setCategoriaExpandida({});
-    } else {
-      // Ao desativar modo compacto, expandir seções principais
-      setReceitasExpandidas(true);
-      setDespesasExpandidas(true);
-    }
-  };
-
-// ➕ ADICIONAR nova função toggle:
 const toggleModoHoras = async () => {
   if (!modoHoras && !valorHoraTrabalhada) {
     setLoadingValorHora(true);
     
     try {
-      // Buscar direto da tabela perfil_usuario
       const { data, error } = await supabase
         .from('perfil_usuario')
-        .select('renda_mensal, media_horas_trabalhadas_mes') // ← REMOVER valor_hora_trabalhada
+        .select('renda_mensal, media_horas_trabalhadas_mes')
         .eq('id', user.id)
         .single();
 
-      
-
-      if (supabaseError) {
-        console.error('Erro ao buscar perfil:', supabaseError);
+      if (error) {
+        console.error('Erro ao buscar perfil:', error);
         alert('Erro ao buscar dados do perfil. Tente novamente.');
         return;
       }
 
-      
       console.log('Dados do perfil:', data);
 
       if (!data) {
@@ -289,7 +245,6 @@ const toggleModoHoras = async () => {
         return;
       }
 
-      // Verificar se tem dados necessários
       const temRendaEHoras = data.renda_mensal && data.media_horas_trabalhadas_mes && data.media_horas_trabalhadas_mes > 0;
       
       if (!temRendaEHoras) {
@@ -297,14 +252,10 @@ const toggleModoHoras = async () => {
         return;
       }
 
-      // Calcular valor da hora se não existir
-
-      
       let valorHora = data.valor_hora_trabalhada;
       if (!valorHora) {
         valorHora = data.renda_mensal / data.media_horas_trabalhadas_mes;
         
-        // Salvar o valor calculado
         await supabase
           .from('perfil_usuario')
           .update({ valor_hora_trabalhada: valorHora })
@@ -313,7 +264,6 @@ const toggleModoHoras = async () => {
 
       console.log('Valor da hora:', valorHora);
 
-      // Tudo OK, ativar modo horas
       setDadosHora({
         valor_hora_trabalhada: valorHora,
         renda_mensal: data.renda_mensal,
@@ -340,13 +290,10 @@ const toggleModoHoras = async () => {
     setIncluirNaoEfetivadas(!incluirNaoEfetivadas);
   };
 
-
-  
   // Toggle seção receitas
   const toggleReceitas = () => {
     setReceitasExpandidas(!receitasExpandidas);
     if (receitasExpandidas) {
-      // Colapsar todas as categorias de receitas
       const novasCategorias = { ...categoriaExpandida };
       Object.keys(novasCategorias).forEach(key => {
         if (key.startsWith('receitas-')) {
@@ -361,7 +308,6 @@ const toggleModoHoras = async () => {
   const toggleDespesas = () => {
     setDespesasExpandidas(!despesasExpandidas);
     if (despesasExpandidas) {
-      // Colapsar todas as categorias de despesas
       const novasCategorias = { ...categoriaExpandida };
       Object.keys(novasCategorias).forEach(key => {
         if (key.startsWith('despesas-')) {
@@ -372,8 +318,6 @@ const toggleModoHoras = async () => {
     }
   };
 
-
-// ➕ ADICIONAR estas 2 funções:
 const formatarValor = (valor, ehDespesa = false) => {
   if (modoHoras && valorHoraTrabalhada && ehDespesa) {
     return formatHorasTrabalho(valor, valorHoraTrabalhada);
@@ -490,7 +434,6 @@ const gerarTooltip = (valor, ehDespesa = false) => {
     const corFundo = tipo === 'receitas' ? 'categoria-receita' : 'categoria-despesa';
     const ehDespesa = tipo === 'despesas';
 
-
     let valoresMensais = [];
     if (categoria.valores_mensais) {
       if (Array.isArray(categoria.valores_mensais)) {
@@ -533,7 +476,6 @@ const gerarTooltip = (valor, ehDespesa = false) => {
                       </span>
                     )}
                   </span>
-                  
                 )}
               </div>
             </div>
@@ -546,7 +488,6 @@ const gerarTooltip = (valor, ehDespesa = false) => {
             return (
               <td key={mesIndex} className={`valor-cell ${corTexto} ${corCalor}`}>
                 <div className="valor-container">
-                  
                   <span 
                     className="valor-texto" 
                     title={gerarTooltip(valor, ehDespesa)}
@@ -620,7 +561,7 @@ const gerarTooltip = (valor, ehDespesa = false) => {
                         formatCurrencyDRE(valor || 0)
                       }
                     </span>
-                </td>
+                  </td>
                 );
               })}
                 <td className="subcategoria-total">
@@ -796,25 +737,10 @@ const gerarTooltip = (valor, ehDespesa = false) => {
               <span>{loadingValorHora ? 'Carregando...' : 'Ver em Horas'}</span>
             </button>
           </div>
-          <div className="control-group">
-            <button
-              onClick={toggleModoCompacto}
-              className={`toggle-button ${modoCompacto ? 'active' : ''}`}
-              title="Alternar modo compacto"
-            >
-              {modoCompacto ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
-              <span>Compacto</span>
-            </button>
-          </div>
           
           <Button onClick={buscarDadosDRE} variant="outline" disabled={loading}>
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             {loading ? 'Carregando...' : 'Atualizar'}
-          </Button>
-          
-          <Button variant="primary">
-            <Download size={16} />
-            Exportar
           </Button>
         </div>
       </div>
@@ -868,69 +794,67 @@ const gerarTooltip = (valor, ehDespesa = false) => {
       </div>
 
       {/* Legenda Modernizada */}
-      {!modoCompacto && (
-        <Card className="dre-legenda">
-          <div className="legenda-header">
-            <div className="legenda-title">
-              <Info size={18} />
-              <h3>Guia de Interpretação dos Mapas de Calor</h3>
-            </div>
+      <Card className="dre-legenda">
+        <div className="legenda-header">
+          <div className="legenda-title">
+            <Info size={18} />
+            <h3>Guia de Interpretação dos Mapas de Calor</h3>
           </div>
-          <div className="legenda-content">
-            <div className="legenda-secao">
-              <h4>🟢 RECEITAS - Verde Indica Melhor Performance</h4>
-              <div className="legenda-items">
-                <div className="legenda-item">
-                  <div className="cor-exemplo heatmap-green-high"></div>
-                  <span>Meses de alta receita (top 20%)</span>
-                </div>
-                <div className="legenda-item">
-                  <div className="cor-exemplo heatmap-green-medium"></div>
-                  <span>Boa receita (60-80%)</span>
-                </div>
-                <div className="legenda-item">
-                  <div className="cor-exemplo heatmap-green-low"></div>
-                  <span>Receita moderada (40-60%)</span>
-                </div>
+        </div>
+        <div className="legenda-content">
+          <div className="legenda-secao">
+            <h4>🟢 RECEITAS - Verde Indica Melhor Performance</h4>
+            <div className="legenda-items">
+              <div className="legenda-item">
+                <div className="cor-exemplo heatmap-green-high"></div>
+                <span>Meses de alta receita (top 20%)</span>
               </div>
-            </div>
-            
-            <div className="legenda-secao">
-              <h4>🔴 DESPESAS - Vermelho Indica Necessidade de Atenção</h4>
-              <div className="legenda-items">
-                <div className="legenda-item">
-                  <div className="cor-exemplo heatmap-red-high"></div>
-                  <span>Gastos altos - Revisar orçamento</span>
-                </div>
-                <div className="legenda-item">
-                  <div className="cor-exemplo heatmap-red-medium"></div>
-                  <span>Gastos moderados</span>
-                </div>
-                <div className="legenda-item">
-                  <div className="cor-exemplo heatmap-red-low"></div>
-                  <span>Gastos controlados</span>
-                </div>
+              <div className="legenda-item">
+                <div className="cor-exemplo heatmap-green-medium"></div>
+                <span>Boa receita (60-80%)</span>
+              </div>
+              <div className="legenda-item">
+                <div className="cor-exemplo heatmap-green-low"></div>
+                <span>Receita moderada (40-60%)</span>
               </div>
             </div>
           </div>
           
-          <div className="legenda-indicadores">
-            <div className="indicador-item">
-              <div className="anomalia-indicator">
-                <AlertTriangle size={8} />
+          <div className="legenda-secao">
+            <h4>🔴 DESPESAS - Vermelho Indica Necessidade de Atenção</h4>
+            <div className="legenda-items">
+              <div className="legenda-item">
+                <div className="cor-exemplo heatmap-red-high"></div>
+                <span>Gastos altos - Revisar orçamento</span>
               </div>
-              <span>Variação significativa detectada</span>
-            </div>
-            <div className="indicador-item">
-              <span className="badge-variacao">
-                <AlertTriangle size={12} />
-                Alta Variação
-              </span>
-              <span>Categoria com padrão irregular</span>
+              <div className="legenda-item">
+                <div className="cor-exemplo heatmap-red-medium"></div>
+                <span>Gastos moderados</span>
+              </div>
+              <div className="legenda-item">
+                <div className="cor-exemplo heatmap-red-low"></div>
+                <span>Gastos controlados</span>
+              </div>
             </div>
           </div>
-        </Card>
-      )}
+        </div>
+        
+        <div className="legenda-indicadores">
+          <div className="indicador-item">
+            <div className="anomalia-indicator">
+              <AlertTriangle size={8} />
+            </div>
+            <span>Variação significativa detectada</span>
+          </div>
+          <div className="indicador-item">
+            <span className="badge-variacao">
+              <AlertTriangle size={12} />
+              Alta Variação
+            </span>
+            <span>Categoria com padrão irregular</span>
+          </div>
+        </div>
+      </Card>
 
       {/* Tabela Principal Modernizada */}
       <Card className="dre-tabela-card">
@@ -973,7 +897,7 @@ const gerarTooltip = (valor, ehDespesa = false) => {
               </tr>
               
               {/* Categorias de Receitas - só exibe se expandido */}
-              {receitasExpandidas && !modoCompacto && dadosDRE.receitas?.map((categoria) =>
+              {receitasExpandidas && dadosDRE.receitas?.map((categoria) =>
                 renderLinhaCategoria('receitas', categoria)
               )}
 
@@ -1003,19 +927,18 @@ const gerarTooltip = (valor, ehDespesa = false) => {
                   );
                 })}
 
-                  <td className="secao-total-anual text-danger">
-                    <span className="secao-total-valor">
-                      {modoHoras && valorHoraTrabalhada ? 
-                        formatHorasTrabalho(indicadores.totalDespesas, valorHoraTrabalhada) : 
-                        formatCurrencyDRE(indicadores.totalDespesas)
-                      }
-                    </span>
-                  </td>
-
+                <td className="secao-total-anual text-danger">
+                  <span className="secao-total-valor">
+                    {modoHoras && valorHoraTrabalhada ? 
+                      formatHorasTrabalho(indicadores.totalDespesas, valorHoraTrabalhada) : 
+                      formatCurrencyDRE(indicadores.totalDespesas)
+                    }
+                  </span>
+                </td>
               </tr>
               
               {/* Categorias de Despesas - só exibe se expandido */}
-              {despesasExpandidas && !modoCompacto && dadosDRE.despesas?.map((categoria) =>
+              {despesasExpandidas && dadosDRE.despesas?.map((categoria) =>
                 renderLinhaCategoria('despesas', categoria)
               )}
 
@@ -1100,68 +1023,66 @@ const gerarTooltip = (valor, ehDespesa = false) => {
       </div>
 
       {/* Insights e Recomendações */}
-      {!modoCompacto && (
-        <Card className="dre-insights">
-          <div className="insights-header">
-            <div className="insights-title">
-              <AlertTriangle size={20} />
-              <h3>Insights e Recomendações</h3>
+      <Card className="dre-insights">
+        <div className="insights-header">
+          <div className="insights-title">
+            <AlertTriangle size={20} />
+            <h3>Insights e Recomendações</h3>
+          </div>
+        </div>
+        <div className="insights-content">
+          <div className="insight-item">
+            <div className="insight-icon success">
+              <TrendingUp size={16} />
+            </div>
+            <div className="insight-text">
+              <p className="insight-titulo">
+                Taxa de poupança: {indicadores.taxaPoupanca.toFixed(1)}%
+              </p>
+              <p className="insight-descricao">
+                {indicadores.taxaPoupanca >= 20 
+                  ? "Excelente! Você está poupando uma boa quantidade."
+                  : indicadores.taxaPoupanca >= 10
+                  ? "Bom progresso. Tente aumentar para 20%."
+                  : "Considere reduzir gastos ou aumentar receitas."
+                }
+              </p>
             </div>
           </div>
-          <div className="insights-content">
+
+          {indicadores.maiorDespesa && (
             <div className="insight-item">
-              <div className="insight-icon success">
-                <TrendingUp size={16} />
+              <div className="insight-icon warning">
+                <AlertTriangle size={16} />
               </div>
               <div className="insight-text">
                 <p className="insight-titulo">
-                  Taxa de poupança: {indicadores.taxaPoupanca.toFixed(1)}%
+                  Maior categoria de gasto: {indicadores.maiorDespesa.categoria_nome}
                 </p>
                 <p className="insight-descricao">
-                  {indicadores.taxaPoupanca >= 20 
-                    ? "Excelente! Você está poupando uma boa quantidade."
-                    : indicadores.taxaPoupanca >= 10
-                    ? "Bom progresso. Tente aumentar para 20%."
-                    : "Considere reduzir gastos ou aumentar receitas."
-                  }
+                  Representa {((indicadores.maiorDespesa.total_anual / indicadores.totalDespesas) * 100).toFixed(1)}% 
+                  dos seus gastos totais. Considere analisar se há oportunidades de economia.
                 </p>
               </div>
             </div>
+          )}
 
-            {indicadores.maiorDespesa && (
-              <div className="insight-item">
-                <div className="insight-icon warning">
-                  <AlertTriangle size={16} />
-                </div>
-                <div className="insight-text">
-                  <p className="insight-titulo">
-                    Maior categoria de gasto: {indicadores.maiorDespesa.categoria_nome}
-                  </p>
-                  <p className="insight-descricao">
-                    Representa {((indicadores.maiorDespesa.total_anual / indicadores.totalDespesas) * 100).toFixed(1)}% 
-                    dos seus gastos totais. Considere analisar se há oportunidades de economia.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <div className="insight-item">
-              <div className="insight-icon info">
-                <Info size={16} />
-              </div>
-              <div className="insight-text">
-                <p className="insight-titulo">
-                  Projeção para próximo ano
-                </p>
-                <p className="insight-descricao">
-                  Com base no padrão atual, sua projeção de saldo para {anoSelecionado + 1} é de{' '}
-                  {formatCurrencyDRE(indicadores.saldoLiquido)}.
-                </p>
-              </div>
+          <div className="insight-item">
+            <div className="insight-icon info">
+              <Info size={16} />
+            </div>
+            <div className="insight-text">
+              <p className="insight-titulo">
+                Projeção para próximo ano
+              </p>
+              <p className="insight-descricao">
+                Com base no padrão atual, sua projeção de saldo para {anoSelecionado + 1} é de{' '}
+                {formatCurrencyDRE(indicadores.saldoLiquido)}.
+              </p>
             </div>
           </div>
-        </Card>
-      )}
+        </div>
+      </Card>
     </div>
   );
 };
