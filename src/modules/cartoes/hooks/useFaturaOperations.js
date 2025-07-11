@@ -550,7 +550,7 @@ export const useFaturaOperations = () => {
 
       if (!cartao_id) throw new Error('cartao_id é obrigatório');
       if (!categoria_id) throw new Error('categoria_id é obrigatório');
-      if (!descricao) throw new Error('descricao é obrigatória');
+      //if (!descricao) throw new Error('descricao é obrigatória');
       if (!valor || valor <= 0) throw new Error('valor deve ser maior que zero');
       if (!data_compra) throw new Error('data_compra é obrigatória');
 
@@ -576,7 +576,7 @@ export const useFaturaOperations = () => {
           categoria_id,
           subcategoria_id,
           tipo: 'despesa',
-          descricao,
+          descricao: descricao || '',
           valor,
           data: data_compra,
           fatura_vencimento: faturaVencimentoFinal,
