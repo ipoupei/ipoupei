@@ -96,7 +96,7 @@ const modalStyles = `
 @media (max-width: 768px) {
   .modal-overlay {
     padding-top: 1rem !important;
-  }
+  }onSave={handleSave}
   .forms-modal-container {
     max-width: 95vw !important;
     max-height: calc(100vh - 2rem) !important;
@@ -252,9 +252,25 @@ const MainLayout = () => {
     }));
   };
 
-  const handleModalSave = () => {
-    console.log('💾 Dados salvos com sucesso');
-  };
+const handleModalSave = () => {
+  console.log('💾 Dados salvos com sucesso');
+  
+  // ✅ FORÇAR REFRESH DO DASHBOARD APÓS SALVAR TRANSAÇÃO
+  console.log('🔄 Forçando refresh do dashboard...');
+  
+  setTimeout(() => {
+    try {
+      // Import dinâmico do dashboard store
+      import('@modules/dashboard/store/dashboardStore').then(({ default: useDashboardStore }) => {
+        const { refreshData } = useDashboardStore.getState();
+        refreshData();
+        console.log('✅ Dashboard atualizado após salvar transação');
+      });
+    } catch (error) {
+      console.log('❌ Erro ao forçar refresh do dashboard:', error);
+    }
+  }, 1000); // 1 segundo para dar tempo dos triggers processarem
+};
 
   const handleLogout = async () => {
     try {

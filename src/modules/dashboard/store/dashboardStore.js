@@ -21,6 +21,9 @@ const useDashboardStore = create((set, get) => ({
   
   // Período selecionado
   selectedDate: new Date(),
+  realtimeChannel: null,
+  realtimeSubscribed: false,
+  debounceTimer: null,
   
   // Cache para performance (por período)
   cache: {
@@ -692,10 +695,56 @@ cartaoCredito: {
     }
   },
 
-  // ============================
-  // 🔄 FUNÇÃO DE REFRESH
-  // ============================
-  refreshData: () => {
+    // ✅ ADICIONAR ESTAS FUNÇÕES ANTES DE refreshData:
+          setupRealtimeListeners: () => {
+            const { realtimeSubscribed } = get();
+            if (realtimeSubscribed) return;
+
+            supabase.auth.getUser().then(({ data: { user } }) => {
+              if (!user?.id) return;
+
+              console.log('📡 Configurando Dashboard Real-time igual ao useContas para:', user.email);
+
+              // ✅ USAR O MESMO PADRÃO QUE FUNCIONA NO useContas
+              const channel = supabase
+                .channel(`dashboard_transacoes_${user.id}`)
+                .on(
+                  'postgres_changes',
+                  {
+                    event: '*',
+                    schema: 'public',
+                    table: 'transacoes',
+                    filter: `usuario_id=eq.${user.id}`
+                  },
+                  () => {
+                    console.log('🔔 DASHBOARD: Transação alterada - refreshing...');
+                    // ✅ MESMO DELAY QUE FUNCIONA NO useContas
+                    setTimeout(() => get().refreshData(), 1000);
+                  }
+                )
+                .subscribe((status) => {
+                  console.log('📡 Dashboard Real-time status:', status);
+                  if (status === 'SUBSCRIBED') {
+                    console.log('✅ Dashboard listeners IGUAIS AO useContas ATIVOS!');
+                    set({ realtimeChannel: channel, realtimeSubscribed: true });
+                  }
+                });
+            });
+          },
+    debouncedRefresh: () => {
+      const state = get();
+      if (state.debounceTimer) clearTimeout(state.debounceTimer);
+      
+      const timer = setTimeout(() => {
+        console.log('🔄 Dashboard: Auto-refresh por mudança');
+        get().refreshData();
+      }, 1500);
+      
+      set({ debounceTimer: timer });
+    },
+
+    refreshData: () => {
+
     console.log('🔄 Refresh dashboard - limpando cache');
     get().limparCache();
     return get().fetchDashboardData();
@@ -716,12 +765,24 @@ export const useDashboardData = () => {
   const store = useDashboardStore();
   
   // Auto-fetch na inicialização (como hook original)
-  React.useEffect(() => {
-    if (!store.hasData() && !store.isLoading()) {
-      console.log('🚀 Dashboard store inicializando...');
-      store.fetchDashboardData();
-    }
-  }, []);
+    React.useEffect(() => {
+      if (!store.hasData() && !store.isLoading()) {
+        console.log('🚀 Dashboard store inicializando...');
+        console.log('🚀 Dashboard store inicializando...');
+        console.log('📡 Configurando listeners real-time...');
+        store.fetchDashboardData();
+      }
+      
+      // ✅ ADICIONAR: Setup listeners real-time
+      store.setupRealtimeListeners();
+      
+      // ✅ ADICIONAR: Cleanup
+      return () => {
+        if (store.realtimeChannel) {
+          supabase.removeChannel(store.realtimeChannel);
+        }
+      };
+    }, []);
   
   // ✅ INTERFACE IDENTICA ao hook original + controles de período
   return {

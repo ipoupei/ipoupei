@@ -27,7 +27,7 @@ export default defineConfig({
     include: /src\/.*\.[jt]sx?$/,
     exclude: [],
     
-    drop: ['console', 'debugger'], // 👈 Aqui silencia tudo em produção
+    //drop: ['console', 'debugger'], // 👈 Aqui silencia tudo em produção
   },
   optimizeDeps: {
     esbuildOptions: {

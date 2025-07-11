@@ -40,17 +40,7 @@ import '../styles/Dashboard.css';
 
 console.log('🔥 DASHBOARD.JSX CARREGADO - VERSÃO MODERNIZADA');
 
-/**
- * Dashboard - Versão MODERNIZADA E CONECTADA AO NOVO STORE
- * ✅ Conectado ao novo dashboardStore com controles de período
- * ✅ Visual aprimorado com melhor hierarquia
- * ✅ Insights inteligentes baseados nos dados
- * ✅ Loading state customizado (skeleton)
- * ✅ Microinterações e animações suaves
- * ✅ Cards com sparklines e tendências
- * ✅ Seção de insights rápidos
- * ✅ Melhor responsividade e acessibilidade
- */
+
 const Dashboard = () => {
   const navigate = useNavigate();
   
@@ -87,6 +77,7 @@ const Dashboard = () => {
   useEffect(() => {
     console.log('📅 Dashboard período conectado ao store:', getFormattedPeriod());
   }, [selectedDate]);
+  
 
   // ✅ HANDLERS SEMPRE NO MESMO LOCAL
   const handleNavigateMonth = (direction) => {
