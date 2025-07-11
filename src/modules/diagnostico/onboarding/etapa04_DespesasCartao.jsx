@@ -3,8 +3,9 @@ import React, { useState, useCallback, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { ArrowRight, ArrowLeft, CreditCard, Plus, ShoppingCart } from 'lucide-react';
 import useCartoes from '@modules/cartoes/hooks/useCartoesData';
-import DespesasCartaoModal from '@modules/transacoes/components/DespesasCartaoModal';
+import UnifiedTransactionModal from '@modules/transacoes/components/UnifiedTransactionModal';
 import { formatCurrency } from '@shared/utils/formatCurrency';
+import { useTransactions } from '@modules/transacoes/store/transactionsStore';
 
 // CSS refatorado
 import '@modules/diagnostico/styles/DiagnosticoOnboarding.css';
@@ -19,10 +20,21 @@ const DespesasCartaoEtapa = ({
 }) => {
   const { cartoes, loading } = useCartoes();
   const [modalAberto, setModalAberto] = useState(false);
+  const [precisaRecarregar, setPrecisaRecarregar] = useState(true);
 
-  // Por enquanto, vamos assumir que não há despesas cadastradas no diagnóstico
-  // Isso pode ser melhorado depois com hook de transações quando necessário
-  const despesasCartao = [];
+  // ✅ ORDEM CORRETA: Hook de transações PRIMEIRO
+  const { 
+    transacoes, 
+    loading: loadingTransacoes,
+    setFiltros, 
+    fetchTransacoes
+  } = useTransactions();
+
+  // ✅ DEPOIS: Filtrar transações
+  const despesasCartaoCarregadas = transacoes.filter(t => t.cartao_id);
+
+  // ✅ FINALMENTE: Usar a variável filtrada
+  const despesasCartao = despesasCartaoCarregadas;
 
   // ✅ USAR DADOS DO DIAGNÓSTICO EM VEZ DE HOOK SEPARADO
   const dadosCartoesFromDiagnostico = todosDados?.cartoes;
@@ -43,9 +55,46 @@ const DespesasCartaoEtapa = ({
   const temDespesasCartao = despesasCartao.length > 0;
   const podeContinuar = true; // Etapa opcional - sempre pode continuar
 
+  const carregarDespesasCartao = useCallback(async () => {
+    if (!precisaRecarregar) return;
+    
+    try {
+      console.log('🔄 Carregando despesas de cartão para diagnóstico...');
+      
+      // Configurar filtros para buscar transações de cartão
+      setFiltros({ 
+        tipos: ['cartao'],
+        categorias: [],
+        contas: [],
+        cartoes: [],
+        status: [],
+        busca: ''
+      });
+      
+      // Buscar transações
+      await fetchTransacoes();
+      
+      setPrecisaRecarregar(false);
+      console.log('✅ Despesas de cartão carregadas via store');
+    } catch (error) {
+      console.error('❌ Erro ao carregar despesas de cartão:', error);
+    }
+  }, [precisaRecarregar, setFiltros, fetchTransacoes]);
+
   const handleAbrirModal = useCallback(() => {
     setModalAberto(true);
   }, []);
+
+  const handleSalvarDespesaCartao = useCallback(() => {
+    console.log('💾 Despesa de cartão salva, recarregando dados...');
+    setPrecisaRecarregar(true);
+    setModalAberto(false);
+    
+    // Recarregar dados
+    setTimeout(() => {
+      carregarDespesasCartao();
+    }, 500);
+  }, [carregarDespesasCartao]);
 
   const handleFecharModal = useCallback(() => {
     setModalAberto(false);
@@ -77,8 +126,12 @@ const DespesasCartaoEtapa = ({
     { numero: 11, nome: 'Fim', ativa: false, completa: false }
   ];
 
+  useEffect(() => {
+    carregarDespesasCartao();
+  }, [carregarDespesasCartao]);
+
   // ✅ LOADING STATE MELHORADO
-  if (loading && !cartoes?.length && !dadosCartoesFromDiagnostico) {
+  if (loading && !cartoes?.length && !dadosCartoesFromDiagnostico && !despesasCartao.length) {
     return (
       <div className="diagnostico-container">
         <div className="diagnostico-header">
@@ -219,6 +272,7 @@ const DespesasCartaoEtapa = ({
           <div className="action-buttons">
             <button
               onClick={handleAbrirModal}
+              disabled={loading || loadingTransacoes}
               className="btn-primary"
             >
               <Plus size={14} />
@@ -229,7 +283,33 @@ const DespesasCartaoEtapa = ({
           {/* Despesas Existentes ou Cartões Disponíveis */}
           {temDespesasCartao ? (
             <div className="despesas-existentes">
-              <p>Nenhuma despesa registrada ainda.</p>
+              {despesasCartao.slice(0, 4).map((despesa) => (
+                <div key={despesa.id} className="preview-card-base">
+                  <div className="despesa-icone">
+                    <CreditCard size={14} />
+                  </div>
+                  <div className="item-info-base">
+                    <div className="despesa-nome">{despesa.descricao}</div>
+                    <div className="despesa-tipo">
+                      {despesa.numero_parcelas > 1 ? `${despesa.numero_parcelas}x` : 'À vista'}
+                    </div>
+                  </div>
+                  <div className="value-badge-base">
+                    {formatCurrency(despesa.valor || 0)}
+                  </div>
+                </div>
+              ))}
+              {despesasCartao.length > 4 && (
+                <div className="preview-card-base mais">
+                  <div className="despesa-icone">
+                    +{despesasCartao.length - 4}
+                  </div>
+                  <div className="item-info-base">
+                    <div className="despesa-nome">Mais gastos</div>
+                    <div className="despesa-tipo">Ver todos</div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <>
@@ -344,12 +424,12 @@ const DespesasCartaoEtapa = ({
       </div>
 
       {/* Modal de Despesas do Cartão */}
-      {modalAberto && (
-        <DespesasCartaoModal
-          isOpen={modalAberto}
-          onClose={handleFecharModal}
-        />
-      )}
+      <UnifiedTransactionModal
+        isOpen={modalAberto}
+        onClose={handleFecharModal}
+        onSave={handleSalvarDespesaCartao}
+        tipoInicial="cartao"
+      />
 
     </div>
   );

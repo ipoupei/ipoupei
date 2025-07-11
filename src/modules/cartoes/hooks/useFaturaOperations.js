@@ -963,71 +963,77 @@ export const useFaturaOperations = () => {
   };
 
   // ✅ CRIAR CARTÃO
-  const criarCartao = async (dadosCartao) => {
-    setLoading(true);
-    setError(null);
+      const criarCartao = async (dadosCartao) => {
+        setLoading(true);
+        setError(null);
 
-    try {
-      if (!user?.id) throw new Error('Usuário não autenticado');
-      
-      const {
-        nome,
-        limite,
-        dia_fechamento,
-        dia_vencimento,
-        bandeira,
-        banco = null,
-        conta_debito_id = null,
-        cor = '#1E40AF',
-        observacoes = null
-      } = dadosCartao;
+        try {
+          if (!user?.id) throw new Error('Usuário não autenticado');
+          
+          const {
+            nome,
+            limite,
+            dia_fechamento,
+            dia_vencimento,
+            bandeira,
+            banco = null,
+            conta_debito_id = null,
+            cor = '#1E40AF',
+            observacoes = null
+          } = dadosCartao;
 
-      if (!nome) throw new Error('nome é obrigatório');
-      if (!limite || limite <= 0) throw new Error('limite deve ser maior que zero');
-      if (!dia_fechamento || dia_fechamento < 1 || dia_fechamento > 31) {
-        throw new Error('dia_fechamento deve estar entre 1 e 31');
-      }
-      if (!dia_vencimento || dia_vencimento < 1 || dia_vencimento > 31) {
-        throw new Error('dia_vencimento deve estar entre 1 e 31');
-      }
-      if (!bandeira) throw new Error('bandeira é obrigatória');
+          if (!nome) throw new Error('nome é obrigatório');
+          if (!limite || limite <= 0) throw new Error('limite deve ser maior que zero');
+          if (!dia_fechamento || dia_fechamento < 1 || dia_fechamento > 31) {
+            throw new Error('dia_fechamento deve estar entre 1 e 31');
+          }
+          if (!dia_vencimento || dia_vencimento < 1 || dia_vencimento > 31) {
+            throw new Error('dia_vencimento deve estar entre 1 e 31');
+          }
+          if (!bandeira) throw new Error('bandeira é obrigatória');
 
-      const { data, error: insertError } = await supabase
-        .from('cartoes')
-        .insert([{
-          usuario_id: user.id,
-          nome,
-          limite,
-          dia_fechamento,
-          dia_vencimento,
-          bandeira,
-          banco,
-          conta_debito_id,
-          cor,
-          observacoes,
-          ativo: true,
-          origem_diagnostico: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }])
-        .select()
-        .single();
+          // ✅ CORREÇÃO: Tratar campos UUID vazios
+          const contaDebitoFinal = conta_debito_id && conta_debito_id.trim() !== '' ? conta_debito_id : null;
+          const bancoFinal = banco && banco.trim() !== '' ? banco : null;
 
-      if (insertError) throw insertError;
+          const { data, error: insertError } = await supabase
+            .from('cartoes')
+            .insert([{
+              usuario_id: user.id,
+              nome,
+              limite,
+              dia_fechamento,
+              dia_vencimento,
+              bandeira,
+              banco: bancoFinal, // ✅ USAR valor tratado
+              conta_debito_id: contaDebitoFinal, // ✅ USAR valor tratado
+              cor,
+              observacoes,
+              ativo: true,
+              origem_diagnostico: false,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }])
+            .select()
+            .single();
 
-      return {
-        success: true,
-        cartao: data
+          if (insertError) throw insertError;
+
+          return {
+            success: true,
+            cartao: data
+          };
+
+        } catch (err) {
+          console.error('Erro ao criar cartão:', err);
+          setError(err.message);
+          return { success: false, error: err.message };
+        } finally {
+          setLoading(false);
+        }
       };
 
-    } catch (err) {
-      console.error('Erro ao criar cartão:', err);
-      setError(err.message);
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   // ✅ EDITAR CARTÃO
   const editarCartao = async (cartaoId, dadosAtualizacao) => {

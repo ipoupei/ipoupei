@@ -229,7 +229,7 @@ const handleContinuar = useCallback(() => {
             <div className="status-info">
               <h3>
                 {temCartoes 
-                  ? `${cartoes.length} cartão${cartoes.length > 1 ? 'ões' : ''} cadastrado${cartoes.length > 1 ? 's' : ''}`
+                  ? `${cartoes.length} ${cartoes.length === 1 ? 'cartão cadastrado' : 'cartões cadastrados'}`
                   : 'Cartões de Crédito'
                 }
               </h3>

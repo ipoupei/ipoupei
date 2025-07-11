@@ -602,6 +602,7 @@ const corrigirSaldoConta = useCallback(async (contaId, novoSaldo, metodo = 'ajus
     console.log('🚀 === FORÇA REFRESH SOLICITADO ===');
     console.log('⏳ Aguardando triggers processarem (1 segundo)...');
     
+  
     // ✅ Aguardar triggers processarem
     await new Promise(resolve => setTimeout(resolve, 1000));
     
@@ -610,6 +611,9 @@ const corrigirSaldoConta = useCallback(async (contaId, novoSaldo, metodo = 'ajus
     return fetchContas(incluirArquivadas);
   }, [fetchContas]);
 
+  
+  
+  
   // ✅ EFEITOS
   // Carregar contas quando usuário muda
   useEffect(() => {

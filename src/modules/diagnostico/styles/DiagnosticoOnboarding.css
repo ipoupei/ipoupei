@@ -1239,7 +1239,7 @@
 
 .estimativas-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, 1fr); /* 2 colunas por padrão */
   gap: 12px;
 }
 
@@ -2542,9 +2542,11 @@
   }
 
   /* Estimativas variáveis */
-  .estimativas-grid {
-    grid-template-columns: 1fr;
-  }
+.estimativas-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);  /* ← ALTERAÇÃO AQUI */
+  gap: 12px;
+}
   
   .estimativa-header {
     flex-direction: column;

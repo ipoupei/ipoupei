@@ -309,6 +309,8 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
         });
         
         showNotification('Conta atualizada com sucesso!', 'success');
+
+        
         
       } else {
         // ✅ USAR HOOK EM VEZ DE SUPABASE DIRETO
@@ -338,6 +340,8 @@ const ContasModal = ({ isOpen, onClose, onSave }) => {
       setSubmitting(false);
     }
   }, [validarFormulario, modoFormulario, contaEditando, formData, parseValorInput, updateConta, addConta, resetFormulario, onSave, showNotification]);
+
+  window.dispatchEvent(new CustomEvent('conta_atualizada'));
 
   // =============================================================================
   // AÇÕES DE CORREÇÃO DE SALDO
