@@ -289,82 +289,110 @@ const useContas = () => {
     }
   }, [contasArquivadas, user, fetchContas, showNotification]);
 
+// MÉTODO CORRIGIDO: Replica exatamente a lógica do seu SQL
 const corrigirSaldoConta = useCallback(async (contaId, novoSaldo, metodo = 'ajuste', motivo = '') => {
   if (!user?.id) return { success: false, error: 'Usuário não autenticado' };
 
   try {
     setLoading(true);
+    console.log('🔧 === CORREÇÃO USANDO MÉTODO SQL ===');
 
     const conta = contas.find(c => c.id === contaId) || contasArquivadas.find(c => c.id === contaId);
     if (!conta) throw new Error('Conta não encontrada');
 
-    const saldoAtual = conta.saldo_atual || conta.saldo || 0;
-    const diferenca = novoSaldo - saldoAtual;
-
-    if (Math.abs(diferenca) < 0.01) {
-      showNotification('Saldo já está correto', 'info');
-      return { success: true };
-    }
-
     if (metodo === 'saldo_inicial') {
       // =====================================================================================
-      // MÉTODO 1: ALTERAR SALDO INICIAL - LÓGICA CORRIGIDA
+      // CÁLCULO EXATO COMO SEU SQL QUE FUNCIONA
       // =====================================================================================
-      // Calcula qual deveria ser o saldo inicial para resultar no saldo desejado
       
-      // 1. Buscar soma de todas as transações efetivadas da conta
-      const { data: somaTransacoes, error: erroSoma } = await supabase.rpc('ip_prod_calcular_soma_transacoes_conta', {
-        p_conta_id: contaId,
-        p_usuario_id: user.id
-      });
-
-      if (erroSoma) {
-        console.warn('RPC não disponível, calculando manualmente:', erroSoma);
-        
-        // Fallback: calcular manualmente
-        const { data: transacoes, error: erroTransacoes } = await supabase
-          .from('transacoes')
-          .select('tipo, valor, conta_destino_id, conta_id')
-          .or(`conta_id.eq.${contaId},conta_destino_id.eq.${contaId}`)
-          .eq('usuario_id', user.id)
-          .eq('efetivado', true)
-          .is('cartao_id', null); // Só transações diretas na conta
-
-        if (erroTransacoes) throw erroTransacoes;
-
-        // Calcular soma manual
-        let somaTotal = 0;
-        
-        (transacoes || []).forEach(t => {
-          if (t.conta_id === contaId) {
-            // Transação da conta (origem)
-            if (t.tipo === 'receita') somaTotal += Number(t.valor);
-            else if (t.tipo === 'despesa') somaTotal -= Number(t.valor);
-            else if (t.tipo === 'transferencia') somaTotal -= Number(t.valor);
-          } else if (t.conta_destino_id === contaId) {
-            // Transferência recebida (destino)
-            somaTotal += Number(t.valor);
-          }
-        });
-
-        var somaFinal = somaTotal;
-      } else {
-        var somaFinal = Number(somaTransacoes) || 0;
-      }
-
-      // 2. Calcular novo saldo inicial CORRETAMENTE
-      // ✅ FÓRMULA CORRETA: saldo_inicial = saldo_desejado - transações
-      const novoSaldoInicial = novoSaldo - somaFinal;
-
-      console.log('📊 Cálculo saldo inicial CORRIGIDO:', {
-        saldoDesejado: novoSaldo,
-        somaTransacoes: somaFinal,
-        saldoInicialAtual: conta.saldo_inicial,
-        novoSaldoInicialCalculado: novoSaldoInicial
-      });
-
-      // 3. Atualizar APENAS o saldo inicial (trigger recalculará automaticamente)
-      const { error } = await supabase
+      console.log('📊 Calculando soma usando método SQL...');
+      
+      // 1. RECEITAS (exatamente como seu SQL)
+      const { data: receitas, error: erroReceitas } = await supabase
+        .from('transacoes')
+        .select('valor')
+        .eq('conta_id', contaId)
+        .eq('tipo', 'receita')
+        .eq('efetivado', true)
+        .eq('usuario_id', user.id);
+      
+      if (erroReceitas) throw erroReceitas;
+      
+      const totalReceitas = (receitas || []).reduce((sum, t) => sum + (Number(t.valor) || 0), 0);
+      console.log('💰 Total receitas:', totalReceitas);
+      
+      // 2. DESPESAS (exatamente como seu SQL - SEM CARTÃO)
+      const { data: despesas, error: erroDespesas } = await supabase
+        .from('transacoes')
+        .select('valor')
+        .eq('conta_id', contaId)
+        .eq('tipo', 'despesa')
+        .is('cartao_id', null)  // ✅ FILTRO CRÍTICO!
+        .eq('efetivado', true)
+        .eq('usuario_id', user.id);
+      
+      if (erroDespesas) throw erroDespesas;
+      
+      const totalDespesas = (despesas || []).reduce((sum, t) => sum + (Number(t.valor) || 0), 0);
+      console.log('💸 Total despesas (sem cartão):', totalDespesas);
+      
+      // 3. TRANSFERÊNCIAS RECEBIDAS (exatamente como seu SQL)
+      const { data: transfRecebidas, error: erroTransfRec } = await supabase
+        .from('transacoes')
+        .select('valor')
+        .eq('conta_destino_id', contaId)
+        .eq('tipo', 'transferencia')
+        .eq('efetivado', true)
+        .eq('usuario_id', user.id);
+      
+      if (erroTransfRec) throw erroTransfRec;
+      
+      const totalTransfRecebidas = (transfRecebidas || []).reduce((sum, t) => sum + (Number(t.valor) || 0), 0);
+      console.log('⬅️ Transferências recebidas:', totalTransfRecebidas);
+      
+      // 4. TRANSFERÊNCIAS ENVIADAS (exatamente como seu SQL)
+      const { data: transfEnviadas, error: erroTransfEnv } = await supabase
+        .from('transacoes')
+        .select('valor')
+        .eq('conta_id', contaId)
+        .eq('tipo', 'transferencia')
+        .eq('efetivado', true)
+        .eq('usuario_id', user.id);
+      
+      if (erroTransfEnv) throw erroTransfEnv;
+      
+      const totalTransfEnviadas = (transfEnviadas || []).reduce((sum, t) => sum + (Number(t.valor) || 0), 0);
+      console.log('➡️ Transferências enviadas:', totalTransfEnviadas);
+      
+      // 5. CALCULAR SOMA TOTAL (fórmula do seu SQL)
+      const somaTransacoesSQL = totalReceitas - totalDespesas + totalTransfRecebidas - totalTransfEnviadas;
+      
+      console.log('🧮 BREAKDOWN DO CÁLCULO:');
+      console.log(`Receitas: +${totalReceitas}`);
+      console.log(`Despesas: -${totalDespesas}`);
+      console.log(`Transf. Recebidas: +${totalTransfRecebidas}`);
+      console.log(`Transf. Enviadas: -${totalTransfEnviadas}`);
+      console.log(`SOMA TOTAL: ${somaTransacoesSQL}`);
+      
+      // 6. CALCULAR NOVO SALDO INICIAL
+      const novoSaldoInicial = novoSaldo - somaTransacoesSQL;
+      
+      console.log('🎯 RESULTADO FINAL:');
+      console.log(`Saldo desejado: ${novoSaldo}`);
+      console.log(`Soma transações: ${somaTransacoesSQL}`);
+      console.log(`Novo saldo inicial: ${novoSaldoInicial}`);
+      
+      // 7. VERIFICAÇÃO (usando fórmula do seu SQL)
+      const verificacao = conta.saldo_inicial + somaTransacoesSQL;
+      console.log('✅ VERIFICAÇÃO:');
+      console.log(`Saldo atual calculado: ${verificacao}`);
+      console.log(`Saldo atual na tabela: ${conta.saldo_atual || conta.saldo}`);
+      console.log(`Diferença: ${Math.abs(verificacao - (conta.saldo_atual || conta.saldo))}`);
+      
+      // 8. ATUALIZAR NO BANCO
+      console.log('💾 Atualizando saldo inicial...');
+      
+      const { error: erroUpdate } = await supabase
         .from('contas')
         .update({
           saldo_inicial: novoSaldoInicial,
@@ -373,33 +401,22 @@ const corrigirSaldoConta = useCallback(async (contaId, novoSaldo, metodo = 'ajus
         .eq('id', contaId)
         .eq('usuario_id', user.id);
 
-      if (error) throw error;
+      if (erroUpdate) throw erroUpdate;
+      
+      console.log('✅ Atualização concluída!');
       
       showNotification(
-        `Saldo inicial alterado. Novo saldo: ${novoSaldo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`, 
+        `Saldo inicial corrigido. Novo saldo: ${novoSaldo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`, 
         'success'
       );
 
     } else {
-      // =====================================================================================
-      // MÉTODO 2: CRIAR TRANSAÇÃO DE AJUSTE - LÓGICA CORRIGIDA
-      // =====================================================================================
-      // Cria APENAS uma transação de receita ou despesa para ajustar o saldo atual
-      // NÃO altera o saldo inicial!
-
+      // Método de ajuste (criar transação) - mantém original
+      const diferenca = novoSaldo - (conta.saldo_atual || conta.saldo || 0);
       const tipoAjuste = diferenca > 0 ? 'receita' : 'despesa';
       const valorAjuste = Math.abs(diferenca);
 
-      console.log('💰 Criando transação de ajuste:', {
-        tipo: tipoAjuste,
-        valor: valorAjuste,
-        diferenca: diferenca,
-        saldoAtual: saldoAtual,
-        saldoDesejado: novoSaldo
-      });
-
-      // Criar transação de ajuste (trigger atualizará saldo automaticamente)
-      const { error } = await supabase
+      const { error: erroTransacao } = await supabase
         .from('transacoes')
         .insert([{
           usuario_id: user.id,
@@ -416,24 +433,26 @@ const corrigirSaldoConta = useCallback(async (contaId, novoSaldo, metodo = 'ajus
           updated_at: new Date().toISOString()
         }]);
 
-      if (error) throw error;
+      if (erroTransacao) throw erroTransacao;
       
       showNotification(
-        `Ajuste de ${valorAjuste.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} criado com sucesso!`, 
+        `Ajuste de ${valorAjuste.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} criado!`, 
         'success'
       );
     }
 
-    // ✅ CORREÇÃO: Aguardar tempo adequado para triggers processarem
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    await fetchContas(true); // Recarregar com arquivadas
+    // 9. AGUARDAR TRIGGERS E RECARREGAR
+    console.log('⏳ Aguardando triggers processarem...');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    await fetchContas(true);
+    console.log('✅ === CORREÇÃO CONCLUÍDA ===');
     
     return { success: true };
 
   } catch (error) {
-    console.error('❌ Erro ao corrigir saldo:', error);
-    setError && setError(error.message); // Usar setError se existir
-    showNotification('Erro ao corrigir saldo', 'error');
+    console.error('❌ ERRO NA CORREÇÃO:', error);
+    showNotification(`Erro ao corrigir saldo: ${error.message}`, 'error');
     return { success: false, error: error.message };
   } finally {
     setLoading(false);
