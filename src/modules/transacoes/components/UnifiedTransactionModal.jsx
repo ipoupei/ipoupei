@@ -1303,24 +1303,111 @@ const validateForm = useCallback(() => {
 }, [transactionData]);
 
 // ===== CONVERSÃO DE VALOR =====
+// CORREÇÃO DEFINITIVA: Função getValorNumerico no UnifiedTransactionModal.jsx
+
 const getValorNumerico = useCallback(() => {
-  const valorString = transactionData.valor.toString();
+  const valorInput = transactionData.valor;
   
-  // Se contém vírgula = valor já formatado (ex: "789,50")
-  if (valorString.includes(',')) {
-    const partes = valorString.split(',');
-    const inteira = partes[0].replace(/\./g, '');
-    const decimal = partes[1] || '00';
-    const valorFinal = parseFloat(`${inteira}.${decimal}`);
-    return isNaN(valorFinal) ? 0 : valorFinal;
-  } 
+  // ✅ DEBUG
+  console.log('🔍 [DEBUG] getValorNumerico - Input original:', valorInput, typeof valorInput);
   
-  // Se não tem vírgula, tratar como valor direto
-  // Se tem pontos = milhares (ex: "1.789" = 1789)
-  // Se só números = valor direto (ex: "789" = 789)
-  const apenasNumeros = valorString.replace(/\./g, '');
-  const valorFinal = parseFloat(apenasNumeros);
-  return isNaN(valorFinal) ? 0 : valorFinal;
+  // Se já é um número, retornar direto
+  if (typeof valorInput === 'number') {
+    console.log('✅ [DEBUG] Já é number:', valorInput);
+    return valorInput;
+  }
+  
+  // Se é string vazia ou null/undefined
+  if (!valorInput || valorInput === '') {
+    console.log('⚠️ [DEBUG] Valor vazio');
+    return 0;
+  }
+  
+  // Converter para string para processar
+  let valorString = valorInput.toString();
+  
+  // ✅ CORREÇÃO BRASIL: Detectar se é valor formatado brasileiro
+  const temVirgula = valorString.includes(',');
+  const temPonto = valorString.includes('.');
+  
+  console.log('🔍 [DEBUG] Análise:', { valorString, temVirgula, temPonto });
+  
+  // CASO 1: Valor com vírgula (formato brasileiro)
+  if (temVirgula) {
+    // Remover tudo exceto números e vírgula
+    const valorLimpo = valorString.replace(/[^\d,]/g, '');
+    
+    // Se tem ponto E vírgula, assumir que ponto é separador de milhares
+    if (temPonto && temVirgula) {
+      // Ex: "1.234,56" → "1234,56"
+      const semPontos = valorLimpo.replace(/\./g, '');
+      const partes = semPontos.split(',');
+      const inteira = partes[0];
+      const decimal = partes[1] || '00';
+      
+      // Garantir apenas 2 casas decimais
+      const decimalFinal = decimal.length > 2 ? decimal.substring(0, 2) : decimal.padEnd(2, '0');
+      
+      const resultado = parseFloat(`${inteira}.${decimalFinal}`);
+      console.log('✅ [DEBUG] Caso vírgula+ponto:', { valorLimpo, semPontos, resultado });
+      return isNaN(resultado) ? 0 : resultado;
+    } else {
+      // Ex: "1234,56" → 1234.56
+      const partes = valorLimpo.split(',');
+      const inteira = partes[0];
+      const decimal = partes[1] || '00';
+      
+      // ✅ CORREÇÃO CRÍTICA: Limitar decimais a 2 dígitos
+      const decimalFinal = decimal.length > 2 ? decimal.substring(0, 2) : decimal;
+      
+      const resultado = parseFloat(`${inteira}.${decimalFinal}`);
+      console.log('✅ [DEBUG] Caso só vírgula:', { valorLimpo, partes, resultado });
+      return isNaN(resultado) ? 0 : resultado;
+    }
+  }
+  
+  // CASO 2: Valor só com ponto (formato americano ou milhares)
+  if (temPonto && !temVirgula) {
+    // Ex: "1234.56" (americano) ou "1.234" (milhares brasileiros)
+    const pontos = valorString.split('.').length - 1;
+    
+    if (pontos === 1) {
+      // Um ponto: pode ser decimal americano OU milhares brasileiro
+      const partes = valorString.split('.');
+      const decimal = partes[1];
+      
+      // Se parte decimal tem 1-2 dígitos, é formato americano
+      if (decimal && decimal.length <= 2) {
+        const resultado = parseFloat(valorString);
+        console.log('✅ [DEBUG] Formato americano:', resultado);
+        return isNaN(resultado) ? 0 : resultado;
+      } else {
+        // Mais de 2 dígitos, tratar como milhares brasileiro
+        const valorSemPontos = valorString.replace(/\./g, '');
+        const resultado = parseFloat(valorSemPontos);
+        console.log('✅ [DEBUG] Milhares brasileiro:', resultado);
+        return isNaN(resultado) ? 0 : resultado;
+      }
+    } else {
+      // Múltiplos pontos: separadores de milhares
+      const valorSemPontos = valorString.replace(/\./g, '');
+      const resultado = parseFloat(valorSemPontos);
+      console.log('✅ [DEBUG] Múltiplos pontos:', resultado);
+      return isNaN(resultado) ? 0 : resultado;
+    }
+  }
+  
+  // CASO 3: Só números (sem ponto nem vírgula)
+  const apenasNumeros = valorString.replace(/[^\d]/g, '');
+  if (apenasNumeros) {
+    const resultado = parseFloat(apenasNumeros);
+    console.log('✅ [DEBUG] Só números:', resultado);
+    return isNaN(resultado) ? 0 : resultado;
+  }
+  
+  // CASO 4: Fallback
+  console.log('⚠️ [DEBUG] Fallback para 0');
+  return 0;
 }, [transactionData.valor]);
 
 // ===== SALVAR TRANSFERÊNCIA =====

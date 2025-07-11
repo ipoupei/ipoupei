@@ -225,7 +225,7 @@ const IntroPercepcaoEtapa = ({
           <div className="video-container">
             <div className="video-header">
               <h3 className="video-title">🎬 Introdução ao diagnóstico</h3>
-              <p className="video-subtitle">Conheça o processo em 4 minutos</p>
+              <p className="video-subtitle">Conheça o processo em 3 minutos</p>
             </div>
             
             <div className="video-embed">

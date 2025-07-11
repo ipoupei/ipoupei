@@ -95,38 +95,53 @@ const InputMoney = ({
     return { resultado: null, foiCalculado: false };
   }, [enableCalculator, avaliarExpressao]);
   
-  // ✅ CORREÇÃO 3: Converte string para número com validação RIGOROSA de casas decimais
-  const stringToNumber = useCallback((str) => {
-    if (!str || str === '' || str === '-') return 0;
+  // CORREÇÃO 1: Função stringToNumber mais robusta
+const stringToNumber = useCallback((str) => {
+  if (!str || str === '' || str === '-') return 0;
+  
+  str = str.trim();
+  if (str === '-') return 0;
+  
+  // ✅ NOVO: Debug log para identificar problemas
+  console.log('🔍 [DEBUG] stringToNumber input:', str);
+  
+  const isNegative = str.startsWith('-');
+  let numbers = str.replace(/[^0-9,]/g, ''); // Remove tudo exceto números e vírgulas
+  
+  if (!numbers) return 0;
+  
+  // Validação: máximo uma vírgula
+  const virgulaCount = (numbers.match(/,/g) || []).length;
+  if (virgulaCount > 1) {
+    setIsValid(false);
+    return 0;
+  }
+  
+  // ✅ CORREÇÃO: Validação RIGOROSA de máximo 2 dígitos após vírgula
+  if (numbers.includes(',')) {
+    const partes = numbers.split(',');
+    if (partes[1] && partes[1].length > 2) {
+      numbers = `${partes[0]},${partes[1].substring(0, 2)}`;
+    }
+  }
+  
+  // ✅ NOVO: Validação adicional para evitar valores absurdos
+  if (numbers.includes(',')) {
+    const partes = numbers.split(',');
+    const inteira = partes[0];
+    const decimal = partes[1] || '00';
     
-    str = str.trim();
-    if (str === '-') return 0;
-    
-    const isNegative = str.startsWith('-');
-    let numbers = str.replace(/[^0-9,]/g, ''); // Remove tudo exceto números e vírgulas
-    
-    if (!numbers) return 0;
-    
-    // Validação: máximo uma vírgula
-    const virgulaCount = (numbers.match(/,/g) || []).length;
-    if (virgulaCount > 1) {
+    // Se a parte inteira tem mais de 10 dígitos, algo está errado
+    if (inteira.length > 10) {
+      console.error('❌ [ERROR] Valor muito grande detectado:', numbers);
       setIsValid(false);
       return 0;
     }
     
-    // ✅ CORREÇÃO 3: Validação RIGOROSA de máximo 2 dígitos após vírgula
-    if (numbers.includes(',')) {
-      const partes = numbers.split(',');
-      if (partes[1] && partes[1].length > 2) {
-        numbers = `${partes[0]},${partes[1].substring(0, 2)}`;
-      }
-    }
-    
-    // Converte vírgula para ponto
-    numbers = numbers.replace(',', '.');
-    
-    const result = parseFloat(numbers) || 0;
+    const result = parseFloat(`${inteira}.${decimal}`);
     const finalResult = isNegative ? -result : result;
+    
+    console.log('✅ [DEBUG] stringToNumber output:', finalResult);
     
     if (isNaN(finalResult) || !isFinite(finalResult)) {
       setIsValid(false);
@@ -135,7 +150,22 @@ const InputMoney = ({
     
     setIsValid(true);
     return finalResult;
-  }, []);
+  } else {
+    // Sem vírgula, é um número inteiro
+    const result = parseFloat(numbers) || 0;
+    const finalResult = isNegative ? -result : result;
+    
+    console.log('✅ [DEBUG] stringToNumber output (sem vírgula):', finalResult);
+    
+    if (isNaN(finalResult) || !isFinite(finalResult)) {
+      setIsValid(false);
+      return 0;
+    }
+    
+    setIsValid(true);
+    return finalResult;
+  }
+}, []);
 
   // ✅ CORREÇÃO 3 DEFINITIVA: Validação em tempo real de casas decimais (APENAS para números)
   const validarCasasDecimais = useCallback((texto) => {
@@ -448,26 +478,28 @@ const InputMoney = ({
   // ===== 🎨 ESTILOS INLINE PADRÃO DA PLATAFORMA =====
   
   // Estilo base que replica exatamente os inputs do modal
-  const inputStyleBase = {
-    width: '100%',
-    padding: '10px 16px',
-    border: '2px solid #E9ECEF',
-    borderRadius: '8px',
-    fontSize: '14px',
-    fontFamily: "'Roboto', sans-serif",
-    background: 'white',
-    color: '#333333',
-    outline: 'none',
-    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-    height: '44px',
-    minHeight: '44px',
-    lineHeight: '1.5',
-    boxSizing: 'border-box',
-    transition: 'all 0.25s ease',
-    textAlign: 'right',
-    fontVariantNumeric: 'tabular-nums',
-    ...style // Permite override externo
-  };
+const inputStyleBase = {
+  width: '100%',
+  padding: '10px 16px',
+  borderWidth: '2px',
+  borderStyle: 'solid', 
+  borderColor: '#E9ECEF',
+  borderRadius: '8px',
+  fontSize: '14px',
+  fontFamily: "'Roboto', sans-serif",
+  background: 'white',
+  color: '#333333',
+  outline: 'none',
+  boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+  height: '44px',
+  minHeight: '44px',
+  lineHeight: '1.5',
+  boxSizing: 'border-box',
+  transition: 'all 0.25s ease',
+  textAlign: 'right',
+  fontVariantNumeric: 'tabular-nums',
+  ...style // Permite override externo
+};
 
   // Modificações baseadas no estado
   const inputStyleFinal = {
