@@ -1488,67 +1488,146 @@ const criarReceitaDespesa = useCallback(async () => {
       }];
       break;
 
-    case 'parcelada':
-    case 'previsivel':
-      // Transações recorrentes
-      const grupoId = crypto.randomUUID();
-      const dataBase = new Date(transactionData.data);
-      
-      // Calcular total de recorrências baseado no subtipo
-      const totalRecorrencias = transactionData.subtipo === 'previsivel' ? 
-        (() => {
-          switch (transactionData.frequencia) {
-            case 'semanal': return 5 * 52;   // 5 anos, 52 semanas por ano
-            case 'quinzenal': return 5 * 26; // 5 anos, 26 quinzenas por ano
-            case 'mensal': return 5 * 12;    // 5 anos, 12 meses por ano
-            case 'anual': return 5;          // 5 anos
-            default: return 5 * 12;          // Default: 5 anos mensais
-          }
-        })() : 
-        transactionData.numero_parcelas; // Para parceladas, usar o número definido pelo usuário
-        
-      const frequencia = transactionData.frequencia;
+// CORREÇÃO: Função criarReceitaDespesa no UnifiedTransactionModal.jsx
+// Substituir a parte do switch case 'parcelada' e 'previsivel'
 
-      for (let i = 0; i < totalRecorrencias; i++) {
-        const dataTransacao = new Date(dataBase);
+case 'parcelada':
+case 'previsivel':
+  // Transações recorrentes
+  const grupoId = crypto.randomUUID();
+  const dataBase = new Date(transactionData.data);
+  
+  // Calcular total de recorrências baseado no subtipo
+  const totalRecorrencias = transactionData.subtipo === 'previsivel' ? 
+    (() => {
+      switch (transactionData.frequencia) {
+        case 'semanal': return 5 * 52;   // 5 anos, 52 semanas por ano
+        case 'quinzenal': return 5 * 26; // 5 anos, 26 quinzenas por ano
+        case 'mensal': return 5 * 12;    // 5 anos, 12 meses por ano
+        case 'anual': return 5;          // 5 anos
+        default: return 5 * 12;          // Default: 5 anos mensais
+      }
+    })() : 
+    transactionData.numero_parcelas; // Para parceladas, usar o número definido pelo usuário
+    
+  const frequencia = transactionData.frequencia;
+
+  // ✅ CORREÇÃO CRÍTICA: Calcular valor por transação baseado no subtipo
+  let valorPorTransacao;
+  if (transactionData.subtipo === 'parcelada') {
+    // Para PARCELADAS: dividir valor total pelo número de parcelas
+    valorPorTransacao = valorNumerico / totalRecorrencias;
+    console.log('💰 [DEBUG] Parcelada - Valor total:', valorNumerico, 'Parcelas:', totalRecorrencias, 'Valor por parcela:', valorPorTransacao);
+  } else {
+    // Para RECORRENTES: manter valor total em cada ocorrência
+    valorPorTransacao = valorNumerico;
+    console.log('💰 [DEBUG] Recorrente - Valor por ocorrência:', valorPorTransacao);
+  }
+
+  // ✅ FUNÇÃO AUXILIAR: Calcular próxima data corretamente
+  const calcularProximaData = (dataInicial, incremento, frequencia) => {
+    const novaData = new Date(dataInicial);
+    
+    switch (frequencia) {
+      case 'semanal':
+        novaData.setDate(novaData.getDate() + (7 * incremento));
+        break;
+      case 'quinzenal':
+        novaData.setDate(novaData.getDate() + (14 * incremento));
+        break;
+      case 'mensal':
+        // ✅ CORREÇÃO: Usar setMonth corretamente para evitar datas inválidas
+        const mesOriginal = dataInicial.getMonth();
+        const anoOriginal = dataInicial.getFullYear();
+        const diaOriginal = dataInicial.getDate();
         
-        // Calcular data baseada na frequência
-        switch (frequencia) {
-          case 'semanal':
-            dataTransacao.setDate(dataTransacao.getDate() + (7 * i));
-            break;
-          case 'quinzenal':
-            dataTransacao.setDate(dataTransacao.getDate() + (14 * i));
-            break;
-          case 'mensal':
-            dataTransacao.setMonth(dataTransacao.getMonth() + i);
-            break;
-          case 'anual':
-            dataTransacao.setFullYear(dataTransacao.getFullYear() + i);
-            break;
+        let novoMes = mesOriginal + incremento;
+        let novoAno = anoOriginal;
+        
+        // Ajustar ano se mês passou de 12
+        while (novoMes > 11) {
+          novoMes -= 12;
+          novoAno += 1;
         }
         
-        // Primeira transação segue o status escolhido, demais ficam não efetivadas
-        const efetivoStatus = i === 0 ? transactionData.efetivado : false;
+        // Definir a nova data
+        novaData.setFullYear(novoAno, novoMes, 1);
         
-        // Adicionar sufixo para parceladas
-        const sufixo = transactionData.subtipo === 'parcelada' ? ` (${i + 1}/${totalRecorrencias})` : '';
+        // Lidar com datas que não existem (ex: 31 de fevereiro)
+        const ultimoDiaDoMes = new Date(novoAno, novoMes + 1, 0).getDate();
+        const diaFinal = Math.min(diaOriginal, ultimoDiaDoMes);
         
-        transacoesCriadas.push({
-          ...dadosBase,
-          data: dataTransacao.toISOString().split('T')[0],
-          descricao: dadosBase.descricao + sufixo,
-          efetivado: efetivoStatus,
-          recorrente: true,
-          grupo_recorrencia: transactionData.subtipo === 'previsivel' ? grupoId : null,
-          grupo_parcelamento: transactionData.subtipo === 'parcelada' ? grupoId : null,
-          parcela_atual: transactionData.subtipo === 'parcelada' ? i + 1 : null,
-          total_parcelas: transactionData.subtipo === 'parcelada' ? totalRecorrencias : null,
-          numero_recorrencia: transactionData.subtipo === 'previsivel' ? i + 1 : null,
-          total_recorrencias: transactionData.subtipo === 'previsivel' ? totalRecorrencias : null
-        });
-      }
-      break;
+        novaData.setDate(diaFinal);
+        break;
+      case 'anual':
+        novaData.setFullYear(novaData.getFullYear() + incremento);
+        
+        // Lidar com anos bissextos (29 de fevereiro)
+        if (dataInicial.getMonth() === 1 && dataInicial.getDate() === 29) {
+          const novoAno = novaData.getFullYear();
+          const isAnoBissexto = (novoAno % 4 === 0 && novoAno % 100 !== 0) || (novoAno % 400 === 0);
+          if (!isAnoBissexto) {
+            novaData.setDate(28);
+          }
+        }
+        break;
+    }
+    
+    return novaData;
+  };
+
+  // ✅ DEBUG: Log para monitorar processo
+  console.log('📅 [DEBUG] Criando transações:', {
+    subtipo: transactionData.subtipo,
+    valorTotal: valorNumerico,
+    valorPorTransacao,
+    totalRecorrencias,
+    dataBase: dataBase.toISOString().split('T')[0],
+    frequencia
+  });
+
+  for (let i = 0; i < totalRecorrencias; i++) {
+    const dataTransacao = calcularProximaData(dataBase, i, frequencia);
+    
+    // Primeira transação segue o status escolhido, demais ficam não efetivadas
+    const efetivoStatus = i === 0 ? transactionData.efetivado : false;
+    
+    // ✅ CORREÇÃO: Descrição diferente para parceladas vs recorrentes
+    let descricaoFinal = dadosBase.descricao;
+    if (transactionData.subtipo === 'parcelada') {
+      descricaoFinal += ` (${i + 1}/${totalRecorrencias})`;
+    }
+    
+    // ✅ DEBUG: Log cada transação criada
+    console.log(`📅 [DEBUG] Transação ${i + 1}:`, {
+      data: dataTransacao.toISOString().split('T')[0],
+      valor: valorPorTransacao,
+      descricao: descricaoFinal
+    });
+    
+    transacoesCriadas.push({
+      ...dadosBase,
+      data: dataTransacao.toISOString().split('T')[0],
+      descricao: descricaoFinal,
+      valor: valorPorTransacao, // ✅ CORREÇÃO: Usar valor calculado por transação
+      efetivado: efetivoStatus,
+      recorrente: true,
+      grupo_recorrencia: transactionData.subtipo === 'previsivel' ? grupoId : null,
+      grupo_parcelamento: transactionData.subtipo === 'parcelada' ? grupoId : null,
+      parcela_atual: transactionData.subtipo === 'parcelada' ? i + 1 : null,
+      total_parcelas: transactionData.subtipo === 'parcelada' ? totalRecorrencias : null,
+      numero_recorrencia: transactionData.subtipo === 'previsivel' ? i + 1 : null,
+      total_recorrencias: transactionData.subtipo === 'previsivel' ? totalRecorrencias : null
+    });
+  }
+  
+  console.log('✅ [DEBUG] Resumo final:', {
+    totalTransacoesCriadas: transacoesCriadas.length,
+    valorTotalGravado: transacoesCriadas.reduce((sum, t) => sum + t.valor, 0),
+    valorEsperado: valorNumerico
+  });
+  
+  break;
   }
 
   // Inserir todas as transações de uma vez
