@@ -202,7 +202,7 @@ const ReceitasEtapa = ({
               <iframe
                 width="100%"
                 height="200"
-                src="https://www.youtube.com/embed/AouQXjW93Bg"
+                src="https://www.youtube.com/embed/cMzyREdUwp8"
                 title="Tutorial: Como cadastrar suas fontes de renda"
                 frameBorder="0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

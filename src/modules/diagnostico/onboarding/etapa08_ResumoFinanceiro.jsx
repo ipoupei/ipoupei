@@ -18,6 +18,31 @@ const ResumoFinanceiroEtapa = ({
   const [loading, setLoading] = useState(false);
   const [analiseCompleta, setAnaliseCompleta] = useState(false);
 
+
+const videosConfig = {
+  critica: {
+    url: "https://www.youtube.com/embed/B6dQWtSoafc",
+    titulo: "🚨 Situação Crítica - Como Reverter",
+    subtitle: "Estratégias urgentes para equilibrar suas finanças"
+  },
+  atencao: {
+    url: "https://www.youtube.com/embed/SydNs8r078w", 
+    titulo: "⚠️ Melhorando sua Situação Financeira",
+    subtitle: "Passos práticos para criar margem de segurança"
+  },
+  regular: {
+    url: "https://www.youtube.com/embed/SydNs8r078w", // Mesmo da atenção
+    titulo: "📊 Otimizando suas Finanças",
+    subtitle: "Como evoluir para uma situação mais saudável"
+  },
+  boa: {
+    url: "https://www.youtube.com/embed/BuPAjxiOjBw",
+    titulo: "✅ Maximizando seu Potencial Financeiro", 
+    subtitle: "Estratégias de investimento e crescimento"
+  }
+};
+
+
   // Processar todos os dados coletados para gerar o resumo
   const resumoFinanceiro = useMemo(() => {
     console.log('📊 Processando dados para resumo:', todosDados);
@@ -49,7 +74,9 @@ const ResumoFinanceiroEtapa = ({
           icone: '🚨',
           titulo: 'Situação Crítica',
           descricao: 'Suas despesas excedem sua renda',
-          cor: 'danger'
+          cor: 'danger',
+            videoConfig: videosConfig.critica  // ← ADICIONAR ESTA LINHA
+
         };
       } else if (percentualSobra < 10) {
         return {
@@ -57,7 +84,9 @@ const ResumoFinanceiroEtapa = ({
           icone: '⚠️',
           titulo: 'Necessita Atenção',
           descricao: 'Pouca margem para emergências',
-          cor: 'warning'
+          cor: 'warning',
+            videoConfig: videosConfig.atencao  // ← ADICIONAR ESTA LINHA
+
         };
       } else if (percentualSobra < 20) {
         return {
@@ -65,7 +94,9 @@ const ResumoFinanceiroEtapa = ({
           icone: '📊',
           titulo: 'Situação Regular',
           descricao: 'Há espaço para melhorias',
-          cor: 'info'
+          cor: 'info',
+            videoConfig: videosConfig.regular  // ← ADICIONAR ESTA LINHA
+
         };
       } else {
         return {
@@ -73,7 +104,9 @@ const ResumoFinanceiroEtapa = ({
           icone: '✅',
           titulo: 'Situação Saudável',
           descricao: 'Boa margem para poupança e investimentos',
-          cor: 'success'
+          cor: 'success',
+            videoConfig: videosConfig.boa  // ← ADICIONAR ESTA LINHA
+
         };
       }
     };
@@ -255,16 +288,16 @@ const ResumoFinanceiroEtapa = ({
         <div className="diagnostico-video-left">
           <div className="video-container">
             <div className="video-header">
-              <h3 className="video-title">🎬 Interpretando seu resumo</h3>
-              <p className="video-subtitle">Entenda os resultados em 5 minutos</p>
+              <h3 className="video-title">{resumoFinanceiro.situacao.videoConfig.titulo}</h3>
+              <p className="video-subtitle">{resumoFinanceiro.situacao.videoConfig.subtitle}</p>
             </div>
-            
+
             <div className="video-embed">
               <iframe
                 width="100%"
                 height="200"
-                src="https://www.youtube.com/embed/AouQXjW93Bg"
-                title="Tutorial: Como interpretar seu diagnóstico financeiro"
+                src={resumoFinanceiro.situacao.videoConfig.url}
+                title={`Tutorial: ${resumoFinanceiro.situacao.titulo}`}
                 frameBorder="0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
