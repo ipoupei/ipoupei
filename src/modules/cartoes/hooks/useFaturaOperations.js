@@ -628,7 +628,7 @@ export const useFaturaOperations = () => {
 
       if (!cartao_id) throw new Error('cartao_id é obrigatório');
       if (!categoria_id) throw new Error('categoria_id é obrigatório');
-      if (!descricao) throw new Error('descricao é obrigatória');
+      //if (!descricao) throw new Error('descricao é obrigatória');
       if (!valor_total || valor_total <= 0) throw new Error('valor_total deve ser maior que zero');
       if (!numero_parcelas || numero_parcelas <= 0) throw new Error('numero_parcelas deve ser maior que zero');
       if (!data_compra) throw new Error('data_compra é obrigatória');
