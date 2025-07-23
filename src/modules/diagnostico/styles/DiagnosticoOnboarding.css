@@ -474,8 +474,8 @@
 /* ===== CATEGORIAS ===== */
 .categorias-existentes {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 16px;
   max-width: 100%;
   width: 100%;
   margin-top: 16px;
@@ -546,9 +546,9 @@
 
 /* ===== CONTAS ===== */
 .contas-existentes {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 16px;
   max-width: 100%;
   width: 100%;
   margin-top: 16px;
@@ -981,9 +981,9 @@
 
 
 .cartoes-existentes {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 16px;
   max-width: 100%;
   width: 100%;
   margin-top: 16px;
@@ -997,9 +997,9 @@
 
 /* ===== ESTILOS PARA RECEITAS ===== */
 .receitas-existentes {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 16px;
   max-width: 100%;
   width: 100%;
   margin-top: 16px;
@@ -1061,14 +1061,13 @@
 
 /* ===== ESTILOS PARA DESPESAS FIXAS ===== */
 .despesas-existentes {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 16px;
   max-width: 100%;
   width: 100%;
   margin-top: 16px;
 }
-
 .despesas-existentes h4 {
   font-size: 12px;
   font-weight: 600;
@@ -1221,6 +1220,7 @@
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   border: 1px solid #cbd5e1;
   border-radius: 12px;
+  width: 570px;;
 }
 
 .estimativas-section h4 {
@@ -1240,14 +1240,16 @@
 .estimativas-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr); /* 2 colunas por padrão */
-  gap: 12px;
+  gap: 4px;
+  width: 300px;
 }
 
 .estimativa-item {
   background: var(--white);
   border: 1px solid var(--gray-200);
   border-radius: 8px;
-  padding: 10px;
+  padding: 4px;
+  width: 180px;
   transition: all 0.2s ease;
 }
 
@@ -1280,7 +1282,7 @@
   font-size: 11px;
   font-weight: 600;
   color: var(--gray-700);
-  margin: 0 0 2px 0;
+  margin: 0 20 2px 0;
   line-height: 1.2;
 }
 
@@ -2661,10 +2663,15 @@
 /* =================== GRID DE CARDS RESUMO =================== */
 .resumo-cards-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.75rem;
-  margin: 1.5rem 0;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 2px;
+  max-width: 100%;
+  width: 100%;
+  margin-top: 16px;
 }
+
+
+
 
 @media (max-width: 480px) {
   .resumo-cards-grid {
@@ -3511,4 +3518,483 @@
 .form-input.success {
   border-color: #006400;
   background-color: #f0fff0;
+}
+/* ===== ANÁLISE FINANCEIRA COMPACTA ===== */
+
+.analise-section {
+  margin: 15px 0;
+  padding: 4px;
+  width: 450;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  border-left: 3px solid #008080;
+}
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.section-subtitle {
+  color: #666;
+  font-size: 0.8rem;
+  margin-bottom: 12px;
+}
+
+/* ===== 1. SAÚDE FINANCEIRA COMPACTA ===== */
+
+.saude-financeira {
+  border-left-color: #10b981;
+}
+
+.saude-card {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid #d1fae5;
+}
+
+.saude-card.warning {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border-color: #fde68a;
+}
+
+.saude-card.danger {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border-color: #fca5a5;
+}
+
+.saude-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.status-icon-large {
+  font-size: 1.8rem;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.8);
+  border-radius: 50%;
+}
+
+.status-info h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 2px;
+}
+
+.status-info p {
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.saude-metricas-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.metrica-card {
+  background: rgba(255,255,255,0.8);
+  padding: 8px;
+  border-radius: 6px;
+  text-align: center;
+  border: 1px solid rgba(0,0,0,0.1);
+}
+
+.metrica-valor {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 2px;
+}
+
+.metrica-label {
+  font-size: 0.7rem;
+  color: #666;
+  line-height: 1.2;
+}
+
+/* ===== 2. CATEGORIAS COMPACTAS ===== */
+
+.categorias-gastos {
+  border-left-color: #f59e0b;
+}
+
+.categorias-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.categoria-card {
+  background: #fafafa;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.categoria-card:hover {
+  border-color: #008080;
+  transform: translateY(-1px);
+}
+
+.categoria-rank {
+  background: #008080;
+  color: white;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.7rem;
+}
+
+.categoria-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.categoria-icone {
+  font-size: 1.2rem;
+}
+
+.categoria-detalhes h4 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 2px;
+}
+
+.valor-principal {
+  font-size: 1rem;
+  font-weight: bold;
+  color: #008080;
+  margin-bottom: 2px;
+}
+
+.valor-detalhes {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  color: #666;
+  flex-wrap: wrap;
+}
+
+/* ===== 3. PROJEÇÃO COMPACTA ===== */
+
+.projecao-futuro {
+  border-left-color: #6366f1;
+}
+
+.projecao-timeline {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.periodo-card {
+  background: #fafafa;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 10px;
+  text-align: center;
+}
+
+.periodo-card h4 {
+  font-size: 0.8rem;
+  color: #666;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.periodo-card .valor {
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.periodo-card .valor.positivo {
+  color: #10b981;
+}
+
+.periodo-card .valor.negativo {
+  color: #ef4444;
+}
+
+.tendencia {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: rgba(0,0,0,0.05);
+  color: #666;
+}
+
+/* ===== 4. SIMULAÇÃO COMPACTA ===== */
+
+.simulacao-economia {
+  border-left-color: #8b5cf6;
+}
+
+.simulacao-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.simulacao-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+}
+
+.simulacao-card h4 {
+  font-size: 0.9rem;
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+
+.simulacao-valores .label {
+  display: block;
+  font-size: 0.7rem;
+  opacity: 0.9;
+  margin-bottom: 1px;
+}
+
+.simulacao-valores .valor {
+  font-size: 0.9rem;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.simulacao-valores .valor.destaque {
+  font-size: 1.1rem;
+}
+
+.multiplicador {
+  background: rgba(255,255,255,0.2);
+  padding: 3px 6px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+}
+
+.economia-destaque {
+  background: #f0f9ff;
+  border: 1px solid #0284c7;
+  border-radius: 6px;
+  padding: 10px;
+  margin-top: 10px;
+}
+
+.economia-destaque h4 {
+  color: #0369a1;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+
+.impactos-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.impacto {
+  text-align: center;
+  padding: 6px;
+  background: rgba(255,255,255,0.8);
+  border-radius: 6px;
+}
+
+.impacto .valor {
+  font-size: 0.9rem;
+  font-weight: bold;
+  color: #0284c7;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.impacto .label {
+  font-size: 0.7rem;
+  color: #666;
+}
+
+/* ===== INSIGHTS COMPACTOS ===== */
+
+.insights-rapidos {
+  margin: 10px 0;
+  padding: 10px;
+  background: #fafafa;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+}
+
+.insights-rapidos h4 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.insights-lista {
+  display: grid;
+  gap: 6px;
+}
+
+.insight-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 4px;
+  border-left: 3px solid;
+  background: white;
+  font-size: 0.8rem;
+}
+
+.insight-item.positivo {
+  border-color: #10b981;
+  background: #f0fdf4;
+}
+
+.insight-item.alerta {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.insight-item.info {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.insight-item.oportunidade {
+  border-color: #8b5cf6;
+  background: #faf5ff;
+}
+
+.insight-icon {
+  font-size: 1rem;
+  min-width: 16px;
+}
+
+.insight-texto strong {
+  display: block;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 1px;
+  font-size: 0.8rem;
+}
+
+.insight-texto p {
+  font-size: 0.75rem;
+  color: #666;
+  line-height: 1.3;
+  margin: 0;
+}
+
+/* ===== INFO ANÁLISE COMPACTA ===== */
+
+.info-analise-avancada {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px;
+  background: #eff6ff;
+  border: 1px solid #93c5fd;
+  border-radius: 6px;
+  margin: 10px 0;
+  font-size: 0.8rem;
+}
+
+.info-icon {
+  font-size: 1rem;
+  color: #3b82f6;
+}
+
+.progresso-analise {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.progresso-bar {
+  flex: 1;
+  height: 4px;
+  background: #e5e7eb;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progresso-fill {
+  height: 100%;
+  background: #3b82f6;
+  border-radius: 2px;
+}
+
+.progresso-texto {
+  font-size: 0.7rem;
+  color: #6b7280;
+  min-width: 40px;
+}
+
+/* ===== ALERTA COMPACTO ===== */
+
+.alerta-endividamento {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  padding: 8px;
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
+.alerta-icon {
+  font-size: 1rem;
+}
+
+/* ===== RESPONSIVIDADE ===== */
+
+@media (max-width: 768px) {
+  .projecao-timeline {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  
+  .simulacao-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .impactos-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .saude-metricas-grid {
+    grid-template-columns: 1fr;
+  }
 }

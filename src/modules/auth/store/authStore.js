@@ -379,9 +379,9 @@ export const useAuthStore = create(
               console.log('✅ Perfil criado com sucesso para:', user.email);
               
               // Criar categorias padrão (em background)
-              get().createDefaultCategories(user.id).catch(err => {
-                console.warn('⚠️ Erro ao criar categorias padrão (não crítico):', err);
-              });
+              //get().createDefaultCategories(user.id).catch(err => {
+                //console.warn('⚠️ Erro ao criar categorias padrão (não crítico):', err);
+             // });
             }
           } else {
             console.log('✅ Perfil já existe para:', user.email);

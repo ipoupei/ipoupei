@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
+import { useAuthStore } from '@modules/auth/store/authStore';
 
 /**
  * Store específico para gerenciar transações COM FUNCIONALIDADES CORRIGIDAS
@@ -428,6 +429,74 @@ export const useTransactionsStore = create(
 
       return filtered;
     },
+
+
+deleteGrupoTransacao: async (transacaoId, escopo = 'atual') => {
+  console.log('🗑️ Iniciando exclusão de grupo:', { transacaoId, escopo });
+  
+  try {
+    const { user } = useAuthStore.getState();
+    if (!user?.id) {
+      throw new Error('Usuário não autenticado');
+    }
+
+    // ✅ CORREÇÃO: Usar import dinâmico como no resto do código
+    const { default: supabase } = await import('@lib/supabaseClient');
+
+    // Chamar RPC de exclusão inteligente
+    const { data, error } = await supabase.rpc('ip_prod_delete_grupo_transacoes', {
+      p_transacao_id: transacaoId,
+      p_escopo: escopo,
+      p_usuario_id: user.id
+    });
+
+    if (error) {
+      console.error('❌ Erro na RPC de exclusão:', error);
+      throw error;
+    }
+
+    if (!data.success) {
+      console.error('❌ RPC retornou erro:', data.error);
+      throw new Error(data.error);
+    }
+
+    console.log('✅ Exclusão realizada:', data);
+
+    // ✅ Atualizar estado local - remover transações afetadas
+    set((state) => {
+      let novasTransacoes = [...state.transacoes];
+      
+      if (data.tipo_exclusao === 'individual' || data.tipo_exclusao === 'individual_do_grupo') {
+        // Remover apenas a transação específica
+        novasTransacoes = novasTransacoes.filter(t => t.id !== transacaoId);
+      } else if (data.tipo_exclusao === 'grupo_futuras' || data.tipo_exclusao === 'cartao_parcelas_pendentes') {
+        // Para exclusão de futuras, precisamos refrescar os dados
+        // pois não sabemos exatamente quais foram removidas
+        console.log('ℹ️ Exclusão em grupo - dados serão recarregados');
+      }
+      
+      return {
+        transacoes: novasTransacoes
+      };
+    });
+
+    return {
+      success: true,
+      message: data.message,
+      transacoesAfetadas: data.transacoes_afetadas,
+      tipoExclusao: data.tipo_exclusao
+    };
+
+  } catch (error) {
+    console.error('❌ Erro ao excluir grupo:', error);
+    return {
+      success: false,
+      error: error.message || 'Erro desconhecido ao excluir transação(ões)'
+    };
+  }
+},
+
+
 
     // ===========================
     // CRUD DE TRANSAÇÕES
@@ -930,40 +999,57 @@ export const useTransactionsStore = create(
     },
 
     // Excluir transação
-    deleteTransacao: async (id) => {
-      try {
-        set({ loading: true });
+      deleteTransacao: async (transacaoId) => {
+        try {
+          const state = get();
+          const transacao = state.transacoes.find(t => t.id === transacaoId);
+          
+          if (!transacao) {
+            throw new Error('Transação não encontrada');
+          }
 
-        console.log('🗑️ Excluindo transação:', id);
+          // ✅ Se for transação de grupo, usar função específica
+          const isGrupo = transacao.grupo_parcelamento || transacao.grupo_recorrencia;
+          if (isGrupo) {
+            console.log('🎯 Transação de grupo detectada - redirecionando para deleteGrupoTransacao');
+            return await get().deleteGrupoTransacao(transacaoId, 'atual');
+          }
 
-        const { default: supabase } = await import('@lib/supabaseClient');
-        
-        const { error } = await supabase
-          .from('transacoes')
-          .delete()
-          .eq('id', id);
+          // ✅ Lógica original para transações individuais
+          const { user } = useAuthStore.getState();
+          if (!user?.id) {
+            throw new Error('Usuário não autenticado');
+          }
 
-        if (error) throw error;
+          // ✅ CORREÇÃO: Usar import dinâmico
+          const { default: supabase } = await import('@lib/supabaseClient');
 
-        // Remover da lista local
-        set(state => ({
-          transacoes: state.transacoes.filter(t => t.id !== id)
-        }));
+          const { error } = await supabase
+            .from('transacoes')
+            .delete()
+            .eq('id', transacaoId)
+            .eq('usuario_id', user.id);
 
-        set({ loading: false });
-        console.log('✅ Transação excluída com sucesso');
-        
-        return { success: true };
+          if (error) throw error;
 
-      } catch (error) {
-        console.error('❌ Erro ao excluir transação:', error);
-        set({ 
-          error: error.message || 'Erro ao excluir transação',
-          loading: false 
-        });
-        return { success: false, error: error.message };
-      }
-    },
+          // Atualizar estado local
+          set((state) => ({
+            transacoes: state.transacoes.filter(t => t.id !== transacaoId)
+          }));
+
+          return {
+            success: true,
+            message: 'Transação excluída com sucesso'
+          };
+
+        } catch (error) {
+          console.error('❌ Erro ao excluir transação:', error);
+          return {
+            success: false,
+            error: error.message || 'Erro ao excluir transação'
+          };
+        }
+      },
 
     // ===========================
     // UTILITÁRIOS

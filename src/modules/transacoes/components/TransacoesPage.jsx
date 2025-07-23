@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -19,6 +19,7 @@ import DespesasModal from '@modules/transacoes/components/DespesasModalEdit';
 import ReceitasModal from '@modules/transacoes/components/ReceitasModalEdit';
 import ImportacaoModal from '@modules/transacoes/components/ImportacaoModal';
 import DespesasCartaoModalEdit from '@modules/transacoes/components/DespesasCartaoModalEdit';
+import { useTransactionsStore } from '@modules/transacoes/store/transactionsStore';
 
 
 // Utils
@@ -26,7 +27,7 @@ import formatCurrency from '@shared/utils/formatCurrency';
 
 // Hooks
 import useAuth from '@modules/auth/hooks/useAuth';
-import { useTransactionsStore } from '@modules/transacoes/store/transactionsStore';
+
 
 const TransacoesPage = () => {
   const { user } = useAuth();
@@ -40,7 +41,9 @@ const TransacoesPage = () => {
     loading,
     error,
     toggleEfetivadoRPC,
-    deleteTransacao
+    deleteTransacao,
+    deleteGrupoTransacao, // ✅ ADICIONAR esta linha
+    isParceladaOuRecorrente // ✅ ADICIONAR esta linha se não existir
   } = useTransactionsStore();
 
   // Estados básicos
@@ -54,6 +57,8 @@ const TransacoesPage = () => {
   const [confirmAction, setConfirmAction] = useState(null);
   const [groupByCard, setGroupByCard] = useState(false);
   const [showDespesasCartaoModal, setShowDespesasCartaoModal] = useState(false);
+  const [escopoExclusao, setEscopoExclusao] = useState('atual');
+  const [grupoCartaoInfo, setGrupoCartaoInfo] = useState(null);
 
 
   // Estados para funcionalidades
@@ -157,6 +162,37 @@ const TransacoesPage = () => {
   };
 
   // Função para buscar transações
+
+const resetForm = useCallback(() => {
+  setFormData({
+    valor: '',
+    data: new Date().toISOString().split('T')[0],
+    descricao: '',
+    categoria: '',
+    categoriaTexto: '',
+    subcategoria: '',
+    subcategoriaTexto: '',
+    conta: '',
+    efetivado: true
+  });
+  setErrors({});
+  setEscopoEdicao('atual');
+  setMostrarEscopoEdicao(false);
+  setTransacaoInfo(null);
+  setValorOriginal(0);
+  setDadosOriginais({ categoria: '', subcategoria: '' });
+  
+  // ✅ ADICIONAR estas linhas:
+  setEscopoExclusao('atual');
+  setGrupoCartaoInfo(null);
+  
+  setCategoriaDropdownOpen(false);
+  setSubcategoriaDropdownOpen(false);
+  setConfirmacao({ show: false, type: '', nome: '', categoriaId: '' });
+  setDadosCarregados(false);
+}, []);
+
+
 const fetchTransacoes = async () => {
   if (!user?.id) return;
 
@@ -651,17 +687,79 @@ const applyFilters = () => {
     setShowConfirmModal(true);
   };
 
-  const handleDeleteTransacao = (transacao) => {
-    // Bloquear exclusão apenas para transações de cartão já efetivadas
-    if (transacao.cartao_id && transacao.efetivado) {
-      alert('Transações de cartão já efetivadas só podem ser excluídas pela tela de Fatura do Cartão.');
+
+  const verificarGrupoCartaoParaExclusao = async (transacao) => {
+  try {
+    // Buscar todas as parcelas do grupo
+    const { default: supabase } = await import('@lib/supabaseClient');
+    
+    const { data: parcelasGrupo, error } = await supabase
+      .from('transacoes')
+      .select('id, efetivado, parcela_atual, total_parcelas')
+      .eq('grupo_parcelamento', transacao.grupo_parcelamento)
+      .eq('usuario_id', user.id)
+      .order('parcela_atual');
+
+    if (error) throw error;
+
+    const parcelasEfetivadas = parcelasGrupo.filter(p => p.efetivado);
+    const parcelasPendentes = parcelasGrupo.filter(p => !p.efetivado);
+
+    // ❌ Se TODAS as parcelas estão efetivadas
+    if (parcelasEfetivadas.length === parcelasGrupo.length) {
+      alert('Todas as parcelas deste cartão já foram efetivadas. Gerencie pela tela de Fatura do Cartão.');
       return;
     }
-    
+
+    // ⚠️ Se ALGUMAS parcelas estão efetivadas
+    if (parcelasEfetivadas.length > 0) {
+      setTransacaoParaConfirm(transacao);
+      setConfirmAction('delete_cartao_misto');
+      setGrupoCartaoInfo({
+        parcelasEfetivadas: parcelasEfetivadas.length,
+        parcelasPendentes: parcelasPendentes.length,
+        totalParcelas: parcelasGrupo.length
+      });
+      setShowConfirmModal(true);
+      return;
+    }
+
+    // ✅ Se NENHUMA parcela está efetivada - exclusão normal
     setTransacaoParaConfirm(transacao);
     setConfirmAction('delete');
     setShowConfirmModal(true);
-  };
+
+  } catch (error) {
+    console.error('❌ Erro ao verificar grupo de cartão:', error);
+    // Usar showNotification se existir, senão alert
+    if (typeof showNotification === 'function') {
+      showNotification('Erro ao verificar parcelas do cartão', 'error');
+    } else {
+      alert('Erro ao verificar parcelas do cartão');
+    }
+  }
+};
+
+
+const handleDeleteTransacao = (transacao) => {
+  // ✅ REGRA 1: Bloquear transações de cartão já efetivadas
+  if (transacao.cartao_id && transacao.efetivado) {
+    alert('Transações de cartão já efetivadas só podem ser excluídas pela tela de Fatura do Cartão.');
+    return;
+  }
+
+  // ✅ REGRA 2: Para transações de cartão parceladas não efetivadas,
+  // verificar se existem parcelas já efetivadas no grupo
+  if (transacao.cartao_id && transacao.grupo_parcelamento) {
+    verificarGrupoCartaoParaExclusao(transacao);
+    return;
+  }
+
+  // ✅ REGRA 3: Transações normais (sem cartão ou cartão não efetivado)
+  setTransacaoParaConfirm(transacao);
+  setConfirmAction('delete');
+  setShowConfirmModal(true);
+};
 
   const handleEditTransacao = (transacao) => {
   // Bloquear edição apenas para transações de cartão já efetivadas
@@ -688,41 +786,89 @@ const executeConfirmAction = async () => {
 
   try {
     if (confirmAction === 'toggle_efetivado') {
-      // ✅ NOVA IMPLEMENTAÇÃO: Usar RPC via Store
+      // ✅ Lógica existente para toggle
       const resultado = await toggleEfetivadoRPC(
         transacaoParaConfirm.id, 
         !transacaoParaConfirm.efetivado
       );
 
       if (!resultado.success) {
-        // Erro já foi tratado no store, apenas mostrar mensagem
         if (resultado.error.includes('Cartão:')) {
-          // Erro de cartão - mostrar alert detalhado
           alert(resultado.error);
         } else {
-          // Outros erros - mostrar no console
           console.error('❌ Erro ao atualizar efetivação:', resultado.error);
         }
         return;
       }
 
-      // ✅ Sucesso - o estado já foi atualizado no store automaticamente!
       console.log('✅ Efetivação atualizada:', resultado.message);
       
-    } else if (confirmAction === 'delete') {
-      // Manter implementação existente para delete
-      await deleteTransacao(transacaoParaConfirm.id);
+    } else if (confirmAction === 'delete' || confirmAction === 'delete_cartao_misto') {
+      // ✅ NOVA LÓGICA: Exclusão inteligente
+      console.log('🗑️ Iniciando processo de exclusão:', {
+        transacao: transacaoParaConfirm.id,
+        escopo: escopoExclusao,
+        action: confirmAction
+      });
+
+      // Identificar se é transação de grupo
+      const transacaoInfo = isParceladaOuRecorrente(transacaoParaConfirm);
+      const isGrupoTransacao = transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente);
+      const isCartaoMisto = confirmAction === 'delete_cartao_misto';
+
+      let resultado;
+      
+      if (isGrupoTransacao || isCartaoMisto) {
+        // ✅ Exclusão de grupo com escopo
+        const escopoFinal = isCartaoMisto && escopoExclusao === 'futuras' ? 'pendentes' : escopoExclusao;
+        resultado = await deleteGrupoTransacao(transacaoParaConfirm.id, escopoFinal);
+      } else {
+        // ✅ Exclusão individual (lógica existente)
+        resultado = await deleteTransacao(transacaoParaConfirm.id);
+      }
+
+      if (!resultado.success) {
+        console.error('❌ Erro ao excluir:', resultado.error);
+        // Usar showNotification se existir, senão alert
+        if (typeof showNotification === 'function') {
+          showNotification(`Erro ao excluir: ${resultado.error}`, 'error');
+        } else {
+          alert(`Erro ao excluir: ${resultado.error}`);
+        }
+        return;
+      }
+
+      // ✅ Feedback de sucesso diferenciado
+      const mensagemSucesso = (isGrupoTransacao || isCartaoMisto) && escopoExclusao !== 'atual' 
+        ? `${resultado.transacoesAfetadas} transações excluídas com sucesso!`
+        : 'Transação excluída com sucesso!';
+        
+      if (typeof showNotification === 'function') {
+        showNotification(mensagemSucesso, 'success');
+      }
+      console.log('✅ Exclusão realizada:', resultado);
     }
     
+    // ✅ Fechar modal e limpar estados
     setShowConfirmModal(false);
     setTransacaoParaConfirm(null);
     setConfirmAction(null);
+    setEscopoExclusao('atual'); // Reset do escopo
+    setGrupoCartaoInfo(null); // Reset das informações do cartão
     
-    // ✅ NÃO PRECISA MAIS: fetchTransacoes() 
-    // O estado já foi atualizado automaticamente pelo store!
+    // ✅ Para exclusões em grupo, recarregar dados
+    if ((confirmAction === 'delete' || confirmAction === 'delete_cartao_misto') && escopoExclusao !== 'atual') {
+      console.log('🔄 Recarregando dados após exclusão em grupo...');
+      await fetchTransacoes();
+    }
     
   } catch (error) {
     console.error('❌ Erro ao executar ação:', error);
+    if (typeof showNotification === 'function') {
+      showNotification(`Erro inesperado: ${error.message}`, 'error');
+    } else {
+      alert(`Erro inesperado: ${error.message}`);
+    }
   }
 };
   // ========== COMPONENTES ==========
@@ -1098,44 +1244,76 @@ const executeConfirmAction = async () => {
   };
 
   // Modal de Confirmação
-  const ConfirmModal = () => {
-    if (!showConfirmModal || !transacaoParaConfirm) return null;
+const ConfirmModal = () => {
+  if (!showConfirmModal || !transacaoParaConfirm) return null;
 
-    const isDelete = confirmAction === 'delete';
-    const isToggle = confirmAction === 'toggle_efetivado';
-    const novoStatus = isToggle ? !transacaoParaConfirm.efetivado : null;
+  // ===== IDENTIFICAÇÃO DOS TIPOS =====
+  const isDelete = confirmAction === 'delete' || confirmAction === 'delete_cartao_misto';
+  const isCartaoMisto = confirmAction === 'delete_cartao_misto';
+  const isToggle = confirmAction === 'toggle_efetivado';
+  const novoStatus = isToggle ? !transacaoParaConfirm.efetivado : null;
 
+  // Identificar se é transação de grupo
+  const transacaoInfo = isDelete ? isParceladaOuRecorrente(transacaoParaConfirm) : null;
+  const isGrupoTransacao = transacaoInfo && (transacaoInfo.isParcelada || transacaoInfo.isRecorrente);
+
+  // ===== FUNÇÃO PARA GERAR RANGE DINÂMICO =====
+  const getRangeText = () => {
+    if (isCartaoMisto && grupoCartaoInfo) {
+      return `${grupoCartaoInfo.parcelasPendentes} parcelas pendentes`;
+    }
+    
+    if (transacaoInfo?.isParcelada) {
+      const inicio = transacaoInfo.parcelaAtual;
+      const fim = transacaoInfo.totalParcelas;
+      return inicio === fim ? `última parcela` : `de ${inicio} a ${fim}`;
+    }
+    
+    if (transacaoInfo?.isRecorrente) {
+      const inicio = transacaoInfo.numeroRecorrencia;
+      const fim = transacaoInfo.totalRecorrencias;
+      return fim ? `de ${inicio} a ${fim}` : `${inicio} em diante`;
+    }
+    
+    return '';
+  };
+
+  // ===== CONFIGURAÇÃO DO TÍTULO =====
+  const getTitulo = () => {
+    if (isToggle) return '⚠️ Confirmar Alteração';
+    if (isCartaoMisto) return '💳 Confirmar Exclusão de Parcela de Cartão';
+    if (isGrupoTransacao && transacaoInfo.isParcelada) return '🗑️ Confirmar Exclusão de Despesa Parcelada';
+    if (isGrupoTransacao && transacaoInfo.isRecorrente) return '🗑️ Confirmar Exclusão de Despesa Recorrente';
+    return '🗑️ Confirmar Exclusão';
+  };
+
+  // ===== PARA MODAIS SIMPLES (sem escopo) =====
+  if (isToggle || (!isGrupoTransacao && !isCartaoMisto)) {
     return (
       <div className="modal-overlay active">
-        <div className="forms-modal-container">
+        <div className="forms-modal-container" style={{ maxWidth: '480px' }}>
           <div className="modal-header">
             <div className="modal-header-content">
               <div className={`modal-icon-container ${isDelete ? 'modal-icon-danger' : 'modal-icon-warning'}`}>
-                {isDelete ? '🗑️' : '⚠️'}
+                {isToggle ? '⚠️' : '🗑️'}
               </div>
               <div>
-                <h2 className="modal-title">
-                  {isDelete ? 'Confirmar Exclusão' : 'Confirmar Alteração'}
-                </h2>
+                <h2 className="modal-title">{getTitulo()}</h2>
                 <p className="modal-subtitle">
-                  {isDelete && 'Esta ação não pode ser desfeita'}
-                  {isToggle && 'Alterar status da transação'}
+                  {isToggle ? 'Alterar status da transação' : 'Esta ação não pode ser desfeita'}
                 </p>
               </div>
             </div>
-            <button 
-              onClick={() => setShowConfirmModal(false)}
-              className="modal-close"
-            >
-              ×
-            </button>
+            <button onClick={() => setShowConfirmModal(false)} className="modal-close">×</button>
           </div>
 
           <div className="modal-body">
             <div className="confirmation-question">
               <p className="confirmation-text">
-                {isDelete && 'Tem certeza que deseja excluir esta transação?'}
-                {isToggle && `Deseja ${novoStatus ? 'efetivar' : 'marcar como pendente'} esta transação?`}
+                {isToggle 
+                  ? `Deseja ${novoStatus ? 'efetivar' : 'marcar como pendente'} esta transação?`
+                  : 'Tem certeza que deseja excluir esta transação?'
+                }
               </p>
             </div>
             
@@ -1153,25 +1331,11 @@ const executeConfirmAction = async () => {
                 <strong>Categoria:</strong> {transacaoParaConfirm.categoria_nome}
               </div>
             </div>
-
-            {isDelete && (
-              <div className="confirmation-warning">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
-                </svg>
-                <p>
-                  Esta transação será excluída permanentemente. Esta ação não pode ser desfeita.
-                </p>
-              </div>
-            )}
           </div>
 
           <div className="modal-footer">
             <div className="footer-right">
-              <button 
-                onClick={() => setShowConfirmModal(false)}
-                className="btn-cancel"
-              >
+              <button onClick={() => setShowConfirmModal(false)} className="btn-cancel">
                 Cancelar
               </button>
               <button 
@@ -1185,7 +1349,204 @@ const executeConfirmAction = async () => {
         </div>
       </div>
     );
-  };
+  }
+
+  // ===== MODAL COMPLEXO (com escopo) =====
+  return (
+    <div className="modal-overlay active">
+      <div className="forms-modal-container" style={{ maxWidth: '520px' }}>
+        {/* Header simplificado */}
+        <div className="modal-header">
+          <div className="modal-header-content">
+            <div className="modal-icon-container modal-icon-danger">
+              {isCartaoMisto ? '💳' : (transacaoInfo?.isParcelada ? '📦' : '🔄')}
+            </div>
+            <div>
+              <h2 className="modal-title" style={{ fontSize: '18px', marginBottom: '4px' }}>
+                {getTitulo()}
+              </h2>
+              <p className="modal-subtitle" style={{ fontSize: '14px', color: '#6b7280' }}>
+                Escolha o que deseja excluir:
+              </p>
+            </div>
+          </div>
+          <button onClick={() => setShowConfirmModal(false)} className="modal-close">×</button>
+        </div>
+
+        <div className="modal-body" style={{ padding: '20px 24px' }}>
+          {/* Opções de escopo - Design limpo */}
+          <div style={{ marginBottom: '24px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              
+              {/* Opção 1: Apenas atual */}
+              <label 
+                className={`confirmation-option-clean ${escopoExclusao === 'atual' ? 'active' : ''}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '12px',
+                  padding: '16px',
+                  border: escopoExclusao === 'atual' ? '2px solid #3b82f6' : '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  backgroundColor: escopoExclusao === 'atual' ? '#eff6ff' : '#ffffff',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <input
+                  type="radio"
+                  name="escopoExclusao"
+                  value="atual"
+                  checked={escopoExclusao === 'atual'}
+                  onChange={(e) => setEscopoExclusao(e.target.value)}
+                  style={{ marginTop: '2px' }}
+                />
+                <div style={{ flex: 1 }}>
+                  <div style={{ 
+                    fontWeight: '600', 
+                    fontSize: '14px', 
+                    color: '#1f2937',
+                    marginBottom: '4px'
+                  }}>
+                    {isCartaoMisto ? 'Esta parcela' : 
+                     transacaoInfo?.isParcelada ? 'Esta parcela' : 'Esta ocorrência'}
+                  </div>
+                  <div style={{ 
+                    fontSize: '13px', 
+                    color: '#6b7280',
+                    lineHeight: '1.4'
+                  }}>
+                    Remove só a de {formatCurrency(Math.abs(transacaoParaConfirm.valor))} em {format(new Date(transacaoParaConfirm.data), 'dd/MM/yyyy')}
+                  </div>
+                </div>
+              </label>
+
+              {/* Opção 2: Esta e futuras/pendentes */}
+              <label 
+                className={`confirmation-option-clean ${escopoExclusao === 'futuras' ? 'active' : ''}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '12px',
+                  padding: '16px',
+                  border: escopoExclusao === 'futuras' ? '2px solid #3b82f6' : '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  backgroundColor: escopoExclusao === 'futuras' ? '#eff6ff' : '#ffffff',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <input
+                  type="radio"
+                  name="escopoExclusao"
+                  value="futuras"
+                  checked={escopoExclusao === 'futuras'}
+                  onChange={(e) => setEscopoExclusao(e.target.value)}
+                  style={{ marginTop: '2px' }}
+                />
+                <div style={{ flex: 1 }}>
+                  <div style={{ 
+                    fontWeight: '600', 
+                    fontSize: '14px', 
+                    color: '#1f2937',
+                    marginBottom: '4px'
+                  }}>
+                    {isCartaoMisto ? 'Todas as parcelas pendentes' :
+                     transacaoInfo?.isParcelada ? 'Esta e as parcelas futuras' : 'Esta e as futuras'}
+                  </div>
+                  <div style={{ 
+                    fontSize: '13px', 
+                    color: '#6b7280',
+                    lineHeight: '1.4'
+                  }}>
+                    {isCartaoMisto 
+                      ? `Remove esta e mais ${grupoCartaoInfo?.parcelasPendentes - 1} parcelas não pagas`
+                      : `Remove esta e todas as próximas não efetivadas (${getRangeText()})`
+                    }
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          {/* Detalhes da transação - Design limpo */}
+          <div style={{ 
+            backgroundColor: '#f8fafc', 
+            border: '1px solid #e2e8f0',
+            borderRadius: '8px',
+            padding: '16px'
+          }}>
+            <h4 style={{ 
+              fontSize: '14px', 
+              fontWeight: '600', 
+              color: '#374151',
+              marginBottom: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              🧾 Detalhes da {transacaoInfo?.isParcelada ? 'Parcela' : 'Ocorrência'}
+            </h4>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px' }}>
+              <div>
+                <strong>Descrição:</strong> {transacaoParaConfirm.descricao}
+              </div>
+              <div>
+                <strong>Valor:</strong> {formatCurrency(Math.abs(transacaoParaConfirm.valor))}
+              </div>
+              <div>
+                <strong>Data:</strong> {format(new Date(transacaoParaConfirm.data), 'dd/MM/yyyy')}
+              </div>
+              <div>
+                <strong>Categoria:</strong> {transacaoParaConfirm.categoria_nome}
+              </div>
+              
+              {/* Informações específicas do grupo */}
+              {transacaoInfo?.isParcelada && (
+                <div style={{ gridColumn: 'span 2' }}>
+                  <strong>Parcela:</strong> {transacaoInfo.parcelaAtual} de {transacaoInfo.totalParcelas}
+                </div>
+              )}
+              
+              {transacaoInfo?.isRecorrente && (
+                <div style={{ gridColumn: 'span 2' }}>
+                  <strong>Ocorrência:</strong> {transacaoInfo.numeroRecorrencia}{transacaoInfo.totalRecorrencias ? ` de ${transacaoInfo.totalRecorrencias}` : ''}
+                </div>
+              )}
+
+              {transacaoParaConfirm.cartao_id && (
+                <div style={{ gridColumn: 'span 2' }}>
+                  <strong>Cartão:</strong> {transacaoParaConfirm.cartao_nome}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="modal-footer">
+          <div className="footer-right">
+            <button onClick={() => setShowConfirmModal(false)} className="btn-cancel">
+              Cancelar
+            </button>
+            <button 
+              onClick={executeConfirmAction}
+              disabled={!escopoExclusao}
+              className="btn-secondary btn-secondary--danger"
+              style={{
+                opacity: !escopoExclusao ? 0.5 : 1,
+                cursor: !escopoExclusao ? 'not-allowed' : 'pointer'
+              }}
+            >
+              🗑️ Excluir
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
   // Paginação
   const Pagination = () => {

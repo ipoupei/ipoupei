@@ -1,20 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { X, Plus, Edit3, Trash2, Palette, Lightbulb } from 'lucide-react';
+import { 
+  X, Plus, Edit3, Trash2, Palette, Lightbulb, 
+  ChevronDown, ChevronRight, Star, Search 
+} from 'lucide-react';
 import useCategorias from '@modules/categorias/hooks/useCategorias';
 import CategoriasSugeridasModal from './CategoriasSugeridasModal';
-import '@shared/styles/FormsModal.css';
+import CategoriaIcons from '@shared/utils/CategoriaIcons';
+import '@shared/styles/CategoriasModal.css';
 
 /**
- * Modal para gerenciamento de categorias e subcategorias
- * ✅ IMPROVEMENT 001: Cores automáticas inteligentes
- * ✅ CORREÇÃO: Funcionalidades completas de subcategorias
- * ✅ MELHORIA: Interface mais intuitiva e responsiva
- * ✅ NOVO: Integração com categorias sugeridas
- * ✅ CONSOLIDADO: Usando classes do FormsModal.css
+ * Modal para gerenciamento de categorias - LAYOUT TABULAR ORIGINAL
+ * ✅ Mantém exatamente o visual da primeira imagem
+ * ✅ Remove apenas o CSS inline, usando classes CSS
+ * ✅ Layout de tabela preservado
+ * ✅ Todas as funcionalidades mantidas
  */
 const CategoriasModal = ({ isOpen, onClose }) => {
-  // Obter dados das categorias do hook existente
   const { 
     categorias, 
     loading, 
@@ -26,41 +28,50 @@ const CategoriasModal = ({ isOpen, onClose }) => {
     deleteSubcategoria 
   } = useCategorias();
   
-  // Estado para controlar o tipo atual (despesa/receita)
-  const [tipoAtual, setTipoAtual] = useState('despesa');
-  const [categoriasFiltradas, setCategoriasFiltradas] = useState([]);
-  const [categoriaSelecionada, setCategoriaSelecionada] = useState(null);
+  // Estados para colapsar seções
+  const [expandidos, setExpandidos] = useState({
+    despesas: true,
+    receitas: true
+  });
+  
+  // Estados para modais
+  const [modalAberto, setModalAberto] = useState(null); // 'editar', 'excluir', 'nova'
+  const [itemSendoEditado, setItemSendoEditado] = useState(null);
+  const [tipoItemModal, setTipoItemModal] = useState(''); // 'categoria', 'subcategoria'  
+  const [categoriaParentId, setCategoriaParentId] = useState(null);
   
   // Estados para formulários
-  const [showFormCategoria, setShowFormCategoria] = useState(false);
-  const [showFormSubcategoria, setShowFormSubcategoria] = useState(false);
-  const [novaCategoriaNome, setNovaCategoriaNome] = useState('');
-  const [novaCategoriaColor, setNovaCategoriaColor] = useState('#3498db');
-  const [novaSubcategoriaNome, setNovaSubcategoriaNome] = useState('');
+  const [nomeFormulario, setNomeFormulario] = useState('');
+  const [corFormulario, setCorFormulario] = useState('#008080');
+  const [iconeFormulario, setIconeFormulario] = useState('📁');
   
-  // Estados para edição
-  const [editandoCategoria, setEditandoCategoria] = useState(null);
-  const [editandoSubcategoria, setEditandoSubcategoria] = useState(null);
+  // Estados para seletor de ícones
+  const [dropdownIconeAberto, setDropdownIconeAberto] = useState(false);
+  const [buscaIcone, setBuscaIcone] = useState('');
   
   // Estados para feedback
-  const [feedback, setFeedback] = useState({ show: false, message: '', type: '' });
+  const [mensagemFeedback, setMensagemFeedback] = useState({ show: false, message: '', type: '' });
+  const [modalSugeridaAberto, setModalSugeridaAberto] = useState(false);
   
-  // ✅ NOVO: Estado para modal de categorias sugeridas
-  const [showSugeridas, setShowSugeridas] = useState(false);
-  
-  // ✅ IMPROVEMENT 001: Cores predefinidas mais variadas e modernas
   const coresPredefinidas = [
     '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', 
-    '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9', '#F8C471', '#82E0AA', 
-    '#F1948A', '#AED6F1', '#D7BDE2', '#A9DFBF', '#FAD7A0', '#D5A6BD', 
-    '#A3E4D7', '#F9E79F'
+    '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9', '#F8C471', '#82E0AA'
   ];
   
-  // Handler para ESC
+  // Filtrar e organizar categorias
+  const categoriasDespesas = categorias.filter(cat => cat.tipo === 'despesa') || [];
+  const categoriasReceitas = categorias.filter(cat => cat.tipo === 'receita') || [];
+  
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape' && isOpen) {
-        onClose();
+        if (dropdownIconeAberto) {
+          setDropdownIconeAberto(false);
+        } else if (modalAberto) {
+          fecharModal();
+        } else {
+          onClose();
+        }
       }
     };
     
@@ -68,695 +79,618 @@ const CategoriasModal = ({ isOpen, onClose }) => {
       document.addEventListener('keydown', handleEscape);
       return () => document.removeEventListener('keydown', handleEscape);
     }
-  }, [isOpen, onClose]);
+  }, [isOpen, dropdownIconeAberto, modalAberto, onClose]);
   
-  // ✅ IMPROVEMENT 001: Função para gerar cor única automática
-  const getUniqueRandomColor = () => {
-    const coresEmUso = categoriasFiltradas.map(cat => cat.cor?.toUpperCase()).filter(Boolean);
-    const coresDisponiveis = coresPredefinidas.filter(cor => 
-      !coresEmUso.includes(cor.toUpperCase())
-    );
+  const mostrarFeedback = (message, type = 'success') => {
+    setMensagemFeedback({ show: true, message, type });
+    setTimeout(() => setMensagemFeedback({ show: false, message: '', type: '' }), 3000);
+  };
+  
+  const alternarExpandir = (tipo) => {
+    setExpandidos(prev => ({
+      ...prev,
+      [tipo]: !prev[tipo]
+    }));
+  };
+  
+  const abrirModal = (tipoAcao, item, tipoItem, parentId = null) => {
+    console.log('🎯 abrirModal chamado:', { tipoAcao, item, tipoItem, parentId });
     
-    if (coresDisponiveis.length > 0) {
-      const indiceAleatorio = Math.floor(Math.random() * coresDisponiveis.length);
-      return coresDisponiveis[indiceAleatorio];
-    }
+    setModalAberto(tipoAcao);
+    setItemSendoEditado(item || {});
+    setTipoItemModal(tipoItem);
+    setNomeFormulario(item?.nome || '');
+    setCorFormulario(item?.cor || '#008080');
+    setIconeFormulario(item?.icone || '📁');
     
-    return gerarCorAleatoria();
-  };
-  
-  // ✅ IMPROVEMENT 001: Função para gerar cor aleatória com boa saturação
-  const gerarCorAleatoria = () => {
-    const hue = Math.floor(Math.random() * 360);
-    const saturation = 65 + Math.floor(Math.random() * 25);
-    const lightness = 55 + Math.floor(Math.random() * 20);
-    
-    return hslToHex(hue, saturation, lightness);
-  };
-  
-  // ✅ IMPROVEMENT 001: Converter HSL para HEX
-  const hslToHex = (h, s, l) => {
-    l /= 100;
-    const a = s * Math.min(l, 1 - l) / 100;
-    const f = n => {
-      const k = (n + h / 30) % 12;
-      const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-      return Math.round(255 * color).toString(16).padStart(2, '0');
-    };
-    return `#${f(0)}${f(8)}${f(4)}`;
-  };
-  
-  // Função para mostrar feedback
-  const showFeedback = (message, type = 'success') => {
-    setFeedback({ show: true, message, type });
-    setTimeout(() => {
-      setFeedback({ show: false, message: '', type: '' });
-    }, 3000);
-  };
-  
-  // Função para resetar formulários
-  const resetarFormularios = () => {
-    setShowFormCategoria(false);
-    setShowFormSubcategoria(false);
-    setNovaCategoriaNome('');
-    setNovaCategoriaColor('#3498db');
-    setNovaSubcategoriaNome('');
-    setEditandoCategoria(null);
-    setEditandoSubcategoria(null);
-  };
-  
-  // Filtrar categorias com base no tipo selecionado
-  useEffect(() => {
-    if (categorias && categorias.length > 0) {
-      const filtradas = categorias.filter(cat => cat.tipo === tipoAtual);
-      setCategoriasFiltradas(filtradas);
+    if (tipoItem === 'subcategoria') {
+      const idPai = parentId || item?.parentId || item?.categoria_id;
+      console.log('🔧 Setando categoriaParentId:', idPai);
+      setCategoriaParentId(idPai);
     } else {
-      setCategoriasFiltradas([]);
+      setCategoriaParentId(null);
+    }
+  };
+  
+  const fecharModal = () => {
+    setModalAberto(null);
+    setItemSendoEditado(null);
+    setTipoItemModal('');
+    setNomeFormulario('');
+    setCorFormulario('#008080');
+    setIconeFormulario('📁');
+    setCategoriaParentId(null);
+    setDropdownIconeAberto(false);
+    setBuscaIcone('');
+  };
+  
+  const confirmarAcao = async () => {
+    console.log('🚀 confirmarAcao iniciada:', { 
+      modalAberto, 
+      tipoItemModal, 
+      nomeFormulario: nomeFormulario.trim(),
+      itemSendoEditado 
+    });
+    
+    if (modalAberto === 'excluir') {
+      return confirmarExclusao();
     }
     
-    setCategoriaSelecionada(null);
-    resetarFormularios();
-  }, [categorias, tipoAtual]);
-  
-  // Se o modal não estiver aberto, não renderiza nada
-  if (!isOpen) return null;
-
-  // Handler para alternar entre tipos
-  const handleChangeTipo = (tipo) => {
-    setTipoAtual(tipo);
-    resetarFormularios();
-  };
-  
-  // Handler para selecionar uma categoria
-  const handleSelectCategoria = (id) => {
-    if (id === categoriaSelecionada) {
-      setCategoriaSelecionada(null);
-    } else {
-      setCategoriaSelecionada(id);
-    }
-    resetarFormularios();
-  };
-  
-  // ✅ IMPROVEMENT 001: Abrir formulário de nova categoria com cor automática
-  const handleNovaCategoria = () => {
-    resetarFormularios();
-    setShowFormCategoria(true);
-    setNovaCategoriaNome('');
-    
-    const corAutomatica = getUniqueRandomColor();
-    setNovaCategoriaColor(corAutomatica);
-  };
-  
-  // ✅ NOVO: Handler para abrir modal de categorias sugeridas
-  const handleAbrirSugeridas = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log('🔥 Botão Categorias Sugeridas CLICADO!');
-    console.log('Estado atual showSugeridas:', showSugeridas);
-    setShowSugeridas(true);
-    console.log('Estado depois setShowSugeridas(true):', !showSugeridas);
-  };
-  
-  // ✅ NOVO: Handler para fechar modal de categorias sugeridas
-  const handleFecharSugeridas = () => {
-    console.log('Fechando modal de categorias sugeridas...');
-    setShowSugeridas(false);
-  };
-  
-  // Abrir formulário de nova subcategoria
-  const handleNovaSubcategoria = (categoriaId) => {
-    if (!categoriaId) return;
-    
-    resetarFormularios();
-    setCategoriaSelecionada(categoriaId);
-    setShowFormSubcategoria(true);
-    setNovaSubcategoriaNome('');
-  };
-  
-  // Abrir formulário de edição de categoria
-  const handleEditarCategoria = (categoria) => {
-    resetarFormularios();
-    setShowFormCategoria(true);
-    setEditandoCategoria(categoria);
-    setNovaCategoriaNome(categoria.nome);
-    setNovaCategoriaColor(categoria.cor || '#3498db');
-  };
-  
-  // Abrir formulário de edição de subcategoria
-  const handleEditarSubcategoria = (categoriaId, subcategoria) => {
-    resetarFormularios();
-    setShowFormSubcategoria(true);
-    setEditandoSubcategoria(subcategoria);
-    setNovaSubcategoriaNome(subcategoria.nome);
-    setCategoriaSelecionada(categoriaId);
-  };
-  
-  // ✅ IMPROVEMENT 001: Função para sugerir nova cor automática
-  const handleSugerirNovaCor = () => {
-    const novaCor = getUniqueRandomColor();
-    setNovaCategoriaColor(novaCor);
-    showFeedback(`Nova cor sugerida: ${novaCor}`, 'info');
-  };
-  
-  // Salvar categoria (nova ou editada)
-  const handleSalvarCategoria = async () => {
-    if (!novaCategoriaNome.trim()) {
-      showFeedback('O nome da categoria é obrigatório', 'error');
+    if (!nomeFormulario.trim()) {
+      mostrarFeedback('Nome é obrigatório', 'error');
       return;
     }
     
     try {
-      let result;
+      let resultado;
       
-      if (editandoCategoria) {
-        result = await updateCategoria(editandoCategoria.id, {
-          nome: novaCategoriaNome.trim(),
-          cor: novaCategoriaColor
+      if (modalAberto === 'nova' && tipoItemModal === 'categoria') {
+        const tipoCategoria = itemSendoEditado?.tipo || 'despesa';
+        console.log('📝 Criando nova categoria:', { 
+          nome: nomeFormulario.trim(),
+          tipo: tipoCategoria,
+          cor: corFormulario,
+          icone: iconeFormulario 
         });
-      } else {
-        result = await addCategoria({
-          nome: novaCategoriaNome.trim(),
-          tipo: tipoAtual,
-          cor: novaCategoriaColor
+        
+        resultado = await addCategoria({
+          nome: nomeFormulario.trim(),
+          tipo: tipoCategoria,
+          cor: corFormulario,
+          icone: iconeFormulario
         });
-      }
-      
-      if (result.success) {
-        showFeedback(
-          editandoCategoria ? 'Categoria atualizada com sucesso!' : 'Categoria adicionada com sucesso!',
-          'success'
-        );
-        resetarFormularios();
-      } else {
-        throw new Error(result.error || 'Erro ao salvar categoria');
-      }
-    } catch (err) {
-      console.error('Erro ao salvar categoria:', err);
-      showFeedback(`Erro ao ${editandoCategoria ? 'atualizar' : 'adicionar'} categoria: ${err.message}`, 'error');
-    }
-  };
-  
-  // Salvar subcategoria (nova ou editada)
-  const handleSalvarSubcategoria = async () => {
-    if (!novaSubcategoriaNome.trim()) {
-      showFeedback('O nome da subcategoria é obrigatório', 'error');
-      return;
-    }
-    
-    if (!categoriaSelecionada) {
-      showFeedback('Erro: Categoria não selecionada', 'error');
-      return;
-    }
-    
-    try {
-      let result;
-      
-      if (editandoSubcategoria) {
-        result = await updateSubcategoria(
-          categoriaSelecionada, 
-          editandoSubcategoria.id, 
-          { nome: novaSubcategoriaNome.trim() }
-        );
-      } else {
-        result = await addSubcategoria(
-          categoriaSelecionada, 
-          { nome: novaSubcategoriaNome.trim() }
-        );
-      }
-      
-      if (result.success) {
-        showFeedback(
-          editandoSubcategoria ? 'Subcategoria atualizada com sucesso!' : 'Subcategoria adicionada com sucesso!',
-          'success'
-        );
-        resetarFormularios();
-      } else {
-        throw new Error(result.error || 'Erro ao salvar subcategoria');
-      }
-    } catch (err) {
-      console.error('Erro ao salvar subcategoria:', err);
-      showFeedback(`Erro ao ${editandoSubcategoria ? 'atualizar' : 'adicionar'} subcategoria: ${err.message}`, 'error');
-    }
-  };
-  
-  // Handler para excluir categoria
-  const handleExcluirCategoria = async (categoriaId) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta categoria? Esta ação afetará todas as subcategorias e transações relacionadas.')) {
-      return;
-    }
-    
-    try {
-      const result = await deleteCategoria(categoriaId);
-      
-      if (result.success) {
-        showFeedback('Categoria excluída com sucesso!', 'success');
-        if (categoriaId === categoriaSelecionada) {
-          setCategoriaSelecionada(null);
+        
+        console.log('✅ Resultado addCategoria:', resultado);
+      } else if (modalAberto === 'editar' && tipoItemModal === 'categoria') {
+        console.log('✏️ Editando categoria:', itemSendoEditado.id);
+        resultado = await updateCategoria(itemSendoEditado.id, {
+          nome: nomeFormulario.trim(),
+          cor: corFormulario,
+          icone: iconeFormulario
+        });
+      } else if (modalAberto === 'nova' && tipoItemModal === 'subcategoria') {
+        if (!categoriaParentId) {
+          console.error('❌ categoriaParentId não definido:', categoriaParentId);
+          mostrarFeedback('Erro: Categoria pai não identificada', 'error');
+          return;
         }
-        resetarFormularios();
-      } else {
-        throw new Error(result.error || 'Erro ao excluir categoria');
+        
+        console.log('✅ Criando subcategoria com parentId:', categoriaParentId);
+        resultado = await addSubcategoria(categoriaParentId, {
+          nome: nomeFormulario.trim()
+        });
+      } else if (modalAberto === 'editar' && tipoItemModal === 'subcategoria') {
+        const parentId = categoriaParentId || itemSendoEditado.categoria_id;
+        if (!parentId) {
+          console.error('❌ parentId não definido para edição:', { categoriaParentId, itemSendoEditado });
+          mostrarFeedback('Erro: Categoria pai não identificada', 'error');
+          return;
+        }
+        
+        console.log('✅ Editando subcategoria com parentId:', parentId);
+        resultado = await updateSubcategoria(parentId, itemSendoEditado.id, {
+          nome: nomeFormulario.trim()
+        });
       }
-    } catch (err) {
-      console.error('Erro ao excluir categoria:', err);
-      showFeedback(`Erro ao excluir categoria: ${err.message}`, 'error');
-    }
-  };
-  
-  // Handler para excluir subcategoria
-  const handleExcluirSubcategoria = async (categoriaId, subcategoriaId) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta subcategoria? Esta ação afetará todas as transações relacionadas.')) {
-      return;
-    }
-    
-    try {
-      const result = await deleteSubcategoria(categoriaId, subcategoriaId);
       
-      if (result.success) {
-        showFeedback('Subcategoria excluída com sucesso!', 'success');
+      console.log('📊 Resultado final:', resultado);
+      
+      if (resultado?.success) {
+        mostrarFeedback(
+          modalAberto === 'nova' ? 'Criado com sucesso!' : 'Atualizado com sucesso!',
+          'success'
+        );
+        fecharModal();
       } else {
-        throw new Error(result.error || 'Erro ao excluir subcategoria');
+        throw new Error(resultado?.error || 'Erro ao salvar');
       }
     } catch (err) {
-      console.error('Erro ao excluir subcategoria:', err);
-      showFeedback(`Erro ao excluir subcategoria: ${err.message}`, 'error');
+      console.error('❌ Erro ao salvar:', err);
+      mostrarFeedback(`Erro: ${err.message}`, 'error');
     }
   };
   
-  // ✅ IMPROVEMENT 001: Formulário de categoria com cores automáticas
-  const renderFormCategoria = () => {
-    return (
-      <div className="form-categoria">
-        <h3 className="section-title">{editandoCategoria ? 'Editar Categoria' : 'Nova Categoria'}</h3>
+  const confirmarExclusao = async () => {
+    try {
+      let resultado;
+      if (tipoItemModal === 'categoria') {
+        resultado = await deleteCategoria(itemSendoEditado.id);
+      } else {
+        const parentId = categoriaParentId || itemSendoEditado.categoria_id;
+        if (!parentId) {
+          console.error('❌ parentId não definido para exclusão:', { categoriaParentId, itemSendoEditado });
+          mostrarFeedback('Erro: Categoria pai não identificada', 'error');
+          return;
+        }
         
-        <div className="flex flex-col mb-3">
-          <label className="form-label">
-            <Edit3 size={14} />
-            Nome da categoria *
-          </label>
-          <input
-            type="text"
-            className="input-text"
-            value={novaCategoriaNome}
-            onChange={(e) => setNovaCategoriaNome(e.target.value)}
-            placeholder="Digite o nome da categoria"
-            autoFocus
-          />
-        </div>
-        
-        <div className="flex flex-col mb-3">
-          <label className="form-label">
-            <Palette size={14} />
-            Cor da categoria
-          </label>
-          <div className="color-input-container">
-            <input
-              type="color"
-              value={novaCategoriaColor}
-              onChange={(e) => setNovaCategoriaColor(e.target.value)}
-              className="color-picker-input"
-            />
-            <div className="color-preview" style={{ backgroundColor: novaCategoriaColor }}></div>
-            <button
-              type="button"
-              className="button-suggest-color"
-              onClick={handleSugerirNovaCor}
-              title="Sugerir nova cor automática"
-            >
-              🎲 Sortear
-            </button>
-          </div>
-          
-          <div className="color-picker">
-            {coresPredefinidas.map(cor => {
-              const corEmUso = categoriasFiltradas.some(cat => 
-                cat.cor?.toUpperCase() === cor.toUpperCase() && cat.id !== editandoCategoria?.id
-              );
-              
-              return (
-                <button
-                  key={cor}
-                  type="button"
-                  className={`color-option ${cor === novaCategoriaColor ? 'active' : ''} ${corEmUso ? 'in-use' : ''}`}
-                  style={{ backgroundColor: cor }}
-                  onClick={() => setNovaCategoriaColor(cor)}
-                  title={corEmUso ? `Cor já usada` : `Usar cor ${cor}`}
-                  disabled={corEmUso}
-                />
-              );
-            })}
-          </div>
-          
-          <div className="color-usage-info">
-            <small>
-              💡 Cores com ⚫ já estão em uso. Use o botão "🎲 Sortear" para gerar uma cor única.
-            </small>
-          </div>
-        </div>
-        
-        <div className="flex gap-3 row">
-          <button 
-            type="button" 
-            className="btn-cancel"
-            onClick={resetarFormularios}
-          >
-            Cancelar
-          </button>
-          <button 
-            type="button" 
-            className="btn-primary"
-            onClick={handleSalvarCategoria}
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <span className="btn-spinner"></span>
-                Salvando...
-              </>
-            ) : (
-              <>
-                <Plus size={14} />
-                {editandoCategoria ? 'Atualizar' : 'Salvar'}
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    );
+        console.log('✅ Excluindo subcategoria com parentId:', parentId);
+        resultado = await deleteSubcategoria(parentId, itemSendoEditado.id);
+      }
+      
+      if (resultado?.success) {
+        mostrarFeedback('Excluído com sucesso!', 'success');
+        fecharModal();
+      } else {
+        throw new Error(resultado?.error || 'Erro ao excluir');
+      }
+    } catch (err) {
+      console.error('Erro ao excluir:', err);
+      mostrarFeedback(`Erro: ${err.message}`, 'error');
+    }
   };
   
-  // Formulário de subcategoria
-  const renderFormSubcategoria = () => {
-    const categoriaParent = categorias.find(cat => cat.id === categoriaSelecionada);
-    
-    return (
-      <div className="form-subcategoria">
-        <h3 className="section-title">
-          {editandoSubcategoria ? 'Editar Subcategoria' : 'Nova Subcategoria'}
-          {categoriaParent && (
-            <span className="parent-categoria"> - {categoriaParent.nome}</span>
-          )}
-        </h3>
-        
-        <div className="flex flex-col mb-3">
-          <label className="form-label">
-            <Edit3 size={14} />
-            Nome da subcategoria *
-          </label>
-          <input
-            type="text"
-            className="input-text"
-            value={novaSubcategoriaNome}
-            onChange={(e) => setNovaSubcategoriaNome(e.target.value)}
-            placeholder="Digite o nome da subcategoria"
-            autoFocus
-          />
-        </div>
-        
-        <div className="flex gap-3 row">
-          <button 
-            type="button" 
-            className="btn-cancel"
-            onClick={resetarFormularios}
-          >
-            Cancelar
-          </button>
-          <button 
-            type="button" 
-            className="btn-primary"
-            onClick={handleSalvarSubcategoria}
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <span className="btn-spinner"></span>
-                Salvando...
-              </>
-            ) : (
-              <>
-                <Plus size={14} />
-                {editandoSubcategoria ? 'Atualizar' : 'Salvar'}
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    );
-  };
-  
-  // Renderiza uma categoria individual
-  const renderCategoria = (categoria) => {
-    const isSelected = categoria.id === categoriaSelecionada;
-    const subcategoriasCount = categoria.subcategorias?.length || 0;
-    
-    return (
-      <div key={categoria.id} className="categoria-item">
-        <div className="categoria-header">
-          <div 
-            className="categoria-color" 
-            style={{ backgroundColor: categoria.cor || '#999' }}
-          ></div>
-          
-          <div 
-            className="categoria-nome"
-            onClick={() => handleSelectCategoria(categoria.id)}
-          >
-            {categoria.nome} 
-            <span className="subcategoria-count">
-              ({subcategoriasCount})
-            </span>
-          </div>
-          
-          <div className="categoria-actions">
-            <button 
-              className="button-small edit-button"
-              onClick={() => handleEditarCategoria(categoria)}
-              title="Editar categoria"
-            >
-              <Edit3 size={12} />
-            </button>
-            <button 
-              className="button-small delete-button"
-              onClick={() => handleExcluirCategoria(categoria.id)}
-              title="Excluir categoria"
-            >
-              <Trash2 size={12} />
-            </button>
-          </div>
-        </div>
-        
-        {/* Se a categoria estiver selecionada, exibe as subcategorias */}
-        {isSelected && !showFormCategoria && !showFormSubcategoria && (
-          <div className="subcategorias-container">
-            <div className="subcategorias-header">
-              <h4>Subcategorias</h4>
-              <button 
-                className="button-small add-button"
-                onClick={() => handleNovaSubcategoria(categoria.id)}
-                title="Adicionar subcategoria"
-              >
-                <Plus size={12} />
-                Nova Subcategoria
-              </button>
-            </div>
-            
-            {subcategoriasCount > 0 ? (
-              <div className="subcategorias-list">
-                {categoria.subcategorias.map(subcategoria => (
-                  <div key={subcategoria.id} className="subcategoria-item">
-                    <span className="subcategoria-nome">{subcategoria.nome}</span>
-                    <div className="subcategoria-actions">
-                      <button 
-                        className="button-small edit-button"
-                        onClick={() => handleEditarSubcategoria(categoria.id, subcategoria)}
-                        title="Editar subcategoria"
-                      >
-                        <Edit3 size={10} />
-                      </button>
-                      <button 
-                        className="button-small delete-button"
-                        onClick={() => handleExcluirSubcategoria(categoria.id, subcategoria.id)}
-                        title="Excluir subcategoria"
-                      >
-                        <Trash2 size={10} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="subcategorias-empty">
-                <p>Nenhuma subcategoria encontrada.</p>
-                <button 
-                  className="btn-secondary"
-                  onClick={() => handleNovaSubcategoria(categoria.id)}
-                >
-                  <Plus size={14} />
-                  Criar primeira subcategoria
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    );
+  const obterIconesFiltrados = () => {
+    if (buscaIcone.trim()) {
+      return CategoriaIcons.searchIcons(buscaIcone, 'emoji');
+    } else {
+      return CategoriaIcons.getSuggestedIcons(nomeFormulario || 'outros', 'emoji', 48);
+    }
   };
 
-  return (
-    <>
-      <div className="modal-overlay active">
-        <div className="forms-modal-container modal-large">
-          <div className="modal-header">
-            <div className="modal-header-content">
-              <div className="modal-icon-container modal-icon-primary">
-                <Palette size={18} />
-              </div>
-              <div>
-                <h2 className="modal-title">Gestão de Categorias</h2>
-                <p className="modal-subtitle">Organize suas receitas e despesas em categorias</p>
-              </div>
-            </div>
-            <button className="modal-close" onClick={onClose}>
+  // Renderizar formulário de modal
+  const renderFormularioModal = () => {
+    if (!modalAberto) return null;
+    
+    const ehCategoria = tipoItemModal === 'categoria';
+    const ehExcluir = modalAberto === 'excluir';
+    const ehNova = modalAberto === 'nova';
+    
+    let titulo = '';
+    if (ehExcluir) {
+      titulo = `Excluir ${ehCategoria ? 'Categoria' : 'Subcategoria'}`;
+    } else if (ehNova) {
+      titulo = `Nova ${ehCategoria ? 'Categoria' : 'Subcategoria'}`;
+    } else {
+      titulo = `Editar ${ehCategoria ? 'Categoria' : 'Subcategoria'}`;
+    }
+    
+    return (
+      <div className="categorias-form-overlay">
+        <div className="categorias-form-modal">
+          {/* Header do Modal */}
+          <div className="categorias-form-header">
+            <h3 className="categorias-form-title">{titulo}</h3>
+            <button className="categorias-form-close" onClick={fecharModal}>
               <X size={18} />
             </button>
           </div>
-
-          {/* Feedback de sucesso/erro */}
-          {feedback.show && (
-            <div className={`feedback-message ${feedback.type}`}>
-              {feedback.message}
-            </div>
-          )}
-
-          <div className="tipo-selector">
-            <button 
-              className={`tipo-button ${tipoAtual === 'despesa' ? 'active' : ''}`} 
-              onClick={() => handleChangeTipo('despesa')}
-            >
-              💸 Despesas
-            </button>
-            <button 
-              className={`tipo-button ${tipoAtual === 'receita' ? 'active' : ''}`}
-              onClick={() => handleChangeTipo('receita')}
-            >
-              💰 Receitas
-            </button>
-          </div>
-
-          <div className="modal-body">
-            {showFormCategoria ? (
-              renderFormCategoria()
-            ) : showFormSubcategoria ? (
-              renderFormSubcategoria()
+          
+          {/* Conteúdo do Modal */}
+          <div className="categorias-form-body">
+            {ehExcluir ? (
+              <div className="categorias-empty-state">
+                <div className="categorias-empty-icon">⚠️</div>
+                <div className="categorias-empty-title">
+                  Tem certeza que deseja excluir?
+                </div>
+                <div className="categorias-empty-subtitle">
+                  <strong>{itemSendoEditado?.nome}</strong>
+                  {ehCategoria && ' e todas suas subcategorias'}
+                </div>
+                {ehCategoria && (
+                  <p className="categorias-empty-subtitle" style={{ color: 'var(--danger)', marginTop: '8px', fontStyle: 'italic' }}>
+                    Esta ação afetará todas as transações relacionadas.
+                  </p>
+                )}
+              </div>
             ) : (
               <>
-                <div className="categorias-header">
-                  <h3>Categorias de {tipoAtual === 'despesa' ? 'Despesas' : 'Receitas'}</h3>
-                  <p className="categorias-subtitle">
-                    Clique em uma categoria para ver e gerenciar suas subcategorias
-                  </p>
-                  
-                  {/* ✅ IMPROVEMENT 001: Estatísticas de cores */}
-                  {categoriasFiltradas.length > 0 && (
-                    <div className="color-stats">
-                      <small>
-                        🎨 {categoriasFiltradas.length} categorias • 
-                        {coresPredefinidas.length - categoriasFiltradas.filter(cat => 
-                          coresPredefinidas.includes(cat.cor)
-                        ).length} cores disponíveis
-                      </small>
-                    </div>
-                  )}
+                {/* Campo Nome */}
+                <div className="categorias-form-field">
+                  <label className="categorias-form-label">
+                    <Edit3 size={14} />
+                    Nome {ehCategoria ? 'da categoria' : 'da subcategoria'} *
+                  </label>
+                  <input
+                    type="text"
+                    value={nomeFormulario}
+                    onChange={(e) => setNomeFormulario(e.target.value)}
+                    placeholder="Digite o nome..."
+                    autoFocus
+                    className="categorias-form-input"
+                  />
                 </div>
                 
-                {loading ? (
-                  <div className="loading-container">
-                    <div className="loading-spinner"></div>
-                    <p className="loading-text">Carregando categorias...</p>
-                  </div>
-                ) : categoriasFiltradas.length > 0 ? (
-                  <div className="categorias-list">
-                    {categoriasFiltradas.map(renderCategoria)}
-                  </div>
-                ) : (
-                  <div className="empty-state">
-                    <Palette size={48} className="empty-state-icon" />
-                    <h3 className="empty-state-title">Nenhuma categoria encontrada</h3>
-                    <p className="empty-state-description">
-                      Você ainda não criou nenhuma categoria de {tipoAtual === 'despesa' ? 'despesas' : 'receitas'}.
-                      <br />Comece criando uma categoria ou importe nossas sugestões!
-                    </p>
-                    
-                    <div className="flex gap-3 row">
-                      <button 
-                        className="btn-primary"
-                        onClick={handleNovaCategoria}
-                      >
-                        <Plus size={14} />
-                        Criar categoria
-                      </button>
-                      
+                {/* Seletor de Ícone (apenas para categorias) */}
+                {ehCategoria && (
+                  <div className="categorias-form-field">
+                    <label className="categorias-form-label">
+                      <Star size={14} />
+                      Ícone da categoria
+                    </label>
+                    <div className="categorias-icon-selector">
                       <button 
                         type="button"
-                        className="btn-secondary"
-                        onClick={handleAbrirSugeridas}
-                        style={{ zIndex: 15, position: 'relative' }}
+                        onClick={() => setDropdownIconeAberto(!dropdownIconeAberto)}
+                        className="categorias-icon-trigger"
                       >
-                        <Lightbulb size={14} />
-                        Ver sugestões
+                        {iconeFormulario}
                       </button>
+                      
+                      {dropdownIconeAberto && (
+                        <div className="categorias-icon-dropdown">
+                          {/* Busca de ícones */}
+                          <div className="categorias-icon-search">
+                            <Search size={14} />
+                            <input 
+                              type="text" 
+                              placeholder="Buscar ícone..."
+                              value={buscaIcone}
+                              onChange={(e) => setBuscaIcone(e.target.value)}
+                              className="categorias-icon-search-input"
+                            />
+                          </div>
+                          
+                          {/* Grid de ícones */}
+                          <div className="categorias-icon-grid">
+                            {obterIconesFiltrados().map((icon, index) => (
+                              <button
+                                key={`${icon}-${index}`}
+                                type="button"
+                                onClick={() => {
+                                  setIconeFormulario(icon);
+                                  setDropdownIconeAberto(false);
+                                  setBuscaIcone('');
+                                }}
+                                className={`categorias-icon-option ${icon === iconeFormulario ? 'selected' : ''}`}
+                              >
+                                {icon}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Seletor de Cor (apenas para categorias) */}
+                {ehCategoria && (
+                  <div className="categorias-form-field">
+                    <label className="categorias-form-label">
+                      <Palette size={14} />
+                      Cor da categoria
+                    </label>
+                    <div className="categorias-color-selector">
+                      <input
+                        type="color"
+                        value={corFormulario}
+                        onChange={(e) => setCorFormulario(e.target.value)}
+                        className="categorias-color-input"
+                      />
+                      <div className="categorias-color-presets">
+                        {coresPredefinidas.slice(0, 6).map(cor => (
+                          <button
+                            key={cor}
+                            type="button"
+                            onClick={() => setCorFormulario(cor)}
+                            className={`categorias-color-preset ${cor === corFormulario ? 'active' : ''}`}
+                            style={{ backgroundColor: cor }}
+                          />
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
               </>
             )}
           </div>
+          
+          {/* Footer do Modal */}
+          <div className="categorias-form-footer">
+            <button className="categorias-btn-cancel" onClick={fecharModal}>
+              Cancelar
+            </button>
+            <button 
+              onClick={confirmarAcao}
+              disabled={loading}
+              className={`categorias-btn-primary ${ehExcluir ? 'categorias-btn-danger' : ''}`}
+            >
+              {loading ? (
+                <>
+                  <div className="categorias-btn-spinner"></div>
+                  {ehExcluir ? 'Excluindo...' : 'Salvando...'}
+                </>
+              ) : (
+                <>
+                  {ehExcluir ? (
+                    <>
+                      <Trash2 size={14} />
+                      Sim, excluir
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={14} />
+                      {ehNova ? 'Criar' : 'Salvar'}
+                    </>
+                  )}
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
-          <div className="modal-footer">
-            {!showFormCategoria && !showFormSubcategoria && (
-              <>
-                <div className="footer-left">
-                  <button 
-                    type="button"
-                    className="btn-primary"
-                    onClick={handleAbrirSugeridas}
-                    style={{ zIndex: 15, position: 'relative', pointerEvents: 'auto' }}
-                  >
-                    <Lightbulb size={14} />
-                    Categorias sugeridas
-                  </button>
+  // Renderizar linha de categoria
+  const renderCategoriaLinha = (categoria) => {
+    return (
+      <React.Fragment key={categoria.id}>
+        <tr className="categoria-row">
+          <td className="categoria-cell">
+            <div className="categoria-nome-container">
+              <span className="categoria-icone-display">
+                {categoria.icone || '📁'}
+              </span>
+              <span className="categoria-nome-text">
+                {categoria.nome}
+              </span>
+            </div>
+          </td>
+          
+          <td className="categoria-cell categoria-icone-cell">
+            <span>{categoria.icone || '📁'}</span>
+          </td>
+          
+          <td className="categoria-cell categoria-cor-cell">
+            <div 
+              className="categoria-color-dot"
+              style={{ backgroundColor: categoria.cor || '#008080' }}
+            />
+          </td>
+          
+          <td className="categoria-cell categoria-acoes-cell">
+            <div className="categoria-acoes-container">
+              <button 
+                onClick={() => abrirModal('editar', categoria, 'categoria')}
+                title="Editar categoria"
+                className="categoria-action-btn edit"
+              >
+                <Edit3 size={14} />
+              </button>
+              <button 
+                onClick={() => abrirModal('excluir', categoria, 'categoria')}
+                title="Excluir categoria"
+                className="categoria-action-btn danger"
+              >
+                <Trash2 size={14} />
+              </button>
+              <button 
+                onClick={() => abrirModal('nova', { parentId: categoria.id }, 'subcategoria', categoria.id)}
+                title="Nova subcategoria"
+                className="categoria-action-btn add"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+          </td>
+        </tr>
+        
+        {/* Subcategorias */}
+        {categoria.subcategorias?.map(subcategoria => (
+          <tr key={`sub-${subcategoria.id}`} className="subcategoria-row">
+            <td className="categoria-cell">
+              <div className="subcategoria-nome-container">
+                <span className="subcategoria-nome-text">
+                  {subcategoria.nome}
+                </span>
+              </div>
+            </td>
+            
+            <td className="categoria-cell categoria-icone-cell">
+              <div 
+                className="subcategoria-dot"
+                style={{ backgroundColor: categoria.cor || '#008080' }}
+              />
+            </td>
+            
+            <td className="categoria-cell categoria-cor-cell">
+              <div 
+                className="subcategoria-dot"
+                style={{ backgroundColor: categoria.cor || '#008080' }}
+              />
+            </td>
+            
+            <td className="categoria-cell categoria-acoes-cell">
+              <div className="subcategoria-acoes-container">
+                <button 
+                  onClick={() => abrirModal('editar', subcategoria, 'subcategoria', categoria.id)}
+                  title="Editar subcategoria"
+                  className="subcategoria-action-btn"
+                >
+                  <Edit3 size={12} />
+                </button>
+                <button 
+                  onClick={() => abrirModal('excluir', subcategoria, 'subcategoria', categoria.id)}
+                  title="Excluir subcategoria"
+                  className="subcategoria-action-btn danger"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            </td>
+          </tr>
+        ))}
+      </React.Fragment>
+    );
+  };
+
+  // Renderizar seção de categorias (Despesas/Receitas)
+  const renderSecaoCategoria = (titulo, categorias, tipo, emoji) => {
+    const estaExpandido = expandidos[tipo];
+    
+    return (
+      <React.Fragment key={tipo}>
+        <tr className="categoria-section-row">
+          <td colSpan="4" className="categoria-section-cell">
+            <div 
+              className="categoria-section-header-content"
+              onClick={() => alternarExpandir(tipo)}
+            >
+              <div className="categoria-section-info">
+                <div className={`categoria-section-chevron ${estaExpandido ? 'categoria-section-expanded' : ''}`}>
+                  {estaExpandido ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                 </div>
-                
-                <div className="footer-right">
-                  <button 
-                    className="btn-primary"
-                    onClick={handleNovaCategoria}
-                  >
-                    <Plus size={14} />
-                    Nova Categoria
-                  </button>
-                  <button 
-                    className="btn-cancel"
-                    onClick={onClose}
-                  >
-                    Fechar
-                  </button>
-                </div>
-              </>
+                <span className="categoria-section-icon">{emoji}</span>
+                <span className="categoria-section-title">{titulo}</span>
+                <span className="categoria-section-count">({categorias.length})</span>
+              </div>
+              
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  abrirModal('nova', { tipo: tipo === 'despesas' ? 'despesa' : 'receita' }, 'categoria');
+                }}
+                className="categoria-section-add-btn"
+              >
+                <Plus size={12} />
+                Nova
+              </button>
+            </div>
+          </td>
+        </tr>
+        
+        {estaExpandido && categorias.map(renderCategoriaLinha)}
+      </React.Fragment>
+    );
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <>
+      <div className="modal-overlay active">
+        <div className="categorias-modal-container">
+          {/* Header do Modal Principal */}
+          <div className="categorias-modal-header">
+            <div className="categorias-modal-header-content">
+              <div className="categorias-modal-icon">
+                <Palette size={18} />
+              </div>
+              <div>
+                <h2 className="categorias-modal-title">Gestão de Categorias</h2>
+                <p className="categorias-modal-subtitle">Organizar categorias e subcategorias</p>
+              </div>
+            </div>
+            <button className="categorias-modal-close" onClick={onClose}>
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Feedback de Mensagens */}
+          {mensagemFeedback.show && (
+            <div className={`categorias-feedback-message ${mensagemFeedback.type}`}>
+              {mensagemFeedback.message}
+            </div>
+          )}
+
+          {/* Corpo do Modal */}
+          <div className="categorias-modal-body">
+            {loading ? (
+              <div className="categorias-loading-container">
+                <div className="categorias-loading-spinner"></div>
+                <p className="categorias-loading-text">Carregando...</p>
+              </div>
+            ) : (
+              <div className="categorias-table-container">
+                <table className="categorias-table">
+                  <thead className="categorias-table-header">
+                    <tr>
+                      <th className="col-nome">Nome</th>
+                      <th className="col-icone">Ícone</th>
+                      <th className="col-cor">Cor</th>
+                      <th className="col-acoes">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {renderSecaoCategoria('DESPESAS', categoriasDespesas, 'despesas', '💸')}
+                    {renderSecaoCategoria('RECEITAS', categoriasReceitas, 'receitas', '💰')}
+                    
+                    {/* Empty State */}
+                    {categoriasDespesas.length === 0 && categoriasReceitas.length === 0 && (
+                      <tr>
+                        <td colSpan="4">
+                          <div className="categorias-empty-state">
+                            <div className="categorias-empty-icon">
+                              <Palette size={32} />
+                            </div>
+                            <div className="categorias-empty-title">Nenhuma categoria encontrada</div>
+                            <div className="categorias-empty-subtitle">
+                              Nenhuma informação disponível
+                            </div>
+                            <div className="categorias-empty-actions">
+                              <button 
+                                onClick={() => setModalSugeridaAberto(true)}
+                                className="categorias-empty-btn secondary"
+                              >
+                                <Lightbulb size={14} />
+                                Ver categorias sugeridas
+                              </button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             )}
+          </div>
+
+          {/* Footer do Modal Principal */}
+          <div className="categorias-modal-footer">
+            <div className="categorias-modal-footer-left">
+              <button 
+                type="button"
+                className="categorias-btn-secondary"
+                onClick={() => setModalSugeridaAberto(true)}
+              >
+                <Lightbulb size={14} />
+                Categorias sugeridas
+              </button>
+            </div>
+            
+            <div className="categorias-modal-footer-right">
+              <button className="categorias-btn-close" onClick={onClose}>
+                Fechar
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* ✅ NOVO: Modal de categorias sugeridas */}
-      {showSugeridas && (
+      {/* Modal de Categorias Sugeridas */}
+      {modalSugeridaAberto && (
         <CategoriasSugeridasModal 
-          isOpen={showSugeridas}
-          onClose={handleFecharSugeridas}
+          isOpen={modalSugeridaAberto}
+          onClose={() => setModalSugeridaAberto(false)}
         />
       )}
+
+      {/* Modal de Formulário */}
+      {renderFormularioModal()}
     </>
-    
   );
 };
 

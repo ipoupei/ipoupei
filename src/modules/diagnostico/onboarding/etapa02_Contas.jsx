@@ -217,14 +217,6 @@ const ContasEtapa = ({
               {temContas ? 'Gerenciar Contas' : 'Adicionar Conta'}
             </button>
 
-            {!temContas && (
-              <button
-                onClick={handleCriarContasBasicas}
-                className="btn-secondary"
-              >
-                ⚡ Criar contas básicas
-              </button>
-            )}
           </div>
 
           {/* Contas Existentes ou Informações */}

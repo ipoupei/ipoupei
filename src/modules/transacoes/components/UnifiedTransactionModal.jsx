@@ -229,14 +229,14 @@ const UnifiedTransactionModal = ({
       id: 'previsivel',
       nome: 'Recorrente',
       icone: <Repeat size={16} />,
-      descricao: 'Repetem automaticamente',
+      descricao: 'Valor repete na frequência escolhida',
       exemplo: ' salário'
     },
     {
       id: 'parcelada',
       nome: 'Parcelada',
       icone: <Calendar size={16} />,
-      descricao: 'Em parcelas',
+      descricao: 'Valor dividido',
       exemplo: ' freelance'
     }
   ];
@@ -254,14 +254,14 @@ const UnifiedTransactionModal = ({
       id: 'previsivel',
       nome: 'Recorrente',
       icone: <Repeat size={16} />,
-      descricao: 'Todo mês',
+      descricao: 'Valor repete na frequência escolhida',
       exemplo: 'aluguel'
     },
     {
       id: 'parcelada',
       nome: 'Parcelada',
       icone: <Calendar size={16} />,
-      descricao: 'Em parcelas',
+      descricao: 'Valor dividido',
       exemplo: 'móvel'
     }
   ];
@@ -1495,7 +1495,10 @@ case 'parcelada':
 case 'previsivel':
   // Transações recorrentes
   const grupoId = crypto.randomUUID();
-  const dataBase = new Date(transactionData.data);
+  const dataBase = (() => {
+  const partes = transactionData.data.split('-');
+  return new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]));
+})();
   
   // Calcular total de recorrências baseado no subtipo
   const totalRecorrencias = transactionData.subtipo === 'previsivel' ? 
@@ -1525,56 +1528,141 @@ case 'previsivel':
   }
 
   // ✅ FUNÇÃO AUXILIAR: Calcular próxima data corretamente
-  const calcularProximaData = (dataInicial, incremento, frequencia) => {
-    const novaData = new Date(dataInicial);
-    
-    switch (frequencia) {
-      case 'semanal':
-        novaData.setDate(novaData.getDate() + (7 * incremento));
-        break;
-      case 'quinzenal':
-        novaData.setDate(novaData.getDate() + (14 * incremento));
-        break;
-      case 'mensal':
-        // ✅ CORREÇÃO: Usar setMonth corretamente para evitar datas inválidas
-        const mesOriginal = dataInicial.getMonth();
-        const anoOriginal = dataInicial.getFullYear();
-        const diaOriginal = dataInicial.getDate();
+      const calcularProximaData = (dataInicial, incremento, frequencia) => {
+        console.log(`🚀 [DEBUG] calcularProximaData chamada:`, { 
+          dataInicial: dataInicial.toISOString().split('T')[0], 
+          incremento, 
+          frequencia 
+        });
         
-        let novoMes = mesOriginal + incremento;
-        let novoAno = anoOriginal;
+        const novaData = new Date(dataInicial);
         
-        // Ajustar ano se mês passou de 12
-        while (novoMes > 11) {
-          novoMes -= 12;
-          novoAno += 1;
+        switch (frequencia) {
+          case 'semanal':
+            // Simples: a cada 7 dias
+            novaData.setDate(novaData.getDate() + (7 * incremento));
+            console.log(`📅 [DEBUG] Semanal resultado:`, novaData.toISOString().split('T')[0]);
+            break;
+            
+          case 'quinzenal':
+            console.log(`🔄 [DEBUG] Chamando calcularDataQuinzenal`);
+            return calcularDataQuinzenal(dataInicial, incremento);
+            
+          case 'mensal':
+            console.log(`🔄 [DEBUG] Chamando calcularDataMensal`);
+            return calcularDataMensal(dataInicial, incremento);
+            
+          case 'anual':
+            console.log(`🔄 [DEBUG] Chamando calcularDataAnual`);
+            return calcularDataAnual(dataInicial, incremento);
         }
         
-        // Definir a nova data
-        novaData.setFullYear(novoAno, novoMes, 1);
-        
-        // Lidar com datas que não existem (ex: 31 de fevereiro)
-        const ultimoDiaDoMes = new Date(novoAno, novoMes + 1, 0).getDate();
-        const diaFinal = Math.min(diaOriginal, ultimoDiaDoMes);
-        
-        novaData.setDate(diaFinal);
-        break;
-      case 'anual':
-        novaData.setFullYear(novaData.getFullYear() + incremento);
-        
-        // Lidar com anos bissextos (29 de fevereiro)
-        if (dataInicial.getMonth() === 1 && dataInicial.getDate() === 29) {
-          const novoAno = novaData.getFullYear();
-          const isAnoBissexto = (novoAno % 4 === 0 && novoAno % 100 !== 0) || (novoAno % 400 === 0);
-          if (!isAnoBissexto) {
-            novaData.setDate(28);
-          }
-        }
-        break;
-    }
-    
-    return novaData;
-  };
+        return novaData;
+      };
+
+const calcularDataMensal = (dataInicial, incremento) => {
+  console.log(`🎯 [DEBUG] calcularDataMensal INICIADO:`, {
+    dataInicial: dataInicial.toISOString().split('T')[0],
+    incremento
+  });
+  
+  const diaOriginal = dataInicial.getDate();
+  const mesOriginal = dataInicial.getMonth();
+  const anoOriginal = dataInicial.getFullYear();
+  
+  // Verificar se o dia original É o último dia do mês
+  const ultimoDiaDoMesOriginal = new Date(anoOriginal, mesOriginal + 1, 0).getDate();
+  const ehUltimoDiaDoMes = (diaOriginal === ultimoDiaDoMesOriginal);
+  
+  console.log(`🔍 [DEBUG] Análise do dia original:`, {
+    diaOriginal,
+    ultimoDiaDoMesOriginal,
+    ehUltimoDiaDoMes
+  });
+  
+  // Calcular novo mês/ano
+  let novoMes = mesOriginal + incremento;
+  let novoAno = anoOriginal;
+  
+  while (novoMes > 11) {
+    novoMes -= 12;
+    novoAno += 1;
+  }
+  while (novoMes < 0) {
+    novoMes += 12;
+    novoAno -= 1;
+  }
+  
+  console.log(`📊 [DEBUG] Novo mês calculado:`, { novoMes: novoMes + 1, novoAno });
+  
+  // Determinar dia final
+  let diaFinal;
+  if (ehUltimoDiaDoMes) {
+    // Sempre último dia do novo mês
+    diaFinal = new Date(novoAno, novoMes + 1, 0).getDate();
+    console.log(`✅ [DEBUG] ÚLTIMO DIA: ${diaFinal} (mês ${novoMes + 1}/${novoAno})`);
+  } else {
+    // Dia específico, limitado pelos dias disponíveis
+    const ultimoDiaDoNovoMes = new Date(novoAno, novoMes + 1, 0).getDate();
+    diaFinal = Math.min(diaOriginal, ultimoDiaDoNovoMes);
+    console.log(`🔧 [DEBUG] DIA ESPECÍFICO: ${diaOriginal} → ${diaFinal} (limitado por ${ultimoDiaDoNovoMes})`);
+  }
+  
+  const resultado = new Date(novoAno, novoMes, diaFinal);
+  console.log(`🏁 [DEBUG] calcularDataMensal RESULTADO:`, resultado.toISOString().split('T')[0]);
+  console.log(`---`);
+  
+  return resultado;
+};
+
+// ✅ FUNÇÃO AUXILIAR: Quinzenal (COM DEBUG)
+const calcularDataQuinzenal = (dataInicial, incremento) => {
+  // ✅ QUINZENAL = +15 DIAS (simples e direto)
+  const novaData = new Date(dataInicial);
+  novaData.setDate(novaData.getDate() + (15 * incremento));
+  return novaData;
+};
+
+// ✅ FUNÇÃO AUXILIAR: Anual (COM DEBUG)
+const calcularDataAnual = (dataInicial, incremento) => {
+  console.log(`🎯 [DEBUG] calcularDataAnual INICIADO:`, {
+    dataInicial: dataInicial.toISOString().split('T')[0],
+    incremento
+  });
+  
+  const diaOriginal = dataInicial.getDate();
+  const mesOriginal = dataInicial.getMonth();
+  const anoOriginal = dataInicial.getFullYear();
+  
+  // Verificar se é último dia do mês
+  const ultimoDiaDoMesOriginal = new Date(anoOriginal, mesOriginal + 1, 0).getDate();
+  const ehUltimoDiaDoMes = (diaOriginal === ultimoDiaDoMesOriginal);
+  
+  console.log(`🔍 [DEBUG] Análise anual:`, {
+    diaOriginal,
+    ultimoDiaDoMesOriginal,
+    ehUltimoDiaDoMes
+  });
+  
+  const novoAno = anoOriginal + incremento;
+  
+  let diaFinal;
+  if (ehUltimoDiaDoMes) {
+    // Sempre último dia do mesmo mês no novo ano
+    diaFinal = new Date(novoAno, mesOriginal + 1, 0).getDate();
+    console.log(`✅ [DEBUG] Último dia do ano ${novoAno}: ${diaFinal}`);
+  } else {
+    // Dia específico, mas cuidado com 29/02 em anos não bissextos
+    const ultimoDiaDoMesNovoAno = new Date(novoAno, mesOriginal + 1, 0).getDate();
+    diaFinal = Math.min(diaOriginal, ultimoDiaDoMesNovoAno);
+    console.log(`🔧 [DEBUG] Dia específico ano ${novoAno}: ${diaOriginal} → ${diaFinal}`);
+  }
+  
+  const resultado = new Date(novoAno, mesOriginal, diaFinal);
+  console.log(`🏁 [DEBUG] calcularDataAnual RESULTADO:`, resultado.toISOString().split('T')[0]);
+  return resultado;
+};
+
 
   // ✅ DEBUG: Log para monitorar processo
   console.log('📅 [DEBUG] Criando transações:', {
