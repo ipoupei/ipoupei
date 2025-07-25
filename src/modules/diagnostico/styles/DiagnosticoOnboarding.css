@@ -472,14 +472,7 @@
 .info-item.warning .info-title { color: #92400e; }
 
 /* ===== CATEGORIAS ===== */
-.categorias-existentes {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-  gap: 16px;
-  max-width: 100%;
-  width: 100%;
-  margin-top: 16px;
-}
+
 
 .preview-card-base {
   background: var(--white);
@@ -545,17 +538,6 @@
 }
 
 /* ===== CONTAS ===== */
-.contas-existentes {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-  gap: 16px;
-  max-width: 100%;
-  width: 100%;
-  margin-top: 16px;
-}
-
-
-
 .conta-icone {
   width: 32px;
   height: 32px;
@@ -568,9 +550,6 @@
   font-weight: 600;
   flex-shrink: 0;
 }
-
-
-
 
 .conta-nome {
   font-size: 12px;
@@ -980,14 +959,6 @@
 
 
 
-.cartoes-existentes {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-  gap: 16px;
-  max-width: 100%;
-  width: 100%;
-  margin-top: 16px;
-}
 
 
 /* ========================================
@@ -996,14 +967,7 @@
    ======================================== */
 
 /* ===== ESTILOS PARA RECEITAS ===== */
-.receitas-existentes {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-  gap: 16px;
-  max-width: 100%;
-  width: 100%;
-  margin-top: 16px;
-}
+
 
 
 
@@ -1060,14 +1024,7 @@
 }
 
 /* ===== ESTILOS PARA DESPESAS FIXAS ===== */
-.despesas-existentes {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-  gap: 16px;
-  max-width: 100%;
-  width: 100%;
-  margin-top: 16px;
-}
+
 .despesas-existentes h4 {
   font-size: 12px;
   font-weight: 600;
@@ -1091,9 +1048,6 @@
   flex-shrink: 0;
 }
 
-
-
-
 .despesa-nome {
   font-size: 12px;
   font-weight: 600;
@@ -1110,8 +1064,6 @@
   text-transform: capitalize;
   letter-spacing: 0.05em;
 }
-
-
 
 .analise-financeira {
   margin-top: 16px;
@@ -3997,4 +3949,35 @@
   .saude-metricas-grid {
     grid-template-columns: 1fr;
   }
+}
+/* 🚀 CORREÇÃO IMEDIATA - Cards Unificados */
+.categorias-existentes,
+.contas-existentes, 
+.receitas-existentes,
+.cartoes-existentes,
+.despesas-existentes {
+  display: grid !important; /* ← ADICIONAR */
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important;
+  gap: 16px !important;
+  max-width: 100% !important; /* ← ADICIONAR */
+  width: 100% !important; /* ← ADICIONAR */
+  margin-top: 16px !important; /* ← ADICIONAR */
+}
+
+.preview-card-base {
+  min-height: 85px !important;
+  padding: 16px !important;
+  align-items: flex-start !important;
+  /* Mantém: background, border, border-radius, display: flex, gap, transition */
+}
+
+.categoria-nome,
+.conta-nome,
+.receita-nome, /* ← ADICIONAR */
+.despesa-nome {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  word-break: break-word !important;
+  line-height: 1.4 !important;
 }
