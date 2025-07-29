@@ -589,47 +589,86 @@ const calcularFaturaAutomatica = useCallback(async (cartaoId, dataCompra) => {
   } catch (error) {
     console.error('❌ Erro ao calcular fatura:', error);
   }
-}, [calcularFaturaVencimento, handleInputChange]);
+    }, [calcularFaturaVencimento, handleInputChange]);
+
+    function ajustarVencimentoMensal(dataBase, incrementoMeses) {
+      const original = new Date(dataBase);
+      const diaOriginal = original.getDate();
+
+      const novoAno = original.getFullYear();
+      const novoMes = original.getMonth() + incrementoMeses;
+
+      const dataTentativa = new Date(novoAno, novoMes, 1); // Começa no dia 1
+      const ultimoDiaDoMes = new Date(dataTentativa.getFullYear(), dataTentativa.getMonth() + 1, 0).getDate();
+
+      if (diaOriginal === 1) {
+        return new Date(dataTentativa.getFullYear(), dataTentativa.getMonth(), 1); // sempre dia 1
+      }
+
+      if (diaOriginal >= 28) {
+        return new Date(dataTentativa.getFullYear(), dataTentativa.getMonth(), ultimoDiaDoMes); // último do mês
+      }
+
+      // Caso normal
+      const diaFinal = Math.min(diaOriginal, ultimoDiaDoMes);
+      return new Date(dataTentativa.getFullYear(), dataTentativa.getMonth(), diaFinal);
+    }
 
 const gerarOpcoesFatura = useCallback(async (cartaoId, dataCompra) => {
   if (!cartaoId || !dataCompra || !calcularFaturaVencimento) return [];
-  
+
+  // ✅ Função auxiliar para criar data sem UTC
+  const criarDataLocal = (yyyyMMdd) => {
+    const [ano, mes, dia] = yyyyMMdd.split('-').map(Number);
+    return new Date(ano, mes - 1, dia);
+  };
+
+  // ✅ Função auxiliar para gerar datas corretas mês a mês
+  const ajustarVencimentoMensal = (dataBase, incrementoMeses) => {
+    const original = new Date(dataBase);
+    const diaOriginal = original.getDate();
+
+    const ano = original.getFullYear();
+    const mes = original.getMonth() + incrementoMeses;
+
+    const tentativa = new Date(ano, mes, 1);
+    const ultimoDia = new Date(tentativa.getFullYear(), tentativa.getMonth() + 1, 0).getDate();
+
+    if (diaOriginal === 1) return new Date(tentativa.getFullYear(), tentativa.getMonth(), 1);
+    if (diaOriginal >= 28) return new Date(tentativa.getFullYear(), tentativa.getMonth(), ultimoDia);
+
+    return new Date(tentativa.getFullYear(), tentativa.getMonth(), Math.min(diaOriginal, ultimoDia));
+  };
+
   try {
-    // Calcular fatura padrão
     const faturaCalculada = await calcularFaturaVencimento(cartaoId, dataCompra);
     if (!faturaCalculada?.data_vencimento) return [];
-    
-    const dataVencimentoPadrao = new Date(faturaCalculada.data_vencimento);
+
+    const dataBase = criarDataLocal(faturaCalculada.data_vencimento); // ❗️NÃO usar new Date(...)
+
     const opcoes = [];
-    
-    // Gerar 7 opções: 3 antes + calculada + 3 depois
     for (let i = -3; i <= 3; i++) {
-      const dataOpcao = new Date(dataVencimentoPadrao);
-      dataOpcao.setMonth(dataOpcao.getMonth() + i);
-      
-      const valorOpcao = dataOpcao.toISOString().split('T')[0];
-      const mesNome = dataOpcao.toLocaleDateString('pt-BR', { 
-        month: 'long', 
-        year: 'numeric' 
-      });
+      const dataOpcao = ajustarVencimentoMensal(dataBase, i);
+
+      const valorOpcao = `${dataOpcao.getFullYear()}-${String(dataOpcao.getMonth() + 1).padStart(2, '0')}-${String(dataOpcao.getDate()).padStart(2, '0')}`;
       const dataFormatada = dataOpcao.toLocaleDateString('pt-BR');
-      
+      const mesNome = dataOpcao.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
       opcoes.push({
         valor_opcao: valorOpcao,
         label_opcao: `${mesNome} - Venc: ${dataFormatada}`,
-        is_default: i === 0, // A calculada é a padrão
+        is_default: i === 0,
         mes_referencia: mesNome
       });
     }
-    
-    console.log('📅 Opções de fatura geradas:', opcoes);
+
     return opcoes;
-    
   } catch (error) {
     console.error('❌ Erro ao gerar opções de fatura:', error);
     return [];
   }
 }, [calcularFaturaVencimento]);
+
 
 const handleCartaoChange = useCallback(async (cartaoId) => {
   handleInputChange('cartao_id', cartaoId);
