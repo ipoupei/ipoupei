@@ -1036,7 +1036,7 @@ export const useFaturaOperations = () => {
 
 
   // ✅ EDITAR CARTÃO
-  const editarCartao = async (cartaoId, dadosAtualizacao) => {
+  const editarCartao = async (cartaoId, dadosAtualizacao, banco, conta_debito_id) => {
     setLoading(true);
     setError(null);
 
@@ -1044,10 +1044,22 @@ export const useFaturaOperations = () => {
       if (!user?.id) throw new Error('Usuário não autenticado');
       if (!cartaoId) throw new Error('cartaoId é obrigatório');
 
+          console.log('🧪 DEBUG - Payload antes do update:', dadosAtualizacao);
+
+          Object.entries(dadosAtualizacao).forEach(([chave, valor]) => {
+            if (typeof valor === 'string' && valor.trim() === '') {
+              console.warn(`⚠️ Campo com string vazia (possível UUID inválido): ${chave} = ""`);
+            }
+          });
+
+
+
       const { data, error: updateError } = await supabase
         .from('cartoes')
         .update({
           ...dadosAtualizacao,
+              banco: banco === '' ? null : banco,
+    conta_debito_id: conta_debito_id === '' ? null : conta_debito_id,
           updated_at: new Date().toISOString()
         })
         .eq('id', cartaoId)

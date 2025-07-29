@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { X, Plus, Check, Lightbulb } from 'lucide-react';
+import { X, Plus, Check, Eye, ChevronDown, ChevronRight } from 'lucide-react';
 import useCategorias from '@modules/categorias/hooks/useCategorias';
-import '@shared/styles/FormsModal.css';
 import '@modules/categorias/styles/CategoriasSugeridasModal.css';
 
 // Dados das categorias sugeridas completas
@@ -56,7 +55,7 @@ const categoriasSugeridasData = {
         { nome: 'Consultas Médicas/Dentista' },
         { nome: 'Medicamentos' },
         { nome: 'Exames' },
-        { nome: 'Plano de Saúde' },
+        { nome: 'Plano de Saúde' }
       ]
     },
     {
@@ -106,8 +105,6 @@ const categoriasSugeridasData = {
         { nome: 'Acessórios' }
       ]
     }
-
-  
   ],
   receitas: [
     {
@@ -171,203 +168,262 @@ const categoriasSugeridasData = {
 };
 
 /**
- * Modal para exibir categorias sugeridas e permitir importação
- * Versão refatorada usando estilos base do FormsModal
+ * Modal de Categorias Sugeridas - Versão refatorada seguindo padrões iPoupei
+ * Utiliza arquivo CSS separado conforme documentação técnica
  */
 const CategoriasSugeridasModal = ({ isOpen, onClose }) => {
   console.log('🎯 CategoriasSugeridasModal renderizado:', { isOpen });
   
   const { addCategoria, addSubcategoria, categorias, loading } = useCategorias();
   
-  // Estado para controlar o tipo atual (receitas/despesas)
-  const [tipoAtual, setTipoAtual] = useState('despesas');
-  
-  // Estado para categorias selecionadas
+  // Estados para categorias selecionadas
   const [categoriasSelecionadas, setCategoriasSelecionadas] = useState({});
-  
-  // Estado para subcategorias selecionadas
   const [subcategoriasSelecionadas, setSubcategoriasSelecionadas] = useState({});
+  
+  // Estados para controlar expansão das categorias
+  const [categoriasExpandidas, setCategoriasExpandidas] = useState({});
   
   // Estados de feedback
   const [feedback, setFeedback] = useState({ show: false, message: '', type: '' });
   const [importando, setImportando] = useState(false);
   
-  // Dados das categorias filtradas por tipo
-  const categoriasFiltradas = categoriasSugeridasData[tipoAtual] || [];
+  // Memoizar categorias e subcategorias existentes para performance
+  const categoriasExistentes = React.useMemo(() => {
+    const existentes = new Set();
+    categorias?.forEach(cat => existentes.add(cat.nome.toLowerCase().trim()));
+    return existentes;
+  }, [categorias]);
   
-  // Reset das seleções quando troca de tipo
+  const subcategoriasExistentes = React.useMemo(() => {
+    const existentes = new Set();
+    categorias?.forEach(cat => {
+      cat.subcategorias?.forEach(sub => existentes.add(sub.nome.toLowerCase().trim()));
+    });
+    return existentes;
+  }, [categorias]);
+
+  // Reset de estados quando modal abre/fecha
   useEffect(() => {
-    setCategoriasSelecionadas({});
-    setSubcategoriasSelecionadas({});
-  }, [tipoAtual]);
-  
-  // Função para mostrar feedback
+    if (isOpen) {
+      setCategoriasSelecionadas({});
+      setSubcategoriasSelecionadas({});
+      setCategoriasExpandidas({});
+      setFeedback({ show: false, message: '', type: '' });
+    }
+  }, [isOpen]);
+
+  // Função para mostrar feedback seguindo padrão iPoupei
   const showFeedback = (message, type = 'success') => {
     setFeedback({ show: true, message, type });
     setTimeout(() => {
       setFeedback({ show: false, message: '', type: '' });
     }, 5000);
   };
-  
-  // Verifica se uma categoria já existe no sistema
+
+  // Verificar se categoria já existe (case-insensitive)
   const categoriaJaExiste = (nomeCategoria) => {
-    return categorias.some(cat => 
-      cat.nome.toLowerCase().trim() === nomeCategoria.toLowerCase().trim() && 
-      cat.tipo === (tipoAtual === 'despesas' ? 'despesa' : 'receita')
-    );
+    return categoriasExistentes.has(nomeCategoria.toLowerCase().trim());
   };
-  
-  // Handler para selecionar/deselecionar categoria
-  const handleToggleCategoria = (categoriaId, selecionada) => {
+
+  // Verificar se subcategoria já existe (case-insensitive)
+  const subcategoriaJaExiste = (nomeSubcategoria) => {
+    return subcategoriasExistentes.has(nomeSubcategoria.toLowerCase().trim());
+  };
+
+  // Toggle expansão de categoria
+  const toggleExpansao = (categoriaId) => {
+    setCategoriasExpandidas(prev => ({
+      ...prev,
+      [categoriaId]: !prev[categoriaId]
+    }));
+  };
+
+  // Toggle seleção de categoria
+  const toggleCategoria = (categoriaId, categoria) => {
+    if (categoriaJaExiste(categoria.nome)) return;
+    
+    const novoEstado = !categoriasSelecionadas[categoriaId];
+    
     setCategoriasSelecionadas(prev => ({
       ...prev,
-      [categoriaId]: selecionada
+      [categoriaId]: novoEstado
     }));
-    
-    // Se deselecionar categoria, deselecionar todas as subcategorias
-    if (!selecionada) {
-      setSubcategoriasSelecionadas(prev => {
-        const novasSubcategorias = { ...prev };
-        const categoria = categoriasFiltradas.find(cat => cat.id === categoriaId);
-        
-        if (categoria && categoria.subcategorias) {
-          categoria.subcategorias.forEach((_, index) => {
-            delete novasSubcategorias[`${categoriaId}_${index}`];
-          });
+
+    if (novoEstado) {
+      // Selecionar subcategorias disponíveis
+      const novasSubcategorias = {};
+      categoria.subcategorias?.forEach((subcategoria, index) => {
+        const key = `${categoriaId}_${index}`;
+        if (!subcategoriaJaExiste(subcategoria.nome)) {
+          novasSubcategorias[key] = true;
         }
-        
-        return novasSubcategorias;
       });
-    } else {
-      // Se selecionar categoria, selecionar todas as subcategorias
-      const categoria = categoriasFiltradas.find(cat => cat.id === categoriaId);
-      if (categoria && categoria.subcategorias) {
-        setSubcategoriasSelecionadas(prev => {
-          const novasSubcategorias = { ...prev };
-          categoria.subcategorias.forEach((_, index) => {
-            novasSubcategorias[`${categoriaId}_${index}`] = true;
-          });
-          return novasSubcategorias;
-        });
-      }
-    }
-  };
-  
-  // Handler para selecionar/deselecionar subcategoria
-  const handleToggleSubcategoria = (categoriaId, subcategoriaIndex, selecionada) => {
-    const key = `${categoriaId}_${subcategoriaIndex}`;
-    
-    setSubcategoriasSelecionadas(prev => ({
-      ...prev,
-      [key]: selecionada
-    }));
-    
-    // Se selecionar subcategoria, garantir que a categoria também esteja selecionada
-    if (selecionada) {
-      setCategoriasSelecionadas(prev => ({
+      
+      setSubcategoriasSelecionadas(prev => ({
+        ...prev,
+        ...novasSubcategorias
+      }));
+      
+      // Expandir automaticamente quando selecionar
+      setCategoriasExpandidas(prev => ({
         ...prev,
         [categoriaId]: true
       }));
+    } else {
+      // Desmarcar todas as subcategorias desta categoria
+      setSubcategoriasSelecionadas(prev => {
+        const novoEstado = { ...prev };
+        categoria.subcategorias?.forEach((_, index) => {
+          delete novoEstado[`${categoriaId}_${index}`];
+        });
+        return novoEstado;
+      });
     }
   };
-  
-  // Função para selecionar/deselecionar todas as categorias
-  const handleToggleTodasCategorias = (selecionar) => {
-    const novasCategorias = {};
-    const novasSubcategorias = {};
+
+  // Toggle seleção de subcategoria
+  const toggleSubcategoria = (categoriaId, subcategoriaIndex, subcategoria) => {
+    const key = `${categoriaId}_${subcategoriaIndex}`;
+    if (subcategoriaJaExiste(subcategoria.nome)) return;
     
-    categoriasFiltradas.forEach(categoria => {
-      if (!categoriaJaExiste(categoria.nome)) {
-        novasCategorias[categoria.id] = selecionar;
+    setSubcategoriasSelecionadas(prev => {
+      const novoEstado = {
+        ...prev,
+        [key]: !prev[key]
+      };
+      
+      // Se selecionou subcategoria, marcar categoria pai também
+      if (novoEstado[key]) {
+        setCategoriasSelecionadas(prevCat => ({
+          ...prevCat,
+          [categoriaId]: true
+        }));
+      }
+      
+      return novoEstado;
+    });
+  };
+
+  // Função principal de importação
+  const handleImportar = async () => {
+    const categoriasParaImportar = [];
+    
+    // Processar categorias de despesas e receitas
+    Object.entries(categoriasSugeridasData).forEach(([tipo, categorias]) => {
+      categorias.forEach(categoria => {
+        const categoriaExiste = categoriaJaExiste(categoria.nome);
+        const categoriaSelecionada = categoriasSelecionadas[categoria.id];
         
-        if (selecionar && categoria.subcategorias) {
-          categoria.subcategorias.forEach((_, index) => {
-            novasSubcategorias[`${categoria.id}_${index}`] = true;
+        // Verificar subcategorias selecionadas
+        const subcategoriasParaImportar = [];
+        categoria.subcategorias?.forEach((subcategoria, index) => {
+          const key = `${categoria.id}_${index}`;
+          const subcategoriaSelecionada = subcategoriasSelecionadas[key];
+          const subcategoriaExiste = subcategoriaJaExiste(subcategoria.nome);
+          
+          if (subcategoriaSelecionada && !subcategoriaExiste) {
+            subcategoriasParaImportar.push(subcategoria);
+          }
+        });
+
+        // Adicionar categoria para importação se necessário
+        if ((categoriaSelecionada && !categoriaExiste) || subcategoriasParaImportar.length > 0) {
+          categoriasParaImportar.push({
+            ...categoria,
+            tipo: tipo === 'despesas' ? 'despesa' : 'receita',
+            isExistente: categoriaExiste,
+            subcategorias: subcategoriasParaImportar
           });
         }
-      }
+      });
     });
-    
-    setCategoriasSelecionadas(novasCategorias);
-    setSubcategoriasSelecionadas(selecionar ? novasSubcategorias : {});
-  };
-  
-  // Contador de seleções
-  const contarSelecoes = () => {
-    const categoriasCount = Object.values(categoriasSelecionadas).filter(Boolean).length;
-    const subcategoriasCount = Object.values(subcategoriasSelecionadas).filter(Boolean).length;
-    return { categorias: categoriasCount, subcategorias: subcategoriasCount };
-  };
-  
-  // Função para importar categorias selecionadas
-  const handleImportarCategorias = async () => {
-    const selecionadas = Object.entries(categoriasSelecionadas).filter(([_, selected]) => selected);
-    
-    if (selecionadas.length === 0) {
-      showFeedback('Selecione pelo menos uma categoria para importar', 'error');
+
+    if (categoriasParaImportar.length === 0) {
+      showFeedback('Selecione pelo menos uma categoria ou subcategoria para importar', 'error');
       return;
     }
-    
+
     setImportando(true);
-    
+
     try {
       let sucessos = 0;
       let erros = 0;
-      
-      for (const [categoriaId] of selecionadas) {
-        const categoriaSugerida = categoriasFiltradas.find(cat => cat.id === categoriaId);
-        
-        if (!categoriaSugerida || categoriaJaExiste(categoriaSugerida.nome)) {
-          continue; // Pula categorias que já existem
-        }
-        
-        // Criar categoria
-        const resultCategoria = await addCategoria({
-          nome: categoriaSugerida.nome,
-          tipo: tipoAtual === 'despesas' ? 'despesa' : 'receita',
-          cor: categoriaSugerida.cor,
-          icone: categoriaSugerida.icone || null
-        });
-        
-        if (resultCategoria.success) {
-          sucessos++;
-          
-          // Criar subcategorias selecionadas
-          if (categoriaSugerida.subcategorias) {
-            for (let i = 0; i < categoriaSugerida.subcategorias.length; i++) {
-              const key = `${categoriaId}_${i}`;
+
+      for (const catParaImportar of categoriasParaImportar) {
+        try {
+          if (!catParaImportar.isExistente) {
+            // Criar nova categoria
+            const resultCategoria = await addCategoria({
+              nome: catParaImportar.nome,
+              tipo: catParaImportar.tipo,
+              cor: catParaImportar.cor,
+              icone: catParaImportar.icone || null
+            });
+
+            if (resultCategoria.success) {
+              sucessos++;
               
-              if (subcategoriasSelecionadas[key]) {
-                await addSubcategoria(resultCategoria.data.id, {
-                  nome: categoriaSugerida.subcategorias[i].nome
-                });
+              // Criar subcategorias da nova categoria
+              for (const subcategoria of catParaImportar.subcategorias) {
+                try {
+                  await addSubcategoria(resultCategoria.data.id, {
+                    nome: subcategoria.nome
+                  });
+                } catch (error) {
+                  console.error('Erro ao criar subcategoria:', error);
+                  erros++;
+                }
+              }
+            } else {
+              erros++;
+              console.error('Erro ao criar categoria:', catParaImportar.nome, resultCategoria.error);
+            }
+          } else {
+            // Adicionar subcategorias a categoria existente
+            const categoriaExistente = categorias.find(cat => 
+              cat.nome.toLowerCase().trim() === catParaImportar.nome.toLowerCase().trim()
+            );
+            
+            if (categoriaExistente) {
+              for (const subcategoria of catParaImportar.subcategorias) {
+                try {
+                  await addSubcategoria(categoriaExistente.id, {
+                    nome: subcategoria.nome
+                  });
+                  sucessos++;
+                } catch (error) {
+                  console.error('Erro ao criar subcategoria:', error);
+                  erros++;
+                }
               }
             }
           }
-        } else {
+        } catch (error) {
+          console.error('Erro ao processar categoria:', catParaImportar.nome, error);
           erros++;
-          console.error('Erro ao criar categoria:', categoriaSugerida.nome, resultCategoria.error);
         }
       }
-      
+
+      // Feedback baseado em resultados
       if (sucessos > 0) {
         showFeedback(
-          `${sucessos} categoria${sucessos > 1 ? 's' : ''} importada${sucessos > 1 ? 's' : ''} com sucesso!`,
+          `${sucessos} item${sucessos > 1 ? 's' : ''} importado${sucessos > 1 ? 's' : ''} com sucesso!`,
           'success'
         );
         
-        // Reset das seleções
+        // Reset de seleções após sucesso
         setCategoriasSelecionadas({});
         setSubcategoriasSelecionadas({});
+        setCategoriasExpandidas({});
       }
-      
+
       if (erros > 0) {
         showFeedback(
-          `${erros} categoria${erros > 1 ? 's' : ''} não puderam ser importadas`,
+          `${erros} item${erros > 1 ? 's' : ''} não puderam ser importados`,
           'warning'
         );
       }
-      
+
     } catch (error) {
       console.error('Erro durante importação:', error);
       showFeedback('Erro inesperado durante a importação', 'error');
@@ -375,202 +431,195 @@ const CategoriasSugeridasModal = ({ isOpen, onClose }) => {
       setImportando(false);
     }
   };
-  
+
+  // Contador de itens selecionados
+  const contarSelecionados = () => {
+    const categorias = Object.values(categoriasSelecionadas).filter(Boolean).length;
+    const subcategorias = Object.values(subcategoriasSelecionadas).filter(Boolean).length;
+    return categorias + subcategorias;
+  };
+
   // Renderizar item de categoria individual
-  const renderCategoriaItem = (categoria) => {
+  const renderCategoriaItem = (categoria, tipo) => {
+    const categoriaExiste = categoriaJaExiste(categoria.nome);
     const categoriaSelecionada = categoriasSelecionadas[categoria.id] || false;
-    const jaExiste = categoriaJaExiste(categoria.nome);
-    const subcategoriasCount = categoria.subcategorias?.length || 0;
-    const subcategoriasSelecionadasCount = categoria.subcategorias?.filter((_, index) => 
-      subcategoriasSelecionadas[`${categoria.id}_${index}`]
-    ).length || 0;
-    
+    const expandida = categoriasExpandidas[categoria.id] || false;
+
     return (
-      <div key={categoria.id} className={`categoria-sugerida-item ${categoriaSelecionada ? 'selecionada' : ''} ${jaExiste ? 'ja-existe' : ''}`}>
-        <div className="categoria-sugerida-header">
-          <div className="categoria-info">
-            <div className="categoria-checkbox-container">
+      <div key={categoria.id} className="category-item">
+        <div className="category-row">
+          <button
+            onClick={() => toggleExpansao(categoria.id)}
+            className="expand-button"
+            aria-label={`${expandida ? 'Recolher' : 'Expandir'} categoria ${categoria.nome}`}
+          >
+            {expandida ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </button>
+
+          <div 
+            className="category-icon"
+            style={{ backgroundColor: categoria.cor }}
+            aria-hidden="true"
+          >
+            {categoria.icone}
+          </div>
+
+          <div className="category-info">
+            <div className="category-name">{categoria.nome}</div>
+            <div className="category-count">
+              {categoria.subcategorias?.length || 0} subcategorias
+            </div>
+          </div>
+
+          <div className="category-status">
+            {categoriaExiste && (
+              <span className="exists-badge">Já existe</span>
+            )}
+            
+            <div className="checkbox-wrapper">
               <input
                 type="checkbox"
-                className="categoria-checkbox"
-                checked={categoriaSelecionada}
-                onChange={(e) => handleToggleCategoria(categoria.id, e.target.checked)}
-                disabled={jaExiste}
+                checked={categoriaSelecionada || categoriaExiste} // ✅ ADICIONAR: || categoriaExiste
+                onChange={() => toggleCategoria(categoria.id, categoria)}
+                disabled={categoriaExiste}
+                className="category-checkbox"
+                aria-label={`Selecionar categoria ${categoria.nome}`}
               />
-              <div className="categoria-color" style={{ backgroundColor: categoria.cor }}></div>
-              <div className="categoria-details">
-                <div className="categoria-nome">
-                  {categoria.icone} {categoria.nome}
-                  {jaExiste && <span className="ja-existe-badge">JÁ EXISTE</span>}
-                </div>
-                <div className="subcategorias-info">
-                  {subcategoriasCount > 0 && (
-                    <span>
-                      {subcategoriasCount} subcategoria{subcategoriasCount > 1 ? 's' : ''}
-                      {categoriaSelecionada && subcategoriasSelecionadasCount > 0 && (
-                        <span className="subcategorias-selecionadas">
-                          • {subcategoriasSelecionadasCount} selecionadas
-                        </span>
-                      )}
-                    </span>
-                  )}
-                </div>
-              </div>
+              <div className="checkbox-custom"></div>
             </div>
           </div>
         </div>
-        
-        {/* Subcategorias */}
-        {categoriaSelecionada && categoria.subcategorias && categoria.subcategorias.length > 0 && (
-          <div className="subcategorias-sugeridas">
-            <div className="subcategorias-grid">
-              {categoria.subcategorias.map((subcategoria, index) => {
-                const key = `${categoria.id}_${index}`;
-                const subcategoriaSelecionada = subcategoriasSelecionadas[key] || false;
-                
-                return (
-                  <div key={index} className={`subcategoria-sugerida-item ${subcategoriaSelecionada ? 'selecionada' : ''}`}>
-                    <label className="subcategoria-label">
-                      <input
-                        type="checkbox"
-                        className="subcategoria-checkbox"
-                        checked={subcategoriaSelecionada}
-                        onChange={(e) => handleToggleSubcategoria(categoria.id, index, e.target.checked)}
-                      />
-                      <span className="subcategoria-nome">{subcategoria.nome}</span>
-                    </label>
+
+        {expandida && categoria.subcategorias && (
+          <div className="subcategories-list">
+            {categoria.subcategorias.map((subcategoria, index) => {
+              const key = `${categoria.id}_${index}`;
+              const subcategoriaExiste = subcategoriaJaExiste(subcategoria.nome);
+              const subcategoriaSelecionada = subcategoriasSelecionadas[key] || false;
+
+              return (
+                <div key={index} className="subcategory-item">
+                  <span className="subcategory-name">{subcategoria.nome}</span>
+                  
+                  <div className="checkbox-wrapper">
+                    <input
+                      type="checkbox"
+                      checked={subcategoriaSelecionada || subcategoriaExiste} // ✅ ADICIONAR: || subcategoriaExiste
+                      onChange={() => toggleSubcategoria(categoria.id, index, subcategoria)}
+                      disabled={subcategoriaExiste}
+                      className="subcategory-checkbox"
+                      aria-label={`Selecionar subcategoria ${subcategoria.nome}`}
+                    />
+                    <div className="checkbox-custom"></div>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
     );
   };
-  
+
   if (!isOpen) {
     console.log('❌ Modal fechado');
     return null;
   }
 
   console.log('✅ Renderizando modal completo');
-  
-  const selecoes = contarSelecoes();
 
   return (
-    <div className="modal-overlay">
-      <div className="forms-modal-container modal-large categorias-sugeridas-modal">
-        {/* Header usando estilos base */}
-        <div className="modal-header">
-          <div className="modal-header-content">
-            <div className="modal-icon-container modal-icon-warning">
-              <Lightbulb size={16} />
-            </div>
-            <div>
-              <h2 className="modal-title">Categorias Sugeridas</h2>
-              <p className="modal-subtitle">
-                Importe categorias prontas para organizar suas finanças de forma rápida e eficiente
-              </p>
-            </div>
+    <div className="modal-overlay categorias-sugeridas-modal" data-modal="categorias-sugeridas">
+      <div className="modal-container">
+        {/* Header Simples seguindo padrão iPoupei */}
+        <div className="modal-header-simple">
+          <div className="modal-header-simple-content">
+            <Plus size={20} />
+            <h2>Importar Categorias Sugeridas</h2>
           </div>
-          <button className="modal-close" onClick={onClose}>
-            <X size={18} />
+          <button 
+            onClick={onClose} 
+            className="modal-close-simple"
+            aria-label="Fechar modal"
+          >
+            <X size={20} />
           </button>
         </div>
 
-        {/* Feedback usando estilo base */}
+        {/* Feedback Messages */}
         {feedback.show && (
           <div className={`feedback-message ${feedback.type}`}>
             {feedback.message}
           </div>
         )}
 
-        {/* Seletor de tipo */}
-        <div className="tipo-selector">
-          <button 
-            className={`tipo-button ${tipoAtual === 'despesas' ? 'active' : ''}`} 
-            onClick={() => setTipoAtual('despesas')}
-          >
-            💸 Despesas ({categoriasSugeridasData.despesas?.length || 0})
-          </button>
-          <button 
-            className={`tipo-button ${tipoAtual === 'receitas' ? 'active' : ''}`}
-            onClick={() => setTipoAtual('receitas')}
-          >
-            💰 Receitas ({categoriasSugeridasData.receitas?.length || 0})
-          </button>
+        {/* Info Box */}
+        <div className="modal-info-box">
+          <Eye size={16} />
+          <span>Selecione as categorias e subcategorias que deseja adicionar ao seu sistema</span>
         </div>
 
-        {/* Controles de seleção */}
-        <div className="selecao-controls">
-          <div className="selecao-info">
-            <span className="contador">
-              {selecoes.categorias} categorias • {selecoes.subcategorias} subcategorias selecionadas
-            </span>
-          </div>
-          
-          <div className="selecao-actions">
-            <button 
-              className="btn-secondary"
-              onClick={() => handleToggleTodasCategorias(true)}
-              disabled={categoriasFiltradas.every(cat => categoriaJaExiste(cat.nome))}
-            >
-              Selecionar todas
-            </button>
-            <button 
-              className="btn-cancel"
-              onClick={() => handleToggleTodasCategorias(false)}
-            >
-              Limpar seleção
-            </button>
-          </div>
-        </div>
-
-        {/* Lista de categorias usando body base */}
-        <div className="modal-body categorias-sugeridas-content">
+        {/* Content */}
+        <div className="modal-body-simple">
           {loading ? (
             <div className="loading-container">
               <div className="loading-spinner"></div>
               <p className="loading-text">Carregando suas categorias...</p>
             </div>
-          ) : categoriasFiltradas.length > 0 ? (
-            <div className="categorias-sugeridas-list">
-              {categoriasFiltradas.map(renderCategoriaItem)}
-            </div>
           ) : (
-            <div className="empty-state">
-              <p>Nenhuma categoria encontrada para este tipo.</p>
-            </div>
+            <>
+              {/* Seção Despesas */}
+              <div className="section-wrapper">
+                <div className="section-header-simple">
+                  <div className="section-indicator"></div>
+                  <div className="section-icon">💸</div>
+                  <h3>Categorias de Despesas</h3>
+                </div>
+
+                <div className="categories-container">
+                  {categoriasSugeridasData.despesas.map(categoria => 
+                    renderCategoriaItem(categoria, 'despesas')
+                  )}
+                </div>
+              </div>
+
+              {/* Seção Receitas */}
+              <div className="section-wrapper">
+                <div className="section-header-simple">
+                  <div className="section-indicator section-indicator-receitas"></div>
+                  <div className="section-icon">💰</div>
+                  <h3>Categorias de Receitas</h3>
+                </div>
+
+                <div className="categories-container">
+                  {categoriasSugeridasData.receitas.map(categoria => 
+                    renderCategoriaItem(categoria, 'receitas')
+                  )}
+                </div>
+              </div>
+            </>
           )}
         </div>
 
-        {/* Footer usando estilos base */}
-        <div className="modal-footer">
-          <div className="footer-left">
-            {selecoes.categorias > 0 ? (
-              <span className="form-label">
-                {selecoes.categorias} categoria{selecoes.categorias > 1 ? 's' : ''} e {selecoes.subcategorias} subcategoria{selecoes.subcategorias !== 1 ? 's' : ''} serão importadas
-              </span>
-            ) : (
-              <span className="form-label">
-                Selecione as categorias que deseja adicionar ao seu sistema
-              </span>
-            )}
+        {/* Footer seguindo padrão iPoupei */}
+        <div className="modal-footer-simple">
+          <div className="selection-counter">
+            <Check size={16} />
+            <span>{contarSelecionados()} itens selecionados</span>
           </div>
           
-          <div className="footer-right">
+          <div className="footer-actions">
             <button 
-              className="btn-cancel"
-              onClick={onClose}
+              onClick={onClose} 
+              className="btn-cancel-simple"
               disabled={importando}
             >
               Cancelar
             </button>
             <button 
-              className="btn-primary"
-              onClick={handleImportarCategorias}
-              disabled={selecoes.categorias === 0 || importando}
+              onClick={handleImportar} 
+              className="btn-primary-simple"
+              disabled={contarSelecionados() === 0 || importando}
             >
               {importando ? (
                 <>
@@ -579,8 +628,8 @@ const CategoriasSugeridasModal = ({ isOpen, onClose }) => {
                 </>
               ) : (
                 <>
-                  <Plus size={14} />
-                  Importar {selecoes.categorias} categoria{selecoes.categorias > 1 ? 's' : ''}
+                  <Plus size={16} />
+                  Importar Selecionados
                 </>
               )}
             </button>

@@ -28,6 +28,10 @@ import formatCurrency from '@shared/utils/formatCurrency';
 // Hooks
 import useAuth from '@modules/auth/hooks/useAuth';
 
+function parseDateAsLocal(dateString) {
+  const [year, month, day] = dateString.split('T')[0].split('-');
+  return new Date(+year, month - 1, +day);
+}
 
 const TransacoesPage = () => {
   const { user } = useAuth();
@@ -904,7 +908,7 @@ const executeConfirmAction = async () => {
     
     return (
       <tr className={`transaction-row ${!transacao.efetivado ? 'pending' : ''}`}>
-        <td>{format(new Date(transacao.data), 'dd/MM/yyyy')}</td>
+        <td>{format(parseDateAsLocal(transacao.data), 'dd/MM/yyyy')}</td>
         <td>
           <div style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {transacao.descricao}

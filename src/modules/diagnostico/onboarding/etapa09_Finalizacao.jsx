@@ -2,6 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { ArrowRight, CheckCircle, Trophy, Star, TrendingUp, Target, Gift, Sparkles, RotateCcw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@lib/supabaseClient';
+import useAuth from '@modules/auth/hooks/useAuth';
 
 // CSS refatorado
 import '@modules/diagnostico/styles/DiagnosticoOnboarding.css';
@@ -15,6 +18,12 @@ const FinalizacaoEtapa = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [etapaAnimacao, setEtapaAnimacao] = useState(0);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+
+  // Hooks necessários
+  const navigate = useNavigate();
+  const { user } = useAuth();
 
   // Animação sequencial de conclusão
   useEffect(() => {
@@ -144,21 +153,45 @@ const FinalizacaoEtapa = ({
     }, 2000);
   };
 
-  // ✅ FUNÇÃO REFAZER DIAGNÓSTICO (igual ao DiagnosticoRoute.jsx)
-  const handleRefazerDiagnostico = () => {
-    console.log('🧹 Limpeza completa do diagnóstico...');
-    
-    // Limpar TUDO relacionado ao diagnóstico
-    const keys = Object.keys(localStorage);
-    keys.forEach(key => {
-      if (key.includes('diagnostico')) {
-        localStorage.removeItem(key);
-        console.log(`🗑️ Removido: ${key}`);
-      }
-    });
-    
-    console.log('✅ Limpeza concluída - recarregando...');
-    window.location.reload();
+  // Função para refazer diagnóstico
+  const handleRefazerDiagnostico = async () => {
+    setShowResetModal(true);
+  };
+
+  const confirmarReset = async () => {
+    try {
+      setResetLoading(true);
+      console.log('🔄 Iniciando reset do diagnóstico...');
+
+      // Atualizar etapa no banco para 0
+      const { error } = await supabase
+        .from('perfil_usuario')
+        .update({ diagnostico_etapa_atual: 0 })
+        .eq('id', user.id);
+      
+      if (error) throw error;
+      
+      // Limpar localStorage
+      console.log('🧹 Limpando dados locais...');
+      const keys = Object.keys(localStorage);
+      keys.forEach(key => {
+        if (key.includes('diagnostico')) {
+          localStorage.removeItem(key);
+          console.log(`🗑️ Removido: ${key}`);
+        }
+      });
+      
+      console.log('✅ Reset concluído - redirecionando...');
+      
+      // ✅ CORREÇÃO: Usar window.location para garantir reset completo
+      window.location.href = '/diagnostico';
+      
+    } catch (error) {
+      console.error('❌ Erro ao resetar diagnóstico:', error);
+      alert('Erro ao resetar o diagnóstico. Tente novamente.');
+      setResetLoading(false);
+      setShowResetModal(false);
+    }
   };
 
   const progressoPercentual = 100; // 100% completo
@@ -371,7 +404,7 @@ const FinalizacaoEtapa = ({
 
       </div>
 
-      {/* ✅ NAVEGAÇÃO FINAL COM DOIS BOTÕES */}
+              {/* Navegação Final */}
       <div className="navigation final">
         <div className="nav-left">
           <button
@@ -404,6 +437,64 @@ const FinalizacaoEtapa = ({
           </button>
         </div>
       </div>
+
+      {/* ✅ MODAL DE CONFIRMAÇÃO PERSONALIZADO */}
+      {showResetModal && (
+        <div className="modal-overlay">
+          <div className="modal-container">
+            <div className="modal-header">
+              <div className="modal-icon warning">
+                <RotateCcw size={32} />
+              </div>
+              <h2>Refazer Diagnóstico</h2>
+            </div>
+            
+            <div className="modal-content">
+              <p>Tem certeza que deseja refazer o diagnóstico?</p>
+              
+              <div className="warning-list">
+                <h4>Isso irá:</h4>
+                <ul>
+                  <li>🔄 Resetar todas as suas respostas</li>
+                  <li>⏪ Voltar para a primeira etapa</li>
+                  <li>🗑️ Limpar o progresso atual</li>
+                </ul>
+              </div>
+              
+              <div className="warning-note">
+                <strong>⚠️ Esta ação não pode ser desfeita.</strong>
+              </div>
+            </div>
+            
+            <div className="modal-footer">
+              <button
+                onClick={() => setShowResetModal(false)}
+                className="btn-cancel"
+                disabled={resetLoading}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarReset}
+                className="btn-confirm-reset"
+                disabled={resetLoading}
+              >
+                {resetLoading ? (
+                  <>
+                    <div className="loading-spinner small"></div>
+                    Resetando...
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw size={16} />
+                    Sim, refazer diagnóstico
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

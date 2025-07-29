@@ -32,9 +32,9 @@
 
 /* Botão Primário */
 .btn-primary {
-  background-color: var(--color-primary);
-  color: var(--color-text-white);
-  border-color: var(--color-primary);
+  background: #008080 !important;
+  color: white !important;
+  border-color: #008080 !important;
 }
 
 .btn-primary:not(:disabled):hover {

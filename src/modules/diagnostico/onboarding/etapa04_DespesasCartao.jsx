@@ -255,7 +255,7 @@ const DespesasCartaoEtapa = ({
             <div className="status-info">
               <h3>
                 {temDespesasCartao 
-                  ? `${despesasCartao.length} gasto${despesasCartao.length > 1 ? 's' : ''} registrado${despesasCartao.length > 1 ? 's' : ''}`
+                  ? `${despesasCartao.length} gasto${despesasCartao.length > 1 ? 's' : ''} registrado${despesasCartao.length > 1 ? 's' : ''} para este mês (os gastos de faturas dos próximos meses não serão mostrados aqui)`
                   : 'Gastos do Cartão'
                 }
               </h3>

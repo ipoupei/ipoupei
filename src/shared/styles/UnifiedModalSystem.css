@@ -1602,8 +1602,10 @@
 }
 
 .action-button--primary {
-  background: var(--color-info);
-  color: white;
+  background: #008080 !important;
+  color: white !important;
+  border-color: #008080 !important;
+  
 }
 
 .action-button--primary:hover:not(:disabled) {
@@ -2250,4 +2252,5 @@
 
 .btn-spinner { 
   @apply button-spinner; 
+  
 }

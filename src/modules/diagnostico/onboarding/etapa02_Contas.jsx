@@ -1,5 +1,5 @@
 // src/modules/diagnostico/onboarding/etapa02_Contas.jsx
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { ArrowRight, ArrowLeft, Wallet, Plus } from 'lucide-react';
 import useContas from '@modules/contas/hooks/useContas';
@@ -16,11 +16,14 @@ const ContasEtapa = ({
   totalEtapas = 11,
   dadosExistentes = null 
 }) => {
-  const { contas, loading, criarConta } = useContas();
+  const { contas, loading, criarConta, forceRefreshContas } = useContas();
   const [modalAberto, setModalAberto] = useState(false);
 
   const temContas = contas && contas.length > 0;
   const podeContinuar = temContas; // Obrigatório ter pelo menos uma conta
+
+
+
 
   const handleAbrirModal = useCallback(() => {
     setModalAberto(true);
@@ -29,6 +32,16 @@ const ContasEtapa = ({
   const handleFecharModal = useCallback(() => {
     setModalAberto(false);
   }, []);
+
+const handleContaSalva = useCallback(async () => {
+  console.log('💾 Conta salva - fazendo refresh manual...');
+  // Aguardar um pouco e fazer refresh uma única vez
+  setTimeout(() => {
+    if (forceRefreshContas) {
+      forceRefreshContas(false);
+    }
+  }, 1000);
+}, [forceRefreshContas]);
 
   const handleCriarContasBasicas = useCallback(async () => {
     const contasBasicas = [
@@ -319,6 +332,7 @@ const ContasEtapa = ({
       <ContasModal
         isOpen={modalAberto}
         onClose={handleFecharModal}
+        onSave={handleContaSalva}
       />
     </div>
   );

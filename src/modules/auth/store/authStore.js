@@ -122,31 +122,114 @@ export const useAuthStore = create(
           return { success: false, error: errorMessage };
         }
       },
+// Logout
+signOut: async () => {
+ try {
+   set({ loading: true });
+   
+   const { error } = await supabase.auth.signOut();
+   
+   if (error) throw error;
 
-      // Logout
-      signOut: async () => {
-        try {
-          set({ loading: true });
-          
-          const { error } = await supabase.auth.signOut();
-          
-          if (error) throw error;
+   // ✅ LIMPAR authStore
+   set({ 
+     user: null,
+     session: null,
+     isAuthenticated: false,
+     loading: false,
+     error: null
+   });
 
-          set({ 
-            user: null,
-            session: null,
-            isAuthenticated: false,
-            loading: false,
-            error: null
-          });
+   // ✅ LIMPAR TODAS AS STORES - CAMINHOS CORRETOS
+   try {
+     console.log('🧹 Limpando TODAS as stores no logout...');
+     
+     // ✅ STORES CONFIRMADAS COM CAMINHOS EXATOS
+     const storeImports = await Promise.allSettled([
+       // Stores principais
+       import('@/modules/transacoes/store/transactionsStore').then(m => m.useTransactionsStore),
+       import('@/modules/dashboard/store/dashboardStore').then(m => m.useDashboardStore || m.default),
+       import('@/modules/diagnostico/store/diagnosticoPercepcaoStore').then(m => m.default),
+       import('@/modules/contas/store/contasStore').then(m => m.default),
+       import('@/modules/cartoes/store/useCartoesStore').then(m => m.default),
+       import('@/modules/diagnostico/store/diagnosticoEmocionalStore').then(m => m.default),
+       import('@/modules/diagnostico/store/diagnosticoFlowStore').then(m => m.default),
+       import('@/store/uiStore').then(m => m.useUIStore || m.default),
+       import('@/modules/categorias/store/categoriasStore').then(m => m.default),
+     ]);
 
-          return { success: true };
-        } catch (err) {
-          console.error('❌ Erro no logout:', err);
-          set({ error: 'Erro ao fazer logout', loading: false });
-          return { success: false, error: 'Erro ao fazer logout' };
-        }
-      },
+     // ✅ Resetar cada store com proteção
+     storeImports.forEach((result, index) => {
+       if (result.status === 'fulfilled' && result.value?.getState) {
+         try {
+           const store = result.value.getState();
+           if (typeof store.reset === 'function') {
+             store.reset();
+             console.log(`✅ Store ${index} resetada com sucesso`);
+           } else {
+             console.warn(`⚠️ Store ${index} não tem função reset`);
+           }
+         } catch (resetError) {
+           console.warn(`⚠️ Erro ao resetar store ${index}:`, resetError.message);
+         }
+       } else if (result.status === 'rejected') {
+         console.warn(`⚠️ Falha ao importar store ${index}:`, result.reason?.message);
+       }
+     });
+     
+     // ✅ Limpar localStorage relacionado ao usuário
+     console.log('🗑️ Limpando localStorage...');
+     const keysToRemove = [];
+     
+     for (let i = 0; i < localStorage.length; i++) {
+       const key = localStorage.key(i);
+       if (key && (
+         key.includes('auth-storage') || 
+         key.includes('diagnostico') || 
+         key.includes('dashboard') ||
+         key.includes('contas') ||
+         key.includes('transacoes') ||
+         key.includes('cartoes') ||
+         key.includes('categorias') ||
+         key.includes('user-') ||
+         key.includes('ipoupei-')
+       )) {
+         keysToRemove.push(key);
+       }
+     }
+     
+     keysToRemove.forEach(key => {
+       try {
+         localStorage.removeItem(key);
+         console.log(`🗑️ Removido: ${key}`);
+       } catch (e) {
+         console.warn(`⚠️ Erro ao remover ${key}:`, e.message);
+       }
+     });
+     
+     // ✅ Eventos globais para limpeza
+     window.dispatchEvent(new CustomEvent('user-logout-complete'));
+     window.dispatchEvent(new CustomEvent('clear-all-caches'));
+     
+     console.log(`✅ LOGOUT COMPLETO: ${storeImports.length} stores processadas, ${keysToRemove.length} chaves removidas`);
+     
+   } catch (globalError) {
+     console.error('❌ Erro crítico durante logout:', globalError);
+   }
+
+   // ✅ FORÇA RELOAD IMEDIATO PARA GARANTIR LIMPEZA TOTAL
+   console.log('🔄 Forçando reload da página para limpeza total...');
+   window.location.href = '/login';
+
+ } catch (err) {
+   console.error('❌ Erro no logout:', err);
+   set({ error: 'Erro ao fazer logout', loading: false });
+   
+   // ✅ FALLBACK: Reload mesmo em caso de erro
+   console.log('🔄 Erro no logout - forçando reload por segurança...');
+   window.location.href = '/login';
+ }
+},
 
       // Recuperação de senha
       resetPassword: async (email) => {
@@ -391,50 +474,6 @@ export const useAuthStore = create(
         }
       },
 
-      // Criar categorias padrão
-      createDefaultCategories: async (userId) => {
-        try {
-          console.log('📊 Criando categorias padrão para usuário:', userId);
-
-          const defaultCategories = [
-            // Categorias de Receita
-            { nome: 'Salário', tipo: 'receita', cor: '#10B981', icone: 'briefcase', ordem: 1 },
-            { nome: 'Freelance', tipo: 'receita', cor: '#3B82F6', icone: 'laptop', ordem: 2 },
-            { nome: 'Investimentos', tipo: 'receita', cor: '#8B5CF6', icone: 'trending-up', ordem: 3 },
-            { nome: 'Outros', tipo: 'receita', cor: '#6B7280', icone: 'plus', ordem: 4 },
-            
-            // Categorias de Despesa
-            { nome: 'Alimentação', tipo: 'despesa', cor: '#EF4444', icone: 'utensils', ordem: 1 },
-            { nome: 'Transporte', tipo: 'despesa', cor: '#F59E0B', icone: 'car', ordem: 2 },
-            { nome: 'Moradia', tipo: 'despesa', cor: '#06B6D4', icone: 'home', ordem: 3 },
-            { nome: 'Saúde', tipo: 'despesa', cor: '#EC4899', icone: 'heart', ordem: 4 },
-            { nome: 'Educação', tipo: 'despesa', cor: '#8B5CF6', icone: 'graduation-cap', ordem: 5 },
-            { nome: 'Lazer', tipo: 'despesa', cor: '#F97316', icone: 'gamepad-2', ordem: 6 },
-            { nome: 'Compras', tipo: 'despesa', cor: '#84CC16', icone: 'shopping-bag', ordem: 7 },
-            { nome: 'Contas', tipo: 'despesa', cor: '#64748B', icone: 'receipt', ordem: 8 }
-          ];
-
-          const categoriasComUsuario = defaultCategories.map(cat => ({
-            ...cat,
-            usuario_id: userId,
-            ativo: true,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }));
-
-          const { error } = await supabase
-            .from('categorias')
-            .insert(categoriasComUsuario);
-
-          if (error) {
-            console.warn('⚠️ Erro ao criar categorias padrão (não crítico):', error);
-          } else {
-            console.log('✅ Categorias padrão criadas com sucesso');
-          }
-        } catch (err) {
-          console.warn('⚠️ Erro ao criar categorias padrão (não crítico):', err);
-        }
-      },
 
       // Função auxiliar para tratar mensagens de erro
       getAuthErrorMessage: (error) => {
@@ -489,6 +528,106 @@ export const useAuthStore = create(
 );
 
 // Hook separado que usa React.useEffect
+// SUBSTITUIR COMPLETAMENTE a função verificarERedirecionarDiagnostico
+
+const verificarERedirecionarDiagnostico = async (userId) => {
+  try {
+    console.log('🔍 === INÍCIO VERIFICAÇÃO DIAGNÓSTICO ===');
+    console.log('🔍 UserId:', userId);
+    console.log('🔍 URL atual:', window.location.href);
+    console.log('🔍 Pathname:', window.location.pathname);
+    
+    // ✅ PROTEÇÃO 1: Verificar se é refresh muito recente
+    const lastLoginCheck = sessionStorage.getItem('last-login-check');
+    const currentTime = Date.now();
+    
+    if (lastLoginCheck && (currentTime - parseInt(lastLoginCheck)) < 10000) {
+      console.log('🔄 REFRESH/RELOAD DETECTADO - Pulando verificação (menos de 10s)');
+      return;
+    }
+    
+    // ✅ PROTEÇÃO 2: Não verificar em rotas especiais
+    const currentPath = window.location.pathname;
+    const rotasEspeciais = [
+      '/diagnostico', 
+      '/login', 
+      '/auth/callback', 
+      '/reset-password',
+      '/susto-consciente'
+    ];
+    
+    if (rotasEspeciais.some(rota => currentPath.startsWith(rota))) {
+      console.log('📍 ROTA ESPECIAL DETECTADA - Pulando:', currentPath);
+      return;
+    }
+    
+    // ✅ PROTEÇÃO 3: Verificar se já está verificando
+    const verificandoKey = `verificando-diagnostico-${userId}`;
+    if (sessionStorage.getItem(verificandoKey)) {
+      console.log('🔄 VERIFICAÇÃO JÁ EM ANDAMENTO - Pulando');
+      return;
+    }
+    
+    // ✅ PROTEÇÃO 4: Só verificar em rotas específicas (root ou dashboard)
+    const rotasQueVerificam = ['/', '/dashboard'];
+    if (!rotasQueVerificam.includes(currentPath)) {
+      console.log('📍 ROTA NÃO REQUER VERIFICAÇÃO:', currentPath);
+      return;
+    }
+    
+    console.log('✅ TODAS AS PROTEÇÕES PASSARAM - Prosseguindo com verificação');
+    sessionStorage.setItem(verificandoKey, 'true');
+    sessionStorage.setItem('last-login-check', currentTime.toString());
+    
+    // Aguardar estabilidade
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Buscar etapa do diagnóstico
+    console.log('🔍 Consultando banco de dados...');
+    const { data, error } = await supabase
+      .from('perfil_usuario')
+      .select('diagnostico_etapa_atual')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      console.error('❌ ERRO AO BUSCAR ETAPA:', error);
+      sessionStorage.removeItem(verificandoKey);
+      return;
+    }
+
+    const etapaAtual = data?.diagnostico_etapa_atual || 0;
+    
+    console.log('📋 === RESULTADO DA CONSULTA ===');
+    console.log('📋 Etapa atual no banco:', etapaAtual);
+    console.log('📋 Precisa completar diagnóstico:', etapaAtual < 9);
+    
+    if (etapaAtual < 9) {
+      console.log('🔄 === EXECUTANDO REDIRECIONAMENTO ===');
+      console.log('🔄 Salvando etapa no sessionStorage:', etapaAtual);
+      
+      // Salvar etapa para o DiagnosticoRouter
+      sessionStorage.setItem('diagnostico-etapa-redirect', etapaAtual.toString());
+      
+      // Limpar flag
+      sessionStorage.removeItem(verificandoKey);
+      
+      console.log('🔄 Redirecionando para diagnóstico...');
+      window.location.replace('/diagnostico');
+      
+    } else {
+      console.log('✅ DIAGNÓSTICO COMPLETO - Usuário pode continuar normalmente');
+      sessionStorage.removeItem(verificandoKey);
+    }
+    
+  } catch (error) {
+    console.error('❌ ERRO INESPERADO NA VERIFICAÇÃO:', error);
+    sessionStorage.removeItem(`verificando-diagnostico-${userId}`);
+  }
+};
+// Hook separado que usa React.useEffect
+// SUBSTITUIR COMPLETAMENTE o useAuthListener no authStore.js
+
 export const useAuthListener = () => {
   const { setSession, initAuth } = useAuthStore();
 
@@ -503,11 +642,35 @@ export const useAuthListener = () => {
       console.log('🔄 Auth state changed:', event, session?.user?.email || 'sem usuário');
       setSession(session);
 
-      // Criar ou atualizar perfil quando necessário (em background)
+      // ✅ LÓGICA CORRIGIDA: Tratar cada evento separadamente
       if (event === 'SIGNED_IN' && session?.user) {
+        console.log('🔑 EVENTO DE LOGIN DETECTADO');
+        
+        // Criar perfil se necessário
         useAuthStore.getState().ensureUserProfile(session.user).catch(err => {
           console.warn('⚠️ Erro ao criar perfil (não crítico):', err);
         });
+
+        // ✅ VERIFICAR DIAGNÓSTICO APENAS EM LOGIN REAL
+        console.log('🔍 Iniciando verificação de diagnóstico...');
+        setTimeout(() => {
+          verificarERedirecionarDiagnostico(session.user.id).catch(err => {
+            console.warn('⚠️ Erro ao verificar diagnóstico (não crítico):', err);
+          });
+        }, 2000);
+        
+      } else if (event === 'SIGNED_OUT') {
+        console.log('🚪 EVENTO DE LOGOUT');
+        // Limpar cache de verificação
+        sessionStorage.removeItem('last-login-check');
+        console.log('🧹 Cache de login limpo');
+        
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        console.log('🔄 TOKEN ATUALIZADO - NÃO VERIFICAR DIAGNÓSTICO');
+        // Token refresh não deve verificar diagnóstico
+        
+      } else {
+        console.log(`🔄 Evento ${event} - Sem ação especial`);
       }
     });
 

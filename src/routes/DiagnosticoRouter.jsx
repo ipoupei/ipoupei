@@ -13,11 +13,17 @@ import DespesasFixasEtapa from '@modules/diagnostico/onboarding/etapa06_Despesas
 import DespesasVariaveisEtapa from '@modules/diagnostico/onboarding/etapa07_DespesasVariaveis';
 import ResumoFinanceiroEtapa from '@modules/diagnostico/onboarding/etapa08_ResumoFinanceiro';
 import FinalizacaoEtapa from '@modules/diagnostico/onboarding/etapa09_Finalizacao';
+
 import '@modules/diagnostico/styles/DiagnosticoOnboarding.css';
+import useDiagnosticoEtapa from '@modules/diagnostico/hooks/useDiagnosticoEtapa';
 
 const DiagnosticoRouter = () => {
   const navigate = useNavigate();
   const [etapaAtual, setEtapaAtual] = useState(0);
+  
+  // 🆕 NOVO: Controle de inicialização
+  const [isInitialized, setIsInitialized] = useState(false);
+  
   const [dadosColetados, setDadosColetados] = useState({
     intro_percepcao: null,
     categorias: null,
@@ -30,6 +36,14 @@ const DiagnosticoRouter = () => {
     resumo_financeiro: null,
     finalizacao: null
   });
+
+  // Hook para gerenciar etapa no banco
+  const { 
+    atualizarEtapaAtual, 
+    buscarEtapaAtual, 
+    marcarDiagnosticoCompleto,
+    loading: loadingEtapa 
+  } = useDiagnosticoEtapa();
 
   // Configuração das etapas
   const etapas = [
@@ -154,40 +168,120 @@ const DiagnosticoRouter = () => {
 
   const etapaConfig = etapas[etapaAtual];
 
-  // Carregar dados salvos no localStorage
+  // ✅ CARREGAMENTO INICIAL CORRIGIDO
   useEffect(() => {
-    const dadosSalvos = localStorage.getItem('diagnostico-dados');
-    if (dadosSalvos) {
-      try {
-        const dadosParsed = JSON.parse(dadosSalvos);
-        console.log('📂 Carregando dados salvos do diagnóstico:', dadosParsed);
-        setDadosColetados(dadosParsed);
-      } catch (error) {
-        console.error('❌ Erro ao carregar dados salvos:', error);
+    const carregarDadosIniciais = async () => {
+      console.log('🚀 === INÍCIO CARREGAMENTO DIAGNÓSTICO ===');
+      console.log('🚀 URL atual:', window.location.href);
+      
+      // 1. Carregar dados salvos do localStorage
+      const dadosSalvos = localStorage.getItem('diagnostico-dados');
+      if (dadosSalvos) {
+        try {
+          const dadosParsed = JSON.parse(dadosSalvos);
+          console.log('📂 Dados salvos encontrados:', Object.keys(dadosParsed));
+          setDadosColetados(dadosParsed);
+        } catch (error) {
+          console.error('❌ Erro ao carregar dados salvos:', error);
+        }
+      } else {
+        console.log('📂 Nenhum dado salvo encontrado');
       }
-    }
 
-    const etapaSalva = localStorage.getItem('diagnostico-etapa');
-    if (etapaSalva) {
-      const etapaNumero = parseInt(etapaSalva, 10);
-      if (etapaNumero >= 0 && etapaNumero < totalEtapas) {
-        console.log('📂 Carregando etapa salva:', etapaNumero);
+      // 2. ✅ VERIFICAR REDIRECIONAMENTO AUTOMÁTICO
+      const etapaRedirect = sessionStorage.getItem('diagnostico-etapa-redirect');
+      console.log('🔄 === VERIFICANDO REDIRECIONAMENTO ===');
+      console.log('🔄 Etapa redirect no sessionStorage:', etapaRedirect);
+      
+      if (etapaRedirect) {
+        const etapaNumero = parseInt(etapaRedirect, 10);
+        console.log('✅ USANDO ETAPA DE REDIRECIONAMENTO:', etapaNumero);
         setEtapaAtual(etapaNumero);
+        
+        // ✅ Limpar flag
+        sessionStorage.removeItem('diagnostico-etapa-redirect');
+        console.log('🧹 Flag de redirecionamento removida');
+        console.log('🏁 FINALIZANDO - Etapa definida via redirecionamento');
+        
+        // ✅ CRUCIAL: Marcar como inicializado APÓS definir etapa
+        setIsInitialized(true);
+        return;
       }
-    }
-  }, [totalEtapas]);
 
-  // Salvar dados sempre que mudarem
+      // 3. ✅ BUSCAR DO BANCO
+      console.log('🔍 === BUSCANDO ETAPA DO BANCO ===');
+      const etapaAtualBanco = await buscarEtapaAtual();
+      console.log('📋 Etapa retornada do banco:', etapaAtualBanco);
+      
+      if (etapaAtualBanco !== null && etapaAtualBanco >= 0) {
+        console.log('✅ USANDO ETAPA DO BANCO:', etapaAtualBanco);
+        setEtapaAtual(etapaAtualBanco);
+        console.log('🏁 FINALIZANDO - Etapa definida via banco');
+        
+        // ✅ CRUCIAL: Marcar como inicializado APÓS definir etapa
+        setIsInitialized(true);
+        return;
+      }
+
+      // 4. ✅ FALLBACK: localStorage
+      console.log('📂 === TENTANDO LOCALSTORAGE ===');
+      const etapaSalva = localStorage.getItem('diagnostico-etapa');
+      console.log('📂 Etapa no localStorage:', etapaSalva);
+      
+      if (etapaSalva) {
+        const etapaNumero = parseInt(etapaSalva, 10);
+        if (etapaNumero >= 0 && etapaNumero < totalEtapas) {
+          console.log('✅ USANDO ETAPA DO LOCALSTORAGE:', etapaNumero);
+          setEtapaAtual(etapaNumero);
+          
+          console.log('💾 Sincronizando com banco...');
+          await atualizarEtapaAtual(etapaNumero);
+          console.log('🏁 FINALIZANDO - Etapa definida via localStorage');
+          
+          // ✅ CRUCIAL: Marcar como inicializado
+          setIsInitialized(true);
+          return;
+        }
+      }
+
+      // 5. ✅ ÚLTIMO CASO: zero
+      console.log('🆕 === INICIANDO DO ZERO ===');
+      console.log('🆕 Nenhuma etapa encontrada - começando do 0');
+      setEtapaAtual(0);
+      await atualizarEtapaAtual(0);
+      console.log('🏁 FINALIZANDO - Etapa 0 por padrão');
+      
+      // ✅ CRUCIAL: Marcar como inicializado
+      setIsInitialized(true);
+    };
+
+    carregarDadosIniciais();
+  }, [totalEtapas, buscarEtapaAtual, atualizarEtapaAtual]);
+
+  // ✅ SALVAR PROGRESSO CORRIGIDO - SÓ APÓS INICIALIZAÇÃO
   useEffect(() => {
-    if (Object.keys(dadosColetados).length > 0) {
-      console.log('💾 Salvando progresso do diagnóstico:', dadosColetados);
-      localStorage.setItem('diagnostico-dados', JSON.stringify(dadosColetados));
-      localStorage.setItem('diagnostico-etapa', etapaAtual.toString());
-    }
-  }, [dadosColetados, etapaAtual]);
+    const salvarProgresso = async () => {
+      // ✅ SÓ SALVAR SE JÁ INICIALIZOU
+      if (!isInitialized) {
+        console.log('⏳ Aguardando inicialização antes de salvar...');
+        return;
+      }
+      
+      if (Object.keys(dadosColetados).length > 0) {
+        console.log('💾 Salvando progresso do diagnóstico:', dadosColetados);
+        localStorage.setItem('diagnostico-dados', JSON.stringify(dadosColetados));
+        localStorage.setItem('diagnostico-etapa', etapaAtual.toString());
+        
+        // Atualizar etapa no banco
+        await atualizarEtapaAtual(etapaAtual);
+      }
+    };
+
+    salvarProgresso();
+  }, [dadosColetados, etapaAtual, atualizarEtapaAtual, isInitialized]); // ✅ Adicionar isInitialized
 
   // ✅ FUNÇÃO PRINCIPAL CORRIGIDA
-  const handleContinuar = (novosDados = null) => {
+  const handleContinuar = async (novosDados = null) => {
     console.log('🚀 handleContinuar - Etapa:', etapaAtual, 'Dados:', novosDados);
     
     // ✅ PASSO 1: Calcular os dados atualizados PRIMEIRO
@@ -217,25 +311,31 @@ const DiagnosticoRouter = () => {
     if (proximaEtapa < totalEtapas) {
       console.log(`✅ Avançando para etapa ${proximaEtapa}: ${etapas[proximaEtapa]?.titulo}`);
       setEtapaAtual(proximaEtapa);
+      
+      // Atualizar etapa no banco
+      await atualizarEtapaAtual(proximaEtapa);
     } else {
       console.log('🏁 Todas as etapas concluídas');
-      handleFinalizarDiagnostico(dadosAtualizados);
+      await handleFinalizarDiagnostico(dadosAtualizados);
     }
   };
 
   // ✅ FUNÇÃO VOLTAR CORRIGIDA
-  const handleVoltar = () => {
+  const handleVoltar = async () => {
     // Usar dados atuais para verificar etapa anterior
     const etapaAnterior = encontrarEtapaAnterior(etapaAtual, dadosColetados);
     
     if (etapaAnterior >= 0) {
       console.log(`⬅️ Voltando para etapa ${etapaAnterior}`);
       setEtapaAtual(etapaAnterior);
+      
+      // Atualizar etapa no banco
+      await atualizarEtapaAtual(etapaAnterior);
     }
   };
 
   // ✅ FUNÇÃO PULAR CORRIGIDA
-  const handlePular = () => {
+  const handlePular = async () => {
     if (!etapaConfig.obrigatoria) {
       console.log(`⏭️ Pulando etapa opcional: ${etapaConfig.titulo}`);
       
@@ -258,14 +358,20 @@ const DiagnosticoRouter = () => {
       
       if (proximaEtapa < totalEtapas) {
         setEtapaAtual(proximaEtapa);
+        
+        // Atualizar etapa no banco
+        await atualizarEtapaAtual(proximaEtapa);
       } else {
-        handleFinalizarDiagnostico(dadosAtualizados);
+        await handleFinalizarDiagnostico(dadosAtualizados);
       }
     }
   };
 
-  const handleFinalizarDiagnostico = (dadosFinais = dadosColetados) => {
+  const handleFinalizarDiagnostico = async (dadosFinais = dadosColetados) => {
     console.log('✅ Finalizando diagnóstico com dados:', dadosFinais);
+    
+    // Marcar como completo no banco
+    await marcarDiagnosticoCompleto();
     
     // Processar e salvar dados finais
     const dadosCompletos = {
@@ -294,10 +400,11 @@ const DiagnosticoRouter = () => {
   // ✅ VERIFICAÇÃO CORRIGIDA - Usar dados atuais
   if (devesPularEtapa(etapaAtual, dadosColetados)) {
     // Auto-navegar para próxima etapa válida
-    setTimeout(() => {
+    setTimeout(async () => {
       const proximaEtapa = encontrarProximaEtapa(etapaAtual, dadosColetados);
       if (proximaEtapa < totalEtapas) {
         setEtapaAtual(proximaEtapa);
+        await atualizarEtapaAtual(proximaEtapa);
       }
     }, 100);
 

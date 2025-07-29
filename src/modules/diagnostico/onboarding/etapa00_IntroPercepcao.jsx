@@ -360,7 +360,7 @@ const IntroPercepcaoEtapa = ({
 
       {/* ➕ MODAL COMPLETAMENTE NOVO com Múltiplas Etapas */}
       {modalAberto && (
-        <div className="modal-overlay" onClick={handleFecharModal}>
+        <div className="modal-overlay active" onClick={handleFecharModal}>
           <div className="modal-container modal-large" onClick={(e) => e.stopPropagation()}>
             
             <div className="modal-header">
