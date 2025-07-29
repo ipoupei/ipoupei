@@ -662,6 +662,8 @@ const gerarOpcoesFatura = useCallback(async (cartaoId, dataCompra) => {
       });
     }
 
+    
+
     return opcoes;
   } catch (error) {
     console.error('❌ Erro ao gerar opções de fatura:', error);
