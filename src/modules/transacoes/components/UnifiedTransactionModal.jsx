@@ -2115,6 +2115,30 @@ return (
           <X size={18} />
         </button>
       </div>
+       {/* Banner de erro - adicionar após modal-header */}
+          {Object.keys(errors).length > 0 && (
+            <div className="error-banner">
+              <div className="error-banner-content">
+                <AlertCircle size={16} />
+                <span>
+                  Preencha os campos obrigatórios: {
+                    Object.keys(errors).map(field => {
+                      switch(field) {
+                        case 'valor': return 'Valor';
+                        case 'data': return 'Data';
+                        case 'categoria_id': return 'Categoria';
+                        case 'conta_id': return 'Conta';
+                        case 'cartao_id': return 'Cartão';
+                        case 'conta_origem_id': return 'Conta de origem';
+                        case 'conta_destino_id': return 'Conta de destino';                        
+                        default: return field;
+                      }
+                    }).join(', ')
+                  }
+                </span>
+              </div>
+            </div>
+          )}
 
       <div className="modal-body">
         
