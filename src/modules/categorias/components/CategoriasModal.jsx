@@ -53,10 +53,10 @@ const CategoriasModal = ({ isOpen, onClose }) => {
   const [mensagemFeedback, setMensagemFeedback] = useState({ show: false, message: '', type: '' });
   const [modalSugeridaAberto, setModalSugeridaAberto] = useState(false);
   
-  const coresPredefinidas = [
-    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', 
-    '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9', '#F8C471', '#82E0AA'
-  ];
+const coresPredefinidas = [
+  '#008080', '#006666', '#0043C0', '#006400', '#DC3545', '#FFC107',
+  '#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'
+];
   
   // Filtrar e organizar categorias
   const categoriasDespesas = categorias.filter(cat => cat.tipo === 'despesa') || [];

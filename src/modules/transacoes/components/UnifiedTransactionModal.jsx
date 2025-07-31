@@ -1849,7 +1849,73 @@ const criarDespesaCartao = useCallback(async () => {
   }
 }, [user.id, transactionData, getValorNumerico, criarDespesaCartaoHook, criarDespesaParceladaHook, supabase]);
 
-
+// ===== FUNÇÃO: FOCO AUTOMÁTICO NO PRIMEIRO CAMPO COM ERRO =====
+const focarPrimeiroCampoComErro = useCallback(() => {
+  if (Object.keys(errors).length === 0) return;
+  
+  const firstError = Object.keys(errors)[0];
+  
+  // Timeout pequeno para garantir que o DOM foi atualizado
+  setTimeout(() => {
+    let element = null;
+    
+    // Tentar diferentes seletores para encontrar o campo
+    const selectors = [
+      `[data-field="${firstError}"]`,
+      `[name="${firstError}"]`,
+      `input[data-field="${firstError}"]`,
+      `select[data-field="${firstError}"]`,
+      `.input-text`, // fallback para primeiro input visível
+      `.input-select` // fallback para primeiro select visível
+    ];
+    
+    for (const selector of selectors) {
+      element = document.querySelector(selector);
+      if (element && element.offsetParent !== null) { // elemento visível
+        break;
+      }
+    }
+    
+    if (element) {
+      // Encontrar o container do modal que tem scroll
+      const modalBody = element.closest('.modal-body');
+      
+      if (modalBody) {
+        // Calcular posição do elemento dentro do modal
+        const elementRect = element.getBoundingClientRect();
+        const modalBodyRect = modalBody.getBoundingClientRect();
+        
+        // Posição relativa do elemento dentro do modal-body
+        const elementTop = elementRect.top - modalBodyRect.top + modalBody.scrollTop;
+        
+        // Scroll para posicionar o elemento no meio da área visível do modal
+        const targetScrollTop = elementTop - (modalBodyRect.height / 2) + (elementRect.height / 2);
+        
+        modalBody.scrollTo({
+          top: Math.max(0, targetScrollTop), // Não permitir scroll negativo
+          behavior: 'smooth'
+        });
+      } else {
+        // Fallback para scrollIntoView se não encontrar modal-body
+        element.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center',
+          inline: 'nearest'
+        });
+      }
+      
+      // Focar no elemento após o scroll
+      setTimeout(() => {
+        element.focus();
+        
+        // Se for input de texto, selecionar o conteúdo para facilitar correção
+        if (element.type === 'text' || element.type === 'number') {
+          element.select();
+        }
+      }, 300); // Aguardar o scroll terminar
+    }
+  }, 100);
+}, [errors]);
 
 // ===== HANDLER PRINCIPAL PARA SALVAR =====
 const handleSalvar = useCallback(async (continuar = false) => {
@@ -2089,6 +2155,14 @@ useEffect(() => {
   }
 }, [isOpen, tipoInicial]);
 
+
+// ===== EFFECT: FOCO AUTOMÁTICO QUANDO HÁ ERROS =====
+useEffect(() => {
+  if (Object.keys(errors).length > 0) {
+    focarPrimeiroCampoComErro();
+  }
+}, [errors, focarPrimeiroCampoComErro]);
+
 // ===== RENDER =====
 if (!isOpen) return null;
 
@@ -2115,30 +2189,31 @@ return (
           <X size={18} />
         </button>
       </div>
-       {/* Banner de erro - adicionar após modal-header */}
-          {Object.keys(errors).length > 0 && (
-            <div className="error-banner">
-              <div className="error-banner-content">
-                <AlertCircle size={16} />
-                <span>
-                  Preencha os campos obrigatórios: {
-                    Object.keys(errors).map(field => {
-                      switch(field) {
-                        case 'valor': return 'Valor';
-                        case 'data': return 'Data';
-                        case 'categoria_id': return 'Categoria';
-                        case 'conta_id': return 'Conta';
-                        case 'cartao_id': return 'Cartão';
-                        case 'conta_origem_id': return 'Conta de origem';
-                        case 'conta_destino_id': return 'Conta de destino';                        
-                        default: return field;
-                      }
-                    }).join(', ')
+     {/* Banner de erro automático - adicionar após modal-header */}
+      {Object.keys(errors).length > 0 && (
+        <div className="error-banner">
+          <div className="error-banner-content">
+            <AlertCircle size={16} />
+            <span>
+              Preencha os campos obrigatórios: {
+                Object.keys(errors).map(field => {
+                  switch(field) {
+                    case 'valor': return 'Valor';
+                    case 'data': return 'Data';
+                    case 'categoria_id': return 'Categoria';
+                    case 'conta_id': return 'Conta';
+                    case 'cartao_id': return 'Cartão';
+                    case 'conta_origem_id': return 'Conta de origem';
+                    case 'conta_destino_id': return 'Conta de destino';
+                    case 'descricao': return 'Descrição';
+                    default: return field;
                   }
-                </span>
-              </div>
-            </div>
-          )}
+                }).join(', ')
+              }
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="modal-body">
         
