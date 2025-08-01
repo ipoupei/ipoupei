@@ -327,7 +327,6 @@ const corrigirSaldoConta = useCallback(async (contaId, novoSaldo, metodo = 'ajus
         .select('valor')
         .eq('conta_id', contaId)
         .eq('tipo', 'despesa')
-        .is('cartao_id', null)  // ✅ FILTRO CRÍTICO!
         .eq('efetivado', true)
         .eq('usuario_id', user.id);
       
