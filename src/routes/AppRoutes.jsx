@@ -5,6 +5,10 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from '@modules/landing/pages/LandingPage';
 import TermosDeUso from '@modules/landing/pages/TermosDeUso';
 
+
+
+
+
 // ROTAS ORIGINAIS (mantidas como estavam)
 import Login from '@modules/auth/pages/Login';
 import Dashboard from '@modules/dashboard/pages/Dashboard';
