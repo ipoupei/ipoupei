@@ -3,7 +3,7 @@
 /* ===== VARIÁVEIS ESSENCIAIS ===== */
 :root {
   --primary: #008080;
-  --primary-dark: #006666;
+  --primary-dark: #002e2e;
   --success: #10b981;
   --warning: #f59e0b;
   --white: #ffffff;
@@ -81,6 +81,7 @@
   display: flex;
   justify-content: space-between;
   gap: 4px;
+  
 }
 
 .step {
@@ -119,6 +120,7 @@
   text-align: center;
   opacity: 0.8;
   line-height: 1;
+  
 }
 
 .step.active .step-label {

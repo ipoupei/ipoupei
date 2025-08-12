@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import useAuth from '@modules/auth/hooks/useAuth';
-import './Login.css';
+import logoImage from '@assets/logo.png';
+// Styles
+import '@shared/styles/PrincipalArquivoDeClasses.css';
+
 import { 
   AlertCircle, 
   Eye, 
@@ -12,13 +15,13 @@ import {
   LogIn, 
   ArrowRight,
   CheckCircle,
-  Chrome,
-  Wallet
+  Chrome
 } from 'lucide-react';
 
 /**
  * Página de Login com SSO (Google) e autenticação tradicional
- * Design moderno e compacto integrado com Supabase
+ * Design moderno integrado com a identidade visual do iPoupei
+ * Migrado para usar classes ip_ do sistema principal
  */
 const Login = () => {
   // Estados para controlar as operações de login
@@ -56,7 +59,7 @@ const Login = () => {
       console.log('✅ Usuário já autenticado, redirecionando...');
       const redirectTo = searchParams.get('redirectTo') || 
                        location.state?.redirectTo || 
-                       '/dashboard';
+                       '/app/dashboard';
       navigate(redirectTo, { replace: true });
     }
   }, [initialized, isAuthenticated, navigate, searchParams, location.state]);
@@ -209,7 +212,7 @@ const Login = () => {
     }
   };
 
-  // Handler para login com Google - CORRIGIDO
+  // Handler para login com Google
   const handleGoogleLogin = async () => {
     if (loading || authLoading) {
       console.log('⏳ Login já em andamento, ignorando...');
@@ -260,16 +263,19 @@ const Login = () => {
           <div className="bg-pattern"></div>
           <div className="bg-gradient"></div>
         </div>
-        <div className="login-container">
-          <div className="login-card">
-            <div className="text-center">
-              <div className="logo-container">
-                <div className="logo-icon">
-                  <Wallet size={28} className="logo-svg" />
-                </div>
-                <h1 className="logo-text">iPoupei</h1>
-              </div>
-              <p className="text-gray-600">Inicializando...</p>
+        <div className="ip_flex ip_flex_centro" style={{ minHeight: '100vh', padding: '1rem' }}>
+          <div className="ip_card_grande" style={{ 
+            width: '100%', 
+            maxWidth: '420px', 
+            background: 'rgba(255, 255, 255, 0.97)',
+            backdropFilter: 'blur(20px)',
+            boxShadow: '0 32px 64px rgba(0, 128, 128, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.3)',
+            border: '1px solid rgba(0, 128, 128, 0.1)'
+          }}>
+            <div className="ip_loading_container">
+              <img src={logoImage} alt="iPoupei" style={{ width: '140px', marginBottom: '1rem' }} />
+              <div className="ip_loading_spinner"></div>
+              <p className="ip_loading_texto">Inicializando...</p>
             </div>
           </div>
         </div>
@@ -279,25 +285,49 @@ const Login = () => {
 
   return (
     <div className="login-page">
-      {/* Background com gradiente e padrão */}
+      {/* Background com gradiente iPoupei */}
       <div className="login-background">
         <div className="bg-pattern"></div>
         <div className="bg-gradient"></div>
       </div>
 
       {/* Container principal */}
-      <div className="login-container">
+      <div className="ip_flex ip_flex_centro" style={{ minHeight: '100vh', padding: '1rem' }}>
         {/* Cartão de login */}
-        <div className="login-card">
-          {/* Header com logo */}
-          <div className="login-header">
-            <div className="logo-container">
-              <div className="logo-icon">
-                <Wallet size={28} className="logo-svg" />
-              </div>
-              <h1 className="logo-text">iPoupei</h1>
+        <div className="ip_card_grande ip_animacao_slide_up" style={{ 
+          width: '100%', 
+          maxWidth: '420px', 
+          margin: 0,
+          background: 'rgba(255, 255, 255, 0.97)',
+          backdropFilter: 'blur(20px)',
+          borderRadius: '1.5rem',
+          boxShadow: '0 32px 64px rgba(0, 128, 128, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.6)',
+          border: '1px solid rgba(0, 128, 128, 0.1)',
+          position: 'relative'
+        }}>
+          {/* Header com logo iPoupei */}
+          <div className="ip_texto_centro ip_mb_4">
+            <div className="ip_flex ip_flex_centro ip_mb_3">
+              <img 
+                src={logoImage} 
+                alt="iPoupei" 
+                style={{ 
+                  width: '140px', 
+                  height: 'auto', 
+                  objectFit: 'contain',
+                  transition: 'transform 0.3s ease'
+                }}
+                onMouseOver={(e) => e.target.style.transform = 'scale(1.02)'}
+                onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
+              />
             </div>
-            <p className="login-subtitle">
+            <p style={{ 
+              color: '#6b7280', 
+              fontSize: '0.875rem', 
+              lineHeight: '1.4', 
+              margin: 0, 
+              fontWeight: 500 
+            }}>
               {mode === 'login' && 'Bem-vindo de volta ao seu controle financeiro'}
               {mode === 'register' && 'Junte-se a milhares de usuários que já controlam suas finanças'}
               {mode === 'recovery' && 'Vamos recuperar o acesso à sua conta'}
@@ -305,8 +335,13 @@ const Login = () => {
           </div>
 
           {/* Título do modo atual */}
-          <div className="mode-header">
-            <h2 className="mode-title">
+          <div className="ip_texto_centro ip_mb_4">
+            <h2 style={{ 
+              fontSize: '1.375rem', 
+              fontWeight: 700, 
+              color: '#1f2937', 
+              margin: 0 
+            }}>
               {mode === 'login' && 'Entre na sua conta'}
               {mode === 'register' && 'Crie sua conta gratuita'}
               {mode === 'recovery' && 'Recuperar senha'}
@@ -315,14 +350,14 @@ const Login = () => {
 
           {/* Mensagens de feedback */}
           {error && (
-            <div className="alert alert-error">
+            <div className="ip_mensagem_feedback erro ip_animacao_slide_up">
               <AlertCircle size={18} />
               <span>{error}</span>
             </div>
           )}
 
           {success && (
-            <div className="alert alert-success">
+            <div className="ip_mensagem_feedback sucesso ip_animacao_slide_up">
               <CheckCircle size={18} />
               <span>{success}</span>
             </div>
@@ -330,12 +365,43 @@ const Login = () => {
 
           {/* Botão de SSO - apenas Google e apenas para login */}
           {mode === 'login' && (
-            <div className="sso-section">
+            <div className="ip_mb_4">
               <button
                 type="button"
                 onClick={handleGoogleLogin}
                 disabled={isLoading}
-                className="sso-btn sso-btn-google"
+                className="ip_w_100 ip_mb_3"
+                style={{ 
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.75rem',
+                  padding: '0.875rem 1rem',
+                  border: '1.5px solid #e5e7eb',
+                  borderRadius: '0.75rem',
+                  background: 'white',
+                  color: '#374151',
+                  fontSize: '0.875rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+                onMouseOver={(e) => {
+                  if (!isLoading) {
+                    e.target.style.borderColor = '#008080';
+                    e.target.style.transform = 'translateY(-2px)';
+                    e.target.style.boxShadow = '0 12px 24px rgba(0, 128, 128, 0.15)';
+                  }
+                }}
+                onMouseOut={(e) => {
+                  if (!isLoading) {
+                    e.target.style.borderColor = '#e5e7eb';
+                    e.target.style.transform = 'translateY(0)';
+                    e.target.style.boxShadow = 'none';
+                  }
+                }}
               >
                 <Chrome size={20} />
                 <span>
@@ -343,83 +409,213 @@ const Login = () => {
                 </span>
               </button>
               
-              <div className="divider">
-                <span>ou continue com email</span>
+              <div className="ip_divisor">
+                <div style={{
+                  position: 'relative',
+                  textAlign: 'center',
+                  margin: '1rem 0'
+                }}>
+                  <div style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: 0,
+                    right: 0,
+                    height: '1px',
+                    background: 'linear-gradient(90deg, transparent, #e5e7eb, transparent)'
+                  }}></div>
+                  <span style={{
+                    background: 'rgba(255, 255, 255, 0.97)',
+                    backdropFilter: 'blur(10px)',
+                    padding: '0 1rem',
+                    color: '#6b7280',
+                    fontSize: '0.8125rem',
+                    fontWeight: 500
+                  }}>
+                    ou continue com email
+                  </span>
+                </div>
               </div>
             </div>
           )}
 
           {/* Formulário principal */}
-          <form onSubmit={handleSubmit} className="login-form" noValidate>
+          <form onSubmit={handleSubmit} className="ip_flex ip_flex_coluna ip_gap_4" noValidate>
             {/* Campo Nome - primeiro no registro para melhor UX */}
             {mode === 'register' && (
-              <div className="form-group">
-                <label htmlFor="nome" className="form-label">
+              <div className="ip_grupo_formulario">
+                <label htmlFor="nome" className="ip_label">
                   Nome completo
                 </label>
-                <div className="input-wrapper">
-                  <User size={18} className="input-icon" />
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <User size={18} style={{ 
+                    position: 'absolute', 
+                    left: '1rem', 
+                    color: '#6b7280', 
+                    zIndex: 1 
+                  }} />
                   <input
                     type="text"
                     id="nome"
-                    className="form-input"
+                    className="ip_input_base"
+                    style={{ 
+                      paddingLeft: '2.75rem',
+                      width: '100%',
+                      padding: '0.875rem 1rem 0.875rem 2.75rem',
+                      border: '1.5px solid #e5e7eb',
+                      borderRadius: '0.75rem',
+                      fontSize: '0.875rem',
+                      background: 'rgba(248, 250, 252, 0.5)',
+                      transition: 'all 0.3s ease',
+                      color: '#1f2937',
+                      fontFamily: 'inherit'
+                    }}
                     placeholder="Como devemos te chamar?"
                     value={nome}
                     onChange={(e) => setNome(e.target.value)}
                     disabled={isLoading}
                     required
                     autoComplete="name"
+                    onFocus={(e) => {
+                      e.target.style.borderColor = '#008080';
+                      e.target.style.background = 'white';
+                      e.target.style.boxShadow = '0 0 0 3px rgba(0, 128, 128, 0.1)';
+                      e.target.style.transform = 'translateY(-1px)';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#e5e7eb';
+                      e.target.style.background = 'rgba(248, 250, 252, 0.5)';
+                      e.target.style.boxShadow = 'none';
+                      e.target.style.transform = 'translateY(0)';
+                    }}
                   />
                 </div>
               </div>
             )}
 
             {/* Campo Email */}
-            <div className="form-group">
-              <label htmlFor="email" className="form-label">
+            <div className="ip_grupo_formulario">
+              <label htmlFor="email" className="ip_label">
                 Email
               </label>
-              <div className="input-wrapper">
-                <Mail size={18} className="input-icon" />
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <Mail size={18} style={{ 
+                  position: 'absolute', 
+                  left: '1rem', 
+                  color: '#6b7280', 
+                  zIndex: 1 
+                }} />
                 <input
                   type="email"
                   id="email"
-                  className="form-input"
+                  className="ip_input_base"
+                  style={{ 
+                    paddingLeft: '2.75rem',
+                    width: '100%',
+                    padding: '0.875rem 1rem 0.875rem 2.75rem',
+                    border: '1.5px solid #e5e7eb',
+                    borderRadius: '0.75rem',
+                    fontSize: '0.875rem',
+                    background: 'rgba(248, 250, 252, 0.5)',
+                    transition: 'all 0.3s ease',
+                    color: '#1f2937',
+                    fontFamily: 'inherit'
+                  }}
                   placeholder="seu.email@exemplo.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={isLoading}
                   required
                   autoComplete="email"
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#008080';
+                    e.target.style.background = 'white';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(0, 128, 128, 0.1)';
+                    e.target.style.transform = 'translateY(-1px)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e5e7eb';
+                    e.target.style.background = 'rgba(248, 250, 252, 0.5)';
+                    e.target.style.boxShadow = 'none';
+                    e.target.style.transform = 'translateY(0)';
+                  }}
                 />
               </div>
             </div>
 
             {/* Campo Senha */}
             {mode !== 'recovery' && (
-              <div className="form-group">
-                <label htmlFor="password" className="form-label">
+              <div className="ip_grupo_formulario">
+                <label htmlFor="password" className="ip_label">
                   Senha
                 </label>
-                <div className="input-wrapper">
-                  <Lock size={18} className="input-icon" />
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <Lock size={18} style={{ 
+                    position: 'absolute', 
+                    left: '1rem', 
+                    color: '#6b7280', 
+                    zIndex: 1 
+                  }} />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     id="password"
-                    className="form-input"
+                    className="ip_input_base"
+                    style={{ 
+                      paddingLeft: '2.75rem', 
+                      paddingRight: '2.75rem',
+                      width: '100%',
+                      padding: '0.875rem 2.75rem 0.875rem 2.75rem',
+                      border: '1.5px solid #e5e7eb',
+                      borderRadius: '0.75rem',
+                      fontSize: '0.875rem',
+                      background: 'rgba(248, 250, 252, 0.5)',
+                      transition: 'all 0.3s ease',
+                      color: '#1f2937',
+                      fontFamily: 'inherit'
+                    }}
                     placeholder="Digite sua senha"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={isLoading}
                     required
                     autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = '#008080';
+                      e.target.style.background = 'white';
+                      e.target.style.boxShadow = '0 0 0 3px rgba(0, 128, 128, 0.1)';
+                      e.target.style.transform = 'translateY(-1px)';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#e5e7eb';
+                      e.target.style.background = 'rgba(248, 250, 252, 0.5)';
+                      e.target.style.boxShadow = 'none';
+                      e.target.style.transform = 'translateY(0)';
+                    }}
                   />
                   <button
                     type="button"
-                    className="input-action"
+                    style={{
+                      position: 'absolute',
+                      right: '1rem',
+                      background: 'none',
+                      border: 'none',
+                      color: '#6b7280',
+                      cursor: 'pointer',
+                      padding: '0.25rem',
+                      borderRadius: '0.375rem',
+                      transition: 'all 0.2s ease',
+                      zIndex: 2
+                    }}
                     onClick={toggleShowPassword}
                     disabled={isLoading}
                     tabIndex={-1}
+                    onMouseOver={(e) => {
+                      e.target.style.color = '#008080';
+                      e.target.style.background = 'rgba(0, 128, 128, 0.1)';
+                    }}
+                    onMouseOut={(e) => {
+                      e.target.style.color = '#6b7280';
+                      e.target.style.background = 'none';
+                    }}
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
@@ -429,29 +625,78 @@ const Login = () => {
 
             {/* Campo Confirmar Senha - apenas para registro */}
             {mode === 'register' && (
-              <div className="form-group">
-                <label htmlFor="confirmPassword" className="form-label">
+              <div className="ip_grupo_formulario">
+                <label htmlFor="confirmPassword" className="ip_label">
                   Confirmar senha
                 </label>
-                <div className="input-wrapper">
-                  <Lock size={18} className="input-icon" />
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <Lock size={18} style={{ 
+                    position: 'absolute', 
+                    left: '1rem', 
+                    color: '#6b7280', 
+                    zIndex: 1 
+                  }} />
                   <input
                     type={showConfirmPassword ? 'text' : 'password'}
                     id="confirmPassword"
-                    className="form-input"
+                    className="ip_input_base"
+                    style={{ 
+                      paddingLeft: '2.75rem', 
+                      paddingRight: '2.75rem',
+                      width: '100%',
+                      padding: '0.875rem 2.75rem 0.875rem 2.75rem',
+                      border: '1.5px solid #e5e7eb',
+                      borderRadius: '0.75rem',
+                      fontSize: '0.875rem',
+                      background: 'rgba(248, 250, 252, 0.5)',
+                      transition: 'all 0.3s ease',
+                      color: '#1f2937',
+                      fontFamily: 'inherit'
+                    }}
                     placeholder="Confirme sua senha"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     disabled={isLoading}
                     required
                     autoComplete="new-password"
+                    onFocus={(e) => {
+                      e.target.style.borderColor = '#008080';
+                      e.target.style.background = 'white';
+                      e.target.style.boxShadow = '0 0 0 3px rgba(0, 128, 128, 0.1)';
+                      e.target.style.transform = 'translateY(-1px)';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#e5e7eb';
+                      e.target.style.background = 'rgba(248, 250, 252, 0.5)';
+                      e.target.style.boxShadow = 'none';
+                      e.target.style.transform = 'translateY(0)';
+                    }}
                   />
                   <button
                     type="button"
-                    className="input-action"
+                    style={{
+                      position: 'absolute',
+                      right: '1rem',
+                      background: 'none',
+                      border: 'none',
+                      color: '#6b7280',
+                      cursor: 'pointer',
+                      padding: '0.25rem',
+                      borderRadius: '0.375rem',
+                      transition: 'all 0.2s ease',
+                      zIndex: 2
+                    }}
                     onClick={toggleShowConfirmPassword}
                     disabled={isLoading}
                     tabIndex={-1}
+                    onMouseOver={(e) => {
+                      e.target.style.color = '#008080';
+                      e.target.style.background = 'rgba(0, 128, 128, 0.1)';
+                    }}
+                    onMouseOut={(e) => {
+                      e.target.style.color = '#6b7280';
+                      e.target.style.background = 'none';
+                    }}
                   >
                     {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
@@ -461,22 +706,64 @@ const Login = () => {
 
             {/* Opções do formulário para login */}
             {mode === 'login' && (
-              <div className="form-options">
-                <label className="checkbox-wrapper">
+              <div className="ip_flex" style={{ 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                marginTop: '-0.5rem'
+              }}>
+                <label className="ip_flex" style={{ 
+                  alignItems: 'center', 
+                  gap: '0.5rem', 
+                  cursor: 'pointer',
+                  userSelect: 'none'
+                }}>
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
                     disabled={isLoading}
+                    style={{
+                      width: '1rem',
+                      height: '1rem',
+                      border: '1.5px solid #d1d5db',
+                      borderRadius: '0.25rem',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      accentColor: '#008080'
+                    }}
                   />
-                  <span className="checkbox-label">Lembrar de mim</span>
+                  <span style={{ 
+                    fontSize: '0.8125rem', 
+                    color: '#4b5563', 
+                    cursor: 'pointer' 
+                  }}>
+                    Lembrar de mim
+                  </span>
                 </label>
                 
                 <button
                   type="button"
-                  className="link-btn"
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#008080',
+                    fontSize: 'inherit',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    textDecoration: 'none',
+                    transition: 'all 0.2s ease',
+                    padding: 0
+                  }}
                   onClick={() => setMode('recovery')}
                   disabled={isLoading}
+                  onMouseOver={(e) => {
+                    e.target.style.color = '#006666';
+                    e.target.style.textDecoration = 'underline';
+                  }}
+                  onMouseOut={(e) => {
+                    e.target.style.color = '#008080';
+                    e.target.style.textDecoration = 'none';
+                  }}
                 >
                   Esqueceu a senha?
                 </button>
@@ -486,12 +773,45 @@ const Login = () => {
             {/* Botão de submit */}
             <button
               type="submit"
-              className={`submit-btn ${isLoading ? 'loading' : ''}`}
+              className={`ip_w_100 ${isLoading ? 'ip_loading' : ''}`}
               disabled={isLoading}
+              style={{ 
+                marginTop: '0.5rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.625rem',
+                background: 'linear-gradient(135deg, #008080, #00a0a0)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '0.75rem',
+                padding: '0.875rem 1.5rem',
+                fontSize: '0.875rem',
+                fontWeight: '700',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                position: 'relative',
+                overflow: 'hidden',
+                boxShadow: '0 8px 24px rgba(0, 128, 128, 0.25)'
+              }}
+              onMouseOver={(e) => {
+                if (!isLoading) {
+                  e.target.style.background = 'linear-gradient(135deg, #006666, #008080)';
+                  e.target.style.transform = 'translateY(-2px)';
+                  e.target.style.boxShadow = '0 12px 32px rgba(0, 128, 128, 0.4)';
+                }
+              }}
+              onMouseOut={(e) => {
+                if (!isLoading) {
+                  e.target.style.background = 'linear-gradient(135deg, #008080, #00a0a0)';
+                  e.target.style.transform = 'translateY(0)';
+                  e.target.style.boxShadow = '0 8px 24px rgba(0, 128, 128, 0.25)';
+                }
+              }}
             >
               {isLoading ? (
                 <>
-                  <div className="spinner"></div>
+                  <div className="ip_loading_spinner_pequeno"></div>
                   <span>Processando...</span>
                 </>
               ) : (
@@ -505,15 +825,39 @@ const Login = () => {
           </form>
 
           {/* Links para alternar modos */}
-          <div className="mode-switcher">
+          <div className="ip_texto_centro ip_mt_4 ip_pt_4" style={{ 
+            borderTop: '1px solid #f3f4f6' 
+          }}>
             {mode === 'login' && (
-              <p>
+              <p style={{ 
+                color: '#6b7280', 
+                fontSize: '0.8125rem', 
+                margin: 0 
+              }}>
                 Ainda não tem uma conta?{' '}
                 <button
                   type="button"
-                  className="link-btn primary"
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#008080',
+                    fontSize: 'inherit',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textDecoration: 'none',
+                    transition: 'all 0.2s ease',
+                    padding: 0
+                  }}
                   onClick={() => setMode('register')}
                   disabled={isLoading}
+                  onMouseOver={(e) => {
+                    e.target.style.color = '#006666';
+                    e.target.style.textDecoration = 'underline';
+                  }}
+                  onMouseOut={(e) => {
+                    e.target.style.color = '#008080';
+                    e.target.style.textDecoration = 'none';
+                  }}
                 >
                   Registre-se gratuitamente
                 </button>
@@ -521,13 +865,35 @@ const Login = () => {
             )}
 
             {mode === 'register' && (
-              <p>
+              <p style={{ 
+                color: '#6b7280', 
+                fontSize: '0.8125rem', 
+                margin: 0 
+              }}>
                 Já possui uma conta?{' '}
                 <button
                   type="button"
-                  className="link-btn primary"
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#008080',
+                    fontSize: 'inherit',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textDecoration: 'none',
+                    transition: 'all 0.2s ease',
+                    padding: 0
+                  }}
                   onClick={() => setMode('login')}
                   disabled={isLoading}
+                  onMouseOver={(e) => {
+                    e.target.style.color = '#006666';
+                    e.target.style.textDecoration = 'underline';
+                  }}
+                  onMouseOut={(e) => {
+                    e.target.style.color = '#008080';
+                    e.target.style.textDecoration = 'none';
+                  }}
                 >
                   Fazer login
                 </button>
@@ -535,13 +901,35 @@ const Login = () => {
             )}
 
             {mode === 'recovery' && (
-              <p>
+              <p style={{ 
+                color: '#6b7280', 
+                fontSize: '0.8125rem', 
+                margin: 0 
+              }}>
                 Lembrou da senha?{' '}
                 <button
                   type="button"
-                  className="link-btn primary"
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#008080',
+                    fontSize: 'inherit',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textDecoration: 'none',
+                    transition: 'all 0.2s ease',
+                    padding: 0
+                  }}
                   onClick={() => setMode('login')}
                   disabled={isLoading}
+                  onMouseOver={(e) => {
+                    e.target.style.color = '#006666';
+                    e.target.style.textDecoration = 'underline';
+                  }}
+                  onMouseOut={(e) => {
+                    e.target.style.color = '#008080';
+                    e.target.style.textDecoration = 'none';
+                  }}
                 >
                   Voltar ao login
                 </button>
@@ -551,8 +939,18 @@ const Login = () => {
         </div>
 
         {/* Footer compacto */}
-        <footer className="login-footer">
-          <p>&copy; {new Date().getFullYear()} iPoupei. Todos os direitos reservados.</p>
+        <footer style={{
+          position: 'absolute',
+          bottom: '1rem',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          textAlign: 'center',
+          color: 'rgba(255, 255, 255, 0.9)',
+          fontSize: '0.8125rem'
+        }}>
+          <p style={{ margin: 0 }}>
+            &copy; {new Date().getFullYear()} iPoupei. Todos os direitos reservados.
+          </p>
         </footer>
       </div>
     </div>

@@ -22,11 +22,12 @@ import {
   Zap,
   Star
 } from 'lucide-react';
+import logoImage from '@assets/logo.png';
 import '../../styles/sidebar.css';
 
 /**
  * Componente Sidebar refatorado do iPoupei
- * Contém toda a lógica e dados de menu internamente
+ * Mantendo estrutura original com melhorias pontuais
  * 
  * @param {Object} props - Propriedades do componente
  * @param {Function} props.onOpenModal - Função para abrir modais
@@ -60,7 +61,7 @@ const Sidebar = ({
   const menuSections = {
     principal: {
       id: 'principal',
-      title: null, // Sem título para ficar mais limpo
+      title: null,
       icon: null,
       items: [
         {
@@ -83,52 +84,12 @@ const Sidebar = ({
         {
           id: 'transacao-unificada',
           label: 'Nova Transação',
-          icon: Receipt, // ou outro ícone de sua escolha
+          icon: Receipt,
           path: null,
           modalType: 'UnifiedTransactionModal',
           comingSoon: false,
           variant: 'transacao'
-        },
-        
-/*
-        {
-          id: 'receita',
-          label: 'Nova Receita',
-          icon: TrendingUp,
-          path: null,
-          modalType: 'ReceitasModal',
-          comingSoon: false,
-          variant: 'receita'
-        },
-        
-        {
-          id: 'despesa',
-          label: 'Nova Despesa',
-          icon: TrendingDown,
-          path: null,
-          modalType: 'DespesasModal',
-          comingSoon: false,
-          variant: 'despesa'
-        },
-        {
-          id: 'despesa-cartao',
-          label: 'Despesa Cartão',
-          icon: CreditCard,
-          path: null,
-          modalType: 'DespesasCartaoModal',
-          comingSoon: false,
-          variant: 'cartao'
-        },
-        {
-          id: 'transferencia',
-          label: 'Transferência',
-          icon: ArrowUpDown,
-          path: null,
-          modalType: 'TransferenciasModal',
-          comingSoon: false,
-          variant: 'transferencia'
         }
-*/
       ]
     },
 
@@ -212,9 +173,9 @@ const Sidebar = ({
           id: 'relatorios',
           label: 'Relatórios',
           icon: BarChart3,
-          path: '/relatorios/dre',  // ← DIRETO PRO DRE
+          path: '/relatorios/dre',
           modalType: null,
-          comingSoon: false,        // ← ATIVAR
+          comingSoon: false,
           variant: null
         },
         {
@@ -304,10 +265,6 @@ const Sidebar = ({
   ];
 
   // ========== FUNÇÕES UTILITÁRIAS ==========
-
-  /**
-   * Determina o item ativo baseado na rota atual
-   */
   const getActiveItemFromRoute = useCallback((pathname, searchParams) => {
     const filter = searchParams.get('filter');
     
@@ -315,7 +272,6 @@ const Sidebar = ({
       return 'dashboard';
     }
     
-    // Rotas específicas de cartões
     if (pathname.startsWith('/cartoes/gestao') || pathname === '/cartoes/gestao') {
       return 'gestao-cartoes';
     }
@@ -358,10 +314,6 @@ const Sidebar = ({
   }, [location, getActiveItemFromRoute]);
 
   // ========== HANDLERS ==========
-
-  /**
-   * Handler para ações rápidas (abertura de modais)
-   */
   const handleAcaoRapida = useCallback((item) => {
     console.log('🚀 Tentando abrir modal:', item.modalType);
     
@@ -376,20 +328,14 @@ const Sidebar = ({
     }
   }, [onOpenModal, onMobileClose]);
 
-  /**
-   * Handler para navegação e interações dos items
-   */
   const handleNavigation = useCallback((item) => {
     console.log('🧭 handleNavigation chamado com item:', item);
     
-    // Verificar se é "Em breve"
     if (item.comingSoon) {
       console.log(`${item.label} - Esta funcionalidade ainda está em desenvolvimento. Em breve estará disponível!`);
-      // TODO: Implementar toast quando sistema estiver disponível
       return;
     }
 
-    // Se tem modalType, abrir modal
     if (item.modalType && onOpenModal) {
       console.log('🚀 Tentando abrir modal via navegação:', item.modalType);
       onOpenModal(item.modalType);
@@ -399,7 +345,6 @@ const Sidebar = ({
       return;
     }
 
-    // Se tem path, navegar
     if (item.path) {
       console.log('🧭 Navegando para:', item.path);
       setActiveItem(item.id);
@@ -413,9 +358,6 @@ const Sidebar = ({
     }
   }, [onOpenModal, onMobileClose, navigate]);
 
-  /**
-   * Handler para logout
-   */
   const handleLogout = useCallback(() => {
     if (onLogout) {
       onLogout();
@@ -426,10 +368,6 @@ const Sidebar = ({
   }, [onLogout, onMobileClose]);
 
   // ========== COMPONENTES AUXILIARES ==========
-
-  /**
-   * Componente para título de seção
-   */
   const SectionTitle = ({ section }) => {
     if (!section.title) return null;
     
@@ -443,9 +381,6 @@ const Sidebar = ({
     );
   };
 
-  /**
-   * Componente para item de menu
-   */
   const MenuItem = ({ item, isActive, onClick, variant = null }) => {
     const Icon = item.icon;
     const effectiveVariant = variant || item.variant;
@@ -508,7 +443,11 @@ const Sidebar = ({
         <div className="ipoupei-sidebar__header">
           <div className="ipoupei-sidebar__brand">
             <div className="ipoupei-sidebar__logo" aria-label="Logo iPoupei">
-              iP
+              <img 
+                src={logoImage} 
+                alt="iPoupei Logo" 
+                className="ipoupei-sidebar__logo-image"
+              />
             </div>
             {!isCollapsed && (
               <div className="ipoupei-sidebar__brand-text">

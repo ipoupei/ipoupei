@@ -995,421 +995,406 @@ const UserProfile = () => {
     return <AccountDeletionSection />;
   };
   
-  // Componente de exclusão de conta refatorado
-  const AccountDeletionSection = () => {
-    const { deleteAccount, deactivateAccount } = useDeleteAccount();
+  // Componente de exclusão de conta refatorado com classes iPoupei
+const AccountDeletionSection = () => {
+  const { deleteAccount, deactivateAccount } = useDeleteAccount();
 
-    // Estados locais
-    const [confirmText, setConfirmText] = useState('');
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [showDeactivateModal, setShowDeactivateModal] = useState(false);
-    const [isGeneratingBackup, setIsGeneratingBackup] = useState(false);
+  // Estados locais
+  const [confirmText, setConfirmText] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+  const [isGeneratingBackup, setIsGeneratingBackup] = useState(false);
 
-    // Função para gerar e baixar backup automaticamente
-    const generateAndDownloadBackup = async () => {
-      if (!user?.id) {
-        setMessage({ type: 'error', text: 'Usuário não autenticado' });
-        return;
-      }
+  // Função para gerar e baixar backup automaticamente
+  const generateAndDownloadBackup = async () => {
+    if (!user?.id) {
+      setMessage({ type: 'error', text: 'Usuário não autenticado' });
+      return;
+    }
 
-      setIsGeneratingBackup(true);
-      setMessage({ type: '', text: '' });
+    setIsGeneratingBackup(true);
+    setMessage({ type: '', text: '' });
 
-      try {
-        const backup = {
-          info: {
-            usuario_id: user.id,
-            email: user.email,
-            nome: user.user_metadata?.nome || user.user_metadata?.full_name || 'Usuário iPoupei',
-            data_backup: new Date().toISOString(),
-            versao: '1.0'
-          },
-          dados: {
-            contas: [],
-            cartoes: [],
-            categorias: [],
-            transacoes: [],
-            transferencias: [],
-            dividas: [],
-            amigos: []
-          },
-          resumo: {
-            total_registros: 0,
-            tabelas_processadas: 0,
-            status: 'completo'
-          }
-        };
-
-        // Buscar dados de todas as tabelas
-        const tables = [
-          { name: 'contas', key: 'contas' },
-          { name: 'cartoes', key: 'cartoes' },
-          { name: 'categorias', key: 'categorias' },
-          { name: 'transacoes', key: 'transacoes' },
-          { name: 'transferencias', key: 'transferencias' },
-          { name: 'dividas', key: 'dividas' }
-        ];
-
-        for (const table of tables) {
-          try {
-            const { data } = await supabase
-              .from(table.name)
-              .select('*')
-              .eq('usuario_id', user.id);
-            backup.dados[table.key] = data || [];
-            backup.resumo.total_registros += backup.dados[table.key].length;
-          } catch (err) {
-            console.warn(`Erro ao buscar ${table.name}:`, err);
-          }
+    try {
+      const backup = {
+        info: {
+          usuario_id: user.id,
+          email: user.email,
+          nome: user.user_metadata?.nome || user.user_metadata?.full_name || 'Usuário iPoupei',
+          data_backup: new Date().toISOString(),
+          versao: '1.0'
+        },
+        dados: {
+          contas: [],
+          cartoes: [],
+          categorias: [],
+          transacoes: [],
+          transferencias: [],
+          dividas: [],
+          amigos: []
+        },
+        resumo: {
+          total_registros: 0,
+          tabelas_processadas: 0,
+          status: 'completo'
         }
+      };
 
-        // Buscar amigos
+      // Buscar dados de todas as tabelas
+      const tables = [
+        { name: 'contas', key: 'contas' },
+        { name: 'cartoes', key: 'cartoes' },
+        { name: 'categorias', key: 'categorias' },
+        { name: 'transacoes', key: 'transacoes' },
+        { name: 'transferencias', key: 'transferencias' },
+        { name: 'dividas', key: 'dividas' }
+      ];
+
+      for (const table of tables) {
         try {
-          const { data: amigos } = await supabase
-            .from('amigos')
+          const { data } = await supabase
+            .from(table.name)
             .select('*')
-            .or(`usuario_proprietario.eq.${user.id},usuario_convidado.eq.${user.id}`);
-          backup.dados.amigos = amigos || [];
-          backup.resumo.total_registros += backup.dados.amigos.length;
+            .eq('usuario_id', user.id);
+          backup.dados[table.key] = data || [];
+          backup.resumo.total_registros += backup.dados[table.key].length;
         } catch (err) {
-          console.warn('Erro ao buscar amigos:', err);
+          console.warn(`Erro ao buscar ${table.name}:`, err);
         }
-
-        backup.resumo.tabelas_processadas = tables.length + 1;
-        
-        // Fazer download automaticamente
-        const dataStr = JSON.stringify(backup, null, 2);
-        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-        const url = URL.createObjectURL(dataBlob);
-        
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `ipoupei-backup-${user?.email?.replace('@', '-')}-${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        URL.revokeObjectURL(url);
-        
-        setMessage({
-          type: 'success',
-          text: `Backup gerado e baixado com sucesso! ${backup.resumo.total_registros} registros salvos.`
-        });
-
-      } catch (error) {
-        console.error('Erro ao gerar backup:', error);
-        setMessage({
-          type: 'error',
-          text: 'Erro ao gerar backup: ' + error.message
-        });
-      } finally {
-        setIsGeneratingBackup(false);
-      }
-    };
-
-    // Processa exclusão
-    const handleDeleteAccount = async () => {
-      if (confirmText !== 'EXCLUIR MINHA CONTA') {
-        setMessage({
-          type: 'error',
-          text: 'Digite exatamente "EXCLUIR MINHA CONTA" para confirmar'
-        });
-        return;
       }
 
-      const result = await deleteAccount('', confirmText);
-      if (result.success) {
-        setMessage({
-          type: 'success',
-          text: 'Conta excluída com sucesso. Você será desconectado em instantes.'
-        });
-        setShowDeleteModal(false);
-        
-        setTimeout(() => {
-          window.location.href = '/';
-        }, 3000);
-      } else {
-        setMessage({
-          type: 'error',
-          text: result.error || 'Erro ao excluir conta'
-        });
+      // Buscar amigos
+      try {
+        const { data: amigos } = await supabase
+          .from('amigos')
+          .select('*')
+          .or(`usuario_proprietario.eq.${user.id},usuario_convidado.eq.${user.id}`);
+        backup.dados.amigos = amigos || [];
+        backup.resumo.total_registros += backup.dados.amigos.length;
+      } catch (err) {
+        console.warn('Erro ao buscar amigos:', err);
       }
-    };
 
-    // Processa desativação
-    const handleDeactivateAccount = async () => {
-      const result = await deactivateAccount();
-      if (result.success) {
-        setMessage({
-          type: 'success',
-          text: 'Conta desativada com sucesso. Você pode reativá-la fazendo login novamente.'
-        });
-        setShowDeactivateModal(false);
-        
-        setTimeout(() => {
-          window.location.href = '/';
-        }, 3000);
-      } else {
-        setMessage({
-          type: 'error',
-          text: result.error || 'Erro ao desativar conta'
-        });
-      }
-    };
+      backup.resumo.tabelas_processadas = tables.length + 1;
+      
+      // Fazer download automaticamente
+      const dataStr = JSON.stringify(backup, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `ipoupei-backup-${user?.email?.replace('@', '-')}-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      URL.revokeObjectURL(url);
+      
+      setMessage({
+        type: 'success',
+        text: `Backup gerado e baixado com sucesso! ${backup.resumo.total_registros} registros salvos.`
+      });
 
-    return (
-      <div className="content-card__body">
-        <div className="section-header">
-          <h2 className="section-header__title">Exclusão de Conta</h2>
-          <p className="section-header__description">Gerencie a exclusão ou desativação da sua conta iPoupei</p>
+    } catch (error) {
+      console.error('Erro ao gerar backup:', error);
+      setMessage({
+        type: 'error',
+        text: 'Erro ao gerar backup: ' + error.message
+      });
+    } finally {
+      setIsGeneratingBackup(false);
+    }
+  };
+
+  // Processa exclusão
+  const handleDeleteAccount = async () => {
+    if (confirmText !== 'EXCLUIR MINHA CONTA') {
+      setMessage({
+        type: 'error',
+        text: 'Digite exatamente "EXCLUIR MINHA CONTA" para confirmar'
+      });
+      return;
+    }
+
+    const result = await deleteAccount('', confirmText);
+    if (result.success) {
+      setMessage({
+        type: 'success',
+        text: 'Conta excluída com sucesso. Você será desconectado em instantes.'
+      });
+      setShowDeleteModal(false);
+      
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 3000);
+    } else {
+      setMessage({
+        type: 'error',
+        text: result.error || 'Erro ao excluir conta'
+      });
+    }
+  };
+
+  // Processa desativação
+  const handleDeactivateAccount = async () => {
+    const result = await deactivateAccount();
+    if (result.success) {
+      setMessage({
+        type: 'success',
+        text: 'Conta desativada com sucesso. Você pode reativá-la fazendo login novamente.'
+      });
+      setShowDeactivateModal(false);
+      
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 3000);
+    } else {
+      setMessage({
+        type: 'error',
+        text: result.error || 'Erro ao desativar conta'
+      });
+    }
+  };
+
+  return (
+    <div className="ip_card_grande">
+      {/* Header da seção */}
+      <div className="ip_header_item ip_mb_4">
+        <div className="ip_icone_item ip_cor_vermelho">
+          <Trash2 size={20} />
         </div>
+        <div className="ip_info_item">
+          <h2 className="ip_titulo_item">Exclusão de Conta</h2>
+          <p className="ip_subtitulo_item">Gerencie a exclusão ou desativação da sua conta iPoupei</p>
+        </div>
+      </div>
 
-        {/* Aviso importante */}
-        <div className="feedback-message feedback-message--error" style={{ marginBottom: '2rem' }}>
-          <AlertCircle size={24} />
-          <div>
-            <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 600 }}>
-              ⚠️ Atenção: Ação Irreversível
-            </h4>
-            <p style={{ margin: 0, fontSize: '0.875rem' }}>
-              A exclusão da conta é permanente e não pode ser desfeita. Todos os seus dados serão perdidos.
-              <strong> Faça um backup antes de prosseguir.</strong>
-            </p>
+      {/* Aviso importante */}
+      <div className="ip_mensagem_feedback erro ip_mb_4">
+        <AlertCircle size={20} />
+        <div>
+          <strong>⚠️ Atenção: Ação Irreversível</strong>
+          <br />
+          A exclusão da conta é permanente e não pode ser desfeita. Todos os seus dados serão perdidos.
+          <strong> Faça um backup antes de prosseguir.</strong>
+        </div>
+      </div>
+
+      {/* Seção de Backup */}
+      <div className="ip_card_medio ip_mb_4">
+        <div className="ip_header_item ip_mb_3">
+          <div className="ip_icone_item ip_cor_azul">
+            <FileText size={18} />
+          </div>
+          <div className="ip_info_item">
+            <h3 className="ip_titulo_item">📁 Backup dos Dados</h3>
+            <p className="ip_subtitulo_item">Exporte todos os seus dados financeiros em um arquivo JSON</p>
           </div>
         </div>
 
-        {/* Seção de Backup */}
-        <div className="content-card" style={{ marginBottom: '1.5rem' }}>
-          <div className="content-card__body content-card__body--compact">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-              <FileText size={24} color="#3b82f6" />
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600 }}>📁 Backup dos Dados</h3>
-                <p style={{ margin: '0.25rem 0 0 0', color: '#6b7280', fontSize: '0.875rem' }}>
-                  Exporte todos os seus dados financeiros em um arquivo JSON
-                </p>
+        <div className="ip_flex ip_flex_centro">
+          <button
+            onClick={generateAndDownloadBackup}
+            disabled={isGeneratingBackup}
+            className={`ip_botao_base ip_botao_azul ip_botao_medio ${isGeneratingBackup ? 'ip_loading' : ''}`}
+          >
+            {isGeneratingBackup && <div className="ip_loading_spinner_pequeno"></div>}
+            <FileText size={16} />
+            {isGeneratingBackup ? 'Gerando e baixando...' : '💾 Gerar e Baixar Backup'}
+          </button>
+        </div>
+      </div>
+
+      {/* Seção de Ações de Conta */}
+      <div className="ip_card_medio">
+        <div className="ip_header_item ip_mb_4">
+          <div className="ip_icone_item ip_cor_laranja">
+            <Shield size={18} />
+          </div>
+          <div className="ip_info_item">
+            <h3 className="ip_titulo_item">⚙️ Ações da Conta</h3>
+            <p className="ip_subtitulo_item">Escolha como deseja proceder com sua conta</p>
+          </div>
+        </div>
+
+        <div className="ip_flex ip_flex_coluna ip_gap_3">
+          {/* Opção de Desativação */}
+          <div className="ip_card_item_destaque" style={{ borderLeftColor: '#f59e0b', backgroundColor: '#fffbeb' }}>
+            <div className="ip_header_item">
+              <div className="ip_icone_item ip_cor_amarelo">
+                <Clock size={18} />
+              </div>
+              <div className="ip_info_item">
+                <h4 className="ip_titulo_item">⏸️ Desativar Temporariamente</h4>
+                <p className="ip_subtitulo_item">Suspende sua conta mas mantém os dados para reativação futura</p>
               </div>
             </div>
-
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <div className="ip_acoes_item_posicionadas">
               <button
-                onClick={generateAndDownloadBackup}
-                disabled={isGeneratingBackup}
-                className={`action-button action-button--primary ${isGeneratingBackup ? 'action-button--loading' : ''}`}
+                onClick={() => setShowDeactivateModal(true)}
+                className="ip_botao_base ip_botao_amarelo ip_botao_pequeno"
               >
-                {isGeneratingBackup && <div className="button-spinner"></div>}
-                <FileText size={16} />
-                {isGeneratingBackup ? 'Gerando e baixando...' : '💾 Gerar e Baixar Backup'}
+                Desativar
+              </button>
+            </div>
+          </div>
+
+          {/* Opção de Exclusão */}
+          <div className="ip_card_item_destaque" style={{ borderLeftColor: '#ef4444', backgroundColor: '#fef2f2' }}>
+            <div className="ip_header_item">
+              <div className="ip_icone_item ip_cor_vermelho">
+                <Trash2 size={18} />
+              </div>
+              <div className="ip_info_item">
+                <h4 className="ip_titulo_item">🗑️ Excluir Permanentemente</h4>
+                <p className="ip_subtitulo_item">Remove sua conta e todos os dados de forma irreversível</p>
+              </div>
+            </div>
+            <div className="ip_acoes_item_posicionadas">
+              <button
+                onClick={() => setShowDeleteModal(true)}
+                className="ip_botao_base ip_botao_vermelho ip_botao_pequeno"
+              >
+                Excluir
               </button>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Seção de Ações de Conta */}
-        <div className="content-card">
-          <div className="content-card__body content-card__body--compact">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-              <Shield size={24} color="#f59e0b" />
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600 }}>⚙️ Ações da Conta</h3>
-                <p style={{ margin: '0.25rem 0 0 0', color: '#6b7280', fontSize: '0.875rem' }}>
-                  Escolha como deseja proceder com sua conta
-                </p>
+      {/* Modal de Confirmação de Exclusão */}
+      {showDeleteModal && (
+        <div className="ip_modal_fundo">
+          <div className="ip_modal_medio">
+            <div className="ip_header_vermelho">
+              <div className="ip_flex ip_gap_3">
+                <Trash2 size={20} />
+                <div>
+                  <h3 className="ip_modal_titulo">🗑️ Confirmar Exclusão Permanente</h3>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowDeleteModal(false)} 
+                className="ip_modal_close"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="ip_modal_content">
+              <div className="ip_mensagem_feedback erro ip_mb_4">
+                <AlertCircle size={24} />
+                <div>
+                  <strong>⚠️ Atenção: Esta ação é irreversível!</strong>
+                  <br />
+                  Todos os seus dados serão permanentemente excluídos e não poderão ser recuperados.
+                </div>
+              </div>
+
+              <div className="ip_grupo_formulario">
+                <label className="ip_label">
+                  Para confirmar, digite exatamente: <strong>EXCLUIR MINHA CONTA</strong>
+                </label>
+                <input
+                  type="text"
+                  value={confirmText}
+                  onChange={(e) => setConfirmText(e.target.value)}
+                  placeholder="EXCLUIR MINHA CONTA"
+                  className={`ip_input_base ${confirmText === 'EXCLUIR MINHA CONTA' ? '' : 'ip_input_erro'}`}
+                  autoComplete="off"
+                />
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {/* Opção de Desativação */}
-              <div className="preference-item" style={{ backgroundColor: '#fffbeb' }}>
-                <div className="preference-info">
-                  <Clock size={20} color="#f59e0b" />
-                  <div className="preference-text">
-                    <h4 className="preference-text__title">⏸️ Desativar Temporariamente</h4>
-                    <p className="preference-text__description">
-                      Suspende sua conta mas mantém os dados para reativação futura
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowDeactivateModal(true)}
-                  className="action-button action-button--secondary"
-                  style={{ backgroundColor: '#f59e0b', color: 'white', borderColor: '#f59e0b' }}
-                >
-                  Desativar
-                </button>
-              </div>
-
-              {/* Opção de Exclusão */}
-              <div className="preference-item" style={{ backgroundColor: '#fef2f2', borderColor: '#fecaca' }}>
-                <div className="preference-info">
-                  <Trash2 size={20} color="#ef4444" />
-                  <div className="preference-text">
-                    <h4 className="preference-text__title">🗑️ Excluir Permanentemente</h4>
-                    <p className="preference-text__description">
-                      Remove sua conta e todos os dados de forma irreversível
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowDeleteModal(true)}
-                  className="action-button"
-                  style={{ backgroundColor: '#ef4444', color: 'white', border: 'none' }}
-                >
-                  Excluir
-                </button>
-              </div>
+            <div className="ip_modal_footer">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setConfirmText('');
+                }}
+                className="ip_botao_base ip_botao_cinza ip_botao_medio"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={confirmText !== 'EXCLUIR MINHA CONTA'}
+                className="ip_botao_base ip_botao_vermelho ip_botao_medio"
+                style={{ 
+                  opacity: confirmText === 'EXCLUIR MINHA CONTA' ? 1 : 0.6
+                }}
+              >
+                <Trash2 size={16} />
+                🗑️ Excluir Conta Permanentemente
+              </button>
             </div>
           </div>
         </div>
+      )}
 
-        {/* Modal de Confirmação de Exclusão */}
-        {showDeleteModal && (
-          <div className="modal-overlay active">
-            <div className="forms-modal-container">
-              <div className="modal-header">
-                <div className="modal-header-content">
-                  <div className="modal-icon-container modal-icon-danger">
-                    <Trash2 size={20} />
-                  </div>
-                  <div>
-                    <h3 className="modal-title">🗑️ Confirmar Exclusão Permanente</h3>
-                  </div>
+      {/* Modal de Desativação */}
+      {showDeactivateModal && (
+        <div className="ip_modal_fundo">
+          <div className="ip_modal_medio">
+            <div className="ip_header_amarelo" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}>
+              <div className="ip_flex ip_gap_3">
+                <Clock size={20} />
+                <div>
+                  <h3 className="ip_modal_titulo">⏸️ Desativar Conta Temporariamente</h3>
                 </div>
-                <button 
-                  onClick={() => setShowDeleteModal(false)} 
-                  className="modal-close"
-                >
-                  ×
-                </button>
               </div>
-              
-              <div className="modal-body">
-                <div className="feedback-message feedback-message--error">
-                  <AlertCircle size={24} />
-                  <div>
-                    <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 600 }}>
-                      ⚠️ Atenção: Esta ação é irreversível!
-                    </h4>
-                    <p style={{ margin: 0 }}>
-                      Todos os seus dados serão permanentemente excluídos e não poderão ser recuperados.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="field-group">
-                  <label className="field-label">
-                    Para confirmar, digite exatamente: <strong>EXCLUIR MINHA CONTA</strong>
-                  </label>
-                  <input
-                    type="text"
-                    value={confirmText}
-                    onChange={(e) => setConfirmText(e.target.value)}
-                    placeholder="EXCLUIR MINHA CONTA"
-                    className={`input-field ${confirmText === 'EXCLUIR MINHA CONTA' ? '' : 'input-field--error'}`}
-                    autoComplete="off"
-                  />
+              <button 
+                onClick={() => setShowDeactivateModal(false)} 
+                className="ip_modal_close"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="ip_modal_content">
+              <div className="ip_mensagem_feedback info ip_mb_4">
+                <Clock size={24} />
+                <div>
+                  <strong>⏸️ Desativação Temporária</strong>
+                  <br />
+                  Sua conta será desativada, mas seus dados ficarão salvos em segurança. 
+                  Você pode reativar a qualquer momento fazendo login novamente.
                 </div>
               </div>
 
-              <div className="modal-footer">
-                <button
-                  onClick={() => {
-                    setShowDeleteModal(false);
-                    setConfirmText('');
-                  }}
-                  className="action-button action-button--secondary"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleDeleteAccount}
-                  disabled={confirmText !== 'EXCLUIR MINHA CONTA'}
-                  className="action-button"
-                  style={{ 
-                    backgroundColor: confirmText === 'EXCLUIR MINHA CONTA' ? '#dc2626' : '#6b7280',
-                    color: 'white',
-                    border: 'none',
-                    opacity: confirmText === 'EXCLUIR MINHA CONTA' ? 1 : 0.6
-                  }}
-                >
-                  <Trash2 size={16} />
-                  🗑️ Excluir Conta Permanentemente
-                </button>
+              <div className="ip_card_pequeno">
+                <h4 className="ip_titulo_item ip_mb_2">✅ Vantagens da desativação:</h4>
+                <ul className="ip_lista_beneficios">
+                  <li>📊 Todos os dados permanecem salvos</li>
+                  <li>🔄 Pode reativar a qualquer momento</li>
+                  <li>⚙️ Suas configurações são preservadas</li>
+                  <li>📈 Histórico financeiro permanece intacto</li>
+                </ul>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Modal de Desativação */}
-        {showDeactivateModal && (
-          <div className="modal-overlay active">
-            <div className="forms-modal-container">
-              <div className="modal-header">
-                <div className="modal-header-content">
-                  <div className="modal-icon-container modal-icon-warning">
-                    <Clock size={20} />
-                  </div>
-                  <div>
-                    <h3 className="modal-title">⏸️ Desativar Conta Temporariamente</h3>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setShowDeactivateModal(false)} 
-                  className="modal-close"
-                >
-                  ×
-                </button>
-              </div>
-              
-              <div className="modal-body">
-                <div className="feedback-message feedback-message--info">
-                  <Clock size={24} />
-                  <div>
-                    <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 600 }}>
-                      ⏸️ Desativação Temporária
-                    </h4>
-                    <p style={{ margin: 0 }}>
-                      Sua conta será desativada, mas seus dados ficarão salvos em segurança. 
-                      Você pode reativar a qualquer momento fazendo login novamente.
-                    </p>
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <h4 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.75rem' }}>
-                    ✅ Vantagens da desativação:
-                  </h4>
-                  <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#6b7280', fontSize: '0.8125rem' }}>
-                    <li style={{ marginBottom: '0.25rem' }}>📊 Todos os dados permanecem salvos</li>
-                    <li style={{ marginBottom: '0.25rem' }}>🔄 Pode reativar a qualquer momento</li>
-                    <li style={{ marginBottom: '0.25rem' }}>⚙️ Suas configurações são preservadas</li>
-                    <li style={{ marginBottom: '0.25rem' }}>📈 Histórico financeiro permanece intacto</li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="modal-footer">
-                <button
-                  onClick={() => setShowDeactivateModal(false)}
-                  className="action-button action-button--secondary"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleDeactivateAccount}
-                  className="action-button"
-                  style={{ backgroundColor: '#f59e0b', color: 'white', border: 'none' }}
-                >
-                  <Clock size={16} />
-                  ⏸️ Desativar Conta
-                </button>
-              </div>
+            <div className="ip_modal_footer">
+              <button
+                onClick={() => setShowDeactivateModal(false)}
+                className="ip_botao_base ip_botao_cinza ip_botao_medio"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeactivateAccount}
+                className="ip_botao_base ip_botao_amarelo ip_botao_medio"
+              >
+                <Clock size={16} />
+                ⏸️ Desativar Conta
+              </button>
             </div>
           </div>
-        )}
-      </div>
-    );
-  };
+        </div>
+      )}
+    </div>
+  );
+};
   
   // Renderiza mensagem de sucesso ou erro
   const renderMessage = () => {

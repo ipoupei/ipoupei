@@ -5,7 +5,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 
 
 // Styles
-import '@modules/transacoes/styles/TransacoesPage.css';
+import '@shared/styles/PrincipalArquivoDeClasses.css';
 
 // Layouts
 import PageContainer from '@shared/components/layouts/PageContainer';
@@ -20,6 +20,7 @@ import ReceitasModal from '@modules/transacoes/components/ReceitasModalEdit';
 import ImportacaoModal from '@modules/transacoes/components/ImportacaoModal';
 import DespesasCartaoModalEdit from '@modules/transacoes/components/DespesasCartaoModalEdit';
 import { useTransactionsStore } from '@modules/transacoes/store/transactionsStore';
+
 
 
 // Utils
@@ -679,10 +680,11 @@ const applyFilters = () => {
   const hasActiveFilters = filtrosAtivos > 0;
 
   // Ações das transações
+
   const handleToggleEfetivado = (transacao) => {
-    // Bloquear alteração apenas para transações de cartão já efetivadas
-    if (transacao.cartao_id && transacao.efetivado) {
-      alert('Transações de cartão já efetivadas só podem ser gerenciadas pela tela de Fatura do Cartão.');
+    // ✅ REGRA: Bloquear QUALQUER transação de cartão (efetivada ou não)
+    if (transacao.cartao_id) {
+      alert('Transações de cartão de crédito só podem ter seu status alterado pela tela de Fatura do Cartão.');
       return;
     }
     
@@ -690,7 +692,6 @@ const applyFilters = () => {
     setConfirmAction('toggle_efetivado');
     setShowConfirmModal(true);
   };
-
 
   const verificarGrupoCartaoParaExclusao = async (transacao) => {
   try {
@@ -877,143 +878,179 @@ const executeConfirmAction = async () => {
 };
   // ========== COMPONENTES ==========
 
-  // Cabeçalho da tabela
-  const TableHeader = ({ label, sortKey, className = '' }) => {
-    const isSorted = sortConfig.key === sortKey;
-    const direction = isSorted ? sortConfig.direction : null;
-    
-    return (
-      <th 
-        className={`sortable-header ${className} ${isSorted ? 'sorted' : ''}`}
-        onClick={() => handleSort(sortKey)}
-        style={{ cursor: 'pointer', userSelect: 'none' }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          {label}
-          <span style={{ marginLeft: '4px', opacity: isSorted ? 1 : 0.5 }}>
-            {!isSorted && '⇅'}
-            {isSorted && direction === 'asc' && '↑'}
-            {isSorted && direction === 'desc' && '↓'}
+// Cabeçalho da tabela refatorado com classes iPOUPEI
+const TableHeader = ({ label, sortKey, className = '' }) => {
+  const isSorted = sortConfig.key === sortKey;
+  const direction = isSorted ? sortConfig.direction : null;
+  
+  return (
+    <th 
+      className={`ip_tabela_ordenavel ${className} ${isSorted ? 'ip_tabela_ordenavel_ativo' : ''}`}
+      onClick={() => handleSort(sortKey)}
+    >
+      <div className="ip_flex" style={{ justifyContent: 'space-between' }}>
+        {label}
+        <span style={{ 
+          marginLeft: '4px', 
+          opacity: isSorted ? 1 : 0.5,
+          fontSize: '0.75rem'
+        }}>
+          {!isSorted && '⇅'}
+          {isSorted && direction === 'asc' && '↑'}
+          {isSorted && direction === 'desc' && '↓'}
+        </span>
+      </div>
+    </th>
+  );
+};
+// Linha da transação refatorada com classes iPOUPEI
+const TransactionRow = ({ transacao }) => {
+  const isReceita = transacao.tipo === 'receita';
+  const isFatura = transacao.tipo === 'fatura';
+  const isCartaoTransacao = transacao.cartao_id; // ✅ MUDANÇA: Qualquer transação de cartão
+  
+  return (
+    <tr className={`ip_tabela_linha ${!transacao.efetivado ? 'ip_estado_inativo' : ''}`}>
+      <td className="ip_tabela_celula">
+        {format(parseDateAsLocal(transacao.data), 'dd/MM/yyyy')}
+      </td>
+      
+      <td className="ip_tabela_celula">
+        <div style={{ 
+          maxWidth: '200px', 
+          overflow: 'hidden', 
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap'
+        }}>
+          {transacao.descricao}
+        </div>
+      </td>
+      
+      <td className="ip_tabela_celula">
+        <div className="ip_flex ip_gap_2">
+          <span 
+            className="ip_indicador_cor_pequeno"
+            style={{ backgroundColor: transacao.categoria_cor || '#6B7280' }}
+          />
+          <span style={{ fontSize: '0.875rem' }}>
+            {transacao.categoria_nome}
           </span>
         </div>
-      </th>
-    );
-  };
-
-  // Linha da transação
-  const TransactionRow = ({ transacao }) => {
-    const isReceita = transacao.tipo === 'receita';
-    const isFatura = transacao.tipo === 'fatura';
-    const isCartaoTransacao = transacao.cartao_id && !isFatura && transacao.efetivado;
-    
-    return (
-      <tr className={`transaction-row ${!transacao.efetivado ? 'pending' : ''}`}>
-        <td>{format(parseDateAsLocal(transacao.data), 'dd/MM/yyyy')}</td>
-        <td>
-          <div style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {transacao.descricao}
-          </div>
-        </td>
-        <td>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span 
-              style={{ 
-                width: '8px', 
-                height: '8px', 
-                borderRadius: '50%', 
-                backgroundColor: transacao.categoria_cor || '#6B7280',
-                flexShrink: 0
-              }}
-            />
-            <span style={{ fontSize: '0.875rem' }}>{transacao.categoria_nome}</span>
-          </div>
-        </td>
-        <td>
-          {/* ===== BUG FIX 23: Exibir nome do cartão quando for despesa de cartão ===== */}
-          {isFatura ? '-' : (
-            isCartaoTransacao ? (transacao.cartao_nome || 'Cartão não informado') : transacao.conta_nome
-          )}
-        </td>
-        <td style={{ textAlign: 'right' }}>
+      </td>
+      
+      <td className="ip_tabela_celula">
+        {isFatura ? '-' : (
+          isCartaoTransacao 
+            ? (transacao.cartao_nome || 'Cartão não informado') 
+            : transacao.conta_nome
+        )}
+      </td>
+      
+      <td className="ip_tabela_celula" style={{ textAlign: 'right' }}>
+        <span className={`${isReceita ? 'ip_valor_verde' : 'ip_valor_vermelho'}`}>
+          {isReceita ? '+' : '-'} {formatCurrency(Math.abs(transacao.valor))}
+        </span>
+      </td>
+      
+      {/* ✅ CORREÇÃO: Coluna de Status */}
+      <td className="ip_tabela_celula" style={{ textAlign: 'center' }}>
+        {isFatura ? (
+          // ✅ Para faturas: apenas indicador visual
           <span 
-            className={`valor ${isReceita ? 'receita' : 'despesa'}`}
-            style={{ 
-              fontWeight: 'bold',
-              color: isReceita ? '#10b981' : '#ef4444'
-            }}
-          >
-            {isReceita ? '+' : '-'} {formatCurrency(Math.abs(transacao.valor))}
-          </span>
-        </td>
-        <td style={{ textAlign: 'center' }}>
-          <button
-            className={`status-badge ${transacao.efetivado ? 'efetivado' : 'pendente'}`}
-            onClick={() => !isFatura && !isCartaoTransacao && handleToggleEfetivado(transacao)}
-            disabled={isFatura || isCartaoTransacao}
-            title={
-              isFatura ? 'Faturas não podem ser alteradas' : 
-              isCartaoTransacao ? 'Esta transação só pode ser editada pela fatura do cartão de crédito.' :
-              transacao.efetivado ? 'Clique para marcar como pendente' : 'Clique para efetivar'
-            }
+            className="ip_botao_icone_pequeno efetivado"
             style={{
               width: '28px',
               height: '28px',
               borderRadius: '50%',
-              border: 'none',
-              cursor: (isFatura || isCartaoTransacao) ? 'not-allowed' : 'pointer',
-              fontSize: '0.75rem',
-              fontWeight: 'bold',
+              backgroundColor: '#ecfdf5',
+              color: '#10b981',
+              opacity: 0.8,
+              cursor: 'default'
+            }}
+            title="Faturas são sempre consideradas efetivadas"
+          >
+            ✓
+          </span>
+        ) : isCartaoTransacao ? (
+          // ✅ Para transações de cartão: indicador bloqueado
+          <span 
+            className="ip_botao_icone_pequeno"
+            style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: '50%',
               backgroundColor: transacao.efetivado ? '#ecfdf5' : '#fffbeb',
               color: transacao.efetivado ? '#10b981' : '#f59e0b',
-              opacity: (isFatura || isCartaoTransacao) ? 0.6 : 1
+              opacity: 0.6,
+              cursor: 'not-allowed',
+              border: '1px solid #e5e7eb'
+            }}
+            title="Status de transações de cartão só pode ser alterado pela tela de Fatura do Cartão"
+          >
+            {transacao.efetivado ? '✓' : '⚠'}
+          </span>
+        ) : (
+          // ✅ Para transações normais: botão funcional
+          <button
+            className={`ip_botao_icone_pequeno ${transacao.efetivado ? 'efetivado' : 'pendente'}`}
+            onClick={() => handleToggleEfetivado(transacao)}
+            title={transacao.efetivado ? 'Clique para marcar como pendente' : 'Clique para efetivar'}
+            style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: '50%',
+              backgroundColor: transacao.efetivado ? '#ecfdf5' : '#fffbeb',
+              color: transacao.efetivado ? '#10b981' : '#f59e0b',
+              cursor: 'pointer'
             }}
           >
             {transacao.efetivado ? '✓' : '⚠'}
           </button>
-        </td>
-        <td style={{ textAlign: 'center' }}>
-          {!isFatura && (
-            <div className="action-buttons" style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
-              <button 
-                onClick={() => handleEditTransacao(transacao)}
-                disabled={isCartaoTransacao}
-                title={isCartaoTransacao ? 'Esta transação só pode ser editada pela fatura do cartão de crédito.' : 'Editar'}
-                style={{
-                  width: '28px',
-                  height: '28px',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '4px',
-                  background: isCartaoTransacao ? '#f9fafb' : 'white',
-                  cursor: isCartaoTransacao ? 'not-allowed' : 'pointer',
-                  fontSize: '0.75rem',
-                  opacity: isCartaoTransacao ? 0.6 : 1
-                }}
-              >
-                ✏️
-              </button>
-              <button 
-                onClick={() => handleDeleteTransacao(transacao)}
-                disabled={isCartaoTransacao}
-                title={isCartaoTransacao ? 'Exclusão só permitida pela tela de Fatura do Cartão.' : 'Excluir'}
-                style={{
-                  width: '28px',
-                  height: '28px',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '4px',
-                  background: isCartaoTransacao ? '#f9fafb' : 'white',
-                  cursor: isCartaoTransacao ? 'not-allowed' : 'pointer',
-                  fontSize: '0.75rem',
-                  opacity: isCartaoTransacao ? 0.6 : 1
-                }}
-              >
-                🗑️
-              </button>
-            </div>
-          )}
-        </td>
-      </tr>
-    );
-  };
+        )}
+      </td>
+      
+      {/* ✅ MANTER: Coluna de Ações (já estava correta) */}
+      <td className="ip_tabela_celula" style={{ textAlign: 'center' }}>
+        {!isFatura && (
+          <div className="ip_acoes_item ip_flex ip_gap_1" style={{ justifyContent: 'center' }}>
+            <button 
+              className="ip_botao_icone_pequeno_card"
+              onClick={() => handleEditTransacao(transacao)}
+              disabled={isCartaoTransacao && transacao.efetivado}
+              title={
+                isCartaoTransacao && transacao.efetivado 
+                  ? 'Esta transação só pode ser editada pela fatura do cartão de crédito.' 
+                  : 'Editar'
+              }
+              style={{
+                opacity: (isCartaoTransacao && transacao.efetivado) ? 0.6 : 1,
+                cursor: (isCartaoTransacao && transacao.efetivado) ? 'not-allowed' : 'pointer'
+              }}
+            >
+              ✏️
+            </button>
+            <button 
+              className="ip_botao_icone_pequeno_card vermelho"
+              onClick={() => handleDeleteTransacao(transacao)}
+              disabled={isCartaoTransacao && transacao.efetivado}
+              title={
+                isCartaoTransacao && transacao.efetivado 
+                  ? 'Exclusão só permitida pela tela de Fatura do Cartão.' 
+                  : 'Excluir'
+              }
+              style={{
+                opacity: (isCartaoTransacao && transacao.efetivado) ? 0.6 : 1,
+                cursor: (isCartaoTransacao && transacao.efetivado) ? 'not-allowed' : 'pointer'
+              }}
+            >
+              🗑️
+            </button>
+          </div>
+        )}
+      </td>
+    </tr>
+  );
+};
 
   // Modal de Filtros Avançados - VERSÃO ISOLADA (REMOVIDO AGRUPAMENTO POR CARTÃO)
   const FilterModal = () => {
@@ -1036,35 +1073,72 @@ const executeConfirmAction = async () => {
       setLocalFilters({ ...filters }); // Reset para valores originais
       setShowFilterModal(false);
     };
+// Modal de Filtros refatorado com classes iPOUPEI
+const gridStyle2Cols = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: '1rem',
+  marginBottom: '1rem',
+  width: '100%'
+};
+
+const gridStyle3Cols = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr 1fr',
+  gap: '1rem',
+  marginBottom: '1rem',
+  width: '100%'
+};
+
+// Media query para mobile
+const isMobile = window.innerWidth <= 768;
+const mobileGridStyle = {
+  display: 'grid',
+  gridTemplateColumns: '1fr',
+  gap: '1rem',
+  marginBottom: '1rem',
+  width: '100%'
+};
+
+const inputGroupStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  width: '100%'
+};
+
+const inputStyle = {
+  width: '100%',
+  boxSizing: 'border-box'
+};
 
     return (
-      <div className="modal-overlay active" style={{ alignItems: 'flex-start', paddingTop: '120px' }}>
-        <div className="forms-modal-container">
+      <div className="ip_modal_fundo" style={{ alignItems: 'flex-start', paddingTop: '120px' }}>
+        <div className="ip_modal_medio">
+          
           {/* Header */}
-          <div className="modal-header">
-            <div className="modal-header-content">
-              <div className="modal-icon-container modal-icon-primary">
-                🔍
-              </div>
-              <div>
-                <h2 className="modal-title">Filtros Avançados</h2>
-                <p className="modal-subtitle">
-                  Configure os filtros para refinar sua busca de transações
-                </p>
+          <div className="ip_header_azul">
+            
+            <div className="ip_flex">
+              
+              <div className="ip_modal_titulo">Filtros Avançados</div>
+              <div className="ip_modal_subtitulo">
+                Configure os filtros para refinar sua busca de transações
               </div>
             </div>
-            <button onClick={handleCancel} className="modal-close">×</button>
+            <button onClick={handleCancel} className="ip_modal_close">×</button>
           </div>
 
           {/* Body */}
-          <div className="modal-body">
-            <div className="flex gap-3 row">
-              <div>
-                <label className="form-label">Tipo de Transação</label>
+          <div className="ip_modal_content">
+            {/* Linha 1: Tipo e Status */}
+            <div style={isMobile ? mobileGridStyle : gridStyle2Cols}>
+              <div className="ip_grupo_formulario" style={inputGroupStyle}>
+                <label className="ip_label">Tipo de Transação</label>
                 <select
                   value={localFilters.tipo}
                   onChange={(e) => handleLocalChange('tipo', e.target.value)}
-                  className="input-base"
+                  className="ip_input_base ip_input_select"
+                  style={inputStyle}
                 >
                   <option value="">Todos os tipos</option>
                   <option value="receita">💰 Receitas</option>
@@ -1072,29 +1146,30 @@ const executeConfirmAction = async () => {
                 </select>
               </div>
 
-              <div>
-                <label className="form-label">Status</label>
+              <div className="ip_grupo_formulario" style={inputGroupStyle}>
+                <label className="ip_label">Status</label>
                 <select
                   value={localFilters.efetivado}
                   onChange={(e) => handleLocalChange('efetivado', e.target.value)}
-                  className="input-base"
+                  className="ip_input_base ip_input_select"
+                  style={inputStyle}
                 >
                   <option value="">Todos os status</option>
                   <option value="true">✅ Efetivadas</option>
                   <option value="false">⏳ Pendentes</option>
                 </select>
               </div>
-
-              
             </div>
 
-            <div className="flex gap-3 row">
-              <div>
-                <label className="form-label">Categoria</label>
+            {/* Linha 2: Categoria e Subcategoria */}
+            <div style={isMobile ? mobileGridStyle : gridStyle2Cols}>
+              <div className="ip_grupo_formulario" style={inputGroupStyle}>
+                <label className="ip_label">Categoria</label>
                 <select
                   value={localFilters.categoria}
                   onChange={(e) => handleLocalChange('categoria', e.target.value)}
-                  className="input-base"
+                  className="ip_input_base ip_input_select"
+                  style={inputStyle}
                 >
                   <option value="">Todas as categorias</option>
                   {filterData.categorias.map(categoria => (
@@ -1105,13 +1180,14 @@ const executeConfirmAction = async () => {
                 </select>
               </div>
 
-              <div>
-                <label className="form-label">Subcategoria</label>
+              <div className="ip_grupo_formulario" style={inputGroupStyle}>
+                <label className="ip_label">Subcategoria</label>
                 <select
                   value={localFilters.subcategoria}
                   onChange={(e) => handleLocalChange('subcategoria', e.target.value)}
-                  className="input-base"
+                  className={`ip_input_base ip_input_select ${!localFilters.categoria ? 'ip_input_desabilitado' : ''}`}
                   disabled={!localFilters.categoria}
+                  style={inputStyle}
                 >
                   <option value="">Todas as subcategorias</option>
                   {filterData.subcategorias
@@ -1125,13 +1201,15 @@ const executeConfirmAction = async () => {
               </div>
             </div>
 
-            <div className="flex gap-3 row">
-              <div>
-                <label className="form-label">Conta</label>
+            {/* Linha 3: Conta e Cartão */}
+            <div style={isMobile ? mobileGridStyle : gridStyle2Cols}>
+              <div className="ip_grupo_formulario" style={inputGroupStyle}>
+                <label className="ip_label">Conta</label>
                 <select
                   value={localFilters.conta}
                   onChange={(e) => handleLocalChange('conta', e.target.value)}
-                  className="input-base"
+                  className="ip_input_base ip_input_select"
+                  style={inputStyle}
                 >
                   <option value="">Todas as contas</option>
                   {filterData.contas.map(conta => (
@@ -1142,12 +1220,13 @@ const executeConfirmAction = async () => {
                 </select>
               </div>
 
-              <div>
-                <label className="form-label">Cartão</label>
+              <div className="ip_grupo_formulario" style={inputGroupStyle}>
+                <label className="ip_label">Cartão</label>
                 <select
                   value={localFilters.cartao}
                   onChange={(e) => handleLocalChange('cartao', e.target.value)}
-                  className="input-base"
+                  className="ip_input_base ip_input_select"
+                  style={inputStyle}
                 >
                   <option value="">Todos os cartões</option>
                   {filterData.cartoes.map(cartao => (
@@ -1159,85 +1238,97 @@ const executeConfirmAction = async () => {
               </div>
             </div>
 
-            <div className="flex gap-3 row">
-              <div>
-                <label className="form-label">Valor Mínimo</label>
+            {/* Linha 4: Valores */}
+            <div style={isMobile ? mobileGridStyle : gridStyle2Cols}>
+              <div className="ip_grupo_formulario" style={inputGroupStyle}>
+                <label className="ip_label">Valor Mínimo</label>
                 <input
                   type="number"
                   value={localFilters.valorMin}
                   onChange={(e) => handleLocalChange('valorMin', e.target.value)}
                   placeholder="0,00"
-                  className="input-money"
+                  className="ip_input_base ip_input_dinheiro"
+                  style={inputStyle}
                   step="0.01"
                   min="0"
                 />
               </div>
 
-              <div>
-                <label className="form-label">Valor Máximo</label>
+              <div className="ip_grupo_formulario" style={inputGroupStyle}>
+                <label className="ip_label">Valor Máximo</label>
                 <input
                   type="number"
                   value={localFilters.valorMax}
                   onChange={(e) => handleLocalChange('valorMax', e.target.value)}
                   placeholder="999999,00"
-                  className="input-money"
+                  className="ip_input_base ip_input_dinheiro"
+                  style={inputStyle}
                   step="0.01"
                   min="0"
                 />
               </div>
             </div>
 
-            <div className="flex gap-3 row">
-              <div>
-                <label className="form-label">Data Início</label>
+            {/* Linha 5: Datas e Busca */}
+            <div style={isMobile ? mobileGridStyle : gridStyle3Cols}>
+              <div className="ip_grupo_formulario" style={inputGroupStyle}>
+                <label className="ip_label">Data Início</label>
                 <input
                   type="date"
                   value={localFilters.dataInicio}
                   onChange={(e) => handleLocalChange('dataInicio', e.target.value)}
-                  className="input-date"
+                  className="ip_input_base ip_input_data"
+                  style={inputStyle}
                 />
               </div>
 
-              <div>
-                <label className="form-label">Data Fim</label>
+              <div className="ip_grupo_formulario" style={inputGroupStyle}>
+                <label className="ip_label">Data Fim</label>
                 <input
                   type="date"
                   value={localFilters.dataFim}
                   onChange={(e) => handleLocalChange('dataFim', e.target.value)}
-                  className="input-date"
+                  className="ip_input_base ip_input_data"
+                  style={inputStyle}
                 />
               </div>
 
-              <div>
-                <label className="form-label">Buscar Descrição</label>
+              <div className="ip_grupo_formulario" style={inputGroupStyle}>
+                <label className="ip_label">Buscar Descrição</label>
                 <input
                   type="text"
                   value={localFilters.descricao}
                   onChange={(e) => handleLocalChange('descricao', e.target.value)}
                   placeholder="Digite para buscar..."
-                  className="input-text"
+                  className="ip_input_base ip_input_texto"
+                  style={inputStyle}
                 />
               </div>
             </div>
+            
           </div>
 
           {/* Footer */}
-          <div className="modal-footer">
-            <div className="footer-left">
-              <button 
-                onClick={clearFilters}
-                className="btn-secondary"
-                disabled={!hasActiveFilters}
-              >
-                🗑️ Limpar Todos
-              </button>
-            </div>
+          <div className="ip_modal_footer">
+            <button 
+              onClick={clearFilters}
+              className="ip_botao_cinza ip_botao_medio"
+              disabled={!hasActiveFilters}
+            >
+              🗑️ Limpar Todos
+            </button>
             
-            <div className="footer-right">
-              <button onClick={handleCancel} className="btn-cancel">
+            <div className="ip_flex ip_gap_2">
+              <button 
+                onClick={handleCancel} 
+                className="ip_botao_cinza ip_botao_medio"
+              >
                 Cancelar
               </button>
-              <button onClick={handleApply} className="btn-primary">
+              <button 
+                onClick={handleApply} 
+                className="ip_botao_azul ip_botao_medio"
+              >
                 ✅ Aplicar Filtros
               </button>
             </div>
@@ -1292,264 +1383,266 @@ const ConfirmModal = () => {
   };
 
   // ===== PARA MODAIS SIMPLES (sem escopo) =====
-  if (isToggle || (!isGrupoTransacao && !isCartaoMisto)) {
-    return (
-      <div className="modal-overlay active">
-        <div className="forms-modal-container" style={{ maxWidth: '480px' }}>
-          <div className="modal-header">
-            <div className="modal-header-content">
-              <div className={`modal-icon-container ${isDelete ? 'modal-icon-danger' : 'modal-icon-warning'}`}>
+if (isToggle || (!isGrupoTransacao && !isCartaoMisto)) {
+  return (
+    <div className="ip_modal_fundo">
+      <div className="ip_modal_pequeno ip_modal_w_520">
+        <div className={`${isDelete ? 'ip_header_vermelho' : 'ip_header_azul'}`}>
+          <div className="ip_flex">
+            <div>
+              <div className="ip_modal_titulo">
+                {getTitulo()}
+              </div>
+              <div className="ip_modal_subtitulo">
+                {isToggle ? 'Alterar status da transação' : 'Esta ação não pode ser desfeita'}
+              </div>
+            </div>
+          </div>
+          <button onClick={() => setShowConfirmModal(false)} className="ip_modal_close">×</button>
+        </div>
+
+        <div className="ip_modal_content ip_p_20">
+          <div className="ip_mensagem_personalizada ip_mb_3">
+            <div className={`ip_mensagem_card ${isDelete ? 'aviso' : 'info'}`} style={{ padding: '16px' }}>
+              <div className="ip_mensagem_icone">
                 {isToggle ? '⚠️' : '🗑️'}
               </div>
-              <div>
-                <h2 className="modal-title">{getTitulo()}</h2>
-                <p className="modal-subtitle">
-                  {isToggle ? 'Alterar status da transação' : 'Esta ação não pode ser desfeita'}
-                </p>
+              <div className="ip_mensagem_conteudo">
+                <h2 style={{ fontSize: '16px', fontWeight: '600', margin: '0' }}>
+                  {isToggle 
+                    ? `Deseja ${novoStatus ? 'efetivar' : 'marcar como pendente'} esta transação?`
+                    : 'Tem certeza que deseja excluir esta transação?'
+                  }
+                </h2>
               </div>
             </div>
-            <button onClick={() => setShowConfirmModal(false)} className="modal-close">×</button>
           </div>
-
-          <div className="modal-body">
-            <div className="confirmation-question">
-              <p className="confirmation-text">
-                {isToggle 
-                  ? `Deseja ${novoStatus ? 'efetivar' : 'marcar como pendente'} esta transação?`
-                  : 'Tem certeza que deseja excluir esta transação?'
-                }
-              </p>
+          
+          <div className="ip_card_pequeno ip_p_16" style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+            <div className="ip_flex ip_gap_2 ip_mb_3">
+              <span style={{ fontSize: '14px' }}>🧾</span>
+              <span style={{ fontSize: '14px', fontWeight: '600', color: '#64748b' }}>
+                Detalhes da Transação
+              </span>
             </div>
             
-            <div className="confirmation-info">
-              <div className="confirmation-item">
+            <div className="ip_flex_wrap ip_texto_inline_pequeno">
+              <span>
                 <strong>Descrição:</strong> {transacaoParaConfirm.descricao}
-              </div>
-              <div className="confirmation-item">
+              </span>
+              <span>
                 <strong>Valor:</strong> {formatCurrency(Math.abs(transacaoParaConfirm.valor))}
-              </div>
-              <div className="confirmation-item">
+              </span>
+              <span>
                 <strong>Data:</strong> {format(new Date(transacaoParaConfirm.data), 'dd/MM/yyyy')}
-              </div>
-              <div className="confirmation-item">
+              </span>
+              <span>
                 <strong>Categoria:</strong> {transacaoParaConfirm.categoria_nome}
-              </div>
-            </div>
-          </div>
-
-          <div className="modal-footer">
-            <div className="footer-right">
-              <button onClick={() => setShowConfirmModal(false)} className="btn-cancel">
-                Cancelar
-              </button>
-              <button 
-                onClick={executeConfirmAction}
-                className={isDelete ? 'btn-secondary btn-secondary--danger' : 'btn-primary'}
-              >
-                {isDelete ? '🗑️ Excluir' : '✅ Confirmar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ===== MODAL COMPLEXO (com escopo) =====
-  return (
-    <div className="modal-overlay active">
-      <div className="forms-modal-container" style={{ maxWidth: '520px' }}>
-        {/* Header simplificado */}
-        <div className="modal-header">
-          <div className="modal-header-content">
-            <div className="modal-icon-container modal-icon-danger">
-              {isCartaoMisto ? '💳' : (transacaoInfo?.isParcelada ? '📦' : '🔄')}
-            </div>
-            <div>
-              <h2 className="modal-title" style={{ fontSize: '18px', marginBottom: '4px' }}>
-                {getTitulo()}
-              </h2>
-              <p className="modal-subtitle" style={{ fontSize: '14px', color: '#6b7280' }}>
-                Escolha o que deseja excluir:
-              </p>
-            </div>
-          </div>
-          <button onClick={() => setShowConfirmModal(false)} className="modal-close">×</button>
-        </div>
-
-        <div className="modal-body" style={{ padding: '20px 24px' }}>
-          {/* Opções de escopo - Design limpo */}
-          <div style={{ marginBottom: '24px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              
-              {/* Opção 1: Apenas atual */}
-              <label 
-                className={`confirmation-option-clean ${escopoExclusao === 'atual' ? 'active' : ''}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '12px',
-                  padding: '16px',
-                  border: escopoExclusao === 'atual' ? '2px solid #3b82f6' : '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  backgroundColor: escopoExclusao === 'atual' ? '#eff6ff' : '#ffffff',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                <input
-                  type="radio"
-                  name="escopoExclusao"
-                  value="atual"
-                  checked={escopoExclusao === 'atual'}
-                  onChange={(e) => setEscopoExclusao(e.target.value)}
-                  style={{ marginTop: '2px' }}
-                />
-                <div style={{ flex: 1 }}>
-                  <div style={{ 
-                    fontWeight: '600', 
-                    fontSize: '14px', 
-                    color: '#1f2937',
-                    marginBottom: '4px'
-                  }}>
-                    {isCartaoMisto ? 'Esta parcela' : 
-                     transacaoInfo?.isParcelada ? 'Esta parcela' : 'Esta ocorrência'}
-                  </div>
-                  <div style={{ 
-                    fontSize: '13px', 
-                    color: '#6b7280',
-                    lineHeight: '1.4'
-                  }}>
-                    Remove só a de {formatCurrency(Math.abs(transacaoParaConfirm.valor))} em {format(new Date(transacaoParaConfirm.data), 'dd/MM/yyyy')}
-                  </div>
-                </div>
-              </label>
-
-              {/* Opção 2: Esta e futuras/pendentes */}
-              <label 
-                className={`confirmation-option-clean ${escopoExclusao === 'futuras' ? 'active' : ''}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '12px',
-                  padding: '16px',
-                  border: escopoExclusao === 'futuras' ? '2px solid #3b82f6' : '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  backgroundColor: escopoExclusao === 'futuras' ? '#eff6ff' : '#ffffff',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                <input
-                  type="radio"
-                  name="escopoExclusao"
-                  value="futuras"
-                  checked={escopoExclusao === 'futuras'}
-                  onChange={(e) => setEscopoExclusao(e.target.value)}
-                  style={{ marginTop: '2px' }}
-                />
-                <div style={{ flex: 1 }}>
-                  <div style={{ 
-                    fontWeight: '600', 
-                    fontSize: '14px', 
-                    color: '#1f2937',
-                    marginBottom: '4px'
-                  }}>
-                    {isCartaoMisto ? 'Todas as parcelas pendentes' :
-                     transacaoInfo?.isParcelada ? 'Esta e as parcelas futuras' : 'Esta e as futuras'}
-                  </div>
-                  <div style={{ 
-                    fontSize: '13px', 
-                    color: '#6b7280',
-                    lineHeight: '1.4'
-                  }}>
-                    {isCartaoMisto 
-                      ? `Remove esta e mais ${grupoCartaoInfo?.parcelasPendentes - 1} parcelas não pagas`
-                      : `Remove esta e todas as próximas não efetivadas (${getRangeText()})`
-                    }
-                  </div>
-                </div>
-              </label>
-            </div>
-          </div>
-
-          {/* Detalhes da transação - Design limpo */}
-          <div style={{ 
-            backgroundColor: '#f8fafc', 
-            border: '1px solid #e2e8f0',
-            borderRadius: '8px',
-            padding: '16px'
-          }}>
-            <h4 style={{ 
-              fontSize: '14px', 
-              fontWeight: '600', 
-              color: '#374151',
-              marginBottom: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}>
-              🧾 Detalhes da {transacaoInfo?.isParcelada ? 'Parcela' : 'Ocorrência'}
-            </h4>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px' }}>
-              <div>
-                <strong>Descrição:</strong> {transacaoParaConfirm.descricao}
-              </div>
-              <div>
-                <strong>Valor:</strong> {formatCurrency(Math.abs(transacaoParaConfirm.valor))}
-              </div>
-              <div>
-                <strong>Data:</strong> {format(new Date(transacaoParaConfirm.data), 'dd/MM/yyyy')}
-              </div>
-              <div>
-                <strong>Categoria:</strong> {transacaoParaConfirm.categoria_nome}
-              </div>
-              
-              {/* Informações específicas do grupo */}
-              {transacaoInfo?.isParcelada && (
-                <div style={{ gridColumn: 'span 2' }}>
-                  <strong>Parcela:</strong> {transacaoInfo.parcelaAtual} de {transacaoInfo.totalParcelas}
-                </div>
-              )}
-              
-              {transacaoInfo?.isRecorrente && (
-                <div style={{ gridColumn: 'span 2' }}>
-                  <strong>Ocorrência:</strong> {transacaoInfo.numeroRecorrencia}{transacaoInfo.totalRecorrencias ? ` de ${transacaoInfo.totalRecorrencias}` : ''}
-                </div>
-              )}
-
-              {transacaoParaConfirm.cartao_id && (
-                <div style={{ gridColumn: 'span 2' }}>
-                  <strong>Cartão:</strong> {transacaoParaConfirm.cartao_nome}
-                </div>
-              )}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="modal-footer">
-          <div className="footer-right">
-            <button onClick={() => setShowConfirmModal(false)} className="btn-cancel">
+        <div className="ip_modal_footer ip_py_16_px_20">
+          <div className="ip_flex ip_gap_2" style={{ justifyContent: 'flex-end' }}>
+            <button 
+              onClick={() => setShowConfirmModal(false)} 
+              className="ip_botao_cinza ip_botao_pequeno"
+            >
               Cancelar
             </button>
             <button 
               onClick={executeConfirmAction}
-              disabled={!escopoExclusao}
-              className="btn-secondary btn-secondary--danger"
-              style={{
-                opacity: !escopoExclusao ? 0.5 : 1,
-                cursor: !escopoExclusao ? 'not-allowed' : 'pointer'
-              }}
+              className={`${isDelete ? 'ip_botao_vermelho' : 'ip_botao_azul'} ip_botao_pequeno`}
             >
-              🗑️ Excluir
+              {isDelete ? '🗑️ Excluir' : '✅ Confirmar'}
             </button>
           </div>
         </div>
       </div>
     </div>
   );
+}
+  // ===== MODAL COMPLEXO REPENSADO COMPLETAMENTE =====
+const getTipoTransacao = () => {
+  if (transacaoParaConfirm.tipo === 'receita') return 'Receita';
+  if (transacaoParaConfirm.tipo === 'despesa') return 'Despesa';
+  return 'Transação';
+};
+
+const getTituloContextual = () => {
+  const tipo = getTipoTransacao();
+  if (isCartaoMisto) return `💳 Confirmar Exclusão de Parcelas de Cartão`;
+  if (transacaoInfo?.isParcelada) return `📦 Confirmar Exclusão de ${tipo} Parcelada`;
+  if (transacaoInfo?.isRecorrente) return `🔄 Confirmar Exclusão de ${tipo} Recorrente`;
+  return `🗑️ Confirmar Exclusão de ${tipo}`;
+};
+
+const getDescricaoEscopo = (escopo) => {
+  if (escopo === 'atual') {
+    return `Remove somente esta: ${formatCurrency(Math.abs(transacaoParaConfirm.valor))} em ${format(new Date(transacaoParaConfirm.data), 'dd/MM/yyyy')}`;
+  }
+  
+  if (isCartaoMisto) {
+    const total = grupoCartaoInfo?.parcelasPendentes || 0;
+    return `Remove esta e mais ${total - 1} parcelas ainda não pagas (${total} parcelas no total)`;
+  }
+  
+  if (transacaoInfo?.isParcelada) {
+    const atual = transacaoInfo.parcelaAtual;
+    const total = transacaoInfo.totalParcelas;
+    const restantes = total - atual + 1;
+    return `Remove da ${atual}ª à ${total}ª parcela (${restantes} parcelas ainda não lançadas)`;
+  }
+  
+  if (transacaoInfo?.isRecorrente) {
+    const atual = transacaoInfo.numeroRecorrencia;
+    const total = transacaoInfo.totalRecorrencias;
+    if (total) {
+      const restantes = total - atual + 1;
+      return `Remove da ${atual}ª à ${total}ª ocorrência (${restantes} ocorrências ainda não lançadas)`;
+    }
+    return `Remove esta e todas as próximas ocorrências ainda não lançadas`;
+  }
+  
+  return 'Remove esta e todas as próximas ainda não efetivadas';
+};
+
+return (
+  <div className="ip_modal_fundo">
+    <div className="ip_modal_pequeno ip_modal_w_520 ip_modal_h_90">
+      {/* Header compacto */}
+      <div className="ip_header_vermelho">
+        <div className="ip_flex">
+          <div>
+            <div className="ip_modal_titulo">{getTituloContextual()}</div>
+            <div className="ip_modal_subtitulo">Esta ação não pode ser desfeita</div>
+          </div>
+        </div>
+        <button onClick={() => setShowConfirmModal(false)} className="ip_modal_close">×</button>
+      </div>
+
+      <div className="ip_modal_content ip_p_20">
+        {/* Resumo compacto */}
+        <div className="ip_mensagem_personalizada ip_mb_3">
+          <div className="ip_mensagem_card aviso ip_p_12">
+            <div className="ip_mensagem_icone" style={{ fontSize: '1.25rem' }}>⚠️</div>
+            <div className="ip_mensagem_conteudo">
+              <div className="ip_valor_destaque" style={{ fontSize: '15px' }}>
+                {transacaoParaConfirm.descricao} • {formatCurrency(Math.abs(transacaoParaConfirm.valor))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Opções de escopo */}
+        <div className="ip_mb_3">
+          <div className="ip_flex_coluna ip_gap_2">
+            
+            {/* Opção 1 */}
+            <label className={`ip_opcao_card ${escopoExclusao === 'atual' ? 'ip_opcao_card_selecionado' : 'ip_opcao_card_normal'}`}>
+              <div className={`ip_circulo_16 ${escopoExclusao === 'atual' ? 'ip_radio_selecionado' : 'ip_radio_normal'}`}>
+                {escopoExclusao === 'atual' && <div className="ip_circulo_ponto" />}
+              </div>
+              <input
+                type="radio"
+                name="escopoExclusao"
+                value="atual"
+                checked={escopoExclusao === 'atual'}
+                onChange={(e) => setEscopoExclusao(e.target.value)}
+                className="ip_oculto"
+              />
+              <div>
+                <div className="ip_titulo_opcao">
+                  Somente esta {transacaoInfo?.isParcelada ? 'parcela' : 'ocorrência'}
+                </div>
+                <div className="ip_descricao_opcao">
+                  {getDescricaoEscopo('atual')}
+                </div>
+              </div>
+            </label>
+
+            {/* Opção 2 */}
+            <label className={`ip_opcao_card ${escopoExclusao === 'futuras' ? 'ip_opcao_card_selecionado' : 'ip_opcao_card_normal'}`}>
+              <div className={`ip_circulo_16 ${escopoExclusao === 'futuras' ? 'ip_radio_selecionado' : 'ip_radio_normal'}`}>
+                {escopoExclusao === 'futuras' && <div className="ip_circulo_ponto" />}
+              </div>
+              <input
+                type="radio"
+                name="escopoExclusao"
+                value="futuras"
+                checked={escopoExclusao === 'futuras'}
+                onChange={(e) => setEscopoExclusao(e.target.value)}
+                className="ip_oculto"
+              />
+              <div>
+                <div className="ip_titulo_opcao">
+                  Esta e as {transacaoInfo?.isParcelada ? 'parcelas' : 'ocorrências'} seguintes
+                </div>
+                <div className="ip_descricao_opcao">
+                  {getDescricaoEscopo('futuras')}
+                </div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        {/* Detalhes em uma linha */}
+        <div className="ip_card_pequeno ip_p_10" style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+          <div className="ip_flex ip_gap_2 ip_mb_2">
+            <span style={{ fontSize: '12px' }}>📋</span>
+            <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>
+              Detalhes
+            </span>
+          </div>
+          
+          <div className="ip_flex_wrap ip_texto_inline_pequeno">
+            <span>
+              <strong>Tipo:</strong> {getTipoTransacao()}
+            </span>
+            <span>
+              <strong>Categoria:</strong> {transacaoParaConfirm.categoria_nome}
+            </span>
+            <span>
+              <strong>Data:</strong> {format(new Date(transacaoParaConfirm.data), 'dd/MM/yyyy')}
+            </span>
+            {(transacaoInfo?.isParcelada || transacaoInfo?.isRecorrente) && (
+              <span>
+                <strong>
+                  {transacaoInfo?.isParcelada ? 'Parcela:' : 'Ocorrência:'}
+                </strong> 
+                {transacaoInfo?.isParcelada 
+                  ? `${transacaoInfo.parcelaAtual}/${transacaoInfo.totalParcelas}`
+                  : `${transacaoInfo.numeroRecorrencia}${transacaoInfo.totalRecorrencias ? `/${transacaoInfo.totalRecorrencias}` : ''}`
+                }
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Footer compacto */}
+      <div className="ip_modal_footer ip_py_16_px_20">
+        <div className="ip_flex ip_gap_2" style={{ justifyContent: 'flex-end' }}>
+          <button 
+            onClick={() => setShowConfirmModal(false)} 
+            className="ip_botao_cinza ip_botao_pequeno"
+          >
+            Manter
+          </button>
+          <button 
+            onClick={executeConfirmAction}
+            disabled={!escopoExclusao}
+            className="ip_botao_vermelho ip_botao_pequeno"
+            style={{ opacity: !escopoExclusao ? 0.5 : 1 }}
+          >
+            🗑️ Excluir
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+);
 };
 
   // Paginação
@@ -1632,502 +1725,709 @@ const ConfirmModal = () => {
       </div>
     );
   };
+// Modal de Edição com Alerta para Transações de Cartão
+const EditModalWrapper = ({ children, isOpen, onClose }) => {
+  // Verificar se a transação sendo editada é de cartão
+  if (isOpen && transacaoEditando && transacaoEditando.cartao_id && transacaoEditando.efetivado) {
+    return (
+      <div className="ip_modal_fundo">
+        <div className="ip_modal_pequeno ip_modal_w_520">
+          <div className="ip_header_azul">
+            <div className="ip_flex">
+              <div>
+                <div className="ip_modal_titulo">Transação de Cartão de Crédito</div>
+                <div className="ip_modal_subtitulo">Esta transação não pode ser editada aqui</div>
+              </div>
+            </div>
+            <button onClick={onClose} className="ip_modal_close">×</button>
+          </div>
 
-  // Modal de Edição com Alerta para Transações de Cartão
-  const EditModalWrapper = ({ children, isOpen, onClose }) => {
-    // Verificar se a transação sendo editada é de cartão
-    if (isOpen && transacaoEditando && transacaoEditando.cartao_id && transacaoEditando.efetivado) {
-      return (
-        <div className="modal-overlay active">
-          <div className="forms-modal-container">
-            <div className="modal-header">
-              <div className="modal-header-content">
-                <div className="modal-icon-container modal-icon-warning">
-                  ⚠️
-                </div>
-                <div>
-                  <h2 className="modal-title">Transação de Cartão de Crédito</h2>
-                  <p className="modal-subtitle">
-                    Esta transação não pode ser editada aqui
+          <div className="ip_modal_content ip_p_20">
+            <div className="ip_mensagem_personalizada ip_mb_3">
+              <div className="ip_mensagem_card aviso ip_p_16">
+                <div className="ip_mensagem_icone">⚠️</div>
+                <div className="ip_mensagem_conteudo">
+                  <h2 style={{ fontSize: '16px', fontWeight: '600', margin: '0 0 8px 0' }}>
+                    Transações de cartão de crédito devem ser editadas diretamente na tela de Fatura do Cartão.
+                  </h2>
+                  <p className="ip_texto_secundario" style={{ margin: '0' }}>
+                    Para editar esta transação, navegue até a seção de Cartões → Faturas e localize a fatura correspondente.
                   </p>
                 </div>
               </div>
-              <button onClick={onClose} className="modal-close">×</button>
             </div>
 
-            <div className="modal-body">
-              <div className="confirmation-warning">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
-                </svg>
-                <p>
-                  <strong>Transações de cartão de crédito devem ser editadas diretamente na tela de Fatura do Cartão.</strong>
-                </p>
-                <p style={{ marginTop: '12px', fontSize: '0.875rem', color: '#6b7280' }}>
-                  Para editar esta transação, navegue até a seção de Cartões → Faturas e localize a fatura correspondente.
-                </p>
+            <div className="ip_card_pequeno ip_p_16" style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+              <div className="ip_flex ip_gap_2 ip_mb_3">
+                <span style={{ fontSize: '14px' }}>🧾</span>
+                <span style={{ fontSize: '14px', fontWeight: '600', color: '#64748b' }}>
+                  Detalhes da Transação
+                </span>
               </div>
-
-              <div className="confirmation-info">
-                <div className="confirmation-item">
+              
+              <div className="ip_flex_wrap ip_texto_inline_pequeno">
+                <span>
                   <strong>Descrição:</strong> {transacaoEditando.descricao}
-                </div>
-                <div className="confirmation-item">
+                </span>
+                <span>
                   <strong>Valor:</strong> {formatCurrency(Math.abs(transacaoEditando.valor))}
-                </div>
-                <div className="confirmation-item">
+                </span>
+                <span>
                   <strong>Cartão:</strong> {transacaoEditando.cartao_nome || 'N/A'}
-                </div>
-                <div className="confirmation-item">
+                </span>
+                <span>
                   <strong>Data:</strong> {format(new Date(transacaoEditando.data), 'dd/MM/yyyy')}
-                </div>
-              </div>
-            </div>
-
-            <div className="modal-footer">
-              <div className="footer-right">
-                <button onClick={onClose} className="btn-primary">
-                  Entendi
-                </button>
+                </span>
               </div>
             </div>
           </div>
-        </div>
-      );
-    }
 
-    // Se não for transação de cartão, renderiza o modal normal
-    return children;
-  };
-
-  // ========== RENDER PRINCIPAL ==========
-
-  if (error) {
-    return (
-      <PageContainer title="Transações">
-        <div className="empty-state">
-          <div style={{ fontSize: '3rem', marginBottom: '16px' }}>⚠️</div>
-          <h3>Erro ao carregar transações</h3>
-          <p>{error}</p>
-          <Button onClick={fetchTransacoes}>Tentar Novamente</Button>
-        </div>
-      </PageContainer>
-    );
-  }
-
-  if (!loading && transacoesProcessadas.length === 0) {
-    return (
-      <PageContainer title="Transações">
-        <div className="transacoes-header">
-          <div className="period-navigation">
-            <button onClick={() => handleNavigateMonth('prev')} className="nav-btn">←</button>
-            <h2 className="current-period">
-              {format(currentDate, 'MMMM \'de\' yyyy', { locale: ptBR })}
-            </h2>
-            <button onClick={() => handleNavigateMonth('next')} className="nav-btn">→</button>
-            <button onClick={() => handleNavigateMonth('today')} className="today-btn">Hoje</button>
+          <div className="ip_modal_footer ip_py_16_px_20">
+            <div className="ip_flex" style={{ justifyContent: 'flex-end' }}>
+              <button onClick={onClose} className="ip_botao_azul ip_botao_medio">
+                Entendi
+              </button>
+            </div>
           </div>
         </div>
-        
-        <div className="empty-state">
-          <div style={{ fontSize: '3rem', marginBottom: '16px' }}>📊</div>
-          <h3>Nenhuma transação encontrada</h3>
-          <p>
-            {hasActiveFilters
-              ? 'Nenhuma transação corresponde aos filtros aplicados.'
-              : 'Comece adicionando sua primeira transação financeira.'
-            }
-          </p>
-          {hasActiveFilters && (
-            <Button onClick={clearFilters}>Limpar Filtros</Button>
-          )}
-        </div>
-      </PageContainer>
+      </div>
     );
   }
 
+  // Se não for transação de cartão, renderiza o modal normal
+  return children;
+};
+// ========== RENDER PRINCIPAL REFATORADO ==========
+
+if (error) {
   return (
     <PageContainer title="Transações">
-      {/* Header */}
-      <div className="transacoes-header">
-        <div className="period-navigation">
-          <button 
-            onClick={() => handleNavigateMonth('prev')} 
-            disabled={loading}
-            className="nav-btn"
-          >
-            ←
-          </button>
-          <h2 className="current-period">
-            {format(currentDate, 'MMMM \'de\' yyyy', { locale: ptBR })}
-          </h2>
-          <button 
-            onClick={() => handleNavigateMonth('next')} 
-            disabled={loading}
-            className="nav-btn"
-          >
-            →
-          </button>
-          <button 
-            onClick={() => handleNavigateMonth('today')} 
-            disabled={loading}
-            className="today-btn"
-          >
-            Hoje
-          </button>
-        </div>
+      <div className="ip_estado_vazio">
+        <div className="ip_estado_vazio_icone">⚠️</div>
+        <h3 className="ip_estado_vazio_titulo">Erro ao carregar transações</h3>
+        <p className="ip_estado_vazio_descricao">{error}</p>
+        <Button onClick={fetchTransacoes}>Tentar Novamente</Button>
+      </div>
+    </PageContainer>
+  );
+}
 
-        <div className="header-controls">
+
+ return (
+  <PageContainer title="Transações">
+    {/* Header */}
+    <div className="ip_header_secundario">
+      <div className="ip_navegacao_periodo">
+        <button 
+          onClick={() => handleNavigateMonth('prev')} 
+          disabled={loading}
+          className="ip_botao_navegacao"
+        >
+          ←
+        </button>
+        <h2 className="ip_periodo_atual">
+          {format(currentDate, 'MMMM \'de\' yyyy', { locale: ptBR })}
+        </h2>
+        <button 
+          onClick={() => handleNavigateMonth('next')} 
+          disabled={loading}
+          className="ip_botao_navegacao"
+        >
+          →
+        </button>
+        <button 
+          onClick={() => handleNavigateMonth('today')} 
+          disabled={loading}
+          className="ip_botao_hoje"
+        >
+          Hoje
+        </button>
+      </div>
+<div className="ip_flex ip_gap_3">
           <button
             onClick={() => setShowFilterModal(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '40px',
-              padding: '0 16px',
-              border: '1px solid #e5e7eb',
-              borderRadius: '6px',
-              backgroundColor: hasActiveFilters ? '#eff6ff' : '#f3f4f6',
-              color: hasActiveFilters ? '#3b82f6' : '#374151',
-              cursor: 'pointer',
-              fontSize: '0.875rem',
-              lineHeight: '1rem',
-              fontWeight: hasActiveFilters ? '600' : '400'
-            }}
+            className={`ip_botao_base ip_botao_medio ${hasActiveFilters ? 'ip_botao_azul_outline' : 'ip_botao_cinza'}`}
+            style={{ fontWeight: hasActiveFilters ? '600' : '400' }}
           >
             🔍 Filtros Avançados {hasActiveFilters && `(${filtrosAtivos})`}
           </button>          
-          {/* ===== BUG FIX 26: Melhorar texto do botão de agrupamento ===== */}
+          
           <button
-            className={`group-toggle ${groupByCard ? 'active' : ''}`}
             onClick={() => setGroupByCard(!groupByCard)}
             title={groupByCard ? 'Desagrupar despesas de cartão' : 'Agrupar despesas de cartão por fatura'}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '40px',
-              padding: '0 16px',
-              border: '1px solid #e5e7eb',
-              borderRadius: '6px',
-              backgroundColor: groupByCard ? '#eff6ff' : '#f3f4f6',
-              color: groupByCard ? '#3b82f6' : '#374151',
-              cursor: 'pointer',
-              fontSize: '0.875rem',
-              lineHeight: '1rem',
-              fontWeight: groupByCard ? '600' : '400'
-            }}
+            className={`ip_botao_base ip_botao_medio ${groupByCard ? 'ip_botao_azul_outline' : 'ip_botao_cinza'}`}
+            style={{ fontWeight: groupByCard ? '600' : '400' }}
           >
             💳 {groupByCard ? 'Desagrupar despesas de cartão' : 'Agrupar despesas de cartão'}
           </button>
           
           <button
             onClick={() => navigate('/transacoes/importar')}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '40px',
-              padding: '0 16px',
-              border: '1px solid #e5e7eb',
-              borderRadius: '6px',
-              backgroundColor: '#f3f4f6',
-              color: '#374151',
-              cursor: 'pointer',
-              fontSize: '0.875rem',
-              lineHeight: '1rem',
-              fontWeight: '400'
-            }}
-            >
+            className="ip_botao_base ip_botao_medio ip_botao_cinza"
+          >
             📥 Importar Transações
           </button>
         </div>
       </div>
+      {/* Barra de Filtros Rápidos */}
+<div className="ip_card_pequeno ip_mb_4">
+  <div className="ip_flex" style={{ 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    marginBottom: '16px' 
+  }}>
+    <h3 className="ip_texto_principal" style={{ 
+      fontSize: '0.875rem', 
+      fontWeight: '600',
+      color: 'var(--ip-cinza-700)',
+      margin: 0 
+    }}>
+      🔍 Filtros Rápidos
+    </h3>
+    
 
+  </div>
+
+  {/* Grid de Filtros - UMA LINHA ÚNICA */}
+  <div style={{ 
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+    gap: '10px'
+  }}>
+    
+    {/* Tipo de Transação */}
+    <div className="ip_grupo_formulario" style={{ marginBottom: 0 }}>
+      <label className="ip_label" style={{ fontSize: '11px', marginBottom: '4px' }}>
+        Tipo
+      </label>
+      <select
+        value={filters.tipo}
+        onChange={(e) => {
+          const newFilters = { ...filters, tipo: e.target.value };
+          setFilters(newFilters);
+          setCurrentPage(1);
+        }}
+        className="ip_input_base ip_input_select"
+        style={{ fontSize: '12px', padding: '5px 6px' }}
+      >
+        <option value="">Todos</option>
+        <option value="receita">💰 Receitas</option>
+        <option value="despesa">💸 Despesas</option>
+      </select>
+    </div>
+
+    {/* Status */}
+    <div className="ip_grupo_formulario" style={{ marginBottom: 0 }}>
+      <label className="ip_label" style={{ fontSize: '11px', marginBottom: '4px' }}>
+        Status
+      </label>
+      <select
+        value={filters.efetivado}
+        onChange={(e) => {
+          const newFilters = { ...filters, efetivado: e.target.value };
+          setFilters(newFilters);
+          setCurrentPage(1);
+        }}
+        className="ip_input_base ip_input_select"
+        style={{ fontSize: '12px', padding: '5px 6px' }}
+      >
+        <option value="">Todos</option>
+        <option value="true">✅ Efetivadas</option>
+        <option value="false">⏳ Pendentes</option>
+      </select>
+    </div>
+
+    {/* Categoria */}
+    <div className="ip_grupo_formulario" style={{ marginBottom: 0 }}>
+      <label className="ip_label" style={{ fontSize: '11px', marginBottom: '4px' }}>
+        Categoria
+      </label>
+      <select
+        value={filters.categoria}
+        onChange={(e) => {
+          const newFilters = { 
+            ...filters, 
+            categoria: e.target.value,
+            subcategoria: '' // Reset subcategoria quando categoria muda
+          };
+          setFilters(newFilters);
+          setCurrentPage(1);
+        }}
+        className="ip_input_base ip_input_select"
+        style={{ fontSize: '12px', padding: '5px 6px' }}
+      >
+        <option value="">Todas</option>
+        {filterData.categorias
+          .filter(categoria => !filters.tipo || categoria.tipo === filters.tipo) // ✅ FILTRO SENSIBILIZADO
+          .map(categoria => (
+            <option key={categoria.id} value={categoria.id}>
+              {categoria.nome}
+            </option>
+          ))}
+      </select>
+    </div>
+
+    {/* Subcategoria */}
+    <div className="ip_grupo_formulario" style={{ marginBottom: 0 }}>
+      <label className="ip_label" style={{ fontSize: '11px', marginBottom: '4px' }}>
+        Subcategoria
+      </label>
+      <select
+        value={filters.subcategoria}
+        onChange={(e) => {
+          const newFilters = { ...filters, subcategoria: e.target.value };
+          setFilters(newFilters);
+          setCurrentPage(1);
+        }}
+        className={`ip_input_base ip_input_select ${!filters.categoria ? 'ip_input_desabilitado' : ''}`}
+        disabled={!filters.categoria}
+        style={{ fontSize: '12px', padding: '5px 6px' }}
+      >
+        <option value="">Todas</option>
+        {filterData.subcategorias
+          .filter(sub => filters.categoria && sub.categoria_id === filters.categoria) // ✅ FILTRO SENSIBILIZADO
+          .map(sub => (
+            <option key={sub.id} value={sub.id}>
+              {sub.nome}
+            </option>
+          ))}
+      </select>
+    </div>
+
+    {/* Conta */}
+    <div className="ip_grupo_formulario" style={{ marginBottom: 0 }}>
+      <label className="ip_label" style={{ fontSize: '11px', marginBottom: '4px' }}>
+        Conta
+      </label>
+      <select
+        value={filters.conta}
+        onChange={(e) => {
+          const newFilters = { ...filters, conta: e.target.value };
+          setFilters(newFilters);
+          setCurrentPage(1);
+        }}
+        className="ip_input_base ip_input_select"
+        style={{ fontSize: '12px', padding: '5px 6px' }}
+      >
+        <option value="">Todas</option>
+        {filterData.contas.map(conta => (
+          <option key={conta.id} value={conta.id}>
+            {conta.nome}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    {/* Cartão */}
+    <div className="ip_grupo_formulario" style={{ marginBottom: 0 }}>
+      <label className="ip_label" style={{ fontSize: '11px', marginBottom: '4px' }}>
+        Cartão
+      </label>
+      <select
+        value={filters.cartao}
+        onChange={(e) => {
+          const newFilters = { ...filters, cartao: e.target.value };
+          setFilters(newFilters);
+          setCurrentPage(1);
+        }}
+        className="ip_input_base ip_input_select"
+        style={{ fontSize: '12px', padding: '5px 6px' }}
+      >
+        <option value="">Todos</option>
+        {filterData.cartoes.map(cartao => (
+          <option key={cartao.id} value={cartao.id}>
+            {cartao.nome}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    {/* Busca por Descrição - NA MESMA LINHA */}
+    <div className="ip_grupo_formulario" style={{ marginBottom: 0, gridColumn: 'span 2' }}>
+      <label className="ip_label" style={{ fontSize: '11px', marginBottom: '4px' }}>
+        🔍 Buscar descrição
+      </label>
+      <input
+        type="text"
+        value={filters.descricao}
+        onChange={(e) => {
+          const newFilters = { ...filters, descricao: e.target.value };
+          setFilters(newFilters);
+          setCurrentPage(1);
+        }}
+        placeholder="Digite para buscar..."
+        className="ip_input_base ip_input_texto"
+        style={{ fontSize: '12px', padding: '5px 6px' }}
+      />
+    </div>
+  </div>
+</div>
       {/* Indicador de filtros ativos */}
       {(hasActiveFilters || groupByCard) && (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          padding: '12px 16px',
+        <div className="ip_card_pequeno ip_mb_4" style={{
           backgroundColor: '#eff6ff',
-          border: '1px solid #93c5fd',
-          borderRadius: '8px',
-          marginBottom: '16px',
-          flexWrap: 'wrap'
+          border: '1px solid #93c5fd'
         }}>
-          <span style={{ fontSize: '0.875rem', color: '#2563eb', fontWeight: '500' }}>
-            🔍 Filtros ativos:
-          </span>
-          
-          {Object.entries(filters).map(([key, value]) => {
-            if (!value) return null;
-            
-            let displayValue = value;
-            let displayKey = key;
-            
-            switch (key) {
-              case 'efetivado':
-                displayKey = 'Status';
-                displayValue = value === 'true' ? 'Efetivadas' : 'Pendentes';
-                break;
-              case 'recorrente':
-                displayKey = 'Recorrente';
-                displayValue = value === 'true' ? 'Sim' : 'Não';
-                break;
-              case 'categoria':
-                displayKey = 'Categoria';
-                const categoria = filterData.categorias.find(c => c.id === value);
-                displayValue = categoria ? categoria.nome : value;
-                break;
-              case 'cartao':
-                displayKey = 'Cartão';
-                const cartao = filterData.cartoes.find(c => c.id === value);
-                displayValue = cartao ? cartao.nome : value;
-                break;
-              case 'conta':
-                displayKey = 'Conta';
-                const conta = filterData.contas.find(c => c.id === value);
-                displayValue = conta ? conta.nome : value;
-                break;
-              case 'subcategoria':
-                displayKey = 'Subcategoria';
-                const sub = filterData.subcategorias.find(s => s.id === value);
-                displayValue = sub ? sub.nome : value;
-                break;
-              case 'valorMin':
-                displayKey = 'Valor Min';
-                displayValue = formatCurrency(parseFloat(value));
-                break;
-              case 'valorMax':
-                displayKey = 'Valor Max';
-                displayValue = formatCurrency(parseFloat(value));
-                break;
-              case 'dataInicio':
-                displayKey = 'Data Início';
-                displayValue = format(new Date(value), 'dd/MM/yyyy');
-                break;
-              case 'dataFim':
-                displayKey = 'Data Fim';
-                displayValue = format(new Date(value), 'dd/MM/yyyy');
-                break;
-              default:
-                displayKey = key.charAt(0).toUpperCase() + key.slice(1);
-            }
-            
-            return (
-              <span
-                key={key}
-                style={{
-                  padding: '6px 10px',
-                  backgroundColor: '#3b82f6',
-                  color: 'white',
-                  borderRadius: '6px',
-                  fontSize: '0.75rem',
-                  fontWeight: '500',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  maxWidth: '200px'
-                }}
-              >
-                <span style={{ fontWeight: '600' }}>{displayKey}:</span>
-                <span style={{ 
-                  overflow: 'hidden', 
-                  textOverflow: 'ellipsis', 
-                  whiteSpace: 'nowrap',
-                  flex: 1,
-                  minWidth: 0
-                }}>
-                  {displayValue}
-                </span>
-
-              </span>
-            );
-          })}
-          
-          {groupByCard && (
-            <span
-              style={{
-                padding: '6px 10px',
-                backgroundColor: '#8b5cf6',
-                color: 'white',
-                borderRadius: '6px',
-                fontSize: '0.75rem',
-                fontWeight: '500',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <span style={{ fontWeight: '600' }}>Agrupado:</span>
-              <span>Por Cartão</span>
-              <button
-                onClick={() => setGroupByCard(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'white',
-                  cursor: 'pointer',
-                  padding: '0',
-                  marginLeft: '4px',
-                  fontWeight: 'bold',
-                  fontSize: '0.875rem'
-                }}
-                title="Remover agrupamento"
-              >
-                ×
-              </button>
+          <div className="ip_flex ip_gap_3" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
+            <span className="ip_texto_principal" style={{ 
+              fontSize: '0.875rem', 
+              color: '#2563eb', 
+              fontWeight: '500' 
+            }}>
+              🔍 Filtros ativos:
             </span>
-          )}
-          
-          <Button 
-            onClick={clearFilters}
-            style={{ 
-              fontSize: '0.75rem', 
-              padding: '6px 12px', 
-              backgroundColor: 'transparent',
-              color: '#2563eb',
-              border: '1px solid #93c5fd',
-              fontWeight: '500'
-            }}
-          >
-            🗑️ Limpar todos
-          </Button>
-        </div>
-      )}
-
-      {/* Loading */}
-      {loading && (
-        <div className="loading-state">
-          <div className="loading-spinner" />
-          <p>Carregando transações...</p>
-        </div>
-      )}
-
-      {/* Conteúdo principal */}
-      {!loading && transacoesProcessadas.length > 0 && (
-        <div className="transacoes-content">
-          <div className="table-container">
-            <Card className="transactions-table-card">
-              <div style={{ overflowX: 'auto' }}>
-                <table className="transactions-table">
-                  <thead>
-                    <tr>
-                      <TableHeader label="Data" sortKey="data" />
-                      <TableHeader label="Descrição" sortKey="descricao" />
-                      <TableHeader label="Categoria" sortKey="categoria_nome" />
-                      <TableHeader label="Conta" sortKey="conta_nome" />
-                      <TableHeader label="Valor" sortKey="valor" />
-                      <th>Status</th>
-                      <th>Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {transacoesPaginadas.map((transacao, index) => (
-                      <TransactionRow key={transacao.id || index} transacao={transacao} />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-            <Pagination />
+            
+            {Object.entries(filters).map(([key, value]) => {
+              if (!value) return null;
+              
+              let displayValue = value;
+              let displayKey = key;
+              
+              switch (key) {
+                case 'efetivado':
+                  displayKey = 'Status';
+                  displayValue = value === 'true' ? 'Efetivadas' : 'Pendentes';
+                  break;
+                case 'recorrente':
+                  displayKey = 'Recorrente';
+                  displayValue = value === 'true' ? 'Sim' : 'Não';
+                  break;
+                case 'categoria':
+                  displayKey = 'Categoria';
+                  const categoria = filterData.categorias.find(c => c.id === value);
+                  displayValue = categoria ? categoria.nome : value;
+                  break;
+                case 'cartao':
+                  displayKey = 'Cartão';
+                  const cartao = filterData.cartoes.find(c => c.id === value);
+                  displayValue = cartao ? cartao.nome : value;
+                  break;
+                case 'conta':
+                  displayKey = 'Conta';
+                  const conta = filterData.contas.find(c => c.id === value);
+                  displayValue = conta ? conta.nome : value;
+                  break;
+                case 'subcategoria':
+                  displayKey = 'Subcategoria';
+                  const sub = filterData.subcategorias.find(s => s.id === value);
+                  displayValue = sub ? sub.nome : value;
+                  break;
+                case 'valorMin':
+                  displayKey = 'Valor Min';
+                  displayValue = formatCurrency(parseFloat(value));
+                  break;
+                case 'valorMax':
+                  displayKey = 'Valor Max';
+                  displayValue = formatCurrency(parseFloat(value));
+                  break;
+                case 'dataInicio':
+                  displayKey = 'Data Início';
+                  displayValue = format(new Date(value), 'dd/MM/yyyy');
+                  break;
+                case 'dataFim':
+                  displayKey = 'Data Fim';
+                  displayValue = format(new Date(value), 'dd/MM/yyyy');
+                  break;
+                default:
+                  displayKey = key.charAt(0).toUpperCase() + key.slice(1);
+              }
+              
+              return (
+                <span
+                  key={key}
+                  className="ip_badge_azul ip_flex ip_gap_1"
+                  style={{
+                    maxWidth: '200px',
+                    fontSize: '0.75rem'
+                  }}
+                >
+                  <span style={{ fontWeight: '600' }}>{displayKey}:</span>
+                  <span style={{ 
+                    overflow: 'hidden', 
+                    textOverflow: 'ellipsis', 
+                    whiteSpace: 'nowrap',
+                    flex: 1,
+                    minWidth: 0
+                  }}>
+                    {displayValue}
+                  </span>
+                </span>
+              );
+            })}
+            
+            {groupByCard && (
+              <span className="ip_badge_roxo ip_flex ip_gap_1">
+                <span style={{ fontWeight: '600' }}>Agrupado:</span>
+                <span>Por Cartão</span>
+                <button
+                  onClick={() => setGroupByCard(false)}
+                  className="ip_botao_icone_pequeno_card"
+                  title="Remover agrupamento"
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'white',
+                    marginLeft: '4px',
+                    width: 'auto',
+                    height: 'auto',
+                    padding: '0',
+                    fontSize: '0.875rem'
+                  }}
+                >
+                  ×
+                </button>
+              </span>
+            )}
+            
+            <button 
+              onClick={clearFilters}
+              className="ip_botao_azul_outline ip_botao_minusculo"
+            >
+              🗑️ Limpar todos
+            </button>
           </div>
+        </div>
+      )}
+      {/* Loading */}
+        {loading && (
+          <div className="ip_loading_container">
+            <div className="ip_loading_spinner" />
+            <p className="ip_loading_texto">Carregando transações...</p>
+          </div>
+        )}
+{/* Conteúdo principal */}
+{!loading && transacoesProcessadas.length > 0 && (
+  <div className="ip_grid_2_colunas ip_gap_2">
+    <div className="ip_flex_coluna ip_gap_4">
+      <div className="ip_card_grande" style={{ overflowX: 'auto' }}>
+        <table className="ip_tabela">
+          <thead className="ip_tabela_header">
+            <tr>
+              <TableHeader label="Data" sortKey="data" />
+              <TableHeader label="Descrição" sortKey="descricao" />
+              <TableHeader label="Categoria" sortKey="categoria_nome" />
+              <TableHeader label="Conta" sortKey="conta_nome" />
+              <TableHeader label="Valor" sortKey="valor" />
+              <TableHeader label="Status" sortKey="efetivado" />
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {transacoesPaginadas.map((transacao, index) => (
+              <TransactionRow key={transacao.id || index} transacao={transacao} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <Pagination />
+    </div>
+  
 
-          <aside className="resumo-sidebar">
-            <Card>
-              <h3>Resumo Financeiro</h3>
-              <div className="stats-grid">
-                <div className="stat-card receitas">
-                  <div className="stat-icon">💰</div>
-                  <div className="stat-content">
-                    <span className="stat-label">Receitas</span>
-                    <span className="stat-value">{formatCurrency(estatisticas.receitas.total)}</span>
-                    {/* ===== BUG FIX 20: Corrigir plural do contador ===== */}
-                    <span className="stat-count">
+  
+
+<aside className="ip_sidebar_resumo">
+            {/* Card 1: Resumo Financeiro */}
+            <div>
+              <div className="ip_sidebar_header">Resumo Financeiro</div>
+              
+              <div className="ip_flex_coluna ip_gap_3 ip_p_3">
+                <div className="ip_card_estatistica receitas">
+                  <div className="ip_icone_estatistica">💰</div>
+                  <div className="ip_conteudo_estatistica">
+                    <div className="ip_label_estatistica">Receitas</div>
+                    <div className="ip_valor_estatistica">{formatCurrency(estatisticas.receitas.total)}</div>
+                    <div className="ip_contador_estatistica">
                       {estatisticas.receitas.quantidade} {estatisticas.receitas.quantidade === 1 ? 'transação' : 'transações'}
-                    </span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="stat-card despesas">
-                  <div className="stat-icon">💸</div>
-                  <div className="stat-content">
-                    <span className="stat-label">Despesas</span>
-                    <span className="stat-value">{formatCurrency(estatisticas.despesas.total)}</span>
-                    {/* ===== BUG FIX 20: Corrigir plural do contador ===== */}
-                    <span className="stat-count">
+                <div className="ip_card_estatistica despesas">
+                  <div className="ip_icone_estatistica">💸</div>
+                  <div className="ip_conteudo_estatistica">
+                    <div className="ip_label_estatistica">Despesas</div>
+                    <div className="ip_valor_estatistica">{formatCurrency(estatisticas.despesas.total)}</div>
+                    <div className="ip_contador_estatistica">
                       {estatisticas.despesas.quantidade} {estatisticas.despesas.quantidade === 1 ? 'transação' : 'transações'}
-                    </span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="stat-card saldo">
-                  <div className="stat-icon">{estatisticas.saldo >= 0 ? '📈' : '📉'}</div>
-                  <div className="stat-content">
-                    <span className="stat-label">Saldo do Período</span>
-                    <span className={`stat-value ${estatisticas.saldo >= 0 ? 'positive' : 'negative'}`}>
+                <div className="ip_card_estatistica saldo">
+                  <div className="ip_icone_estatistica">{estatisticas.saldo >= 0 ? '📈' : '📉'}</div>
+                  <div className="ip_conteudo_estatistica">
+                    <div className="ip_label_estatistica">Saldo do Período</div>
+                    <div className={`ip_valor_estatistica ${estatisticas.saldo >= 0 ? 'positivo' : 'negativo'}`}>
                       {formatCurrency(estatisticas.saldo)}
-                    </span>
-                    {/* ===== BUG FIX 25: Corrigir texto quando saldo é zero ===== */}
-                    <span className="stat-count">
+                    </div>
+                    <div className="ip_contador_estatistica">
                       {estatisticas.saldo > 0 ? 'Resultado positivo' : 
                        estatisticas.saldo < 0 ? 'Resultado negativo' : 'Resultado neutro'}
-                    </span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </Card>
+            </div>
 
-            {/* ===== BUG FIX 24: Substituir "Estatísticas do Período" por informações mais educativas ===== */}
-            <Card>
-              <h3>Resumo do Período</h3>
-              <div className="extra-stats">
-                <div className="extra-stat">
-                  <span className="extra-stat-label">Total de Transações</span>
-                  <span className="extra-stat-value">{estatisticas.totalTransacoes}</span>
-                </div>
-                
-                {estatisticas.receitas.quantidade > 0 && (
-                  <div className="extra-stat">
-                    <span className="extra-stat-label">Receita Média</span>
-                    <span className="extra-stat-value">
-                      {formatCurrency(estatisticas.receitas.total / estatisticas.receitas.quantidade)}
-                    </span>
-                  </div>
-                )}
-                
-                {estatisticas.despesas.quantidade > 0 && (
-                  <div className="extra-stat">
-                    <span className="extra-stat-label">Despesa Média</span>
-                    <span className="extra-stat-value">
-                      {formatCurrency(estatisticas.despesas.total / estatisticas.despesas.quantidade)}
-                    </span>
-                  </div>
-                )}
-                
-                <div className="extra-stat">
-                  <span className="extra-stat-label">Período</span>
-                  <span className="extra-stat-value">
-                    {format(dataInicio, 'dd/MM')} - {format(dataFim, 'dd/MM')}
-                  </span>
-                </div>
+            {/* Card 2: Resumo do Período */}
+            <div>
+  <div className="ip_sidebar_header">Resumo do Período</div>
+  
+  <div className="ip_flex_coluna ip_gap_2 ip_p_3">
+    {/* Total de Transações */}
+    <div className="ip_card_estatistica saldo">
+      <div className="ip_icone_estatistica">📊</div>
+      <div className="ip_conteudo_estatistica">
+        <div className="ip_label_estatistica">Total de Transações</div>
+        <div className="ip_valor_estatistica" style={{ color: 'var(--ip-cinza-900)' }}>
+          {estatisticas.totalTransacoes}
+        </div>
+        <div className="ip_contador_estatistica">
+          no período selecionado
+        </div>
+      </div>
+    </div>
 
-                {hasActiveFilters && (
-                  <div className="extra-stat">
-                    <span className="extra-stat-label">Filtros Aplicados</span>
-                    <span className="extra-stat-value">
-                      {filtrosAtivos} ativo{filtrosAtivos === 1 ? '' : 's'}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </Card>
-          </aside>
+    {/* Receita Média - só mostra se houver receitas */}
+    {estatisticas.receitas.quantidade > 0 && (
+      <div className="ip_card_estatistica receitas">
+        <div className="ip_icone_estatistica">📈</div>
+        <div className="ip_conteudo_estatistica">
+          <div className="ip_label_estatistica">Receita Média</div>
+          <div className="ip_valor_estatistica">
+            {formatCurrency(estatisticas.receitas.total / estatisticas.receitas.quantidade)}
+          </div>
+          <div className="ip_contador_estatistica">
+            por transação
+          </div>
+        </div>
+      </div>
+    )}
+    
+    {/* Despesa Média - só mostra se houver despesas */}
+    {estatisticas.despesas.quantidade > 0 && (
+      <div className="ip_card_estatistica despesas">
+        <div className="ip_icone_estatistica">📉</div>
+        <div className="ip_conteudo_estatistica">
+          <div className="ip_label_estatistica">Despesa Média</div>
+          <div className="ip_valor_estatistica">
+            {formatCurrency(estatisticas.despesas.total / estatisticas.despesas.quantidade)}
+          </div>
+          <div className="ip_contador_estatistica">
+            por transação
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Período */}
+    <div className="ip_card_pequeno ip_p_3" style={{ 
+      backgroundColor: 'var(--ip-cinza-50)', 
+      border: '1px solid var(--ip-cinza-200)',
+      marginTop: '8px'
+    }}>
+      <div className="ip_flex ip_gap_2 ip_mb_2" style={{ alignItems: 'center' }}>
+        <span style={{ fontSize: '14px' }}>📅</span>
+        <span style={{ 
+          fontSize: '13px', 
+          fontWeight: '600', 
+          color: 'var(--ip-cinza-700)' 
+        }}>
+          Período Analisado
+        </span>
+      </div>
+      
+      <div style={{ 
+        fontSize: '14px', 
+        fontWeight: '500',
+        color: 'var(--ip-cinza-900)',
+        textAlign: 'center'
+      }}>
+        {format(dataInicio, 'dd/MM')} - {format(dataFim, 'dd/MM/yyyy')}
+      </div>
+      
+      <div style={{ 
+        fontSize: '11px', 
+        color: 'var(--ip-cinza-500)',
+        textAlign: 'center',
+        marginTop: '4px'
+      }}>
+        {format(dataInicio, 'MMMM \'de\' yyyy', { locale: ptBR })}
+      </div>
+    </div>
+
+    {/* Status dos Filtros - só mostra se houver filtros ativos */}
+    {hasActiveFilters && (
+      <div className="ip_card_pequeno ip_p_3" style={{ 
+        backgroundColor: '#eff6ff', 
+        border: '1px solid #93c5fd',
+        marginTop: '4px'
+      }}>
+        <div className="ip_flex ip_gap_2 ip_mb_2" style={{ alignItems: 'center' }}>
+          <span style={{ fontSize: '14px' }}>🔍</span>
+          <span style={{ 
+            fontSize: '13px', 
+            fontWeight: '600', 
+            color: '#2563eb' 
+          }}>
+            Filtros Ativos
+          </span>
+        </div>
+        
+        <div style={{ 
+          fontSize: '14px', 
+          fontWeight: '500',
+          color: '#2563eb',
+          textAlign: 'center'
+        }}>
+          {filtrosAtivos} filtro{filtrosAtivos === 1 ? '' : 's'}
+        </div>
+        
+        <div style={{ 
+          fontSize: '11px', 
+          color: '#1e40af',
+          textAlign: 'center',
+          marginTop: '4px'
+        }}>
+          {groupByCard && 'Agrupado por cartão'}
+        </div>
+      </div>
+    )}
+
+    {/* Informação sobre agrupamento por cartão */}
+    {groupByCard && (
+      <div className="ip_card_pequeno ip_p_3" style={{ 
+        backgroundColor: '#f3e8ff', 
+        border: '1px solid #c084fc',
+        marginTop: '4px'
+      }}>
+        <div className="ip_flex ip_gap_2 ip_mb_2" style={{ alignItems: 'center' }}>
+          <span style={{ fontSize: '14px' }}>💳</span>
+          <span style={{ 
+            fontSize: '13px', 
+            fontWeight: '600', 
+            color: '#7c3aed' 
+          }}>
+            Modo Agrupado
+          </span>
+        </div>
+        
+        <div style={{ 
+          fontSize: '12px', 
+          color: '#6b21a8',
+          textAlign: 'center',
+          lineHeight: '1.3'
+        }}>
+          Despesas de cartão agrupadas por fatura
+        </div>
+      </div>
+    )}
+  </div>
+</div>  </aside>
         </div>
       )}
+
+
 
       <FilterModal />
       <ConfirmModal />

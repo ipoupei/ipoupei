@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+
 import { 
   TrendingUp,
   TrendingDown,
@@ -34,6 +35,8 @@ import DonutChartCategoria from '@modules/relatorios/components/DonutChartCatego
 import CalendarioFinanceiro from '@modules/dashboard/components/CalendarioFinanceiro';
 import ProjecaoSaldoGraph from '@modules/dashboard/components/ProjecaoSaldoGraph';
 import DetalhesDoDiaModal from '@modules/dashboard/components/DetalhesDoDiaModal';
+import UnifiedTransactionModal from '@modules/transacoes/components/UnifiedTransactionModal';
+
 
 // CSS modularizado
 import '../styles/Dashboard.css';
@@ -72,6 +75,10 @@ const Dashboard = () => {
     despesas: false,
     cartaoCredito: false
   });
+
+  const [modalTransacaoAberto, setModalTransacaoAberto] = useState(false);
+  const [tipoTransacaoModal, setTipoTransacaoModal] = useState('receita');
+
 
   // ✅ EFFECTS SEMPRE NO MESMO LOCAL
   useEffect(() => {
@@ -115,6 +122,22 @@ const Dashboard = () => {
     setShowModal(false);
     setDiaDetalhes(null);
   };
+
+  const handleAbrirModalTransacao = useCallback((tipo) => {
+    setTipoTransacaoModal(tipo);
+    setModalTransacaoAberto(true);
+  }, []);
+
+  const handleFecharModalTransacao = useCallback(() => {
+    setModalTransacaoAberto(false);
+  }, []);
+
+  const handleSalvarTransacao = useCallback(() => {
+    console.log('💾 Transação salva, atualizando dashboard...');
+    refreshData(); // Atualizar dados do dashboard
+    setModalTransacaoAberto(false);
+  }, [refreshData]);
+
 
   // ✅ NOVA FUNCIONALIDADE: Calcular insights inteligentes
   const calcularInsights = () => {
@@ -959,10 +982,13 @@ const Dashboard = () => {
                   <p className="chart-empty-description">
                     Que tal começar registrando sua primeira receita?
                   </p>
-                  <Link to="/transacoes" className="chart-empty-button">
+                  <button
+                    onClick={() => handleAbrirModalTransacao('receita')}
+                    className="chart-empty-button"
+                  >
                     <Plus size={16} />
                     Adicionar receita
-                  </Link>
+                  </button>
                 </div>
               )}
             </div>
@@ -992,10 +1018,13 @@ const Dashboard = () => {
                   <p className="chart-empty-description">
                     Registre suas despesas para acompanhar onde seu dinheiro vai
                   </p>
-                  <Link to="/transacoes" className="chart-empty-button">
+                  <button
+                    onClick={() => handleAbrirModalTransacao('despesa')}
+                    className="chart-empty-button"
+                  >
                     <Plus size={16} />
                     Adicionar despesa
-                  </Link>
+                  </button>
                 </div>
               )}
             </div>
@@ -1081,6 +1110,14 @@ const Dashboard = () => {
         onClose={handleCloseModal}
         dia={diaDetalhes}
       />
+
+      {/* Modal de Transações */}
+<UnifiedTransactionModal
+  isOpen={modalTransacaoAberto}
+  onClose={handleFecharModalTransacao}
+  onSave={handleSalvarTransacao}
+  tipoInicial={tipoTransacaoModal}
+/>
     </div>
   );
 };

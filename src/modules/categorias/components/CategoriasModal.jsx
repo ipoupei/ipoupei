@@ -1,20 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { 
-  X, Plus, Edit3, Trash2, Palette, Lightbulb, 
-  ChevronDown, ChevronRight, Star, Search 
+  X, Plus, Edit, Trash2, Palette, Lightbulb, 
+  ChevronDown, ChevronRight, Search, Check
 } from 'lucide-react';
 import useCategorias from '@modules/categorias/hooks/useCategorias';
 import CategoriasSugeridasModal from './CategoriasSugeridasModal';
 import CategoriaIcons from '@shared/utils/CategoriaIcons';
-import '@shared/styles/CategoriasModal.css';
+import '@shared/styles/PrincipalArquivoDeClasses.css';
 
 /**
- * Modal para gerenciamento de categorias - LAYOUT TABULAR ORIGINAL
- * ✅ Mantém exatamente o visual da primeira imagem
- * ✅ Remove apenas o CSS inline, usando classes CSS
- * ✅ Layout de tabela preservado
- * ✅ Todas as funcionalidades mantidas
+ * Modal para gerenciamento de categorias - REFATORADO COM CLASSES iPOUPEI
+ * ✅ Usa classes padronizadas do PrincipalArquivoDeClasses.css
+ * ✅ Novo seletor de cores com classes ip_
+ * ✅ Interface consistente com outros modais
+ * ✅ Mantém todas as funcionalidades existentes
  */
 const CategoriasModal = ({ isOpen, onClose }) => {
   const { 
@@ -35,9 +35,9 @@ const CategoriasModal = ({ isOpen, onClose }) => {
   });
   
   // Estados para modais
-  const [modalAberto, setModalAberto] = useState(null); // 'editar', 'excluir', 'nova'
+  const [modalAberto, setModalAberto] = useState(null);
   const [itemSendoEditado, setItemSendoEditado] = useState(null);
-  const [tipoItemModal, setTipoItemModal] = useState(''); // 'categoria', 'subcategoria'  
+  const [tipoItemModal, setTipoItemModal] = useState('');
   const [categoriaParentId, setCategoriaParentId] = useState(null);
   
   // Estados para formulários
@@ -45,7 +45,7 @@ const CategoriasModal = ({ isOpen, onClose }) => {
   const [corFormulario, setCorFormulario] = useState('#008080');
   const [iconeFormulario, setIconeFormulario] = useState('📁');
   
-  // Estados para seletor de ícones
+  // Estados para seletores
   const [dropdownIconeAberto, setDropdownIconeAberto] = useState(false);
   const [buscaIcone, setBuscaIcone] = useState('');
   
@@ -53,14 +53,23 @@ const CategoriasModal = ({ isOpen, onClose }) => {
   const [mensagemFeedback, setMensagemFeedback] = useState({ show: false, message: '', type: '' });
   const [modalSugeridaAberto, setModalSugeridaAberto] = useState(false);
   
-const coresPredefinidas = [
-  '#008080', '#006666', '#0043C0', '#006400', '#DC3545', '#FFC107',
-  '#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'
-];
+  // ✅ NOVO: Cores padronizadas com 20 opções (2 linhas x 10 colunas)
+  const coresPredefinidas = [
+    // Linha 1 - Cores vibrantes e principais
+    '#008080', '#0EA5E9', '#3B82F6', '#6366F1', '#8B5CF6',
+    '#A855F7', '#EC4899', '#F43F5E', '#EF4444', '#F97316',
+    // Linha 2 - Cores complementares e neutras
+    '#F59E0B', '#EAB308', '#84CC16', '#22C55E', '#10B981',
+    '#14B8A6', '#0F172A', '#1E293B', '#334155', '#475569'
+  ];
   
   // Filtrar e organizar categorias
   const categoriasDespesas = categorias.filter(cat => cat.tipo === 'despesa') || [];
   const categoriasReceitas = categorias.filter(cat => cat.tipo === 'receita') || [];
+
+  // =============================================================================
+  // HANDLERS DE EVENTOS
+  // =============================================================================
   
   useEffect(() => {
     const handleEscape = (e) => {
@@ -94,8 +103,6 @@ const coresPredefinidas = [
   };
   
   const abrirModal = (tipoAcao, item, tipoItem, parentId = null) => {
-    console.log('🎯 abrirModal chamado:', { tipoAcao, item, tipoItem, parentId });
-    
     setModalAberto(tipoAcao);
     setItemSendoEditado(item || {});
     setTipoItemModal(tipoItem);
@@ -105,7 +112,6 @@ const coresPredefinidas = [
     
     if (tipoItem === 'subcategoria') {
       const idPai = parentId || item?.parentId || item?.categoria_id;
-      console.log('🔧 Setando categoriaParentId:', idPai);
       setCategoriaParentId(idPai);
     } else {
       setCategoriaParentId(null);
@@ -123,15 +129,13 @@ const coresPredefinidas = [
     setDropdownIconeAberto(false);
     setBuscaIcone('');
   };
+
+  // ✅ NOVO: Handler para mudança de cor
+  const handleCorChange = useCallback((cor) => {
+    setCorFormulario(cor);
+  }, []);
   
   const confirmarAcao = async () => {
-    console.log('🚀 confirmarAcao iniciada:', { 
-      modalAberto, 
-      tipoItemModal, 
-      nomeFormulario: nomeFormulario.trim(),
-      itemSendoEditado 
-    });
-    
     if (modalAberto === 'excluir') {
       return confirmarExclusao();
     }
@@ -146,12 +150,6 @@ const coresPredefinidas = [
       
       if (modalAberto === 'nova' && tipoItemModal === 'categoria') {
         const tipoCategoria = itemSendoEditado?.tipo || 'despesa';
-        console.log('📝 Criando nova categoria:', { 
-          nome: nomeFormulario.trim(),
-          tipo: tipoCategoria,
-          cor: corFormulario,
-          icone: iconeFormulario 
-        });
         
         resultado = await addCategoria({
           nome: nomeFormulario.trim(),
@@ -160,9 +158,7 @@ const coresPredefinidas = [
           icone: iconeFormulario
         });
         
-        console.log('✅ Resultado addCategoria:', resultado);
       } else if (modalAberto === 'editar' && tipoItemModal === 'categoria') {
-        console.log('✏️ Editando categoria:', itemSendoEditado.id);
         resultado = await updateCategoria(itemSendoEditado.id, {
           nome: nomeFormulario.trim(),
           cor: corFormulario,
@@ -170,30 +166,24 @@ const coresPredefinidas = [
         });
       } else if (modalAberto === 'nova' && tipoItemModal === 'subcategoria') {
         if (!categoriaParentId) {
-          console.error('❌ categoriaParentId não definido:', categoriaParentId);
           mostrarFeedback('Erro: Categoria pai não identificada', 'error');
           return;
         }
         
-        console.log('✅ Criando subcategoria com parentId:', categoriaParentId);
         resultado = await addSubcategoria(categoriaParentId, {
           nome: nomeFormulario.trim()
         });
       } else if (modalAberto === 'editar' && tipoItemModal === 'subcategoria') {
         const parentId = categoriaParentId || itemSendoEditado.categoria_id;
         if (!parentId) {
-          console.error('❌ parentId não definido para edição:', { categoriaParentId, itemSendoEditado });
           mostrarFeedback('Erro: Categoria pai não identificada', 'error');
           return;
         }
         
-        console.log('✅ Editando subcategoria com parentId:', parentId);
         resultado = await updateSubcategoria(parentId, itemSendoEditado.id, {
           nome: nomeFormulario.trim()
         });
       }
-      
-      console.log('📊 Resultado final:', resultado);
       
       if (resultado?.success) {
         mostrarFeedback(
@@ -218,12 +208,10 @@ const coresPredefinidas = [
       } else {
         const parentId = categoriaParentId || itemSendoEditado.categoria_id;
         if (!parentId) {
-          console.error('❌ parentId não definido para exclusão:', { categoriaParentId, itemSendoEditado });
           mostrarFeedback('Erro: Categoria pai não identificada', 'error');
           return;
         }
         
-        console.log('✅ Excluindo subcategoria com parentId:', parentId);
         resultado = await deleteSubcategoria(parentId, itemSendoEditado.id);
       }
       
@@ -247,7 +235,10 @@ const coresPredefinidas = [
     }
   };
 
-  // Renderizar formulário de modal
+  // =============================================================================
+  // RENDER DO FORMULÁRIO COM CLASSES iPOUPEI
+  // =============================================================================
+
   const renderFormularioModal = () => {
     if (!modalAberto) return null;
     
@@ -265,40 +256,48 @@ const coresPredefinidas = [
     }
     
     return (
-      <div className="categorias-form-overlay">
-        <div className="categorias-form-modal">
+      <div className="ip_modal_fundo" style={{ zIndex: 1100 }}>
+        <div className="ip_modal_medio">
           {/* Header do Modal */}
-          <div className="categorias-form-header">
-            <h3 className="categorias-form-title">{titulo}</h3>
-            <button className="categorias-form-close" onClick={fecharModal}>
+          <div className={`ip_modal_header ${ehExcluir ? 'ip_header_vermelho' : 'ip_header_azul'}`}>
+            <div className="ip_flex ip_gap_3">
+              <div className="ip_icone_item">
+                {ehExcluir ? <Trash2 size={18} /> : <Palette size={18} />}
+              </div>
+              <div>
+                <h2 className="ip_modal_titulo">{titulo}</h2>
+                <p className="ip_modal_subtitulo">
+                  {ehExcluir ? 'Esta ação pode afetar transações' : 'Configure as informações'}
+                </p>
+              </div>
+            </div>
+            <button className="ip_modal_close" onClick={fecharModal}>
               <X size={18} />
             </button>
           </div>
           
           {/* Conteúdo do Modal */}
-          <div className="categorias-form-body">
+          <div className="ip_modal_content">
             {ehExcluir ? (
-              <div className="categorias-empty-state">
-                <div className="categorias-empty-icon">⚠️</div>
-                <div className="categorias-empty-title">
-                  Tem certeza que deseja excluir?
-                </div>
-                <div className="categorias-empty-subtitle">
-                  <strong>{itemSendoEditado?.nome}</strong>
-                  {ehCategoria && ' e todas suas subcategorias'}
-                </div>
-                {ehCategoria && (
-                  <p className="categorias-empty-subtitle" style={{ color: 'var(--danger)', marginTop: '8px', fontStyle: 'italic' }}>
-                    Esta ação afetará todas as transações relacionadas.
+              <div className="ip_mensagem_feedback aviso ip_mb_3">
+                <Trash2 size={16} />
+                <div>
+                  <strong>Tem certeza que deseja excluir?</strong>
+                  <p>
+                    <strong>{itemSendoEditado?.nome}</strong>
+                    {ehCategoria && ' e todas suas subcategorias'}
                   </p>
-                )}
+                  {ehCategoria && (
+                    <p className="ip_mt_2">Esta ação afetará todas as transações relacionadas.</p>
+                  )}
+                </div>
               </div>
             ) : (
               <>
                 {/* Campo Nome */}
-                <div className="categorias-form-field">
-                  <label className="categorias-form-label">
-                    <Edit3 size={14} />
+                <div className="ip_grupo_formulario ip_mb_3">
+                  <label className="ip_label">
+                    <Palette size={14} />
                     Nome {ehCategoria ? 'da categoria' : 'da subcategoria'} *
                   </label>
                   <input
@@ -307,42 +306,47 @@ const coresPredefinidas = [
                     onChange={(e) => setNomeFormulario(e.target.value)}
                     placeholder="Digite o nome..."
                     autoFocus
-                    className="categorias-form-input"
+                    className="ip_input_base"
                   />
                 </div>
                 
                 {/* Seletor de Ícone (apenas para categorias) */}
                 {ehCategoria && (
-                  <div className="categorias-form-field">
-                    <label className="categorias-form-label">
-                      <Star size={14} />
+                  <div className="ip_grupo_formulario ip_mb_3">
+                    <label className="ip_label">
                       Ícone da categoria
                     </label>
-                    <div className="categorias-icon-selector">
+                    <div style={{ position: 'relative' }}>
                       <button 
                         type="button"
                         onClick={() => setDropdownIconeAberto(!dropdownIconeAberto)}
-                        className="categorias-icon-trigger"
+                        className="ip_input_base ip_flex ip_gap_3"
+                        style={{ justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
                       >
-                        {iconeFormulario}
+                        <div className="ip_flex ip_gap_2" style={{ alignItems: 'center' }}>
+                          <span style={{ fontSize: '20px' }}>{iconeFormulario}</span>
+                          <span>Escolher ícone</span>
+                        </div>
+                        <ChevronDown size={16} style={{ 
+                          transform: dropdownIconeAberto ? 'rotate(180deg)' : 'rotate(0deg)',
+                          transition: 'transform 0.2s ease'
+                        }} />
                       </button>
                       
                       {dropdownIconeAberto && (
-                        <div className="categorias-icon-dropdown">
-                          {/* Busca de ícones */}
-                          <div className="categorias-icon-search">
-                            <Search size={14} />
+                        <div className="ip_dropdown_container">
+                          <div className="ip_search_container ip_mb_3">
+                            <Search size={16} />
                             <input 
                               type="text" 
                               placeholder="Buscar ícone..."
                               value={buscaIcone}
                               onChange={(e) => setBuscaIcone(e.target.value)}
-                              className="categorias-icon-search-input"
+                              className="ip_input_base"
                             />
                           </div>
                           
-                          {/* Grid de ícones */}
-                          <div className="categorias-icon-grid">
+                          <div className="ip_grid_icones">
                             {obterIconesFiltrados().map((icon, index) => (
                               <button
                                 key={`${icon}-${index}`}
@@ -352,7 +356,8 @@ const coresPredefinidas = [
                                   setDropdownIconeAberto(false);
                                   setBuscaIcone('');
                                 }}
-                                className={`categorias-icon-option ${icon === iconeFormulario ? 'selected' : ''}`}
+                                className={`ip_botao_icone ${icon === iconeFormulario ? 'ip_selecionado' : ''}`}
+                                style={{ fontSize: '18px' }}
                               >
                                 {icon}
                               </button>
@@ -364,30 +369,56 @@ const coresPredefinidas = [
                   </div>
                 )}
                 
-                {/* Seletor de Cor (apenas para categorias) */}
+                {/* ✅ NOVO: Seletor de Cor com classes ip_ (apenas para categorias) */}
                 {ehCategoria && (
-                  <div className="categorias-form-field">
-                    <label className="categorias-form-label">
+                  <div className="ip_grupo_formulario ip_mb_3">
+                    <label className="ip_label">
                       <Palette size={14} />
                       Cor da categoria
                     </label>
-                    <div className="categorias-color-selector">
-                      <input
-                        type="color"
-                        value={corFormulario}
-                        onChange={(e) => setCorFormulario(e.target.value)}
-                        className="categorias-color-input"
-                      />
-                      <div className="categorias-color-presets">
-                        {coresPredefinidas.slice(0, 6).map(cor => (
-                          <button
-                            key={cor}
-                            type="button"
-                            onClick={() => setCorFormulario(cor)}
-                            className={`categorias-color-preset ${cor === corFormulario ? 'active' : ''}`}
-                            style={{ backgroundColor: cor }}
-                          />
-                        ))}
+                    
+                    {/* Grid de Cores */}
+                    <div className="ip_color_palette">
+                      {coresPredefinidas.map((cor) => (
+                        <button
+                          key={cor}
+                          type="button"
+                          onClick={() => handleCorChange(cor)}
+                          className={`ip_color_swatch ${cor === corFormulario ? 'ip_selected' : ''}`}
+                          style={{ backgroundColor: cor }}
+                          title={cor}
+                        >
+                          {cor === corFormulario && (
+                            <Check size={12} className="ip_color_check" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                    
+                    {/* Preview e Input Personalizado */}
+                    <div className="ip_color_custom">
+                      <div className="ip_color_preview_group">
+                        <div 
+                          className="ip_color_preview" 
+                          style={{ backgroundColor: corFormulario }}
+                        />
+                        <div>
+                          <span className="ip_color_code">{corFormulario}</span>
+                          <p className="ip_color_hint">Cor selecionada</p>
+                        </div>
+                      </div>
+                      
+                      <div className="ip_color_custom_section">
+                        <label className="ip_color_custom_label">
+                          Criar cor personalizada
+                        </label>
+                        <input
+                          type="color"
+                          value={corFormulario}
+                          onChange={(e) => handleCorChange(e.target.value)}
+                          className="ip_color_input"
+                          title="Clique para escolher uma cor personalizada"
+                        />
                       </div>
                     </div>
                   </div>
@@ -397,18 +428,18 @@ const coresPredefinidas = [
           </div>
           
           {/* Footer do Modal */}
-          <div className="categorias-form-footer">
-            <button className="categorias-btn-cancel" onClick={fecharModal}>
+          <div className="ip_modal_footer">
+            <button className="ip_botao_base ip_botao_cinza" onClick={fecharModal}>
               Cancelar
             </button>
             <button 
               onClick={confirmarAcao}
               disabled={loading}
-              className={`categorias-btn-primary ${ehExcluir ? 'categorias-btn-danger' : ''}`}
+              className={`ip_botao_base ${ehExcluir ? 'ip_botao_vermelho' : 'ip_botao_verde'}`}
             >
               {loading ? (
                 <>
-                  <div className="categorias-btn-spinner"></div>
+                  <span className="ip_loading_spinner_pequeno"></span>
                   {ehExcluir ? 'Excluindo...' : 'Salvando...'}
                 </>
               ) : (
@@ -433,146 +464,183 @@ const coresPredefinidas = [
     );
   };
 
-  // Renderizar linha de categoria
-  const renderCategoriaLinha = (categoria) => {
-    return (
-      <React.Fragment key={categoria.id}>
-        <tr className="categoria-row">
-          <td className="categoria-cell">
-            <div className="categoria-nome-container">
-              <span className="categoria-icone-display">
-                {categoria.icone || '📁'}
-              </span>
-              <span className="categoria-nome-text">
-                {categoria.nome}
-              </span>
-            </div>
-          </td>
-          
-          <td className="categoria-cell categoria-icone-cell">
-            <span>{categoria.icone || '📁'}</span>
-          </td>
-          
-          <td className="categoria-cell categoria-cor-cell">
-            <div 
-              className="categoria-color-dot"
-              style={{ backgroundColor: categoria.cor || '#008080' }}
-            />
-          </td>
-          
-          <td className="categoria-cell categoria-acoes-cell">
-            <div className="categoria-acoes-container">
-              <button 
-                onClick={() => abrirModal('editar', categoria, 'categoria')}
-                title="Editar categoria"
-                className="categoria-action-btn edit"
-              >
-                <Edit3 size={14} />
-              </button>
-              <button 
-                onClick={() => abrirModal('excluir', categoria, 'categoria')}
-                title="Excluir categoria"
-                className="categoria-action-btn danger"
-              >
-                <Trash2 size={14} />
-              </button>
-              <button 
-                onClick={() => abrirModal('nova', { parentId: categoria.id }, 'subcategoria', categoria.id)}
-                title="Nova subcategoria"
-                className="categoria-action-btn add"
-              >
-                <Plus size={14} />
-              </button>
-            </div>
-          </td>
-        </tr>
-        
-        {/* Subcategorias */}
-        {categoria.subcategorias?.map(subcategoria => (
-          <tr key={`sub-${subcategoria.id}`} className="subcategoria-row">
-            <td className="categoria-cell">
-              <div className="subcategoria-nome-container">
-                <span className="subcategoria-nome-text">
-                  {subcategoria.nome}
-                </span>
-              </div>
-            </td>
-            
-            <td className="categoria-cell categoria-icone-cell">
-              <div 
-                className="subcategoria-dot"
-                style={{ backgroundColor: categoria.cor || '#008080' }}
-              />
-            </td>
-            
-            <td className="categoria-cell categoria-cor-cell">
-              <div 
-                className="subcategoria-dot"
-                style={{ backgroundColor: categoria.cor || '#008080' }}
-              />
-            </td>
-            
-            <td className="categoria-cell categoria-acoes-cell">
-              <div className="subcategoria-acoes-container">
-                <button 
-                  onClick={() => abrirModal('editar', subcategoria, 'subcategoria', categoria.id)}
-                  title="Editar subcategoria"
-                  className="subcategoria-action-btn"
-                >
-                  <Edit3 size={12} />
-                </button>
-                <button 
-                  onClick={() => abrirModal('excluir', subcategoria, 'subcategoria', categoria.id)}
-                  title="Excluir subcategoria"
-                  className="subcategoria-action-btn danger"
-                >
-                  <Trash2 size={12} />
-                </button>
-              </div>
-            </td>
-          </tr>
-        ))}
-      </React.Fragment>
-    );
-  };
+  // =============================================================================
+  // RENDER DA TABELA COM CLASSES iPOUPEI
+  // =============================================================================
 
-  // Renderizar seção de categorias (Despesas/Receitas)
+
+{/* Header visual da tabela */}
+<div className="ip_card_pequeno ip_mb_2" style={{ padding: '8px 16px', background: '#f8f9fa' }}>
+  <div className="ip_flex" style={{ alignItems: 'center' }}>
+    <div style={{ flex: '1 1 40%' }}>
+      <span className="ip_texto_secundario" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Nome</span>
+    </div>
+    <div style={{ flex: '0 0 60px', textAlign: 'center' }}>
+      <span className="ip_texto_secundario" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ícone</span>
+    </div>
+    <div style={{ flex: '0 0 60px', textAlign: 'center' }}>
+      <span className="ip_texto_secundario" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Cor</span>
+    </div>
+    <div style={{ flex: '0 0 120px', textAlign: 'center' }}>
+      <span className="ip_texto_secundario" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ações</span>
+    </div>
+  </div>
+</div>
+
+  const renderCategoriaLinha = (categoria) => {
+  return (
+    <React.Fragment key={categoria.id}>
+      {/* Linha da Categoria Principal */}
+      <div className="ip_card_item_lista" style={{ borderLeftColor: categoria.cor }}>
+        {/* Nome e Ícone */}
+        <div className="ip_flex ip_gap_2" style={{ alignItems: 'center', flex: '1 1 40%' }}>
+          <span style={{ fontSize: '18px' }}>{categoria.icone || '📁'}</span>
+          <span className="ip_texto_principal">{categoria.nome}</span>
+        </div>
+        
+        {/* Ícone (coluna central) */}
+        <div style={{ flex: '0 0 60px', textAlign: 'center' }}>
+          <span style={{ fontSize: '16px' }}>{categoria.icone || '📁'}</span>
+        </div>
+        
+        {/* Cor (coluna central) */}
+        <div style={{ flex: '0 0 60px', textAlign: 'center' }}>
+          <div 
+            className="ip_indicador_cor"
+            style={{ backgroundColor: categoria.cor || '#008080', margin: '0 auto' }}
+          />
+        </div>
+        
+        {/* Ações */}
+        <div className="ip_flex ip_gap_1" style={{ flex: '0 0 120px', justifyContent: 'flex-end' }}>
+          <button 
+            onClick={() => abrirModal('editar', categoria, 'categoria')}
+            title="Editar categoria"
+            className="ip_botao_icone_pequeno"
+          >
+            <Edit size={12} />
+          </button>
+          <button 
+            onClick={() => abrirModal('excluir', categoria, 'categoria')}
+            title="Excluir categoria"
+            className="ip_botao_icone_pequeno ip_botao_vermelho"
+          >
+            <Trash2 size={12} />
+          </button>
+          <button 
+            onClick={() => abrirModal('nova', { parentId: categoria.id }, 'subcategoria', categoria.id)}
+            title="Nova subcategoria"
+            className="ip_botao_icone_pequeno ip_botao_verde"
+          >
+            <Plus size={12} />
+          </button>
+        </div>
+      </div>
+      
+      {/* Subcategorias com indentação */}
+      {categoria.subcategorias?.map(subcategoria => (
+        <div 
+          key={`sub-${subcategoria.id}`} 
+          className="ip_card_item_lista ip_item_aninhado"
+        >
+          {/* Nome da subcategoria com indentação */}
+          <div className="ip_flex ip_gap_2" style={{ alignItems: 'center', flex: '1 1 40%', paddingLeft: '32px' }}>
+            <span style={{ color: '#94a3b8', fontSize: '14px' }}>↳</span>
+            <span className="ip_texto_secundario">{subcategoria.nome}</span>
+          </div>
+          
+          {/* Ponto de cor (herda da categoria pai) */}
+          <div style={{ flex: '0 0 60px', textAlign: 'center' }}>
+            <div 
+              style={{ 
+                width: '8px', 
+                height: '8px', 
+                borderRadius: '50%', 
+                backgroundColor: categoria.cor,
+                margin: '0 auto'
+              }}
+            />
+          </div>
+          
+          {/* Ponto de cor (herda da categoria pai) */}
+          <div style={{ flex: '0 0 60px', textAlign: 'center' }}>
+            <div 
+              style={{ 
+                width: '8px', 
+                height: '8px', 
+                borderRadius: '50%', 
+                backgroundColor: categoria.cor,
+                margin: '0 auto'
+              }}
+            />
+          </div>
+          
+          {/* Ações da subcategoria */}
+          <div className="ip_flex ip_gap_1" style={{ flex: '0 0 120px', justifyContent: 'flex-end' }}>
+            <button 
+              onClick={() => abrirModal('editar', subcategoria, 'subcategoria', categoria.id)}
+              title="Editar subcategoria"
+              className="ip_botao_icone_pequeno"
+            >
+              <Edit size={10} />
+            </button>
+            <button 
+              onClick={() => abrirModal('excluir', subcategoria, 'subcategoria', categoria.id)}
+              title="Excluir subcategoria"
+              className="ip_botao_icone_pequeno ip_botao_vermelho"
+            >
+              <Trash2 size={10} />
+            </button>
+          </div>
+        </div>
+      ))}
+    </React.Fragment>
+  );
+};
+
+
   const renderSecaoCategoria = (titulo, categorias, tipo, emoji) => {
     const estaExpandido = expandidos[tipo];
     
     return (
-      <React.Fragment key={tipo}>
-        <tr className="categoria-section-row">
-          <td colSpan="4" className="categoria-section-cell">
-            <div 
-              className="categoria-section-header-content"
-              onClick={() => alternarExpandir(tipo)}
-            >
-              <div className="categoria-section-info">
-                <div className={`categoria-section-chevron ${estaExpandido ? 'categoria-section-expanded' : ''}`}>
-                  {estaExpandido ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                </div>
-                <span className="categoria-section-icon">{emoji}</span>
-                <span className="categoria-section-title">{titulo}</span>
-                <span className="categoria-section-count">({categorias.length})</span>
-              </div>
-              
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  abrirModal('nova', { tipo: tipo === 'despesas' ? 'despesa' : 'receita' }, 'categoria');
-                }}
-                className="categoria-section-add-btn"
-              >
-                <Plus size={12} />
-                Nova
-              </button>
+      <div key={tipo} className="ip_mb_3">
+        {/* Cabeçalho da Seção */}
+        <div 
+          className="ip_header_secao"
+          onClick={() => alternarExpandir(tipo)}
+          style={{ cursor: 'pointer' }}
+        >
+          <div className="ip_flex ip_gap_2" style={{ alignItems: 'center' }}>
+            <div style={{ 
+              transform: estaExpandido ? 'rotate(90deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s ease'
+            }}>
+              <ChevronRight size={16} />
             </div>
-          </td>
-        </tr>
+            <span style={{ fontSize: '18px' }}>{emoji}</span>
+            <span className="ip_texto_principal">{titulo}</span>
+            <span className="ip_badge_cinza">({categorias.length})</span>
+          </div>
+          
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              abrirModal('nova', { tipo: tipo === 'despesas' ? 'despesa' : 'receita' }, 'categoria');
+            }}
+            className="ip_botao_base ip_botao_pequeno ip_botao_verde"
+          >
+            <Plus size={12} />
+            Nova
+          </button>
+        </div>
         
-        {estaExpandido && categorias.map(renderCategoriaLinha)}
-      </React.Fragment>
+        {/* Lista de Categorias */}
+        {estaExpandido && (
+          <div className="ip_lista_items">
+            {categorias.map(renderCategoriaLinha)}
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -580,102 +648,103 @@ const coresPredefinidas = [
 
   return (
     <>
-      <div className="modal-overlay active">
-        <div className="categorias-modal-container">
-          {/* Header do Modal Principal */}
-          <div className="categorias-modal-header">
-            <div className="categorias-modal-header-content">
-              <div className="categorias-modal-icon">
-                <Palette size={18} />
+      {/* MODAL PRINCIPAL */}
+      <div className="ip_modal_fundo" style={{ zIndex: 1000 }}>
+        <div className="ip_modal_grande">
+          {/* Header */}
+          <div className="ip_modal_header ip_header_azul">
+            <div className="ip_flex ip_gap_3">
+              <div className="ip_icone_item">
+                <Palette size={24} />
               </div>
               <div>
-                <h2 className="categorias-modal-title">Gestão de Categorias</h2>
-                <p className="categorias-modal-subtitle">Organizar categorias e subcategorias</p>
+                <h2 className="ip_modal_titulo">Gestão de Categorias</h2>
+                <p className="ip_modal_subtitulo">
+                  {categoriasDespesas.length + categoriasReceitas.length} categoria{categoriasDespesas.length + categoriasReceitas.length !== 1 ? 's' : ''} • 
+                  {categoriasDespesas.length} despesa{categoriasDespesas.length !== 1 ? 's' : ''} • 
+                  {categoriasReceitas.length} receita{categoriasReceitas.length !== 1 ? 's' : ''}
+                </p>
               </div>
             </div>
-            <button className="categorias-modal-close" onClick={onClose}>
+            <button className="ip_modal_close" onClick={onClose}>
               <X size={18} />
             </button>
           </div>
 
           {/* Feedback de Mensagens */}
           {mensagemFeedback.show && (
-            <div className={`categorias-feedback-message ${mensagemFeedback.type}`}>
-              {mensagemFeedback.message}
+            <div className={`ip_mensagem_feedback ${mensagemFeedback.type} ip_mb_0`}>
+              {mensagemFeedback.type === 'success' ? '✅' : '❌'} {mensagemFeedback.message}
             </div>
           )}
 
-          {/* Corpo do Modal */}
-          <div className="categorias-modal-body">
+          {/* Body */}
+          <div className="ip_modal_content">
             {loading ? (
-              <div className="categorias-loading-container">
-                <div className="categorias-loading-spinner"></div>
-                <p className="categorias-loading-text">Carregando...</p>
+              <div className="ip_loading_container">
+                <div className="ip_loading_spinner"></div>
+                <p className="ip_loading_texto">Carregando categorias...</p>
               </div>
             ) : (
-              <div className="categorias-table-container">
-                <table className="categorias-table">
-                  <thead className="categorias-table-header">
-                    <tr>
-                      <th className="col-nome">Nome</th>
-                      <th className="col-icone">Ícone</th>
-                      <th className="col-cor">Cor</th>
-                      <th className="col-acoes">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {renderSecaoCategoria('DESPESAS', categoriasDespesas, 'despesas', '💸')}
-                    {renderSecaoCategoria('RECEITAS', categoriasReceitas, 'receitas', '💰')}
-                    
-                    {/* Empty State */}
-                    {categoriasDespesas.length === 0 && categoriasReceitas.length === 0 && (
-                      <tr>
-                        <td colSpan="4">
-                          <div className="categorias-empty-state">
-                            <div className="categorias-empty-icon">
-                              <Palette size={32} />
-                            </div>
-                            <div className="categorias-empty-title">Nenhuma categoria encontrada</div>
-                            <div className="categorias-empty-subtitle">
-                              Nenhuma informação disponível
-                            </div>
-                            <div className="categorias-empty-actions">
-                              <button 
-                                onClick={() => setModalSugeridaAberto(true)}
-                                className="categorias-empty-btn secondary"
-                              >
-                                <Lightbulb size={14} />
-                                Ver categorias sugeridas
-                              </button>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <>
+                {/* Controles superiores */}
+                <div className="ip_flex ip_gap_4 ip_mb_4" style={{justifyContent: 'flex-end', alignItems: 'center'}}>
+                  <button 
+                    onClick={() => setModalSugeridaAberto(true)}
+                    className="ip_botao_base ip_botao_pequeno ip_botao_azul"
+                  >
+                    <Lightbulb size={14} />
+                    Categorias Sugeridas
+                  </button>
+                </div>
+
+                {/* Lista de Seções */}
+                {renderSecaoCategoria('DESPESAS', categoriasDespesas, 'despesas', '💸')}
+                {renderSecaoCategoria('RECEITAS', categoriasReceitas, 'receitas', '💰')}
+                
+                {/* Estado vazio */}
+                {categoriasDespesas.length === 0 && categoriasReceitas.length === 0 && (
+                  <div className="ip_estado_vazio">
+                    <Palette size={48} className="ip_estado_vazio_icone" />
+                    <h3 className="ip_estado_vazio_titulo">Nenhuma categoria encontrada</h3>
+                    <p className="ip_estado_vazio_descricao">
+                      Crie suas primeiras categorias para organizar suas transações
+                    </p>
+                    <div className="ip_flex ip_gap_2">
+                      <button 
+                        onClick={() => abrirModal('nova', { tipo: 'despesa' }, 'categoria')}
+                        className="ip_botao_base ip_botao_verde"
+                      >
+                        <Plus size={16} />
+                        Nova Despesa
+                      </button>
+                      <button 
+                        onClick={() => abrirModal('nova', { tipo: 'receita' }, 'categoria')}
+                        className="ip_botao_base ip_botao_verde"
+                      >
+                        <Plus size={16} />
+                        Nova Receita
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
-          {/* Footer do Modal Principal */}
-          <div className="categorias-modal-footer">
-            <div className="categorias-modal-footer-left">
-              <button 
-                type="button"
-                className="categorias-btn-secondary"
-                onClick={() => setModalSugeridaAberto(true)}
-              >
-                <Lightbulb size={14} />
-                Categorias sugeridas
-              </button>
-            </div>
+          {/* Footer */}
+          <div className="ip_modal_footer">
+            <button 
+              onClick={() => setModalSugeridaAberto(true)}
+              className="ip_botao_base ip_botao_azul ip_botao_pequeno"
+            >
+              <Lightbulb size={14} />
+              Categorias Sugeridas
+            </button>
             
-            <div className="categorias-modal-footer-right">
-              <button className="categorias-btn-close" onClick={onClose}>
-                Fechar
-              </button>
-            </div>
+            <button className="ip_botao_base ip_botao_cinza" onClick={onClose}>
+              Fechar
+            </button>
           </div>
         </div>
       </div>

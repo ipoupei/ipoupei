@@ -1,13 +1,15 @@
 // src/modules/dashboard/store/dashboardStore.js
 import { create } from 'zustand';
 import { supabase } from '@lib/supabaseClient';
+import React from 'react';
 
 /**
- * 🔧 DASHBOARD STORE COMPATÍVEL - iPoupei
- * ✅ Funciona com queries diretas (sem dependência de RPCs)
- * ✅ 100% compatível com Dashboard.jsx atual
- * ✅ Fallback robusto para dados reais
- * ✅ Implementação imediata
+ * 🔧 DASHBOARD STORE REFATORADO COMPLETO - iPoupei
+ * ✅ Data correta para transações de cartão (fatura_vencimento)
+ * ✅ Separação correta entre efetivadas vs pendentes
+ * ✅ Inclusão de TODAS as despesas (cartão + dinheiro)
+ * ✅ Exclusão correta de transferências
+ * ✅ Performance otimizada com cache
  */
 
 const useDashboardStore = create((set, get) => ({
@@ -139,7 +141,7 @@ const useDashboardStore = create((set, get) => ({
   },
 
   // ============================
-  // 💰 BUSCAR SALDOS DAS CONTAS (QUERY DIRETA)
+  // 💰 BUSCAR SALDOS DAS CONTAS
   // ============================
   buscarSaldosContas: async (usuarioId) => {
     try {
@@ -177,8 +179,8 @@ const useDashboardStore = create((set, get) => ({
         }
       });
 
-      // Para saldo previsto, vamos usar o atual + 10% como exemplo
-      const saldoPrevisto = saldoTotal * 1.1;
+      // Para saldo previsto, usar o atual (sem inflacionar artificialmente)
+      const saldoPrevisto = saldoTotal;
 
       return { saldoTotal, saldoPrevisto, contasDetalhadas };
 
@@ -189,258 +191,239 @@ const useDashboardStore = create((set, get) => ({
   },
 
   // ============================
-  // 💳 BUSCAR DADOS DOS CARTÕES (QUERY DIRETA)
+  // 💳 BUSCAR DADOS DOS CARTÕES (CORRIGIDO)
   // ============================
-  buscarDadosCartoes: async (usuarioId) => {
+  buscarDadosCartoesReais: async (usuarioId, periodo) => {
     try {
+      console.log('💳 Buscando dados REAIS dos cartões (data correta):', {
+        usuario: usuarioId.substring(0, 8) + '...',
+        periodo: periodo
+      });
+
+      // ============================
+      // 📡 ETAPA 1: Buscar cartões básicos
+      // ============================
       const { data: cartoesData, error: cartoesError } = await supabase
         .from('cartoes')
-        .select('id, nome, limite, bandeira, cor, ativo')
+        .select('id, nome, limite, bandeira, cor, ativo, dia_fechamento, dia_vencimento')
         .eq('usuario_id', usuarioId)
         .eq('ativo', true)
         .order('nome');
 
       if (cartoesError) {
         console.error('❌ Erro ao buscar cartões:', cartoesError);
-        return { cartoesDetalhados: [], limiteTotal: 0, dividaTotal: 0 };
+        return { cartoesDetalhados: [], limiteTotal: 0, gastoMes: 0, usoLimite: 0 };
       }
 
       const cartoes = cartoesData || [];
+      console.log('📋 Cartões encontrados:', cartoes.length);
+
+      if (cartoes.length === 0) {
+        return { cartoesDetalhados: [], limiteTotal: 0, gastoMes: 0, usoLimite: 0 };
+      }
+
+      // ============================
+      // 📡 ETAPA 2: Buscar transações do período (FATURA_VENCIMENTO)
+      // ============================
+      const { data: transacoesPeriodo, error: transacoesPeriodoError } = await supabase
+        .from('transacoes')
+        .select('cartao_id, valor, efetivado, fatura_vencimento')
+        .eq('usuario_id', usuarioId)
+        .eq('tipo', 'despesa')
+        .not('cartao_id', 'is', null)
+        .gte('fatura_vencimento', periodo.inicio)
+        .lte('fatura_vencimento', periodo.fim);
+
+      if (transacoesPeriodoError) {
+        console.error('❌ Erro ao buscar transações do período (cartão):', transacoesPeriodoError);
+      }
+
+      // ============================
+      // 📡 ETAPA 3: Buscar TODAS as faturas pendentes (USO DO LIMITE)
+      // ============================
+      const { data: todasFaturasPendentes, error: pendenteError } = await supabase
+        .from('transacoes')
+        .select('cartao_id, valor')
+        .eq('usuario_id', usuarioId)
+        .eq('tipo', 'despesa')
+        .eq('efetivado', false)
+        .in('cartao_id', cartoes.map(c => c.id));
+
+      if (pendenteError) {
+        console.error('❌ Erro ao buscar todas as faturas pendentes:', pendenteError);
+      }
+
+      const transacoesPeriodoData = transacoesPeriodo || [];
+      const faturasPendentesData = todasFaturasPendentes || [];
+
+      console.log('📊 Dados coletados (cartão):', {
+        transacoesPeriodo: transacoesPeriodoData.length,
+        faturasPendentesGlobais: faturasPendentesData.length
+      });
+
+      // ============================
+      // 📊 ETAPA 4: Processar dados por cartão
+      // ============================
       let limiteTotal = 0;
-      let dividaTotal = 0;
+      let gastoMesTotal = 0;
+      let usoLimiteTotal = 0;
+      let gastoPendenteMesTotal = 0;
       const cartoesDetalhados = [];
 
-      cartoes.forEach((cartao) => {
+      for (const cartao of cartoes) {
         const limite = parseFloat(cartao.limite) || 0;
-        const usado = limite * 0.3; // Simular 30% de uso
-        
+        limiteTotal += limite;
+
+        // ✅ A) CALCULAR GASTO DO MÊS (período selecionado com fatura_vencimento)
+        const transacoesMesCartao = transacoesPeriodoData.filter(t => 
+          t.cartao_id === cartao.id
+        );
+
+        const gastoEfetivadoMes = transacoesMesCartao
+          .filter(t => t.efetivado === true)
+          .reduce((total, t) => total + (parseFloat(t.valor) || 0), 0);
+
+        const gastoPendenteMes = transacoesMesCartao
+          .filter(t => t.efetivado === false || t.efetivado === null)
+          .reduce((total, t) => total + (parseFloat(t.valor) || 0), 0);
+
+        const gastoMesCartao = gastoEfetivadoMes + gastoPendenteMes;
+
+        // ✅ B) CALCULAR USO DO LIMITE (todas as faturas pendentes)
+        const faturasPendentesCartao = faturasPendentesData.filter(t => 
+          t.cartao_id === cartao.id
+        );
+
+        const usoLimiteCartao = faturasPendentesCartao
+          .reduce((total, t) => total + (parseFloat(t.valor) || 0), 0);
+
+        // ✅ Adicionar aos totais globais
+        gastoMesTotal += gastoMesCartao;
+        usoLimiteTotal += usoLimiteCartao;
+        gastoPendenteMesTotal += gastoPendenteMes;
+
         cartoesDetalhados.push({
           id: cartao.id,
           nome: cartao.nome,
-          usado: usado,
+          usado: gastoMesCartao,
+          usoLimite: usoLimiteCartao,
           limite: limite,
           bandeira: cartao.bandeira,
-          cor: cartao.cor
+          cor: cartao.cor,
+          
+          // Detalhamento
+          efetivado: gastoEfetivadoMes,
+          pendente: gastoPendenteMes,
+          disponivel: Math.max(0, limite - usoLimiteCartao),
+          percentualUso: limite > 0 ? (usoLimiteCartao / limite) * 100 : 0,
+          
+          // Debug detalhado
+          debug: {
+            gastoMes: gastoMesCartao,
+            gastoEfetivado: gastoEfetivadoMes,
+            gastoPendente: gastoPendenteMes,
+            usoLimiteGlobal: usoLimiteCartao,
+            transacoesMes: transacoesMesCartao.length,
+            faturasPendentesGlobais: faturasPendentesCartao.length
+          }
         });
+      }
 
-        limiteTotal += limite;
-        dividaTotal += usado;
+      console.log('✅ Processamento cartões (data correta):', {
+        cartoes: cartoesDetalhados.length,
+        limiteTotal,
+        gastoMesTotal,
+        usoLimiteTotal,
+        gastoPendenteMesTotal,
+        limiteLivre: limiteTotal - usoLimiteTotal
       });
 
-      return { cartoesDetalhados, limiteTotal, dividaTotal };
+      return { 
+        cartoesDetalhados,
+        limiteTotal,
+        gastoMes: gastoMesTotal,
+        usoLimite: usoLimiteTotal,
+        limiteLivre: limiteTotal - usoLimiteTotal,
+        dividaTotal: gastoMesTotal,
+        faturaAtual: gastoPendenteMesTotal,
+        
+        debug: {
+          fonte: 'CARTAO_DATA_CORRETA_FATURA_VENCIMENTO',
+          gastoMes: gastoMesTotal,
+          usoLimite: usoLimiteTotal,
+          gastoPendenteMes: gastoPendenteMesTotal,
+          explicacao: 'gastoMes=fatura_vencimento_periodo | usoLimite=todas_pendentes'
+        }
+      };
 
     } catch (err) {
-      console.error('❌ Erro ao buscar cartões:', err);
-      return { cartoesDetalhados: [], limiteTotal: 0, dividaTotal: 0 };
+      console.error('❌ Erro ao buscar dados dos cartões:', err);
+      return { 
+        cartoesDetalhados: [], 
+        limiteTotal: 0, 
+        gastoMes: 0, 
+        usoLimite: 0,
+        error: err.message 
+      };
     }
   },
 
-
-
-buscarDadosCartoesReais: async (usuarioId, periodo) => {
-  try {
-    console.log('💳 Buscando dados REAIS dos cartões (separando valores):', {
-      usuario: usuarioId.substring(0, 8) + '...',
-      periodo: periodo
-    });
-
-    // ============================
-    // 📡 ETAPA 1: Buscar cartões básicos
-    // ============================
-    const { data: cartoesData, error: cartoesError } = await supabase
-      .from('cartoes')
-      .select('id, nome, limite, bandeira, cor, ativo, dia_fechamento, dia_vencimento')
-      .eq('usuario_id', usuarioId)
-      .eq('ativo', true)
-      .order('nome');
-
-    if (cartoesError) {
-      console.error('❌ Erro ao buscar cartões:', cartoesError);
-      return { cartoesDetalhados: [], limiteTotal: 0, gastoMes: 0, usoLimite: 0 };
-    }
-
-    const cartoes = cartoesData || [];
-    console.log('📋 Cartões encontrados:', cartoes.length);
-
-    if (cartoes.length === 0) {
-      return { cartoesDetalhados: [], limiteTotal: 0, gastoMes: 0, usoLimite: 0 };
-    }
-
-    // ============================
-    // 📡 ETAPA 2: Buscar transações do período (GASTO DO MÊS)
-    // ============================
-    const { data: transacoesPeriodo, error: transacoesPeriodoError } = await supabase
-      .rpc('ip_prod_buscar_transacoes_periodo', {
-        p_usuario_id: usuarioId,
-        p_data_inicio: periodo.inicio,
-        p_data_fim: periodo.fim
-      });
-
-    if (transacoesPeriodoError) {
-      console.error('❌ Erro ao buscar transações do período:', transacoesPeriodoError);
-    }
-
-    // ============================
-    // 📡 ETAPA 3: Buscar TODAS as faturas pendentes (USO DO LIMITE)
-    // ============================
-    const { data: todasFaturasPendentes, error: pendenteError } = await supabase
-      .from('transacoes')
-      .select('cartao_id, valor')
-      .eq('usuario_id', usuarioId)
-      .eq('tipo', 'despesa')
-      .eq('efetivado', false)  // ✅ TODAS as faturas pendentes (qualquer período)
-      .in('cartao_id', cartoes.map(c => c.id));
-
-    if (pendenteError) {
-      console.error('❌ Erro ao buscar todas as faturas pendentes:', pendenteError);
-    }
-
-    const transacoesPeriodoData = transacoesPeriodo || [];
-    const faturasPendentesData = todasFaturasPendentes || [];
-
-    console.log('📊 Dados coletados:', {
-      transacoesPeriodo: transacoesPeriodoData.length,
-      faturasPendentesGlobais: faturasPendentesData.length
-    });
-
-    // ============================
-    // 📊 ETAPA 4: Processar dados por cartão
-    // ============================
-    let limiteTotal = 0;
-    let gastoMesTotal = 0;          // ✅ GASTO DO MÊS SELECIONADO
-    let usoLimiteTotal = 0;         // ✅ USO REAL DO LIMITE (todas as pendentes)
-    let gastoPendenteMesTotal = 0;  // ✅ DEFINIR NO ESCOPO CORRETO
-    const cartoesDetalhados = [];
-
-    for (const cartao of cartoes) {
-      const limite = parseFloat(cartao.limite) || 0;
-      limiteTotal += limite;
-
-      // ✅ A) CALCULAR GASTO DO MÊS (período selecionado)
-      const transacoesMesCartao = transacoesPeriodoData.filter(t => 
-        t.cartao_id === cartao.id && 
-        t.tipo === 'despesa'
-      );
-
-      const gastoEfetivadoMes = transacoesMesCartao
-        .filter(t => t.efetivado === true)
-        .reduce((total, t) => total + (parseFloat(t.valor) || 0), 0);
-
-      const gastoPendenteMes = transacoesMesCartao
-        .filter(t => t.efetivado === false || t.efetivado === null)
-        .reduce((total, t) => total + (parseFloat(t.valor) || 0), 0);
-
-      const gastoMesCartao = gastoEfetivadoMes + gastoPendenteMes;
-
-      // ✅ B) CALCULAR USO DO LIMITE (todas as faturas pendentes)
-      const faturasPendentesCartao = faturasPendentesData.filter(t => 
-        t.cartao_id === cartao.id
-      );
-
-      const usoLimiteCartao = faturasPendentesCartao
-        .reduce((total, t) => total + (parseFloat(t.valor) || 0), 0);
-
-      // ✅ Adicionar aos totais globais
-      gastoMesTotal += gastoMesCartao;
-      usoLimiteTotal += usoLimiteCartao;
-      gastoPendenteMesTotal += gastoPendenteMes; // ✅ SOMAR CORRETAMENTE
-
-      cartoesDetalhados.push({
-        id: cartao.id,
-        nome: cartao.nome,
-        usado: gastoMesCartao,              // ✅ GASTO DO MÊS (para exibição)
-        usoLimite: usoLimiteCartao,         // ✅ USO DO LIMITE (para barra)
-        limite: limite,
-        bandeira: cartao.bandeira,
-        cor: cartao.cor,
-        
-        // Detalhamento
-        efetivado: gastoEfetivadoMes,
-        pendente: gastoPendenteMes,
-        disponivel: Math.max(0, limite - usoLimiteCartao), // ✅ Baseado no uso real
-        percentualUso: limite > 0 ? (usoLimiteCartao / limite) * 100 : 0, // ✅ Baseado no uso real
-        
-        // Debug detalhado
-        debug: {
-          gastoMes: gastoMesCartao,
-          gastoEfetivado: gastoEfetivadoMes,
-          gastoPendente: gastoPendenteMes,
-          usoLimiteGlobal: usoLimiteCartao,
-          transacoesMes: transacoesMesCartao.length,
-          faturasPendentesGlobais: faturasPendentesCartao.length
-        }
-      });
-    }
-
-    console.log('✅ Processamento com VALORES SEPARADOS (CORRIGIDO):', {
-      cartoes: cartoesDetalhados.length,
-      limiteTotal,
-      gastoMesTotal,              // ✅ Para exibir no card
-      usoLimiteTotal,             // ✅ Para calcular disponível e barra
-      gastoPendenteMesTotal,      // ✅ Pendente apenas do mês
-      limiteLivre: limiteTotal - usoLimiteTotal
-    });
-
-    // ✅ RETORNO CORRIGIDO
-    return { 
-      cartoesDetalhados,
-      limiteTotal,
-      gastoMes: gastoMesTotal,                // ✅ GASTO DO MÊS (exibição)
-      usoLimite: usoLimiteTotal,              // ✅ USO DO LIMITE (cálculos)
-      limiteLivre: limiteTotal - usoLimiteTotal,
-      
-      // ✅ Para compatibilidade (CORRIGIDO)
-      dividaTotal: gastoMesTotal,             // Total gasto no mês
-      faturaAtual: gastoPendenteMesTotal,     // ✅ CORRIGIDO: Pendente do mês
-      
-      debug: {
-        fonte: 'VALORES_SEPARADOS_CORRIGIDOS',
-        gastoMes: gastoMesTotal,
-        usoLimite: usoLimiteTotal,
-        gastoPendenteMes: gastoPendenteMesTotal,
-        explicacao: 'gastoMes=período_selecionado | usoLimite=todas_pendentes | faturaAtual=pendente_mes'
-      }
-    };
-
-  } catch (err) {
-    console.error('❌ Erro ao buscar dados dos cartões:', err);
-    return { 
-      cartoesDetalhados: [], 
-      limiteTotal: 0, 
-      gastoMes: 0, 
-      usoLimite: 0,
-      error: err.message 
-    };
-  }
-},
-
-
-
-
-
-
-
-
-
   // ============================
-  // 📊 BUSCAR TRANSAÇÕES DO MÊS (QUERY DIRETA)
+  // 📊 BUSCAR TRANSAÇÕES DO MÊS (CORRIGIDO COMPLETO)
   // ============================
   buscarTransacoesMes: async (usuarioId, periodo) => {
     try {
-      const { data: transacoesData, error: transacoesError } = await supabase
+      console.log('📊 Buscando transações do mês (data correta para cartão):', {
+        usuario: usuarioId.substring(0, 8) + '...',
+        periodo: periodo.formatado
+      });
+
+      // ============================
+      // 📡 BUSCAR EM DUAS ETAPAS: CARTÃO + OUTRAS
+      // ============================
+      
+      // 1️⃣ TRANSAÇÕES DE CARTÃO (usar fatura_vencimento)
+      const { data: transacoesCartao, error: errorCartao } = await supabase
         .from('transacoes')
         .select(`
-          id, tipo, valor, data, efetivado, transferencia,
+          id, tipo, valor, data, efetivado, transferencia, cartao_id, fatura_vencimento,
           categorias(id, nome, cor, tipo)
         `)
         .eq('usuario_id', usuarioId)
+        .or('transferencia.is.null,transferencia.eq.false')
+        .not('cartao_id', 'is', null) // ✅ HAS cartao_id
+        .gte('fatura_vencimento', periodo.inicio)
+        .lte('fatura_vencimento', periodo.fim)
+        .order('fatura_vencimento', { ascending: false });
+
+      // 2️⃣ TRANSAÇÕES NORMAIS (usar data)
+      const { data: transacoesNormais, error: errorNormais } = await supabase
+        .from('transacoes')
+        .select(`
+          id, tipo, valor, data, efetivado, transferencia, cartao_id, fatura_vencimento,
+          categorias(id, nome, cor, tipo)
+        `)
+        .eq('usuario_id', usuarioId)
+        .or('transferencia.is.null,transferencia.eq.false')
+        .is('cartao_id', null) // ✅ NO cartao_id
         .gte('data', periodo.inicio)
         .lte('data', periodo.fim)
-        .or('transferencia.is.null,transferencia.eq.false')
         .order('data', { ascending: false });
 
-      if (transacoesError) {
-        console.error('❌ Erro ao buscar transações:', transacoesError);
+      // ============================
+      // 🔍 VERIFICAR ERROS E COMBINAR RESULTADOS
+      // ============================
+      if (errorCartao) {
+        console.error('❌ Erro ao buscar transações de cartão:', errorCartao);
+      }
+      
+      if (errorNormais) {
+        console.error('❌ Erro ao buscar transações normais:', errorNormais);
+      }
+
+      // ✅ Retorno em caso de erro
+      if (errorCartao && errorNormais) {
+        console.error('❌ Erro ao buscar ambos os tipos de transação');
         return {
           receitasAtual: 0,
           receitasPrevisto: 0,
@@ -451,23 +434,54 @@ buscarDadosCartoesReais: async (usuarioId, periodo) => {
         };
       }
 
-      const transacoes = transacoesData || [];
-      
-      // Agrupar por categoria
+      // Combinar resultados
+      const transacoesData = [
+        ...(transacoesCartao || []),
+        ...(transacoesNormais || [])
+      ];
+
+      console.log('📋 Transações encontradas:', {
+        cartao: (transacoesCartao || []).length,
+        normais: (transacoesNormais || []).length,
+        total: transacoesData.length
+      });
+
+      // ============================
+      // 🧮 SEPARAR EFETIVADAS vs PENDENTES (CORRIGIDO)
+      // ============================
       const categoriasReceitas = {};
       const categoriasDespesas = {};
-      let receitasAtual = 0;
-      let despesasAtual = 0;
+      
+      let receitasEfetivadas = 0;    // ✅ JÁ RECEBIDAS
+      let receitasPendentes = 0;     // ✅ A RECEBER
+      let despesasEfetivadas = 0;    // ✅ JÁ GASTAS  
+      let despesasPendentes = 0;     // ✅ PENDENTES
+
+      const transacoes = transacoesData;
 
       transacoes.forEach((transacao) => {
         const valor = parseFloat(transacao.valor) || 0;
         const categoria = transacao.categorias;
         const nomeCategoria = categoria?.nome || 'Sem categoria';
         const corCategoria = categoria?.cor || (transacao.tipo === 'receita' ? '#10B981' : '#EF4444');
+        const isEfetivada = transacao.efetivado === true;
+        const isCartao = !!transacao.cartao_id;
+
+        // ✅ LOG DETALHADO PARA DEBUG
+        const dataRelevante = isCartao ? transacao.fatura_vencimento : transacao.data;
+        if (isCartao) {
+          console.log(`💳 Transação de cartão: ${transacao.tipo} - R$ ${valor} - Efetivada: ${isEfetivada} - Data: ${dataRelevante}`);
+        }
 
         if (transacao.tipo === 'receita') {
-          receitasAtual += valor;
+          // ✅ RECEITAS: todas (dinheiro + cartão)
+          if (isEfetivada) {
+            receitasEfetivadas += valor;
+          } else {
+            receitasPendentes += valor;
+          }
           
+          // Agrupar por categoria (todas as receitas)
           if (!categoriasReceitas[nomeCategoria]) {
             categoriasReceitas[nomeCategoria] = {
               nome: nomeCategoria,
@@ -478,8 +492,14 @@ buscarDadosCartoesReais: async (usuarioId, periodo) => {
           categoriasReceitas[nomeCategoria].valor += valor;
           
         } else if (transacao.tipo === 'despesa') {
-          despesasAtual += valor;
+          // ✅ DESPESAS: todas (dinheiro + cartão)
+          if (isEfetivada) {
+            despesasEfetivadas += valor;
+          } else {
+            despesasPendentes += valor;
+          }
           
+          // Agrupar por categoria (todas as despesas)
           if (!categoriasDespesas[nomeCategoria]) {
             categoriasDespesas[nomeCategoria] = {
               nome: nomeCategoria,
@@ -491,6 +511,15 @@ buscarDadosCartoesReais: async (usuarioId, periodo) => {
         }
       });
 
+      // ============================
+      // 🎯 CALCULAR TOTAIS CORRETOS
+      // ============================
+      const receitasAtual = receitasEfetivadas;              // ✅ JÁ RECEBIDAS
+      const receitasPrevisto = receitasEfetivadas + receitasPendentes; // ✅ TOTAL
+
+      const despesasAtual = despesasEfetivadas;              // ✅ JÁ GASTAS
+      const despesasPrevisto = despesasEfetivadas + despesasPendentes; // ✅ TOTAL
+
       // Converter para arrays e ordenar
       const receitasPorCategoria = Object.values(categoriasReceitas)
         .sort((a, b) => b.valor - a.valor);
@@ -498,13 +527,50 @@ buscarDadosCartoesReais: async (usuarioId, periodo) => {
       const despesasPorCategoria = Object.values(categoriasDespesas)
         .sort((a, b) => b.valor - a.valor);
 
+      // ============================
+      // 📊 LOG DE VERIFICAÇÃO DETALHADO
+      // ============================
+      console.log('✅ VALORES CORRIGIDOS CALCULADOS (incluindo cartão com data correta):');
+      console.log('💚 RECEITAS:');
+      console.log(`   • Efetivadas (já recebidas): R$ ${receitasEfetivadas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
+      console.log(`   • Pendentes (a receber): R$ ${receitasPendentes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
+      console.log(`   • Total previsto: R$ ${receitasPrevisto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
+      console.log('💸 DESPESAS (incluindo cartão com data correta):');
+      console.log(`   • Efetivadas (já gastas): R$ ${despesasEfetivadas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
+      console.log(`   • Pendentes: R$ ${despesasPendentes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
+      console.log(`   • Total previsto: R$ ${despesasPrevisto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
+
+      // ✅ Contagem por tipo
+      const transacoesCartaoCount = (transacoesCartao || []).length;
+      const transacoesNormaisCount = (transacoesNormais || []).length;
+      
+      console.log('📊 BREAKDOWN POR TIPO:');
+      console.log(`   • Transações de cartão: ${transacoesCartaoCount}`);
+      console.log(`   • Transações dinheiro: ${transacoesNormaisCount}`);
+      console.log(`   • Total processadas: ${transacoes.length}`);
+
       return {
-        receitasAtual,
-        receitasPrevisto: receitasAtual * 1.2, // +20% como previsão
-        despesasAtual,
-        despesasPrevisto: despesasAtual * 1.1, // +10% como previsão
+        // ✅ VALORES CORRETOS
+        receitasAtual,        // JÁ RECEBIDAS
+        receitasPrevisto,     // TOTAL (efetivadas + pendentes)
+        despesasAtual,        // JÁ GASTAS
+        despesasPrevisto,     // TOTAL (efetivadas + pendentes)
+        
+        // Arrays para gráficos
         receitasPorCategoria,
-        despesasPorCategoria
+        despesasPorCategoria,
+        
+        // ✅ DADOS EXTRAS PARA DEBUG
+        debug: {
+          receitasEfetivadas,
+          receitasPendentes,
+          despesasEfetivadas,
+          despesasPendentes,
+          totalTransacoes: transacoes.length,
+          transacoesCartao: transacoesCartaoCount,
+          transacoesDinheiro: transacoesNormaisCount,
+          fonte: 'buscarTransacoesMes_DATA_CORRETA_CARTAO_COMPLETA'
+        }
       };
 
     } catch (err) {
@@ -520,9 +586,8 @@ buscarDadosCartoesReais: async (usuarioId, periodo) => {
     }
   },
 
-
   // ============================
-  // 🚀 FUNÇÃO PRINCIPAL - QUERY DIRETA
+  // 🚀 FUNÇÃO PRINCIPAL - REFATORADA
   // ============================
   fetchDashboardData: async () => {
     try {
@@ -549,7 +614,7 @@ buscarDadosCartoesReais: async (usuarioId, periodo) => {
       const usuarioId = user.id;
       const periodo = get().getCurrentPeriod();
 
-      console.log('💰 Buscando dashboard via QUERIES DIRETAS:', {
+      console.log('💰 Buscando dashboard REFATORADO COMPLETO:', {
         usuario: usuarioId.substring(0, 8) + '...',
         periodo: periodo.formatado
       });
@@ -563,23 +628,23 @@ buscarDadosCartoesReais: async (usuarioId, periodo) => {
         get().buscarTransacoesMes(usuarioId, periodo)
       ]);
 
-console.log('✅ Dados coletados (DEBUG DETALHADO):', {
-  saldoTotal: dadosSaldos.saldoTotal,
-  contas: dadosSaldos.contasDetalhadas.length,
-  cartoes: dadosCartoes.cartoesDetalhados.length,
-  gastoMesCartoes: dadosCartoes.gastoMes,         // ✅ NOVO DEBUG
-  usoLimiteCartoes: dadosCartoes.usoLimite,       // ✅ NOVO DEBUG
-  limiteTotal: dadosCartoes.limiteTotal,          // ✅ NOVO DEBUG
-  receitas: dadosTransacoes.receitasAtual,
-  despesas: dadosTransacoes.despesasAtual,
-  dadosCartoesCompletos: dadosCartoes             // ✅ DEBUG COMPLETO
-});
+      console.log('✅ Dados coletados REFATORADOS:', {
+        saldoTotal: dadosSaldos.saldoTotal,
+        contas: dadosSaldos.contasDetalhadas.length,
+        cartoes: dadosCartoes.cartoesDetalhados.length,
+        gastoMesCartoes: dadosCartoes.gastoMes,
+        usoLimiteCartoes: dadosCartoes.usoLimite,
+        limiteTotal: dadosCartoes.limiteTotal,
+        receitasAtual: dadosTransacoes.receitasAtual,
+        despesasAtual: dadosTransacoes.despesasAtual,
+        debugTransacoes: dadosTransacoes.debug
+      });
 
       // ============================
-      // 🏗️ CONSTRUIR ESTRUTURA COMPATÍVEL
+      // 🏗️ CONSTRUIR ESTRUTURA FINAL
       // ============================
       const dashboardData = {
-        // Campos principais (identicos ao hook atual)
+        // Campos principais
         saldo: {
           atual: dadosSaldos.saldoTotal,
           previsto: dadosSaldos.saldoPrevisto
@@ -594,35 +659,35 @@ console.log('✅ Dados coletados (DEBUG DETALHADO):', {
           previsto: dadosTransacoes.despesasPrevisto,
           categorias: dadosTransacoes.despesasPorCategoria
         },
-cartaoCredito: {
-  atual: dadosCartoes.gastoMes || 0,              // ✅ GASTO DO MÊS (valor exibido)
-  usoLimite: dadosCartoes.usoLimite || 0,         // ✅ USO REAL DO LIMITE (barra)
-  limite: dadosCartoes.limiteTotal || 0,
-  disponivel: dadosCartoes.limiteLivre || 0,
-  
-  // ✅ LÓGICA CORRIGIDA: Fatura pendente baseada no mês atual
-  temFaturaPendente: (dadosCartoes.faturaAtual || 0) > 0,  // Pendente DO MÊS
-  statusFatura: (dadosCartoes.faturaAtual || 0) > 0 ? 'pendente' : 'paga',
-  
-  // ✅ NOVO: Distinguir entre fatura do mês vs outras faturas
-  faturaDoMes: dadosCartoes.faturaAtual || 0,     // Pendente apenas do mês atual
-  outrasFaturas: (dadosCartoes.usoLimite || 0) - (dadosCartoes.faturaAtual || 0), // Outras faturas pendentes
-  
-  // Para compatibilidade
-  total: dadosCartoes.gastoMes || 0,
-  efetivado: (dadosCartoes.gastoMes || 0) - (dadosCartoes.faturaAtual || 0),
-  
-  // ✅ DEBUG melhorado
-  debug: {
-    gastoMes: dadosCartoes.gastoMes,
-    usoLimite: dadosCartoes.usoLimite,
-    faturaAtual: dadosCartoes.faturaAtual,        // ✅ Deve ser 0 se mês está pago
-    limiteLivre: dadosCartoes.limiteLivre,
-    fonte: 'buscarDadosCartoesReais'
-  }
-},
+        cartaoCredito: {
+          atual: dadosCartoes.gastoMes || 0,
+          usoLimite: dadosCartoes.usoLimite || 0,
+          limite: dadosCartoes.limiteTotal || 0,
+          disponivel: dadosCartoes.limiteLivre || 0,
+          
+          // ✅ LÓGICA CORRIGIDA
+          temFaturaPendente: (dadosCartoes.faturaAtual || 0) > 0,
+          statusFatura: (dadosCartoes.faturaAtual || 0) > 0 ? 'pendente' : 'paga',
+          
+          // ✅ NOVO: Separação clara
+          faturaDoMes: dadosCartoes.faturaAtual || 0,
+          outrasFaturas: (dadosCartoes.usoLimite || 0) - (dadosCartoes.faturaAtual || 0),
+          
+          // Para compatibilidade
+          total: dadosCartoes.gastoMes || 0,
+          efetivado: (dadosCartoes.gastoMes || 0) - (dadosCartoes.faturaAtual || 0),
+          
+          // ✅ DEBUG melhorado
+          debug: {
+            gastoMes: dadosCartoes.gastoMes,
+            usoLimite: dadosCartoes.usoLimite,
+            faturaAtual: dadosCartoes.faturaAtual,
+            limiteLivre: dadosCartoes.limiteLivre,
+            fonte: 'REFATORADO_DATA_CORRETA'
+          }
+        },
 
-        // Arrays detalhados para cards (verso)
+        // Arrays detalhados
         contasDetalhadas: dadosSaldos.contasDetalhadas,
         cartoesDetalhados: dadosCartoes.cartoesDetalhados,
 
@@ -664,12 +729,14 @@ cartaoCredito: {
 
         // Debug info
         debug: {
-          fonte: 'QUERIES_DIRETAS',
-          versaoAPI: '1.0',
+          fonte: 'DASHBOARD_REFATORADO_COMPLETO',
+          versaoAPI: '2.0',
           dataAtualizacao: new Date().toISOString(),
           usuarioId: usuarioId.substring(0, 8) + '...',
           periodo: periodo.formatado,
-          metodoBusca: 'supabase_queries'
+          metodoBusca: 'queries_diretas_data_correta',
+          transacoesDebug: dadosTransacoes.debug,
+          cartoesDebug: dadosCartoes.debug
         }
       };
 
@@ -681,12 +748,18 @@ cartaoCredito: {
         lastUpdate: new Date()
       });
 
-      console.log('🎯 Dashboard carregado com SUCESSO via queries diretas!');
+      console.log('🎯 Dashboard REFATORADO carregado com SUCESSO!');
+      console.log('📊 Resumo final:', {
+        receitas: `R$ ${dadosTransacoes.receitasAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        despesas: `R$ ${dadosTransacoes.despesasAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        saldo: `R$ ${dadosSaldos.saldoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        cartoes: `R$ ${dadosCartoes.gastoMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+      });
       
       return dashboardData;
 
     } catch (err) {
-      console.error('❌ Erro no dashboard store:', err);
+      console.error('❌ Erro no dashboard store refatorado:', err);
       set({ 
         error: `Erro ao carregar dados: ${err.message}`,
         loading: false 
@@ -695,57 +768,71 @@ cartaoCredito: {
     }
   },
 
-    // ✅ ADICIONAR ESTAS FUNÇÕES ANTES DE refreshData:
-          setupRealtimeListeners: () => {
-            const { realtimeSubscribed } = get();
-            if (realtimeSubscribed) return;
+  // ============================
+  // 📡 REAL-TIME E REFRESH
+  // ============================
+  setupRealtimeListeners: () => {
+    const { realtimeSubscribed } = get();
+    if (realtimeSubscribed) return;
 
-            supabase.auth.getUser().then(({ data: { user } }) => {
-              if (!user?.id) return;
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user?.id) return;
 
-              console.log('📡 Configurando Dashboard Real-time igual ao useContas para:', user.email);
+      console.log('📡 Configurando Dashboard Real-time REFATORADO para:', user.email);
 
-              // ✅ USAR O MESMO PADRÃO QUE FUNCIONA NO useContas
-              const channel = supabase
-                .channel(`dashboard_transacoes_${user.id}`)
-                .on(
-                  'postgres_changes',
-                  {
-                    event: '*',
-                    schema: 'public',
-                    table: 'transacoes',
-                    filter: `usuario_id=eq.${user.id}`
-                  },
-                  () => {
-                    console.log('🔔 DASHBOARD: Transação alterada - refreshing...');
-                    // ✅ MESMO DELAY QUE FUNCIONA NO useContas
-                    setTimeout(() => get().refreshData(), 1000);
-                  }
-                )
-                .subscribe((status) => {
-                  console.log('📡 Dashboard Real-time status:', status);
-                  if (status === 'SUBSCRIBED') {
-                    console.log('✅ Dashboard listeners IGUAIS AO useContas ATIVOS!');
-                    set({ realtimeChannel: channel, realtimeSubscribed: true });
-                  }
-                });
-            });
+      const channel = supabase
+        .channel(`dashboard_refatorado_${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'transacoes',
+            filter: `usuario_id=eq.${user.id}`
           },
-    debouncedRefresh: () => {
-      const state = get();
-      if (state.debounceTimer) clearTimeout(state.debounceTimer);
-      
-      const timer = setTimeout(() => {
-        console.log('🔄 Dashboard: Auto-refresh por mudança');
-        get().refreshData();
-      }, 1500);
-      
-      set({ debounceTimer: timer });
-    },
+          (payload) => {
+            console.log('🔔 DASHBOARD: Transação alterada (refatorado):', payload.eventType);
+            // ✅ Delay para triggers processarem
+            setTimeout(() => get().refreshData(), 1200);
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'contas',
+            filter: `usuario_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('🔔 DASHBOARD: Conta alterada (refatorado):', payload.eventType);
+            setTimeout(() => get().refreshData(), 800);
+          }
+        )
+        .subscribe((status) => {
+          console.log('📡 Dashboard Real-time status (refatorado):', status);
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ Dashboard listeners REFATORADOS ATIVOS!');
+            set({ realtimeChannel: channel, realtimeSubscribed: true });
+          }
+        });
+    });
+  },
 
-    refreshData: () => {
+  debouncedRefresh: () => {
+    const state = get();
+    if (state.debounceTimer) clearTimeout(state.debounceTimer);
+    
+    const timer = setTimeout(() => {
+      console.log('🔄 Dashboard: Auto-refresh refatorado por mudança');
+      get().refreshData();
+    }, 1500);
+    
+    set({ debounceTimer: timer });
+  },
 
-    console.log('🔄 Refresh dashboard - limpando cache');
+  refreshData: () => {
+    console.log('🔄 Refresh dashboard REFATORADO - limpando cache');
     get().limparCache();
     return get().fetchDashboardData();
   },
@@ -759,39 +846,41 @@ cartaoCredito: {
 }));
 
 // ============================
-// 🎣 HOOK DE COMPATIBILIDADE (INTERFACE IDENTICA)
+// 🎣 HOOK DE COMPATIBILIDADE (REFATORADO)
 // ============================
 export const useDashboardData = () => {
   const store = useDashboardStore();
   
-  // Auto-fetch na inicialização (como hook original)
-    React.useEffect(() => {
-      if (!store.hasData() && !store.isLoading()) {
-        console.log('🚀 Dashboard store inicializando...');
-        console.log('🚀 Dashboard store inicializando...');
-        console.log('📡 Configurando listeners real-time...');
-        store.fetchDashboardData();
+  // Auto-fetch na inicialização
+  React.useEffect(() => {
+    if (!store.hasData() && !store.isLoading()) {
+      console.log('🚀 Dashboard store REFATORADO inicializando...');
+      store.fetchDashboardData();
+    }
+    
+    // ✅ Setup listeners real-time
+    store.setupRealtimeListeners();
+    
+    // ✅ Cleanup
+    return () => {
+      if (store.realtimeChannel) {
+        console.log('🧹 Limpando canal real-time do dashboard');
+        supabase.removeChannel(store.realtimeChannel);
       }
-      
-      // ✅ ADICIONAR: Setup listeners real-time
-      store.setupRealtimeListeners();
-      
-      // ✅ ADICIONAR: Cleanup
-      return () => {
-        if (store.realtimeChannel) {
-          supabase.removeChannel(store.realtimeChannel);
-        }
-      };
-    }, []);
+      if (store.debounceTimer) {
+        clearTimeout(store.debounceTimer);
+      }
+    };
+  }, []);
   
-  // ✅ INTERFACE IDENTICA ao hook original + controles de período
+  // ✅ Interface compatível
   return {
     data: store.data,
     loading: store.loading,
     error: store.error,
     refreshData: store.refreshData,
     
-    // ✅ NOVOS: Controles de período
+    // ✅ Controles de período
     selectedDate: store.selectedDate,
     setSelectedDate: store.setSelectedDate,
     navigateMonth: store.navigateMonth,
@@ -801,16 +890,13 @@ export const useDashboardData = () => {
   };
 };
 
-// React import para useEffect
-import React from 'react';
-
 // ============================
-// 🔄 EVENT BUS PARA REFRESH AUTOMÁTICO
+// 🔄 EVENT BUS REFATORADO
 // ============================
 export const dashboardEvents = {
   // Refresh completo (com loading)
   refresh: () => {
-    console.log('🔄 Dashboard: Refresh solicitado por evento externo');
+    console.log('🔄 Dashboard: Refresh solicitado por evento externo (refatorado)');
     const store = useDashboardStore.getState();
     store.limparCache();
     store.fetchDashboardData();
@@ -818,18 +904,27 @@ export const dashboardEvents = {
   
   // Refresh silencioso (sem loading)
   refreshSilent: () => {
-    console.log('🔄 Dashboard: Refresh silencioso por evento externo');
+    console.log('🔄 Dashboard: Refresh silencioso por evento externo (refatorado)');
     const store = useDashboardStore.getState();
     store.limparCache();
-    store.setLoading(false); // Evita loading
+    store.setLoading(false);
     store.fetchDashboardData();
   },
   
-  // Limpar apenas cache (próxima visualização será atualizada)
+  // Limpar apenas cache
   invalidateCache: () => {
-    console.log('🗑️ Dashboard: Cache invalidado por evento externo');
+    console.log('🗑️ Dashboard: Cache invalidado por evento externo (refatorado)');
     const store = useDashboardStore.getState();
     store.limparCache();
+  },
+
+  // ✅ NOVO: Refresh após mudanças em transações
+  refreshAfterTransaction: () => {
+    console.log('💳 Dashboard: Refresh após mudança em transação');
+    const store = useDashboardStore.getState();
+    store.limparCache();
+    // Delay maior para garantir que triggers processaram
+    setTimeout(() => store.fetchDashboardData(), 2000);
   }
 };
 

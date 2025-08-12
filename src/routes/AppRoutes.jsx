@@ -1,5 +1,11 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+
+// 🆕 LANDING PAGE (Marketing) - NOVAS ROTAS
+import LandingPage from '@modules/landing/pages/LandingPage';
+import TermosDeUso from '@modules/landing/pages/TermosDeUso';
+
+// ROTAS ORIGINAIS (mantidas como estavam)
 import Login from '@modules/auth/pages/Login';
 import Dashboard from '@modules/dashboard/pages/Dashboard';
 import ResetPassword from '@modules/auth/pages/ResetPassword';
@@ -7,9 +13,6 @@ import UserProfile from '@modules/usuarios/components/UserProfile';
 import TransacoesRouteHandler from '@modules/transacoes/components/TransacoesRouteHandler.jsx';
 import ImportacaoPage from '@modules/transacoes/components/ImportacaoPage.jsx';
 //import RelatoriosHome from '@modules/relatorios/components/RelatoriosHome.jsx';
-import RelatorioCategoria from '@modules/relatorios/components/RelatorioCategoria.jsx';
-import RelatorioEvolucao from '@modules/relatorios/components/RelatorioEvolucao.jsx';
-import RelatorioProjecao from '@modules/relatorios/components/RelatorioProjecao.jsx';
 import DREFinanceiro from '@modules/relatorios/components/DREFinanceiro.jsx';
 import AuthCallback from '@modules/auth/pages/AuthCallback';
 import ProtectedRoute from '@modules/auth/components/ProtectedRoute';
@@ -18,12 +21,28 @@ import DiagnosticoEmocionalMain from '@modules/diagnostico/DiagnosticoEmocionalM
 import DiagnosticoEmocionalRouter from '@modules/diagnostico/router/DiagnosticoEmocionalRouter';
 import DiagnosticoRoute from './DiagnosticoRoute';
 import GestaoCartoes from '@modules/cartoes/components/GestaoCartoes';
+import PlanejamentoPage from '@modules/planejamento/pages/PlanejamentoPage';
+import ContaAnalysisPage from '@modules/relatorios/components/ContaAnalysisPage';
 
 const AppRoutes = () => {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Rotas públicas - SEM MainLayout */}
+        {/* ========================================
+            🆕 LANDING PAGE - PÚBLICA
+            ======================================== */}
+        
+        {/* Landing Page para usuários não logados */}
+        <Route path="/home" element={<LandingPage />} />
+        <Route path="/landing" element={<LandingPage />} />
+        
+        {/* Termos e Política */}
+        <Route path="/termos" element={<TermosDeUso />} />
+        <Route path="/privacidade" element={<TermosDeUso />} />
+        
+        {/* ========================================
+            🔐 ROTAS PÚBLICAS - SEM MainLayout
+            ======================================== */}
         <Route path="/login" element={<Login />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
@@ -38,7 +57,9 @@ const AppRoutes = () => {
           } 
         />
         
-        {/* Rotas principais - COM MainLayout */}
+        {/* ========================================
+            📊 ROTAS PRINCIPAIS - COM MainLayout (ORIGINAL)
+            ======================================== */}
         <Route 
           path="/" 
           element={
@@ -59,6 +80,16 @@ const AppRoutes = () => {
           {/* Dashboard */}
           <Route index element={<Dashboard />} />
           <Route path="dashboard" element={<Dashboard />} />
+
+          {/* 💰 PLANEJAMENTO - COACH PSICOLÓGICO FINANCEIRO */}
+          <Route path="planejamento" element={<PlanejamentoPage />} />
+          
+          {/* Aliases para compatibilidade do planejamento */}
+          <Route path="orcamento" element={<Navigate to="/planejamento" replace />} />
+          <Route path="metas" element={<Navigate to="/planejamento" replace />} />
+          <Route path="coach" element={<Navigate to="/planejamento" replace />} />
+          <Route path="coach-financeiro" element={<Navigate to="/planejamento" replace />} />
+          <Route path="regra-50-30-20" element={<Navigate to="/planejamento" replace />} />
 
           {/* Diagnóstico original */}
           <Route path="/susto-consciente/*" element={<DiagnosticoEmocionalRouter />} />
@@ -122,19 +153,27 @@ const AppRoutes = () => {
             <Route path="*" element={<Navigate to="gestao" replace />} />
           </Route>
 
-          {/* RELATÓRIOS - EXPANDIDO COM DRE FINANCEIRO */}
+          {/* RELATÓRIOS - EXPANDIDO COM DRE FINANCEIRO E ANÁLISE DE CONTA */}
           <Route path="relatorios">
             <Route path="relatorios/dre" element={<DREFinanceiro />} />
-
-
             
             {/* 🆕 NOVA ROTA: DRE Financeiro Pessoal */}
             <Route path="dre" element={<DREFinanceiro />} />
             
-            {/* Aliases para compatibilidade */}
+            {/* 🆕 NOVA ROTA: Análise Detalhada por Conta */}
+            <Route path="analise-conta" element={<ContaAnalysisPage />} />
+            
+            {/* Aliases para compatibilidade do DRE */}
             <Route path="dre-financeiro" element={<Navigate to="/relatorios/dre" replace />} />
             <Route path="demonstrativo" element={<Navigate to="/relatorios/dre" replace />} />
             <Route path="resultado" element={<Navigate to="/relatorios/dre" replace />} />
+            
+            {/* Aliases para análise de conta */}
+            <Route path="conta" element={<Navigate to="/relatorios/analise-conta" replace />} />
+            <Route path="analise" element={<Navigate to="/relatorios/analise-conta" replace />} />
+            <Route path="conta-detalhada" element={<Navigate to="/relatorios/analise-conta" replace />} />
+            <Route path="insights" element={<Navigate to="/relatorios/analise-conta" replace />} />
+            <Route path="projecao" element={<Navigate to="/relatorios/analise-conta" replace />} />
             
             {/* Rota padrão para /relatorios/qualquer-coisa-inexistente */}
             <Route path="*" element={<Navigate to="/relatorios" replace />} />

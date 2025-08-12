@@ -1,8 +1,9 @@
 // src/modules/cartoes/components/GestaoCartoes/VisualizacaoConsolidada.jsx
 // ✅ CORREÇÃO: Apenas layout otimizado, mantendo toda formatação original
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Eye, EyeOff, CreditCard, ChevronRight, Plus } from 'lucide-react';
 import { obterStatusUtilizacao, calcularDiasVencimento } from '../../utils/cartoesUtils';
+import CartoesModal from '@modules/cartoes/components/CartoesModal';
 
 const VisualizacaoConsolidada = ({
   cartoesProcessados,
@@ -12,6 +13,9 @@ const VisualizacaoConsolidada = ({
   onToggleMostrarValores,
   onVerDetalheCartao
 }) => {
+  
+  // ✅ Estado para controlar o modal de cartões
+  const [cartoesModalAberto, setCartoesModalAberto] = useState(false);
   
   // ✅ CORREÇÃO: Processar cartões localmente para evitar contaminação de dados
   const cartoesLimpos = useMemo(() => {
@@ -202,15 +206,12 @@ const VisualizacaoConsolidada = ({
               <CreditCard className="empty-state__icon" />
               <h3 className="empty-state__title">Nenhum cartão encontrado</h3>
               <p className="empty-state__description">
-                Clique no menu "Meus Cartões" aqui na esquerda e adicione seus cartões para acompanhar as faturas e gastos.
+                Clique no botão abaixo para adicionar seus cartões e começar a acompanhar suas faturas e gastos.
               </p>
               <div className="empty-state__actions">
                 <button 
                   className="empty-state__button"
-                  onClick={() => {
-                    // ✅ Podemos adicionar navegação para criação de cartão aqui
-                    console.log('🆕 Redirecionando para criação de cartão');
-                  }}
+                  onClick={() => setCartoesModalAberto(true)}
                 >
                   <Plus className="icon" />
                   Adicionar Primeiro Cartão
@@ -221,6 +222,15 @@ const VisualizacaoConsolidada = ({
         )}
 
       </div>
+      
+      {/* ✅ Modal de Cartões */}
+      <CartoesModal 
+        isOpen={cartoesModalAberto} 
+        onClose={() => setCartoesModalAberto(false)} 
+        onSave={() => {
+          setCartoesModalAberto(false);
+        }}
+      />
     </div>
   );
 };

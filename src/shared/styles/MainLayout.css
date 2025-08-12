@@ -61,7 +61,7 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
   position: sticky !important;
   top: 0 !important;
-  z-index: 100 !important;
+  z-index: 50 !important;
 }
 
 .mobile-header__menu-button {
@@ -72,6 +72,7 @@
   cursor: pointer !important;
   border-radius: 6px !important;
   transition: all 0.2s ease-in-out !important;
+  
 }
 
 .mobile-header__menu-button:hover {
@@ -83,6 +84,7 @@
   display: flex !important;
   align-items: center !important;
   gap: 8px !important;
+  
 }
 
 .mobile-header__logo {
@@ -131,6 +133,7 @@
   justify-content: center !important;
   color: #6B7280 !important;
   cursor: pointer !important;
+  
 }
 
 /* Trilha de evolução */
@@ -140,7 +143,7 @@
   padding: 0px 0 !important;
   position: sticky !important;
   top: 0 !important;
-  z-index: 99 !important;
+  z-index: 01 !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
 }
 
@@ -148,6 +151,7 @@
 @media (max-width: 767px) {
   .main-layout__evolution-track {
     top: 72px !important; /* altura do header mobile */
+    
   }
 }
 
@@ -155,6 +159,7 @@
   max-width: none !important;
   margin: 0 !important;
   padding: 0 0px !important;
+  
 }
 
 /* Conteúdo da página */
@@ -165,12 +170,14 @@
   margin: 0 !important; /* Remover margin auto */
   width: 100% !important;
   background: transparent !important;
+  
 }
 
 /* Responsividade */
 @media (max-width: 768px) {
   .main-layout__mobile-header {
     display: flex !important;
+    z-index: 01 !important;
   }
   
   .main-layout__page-content {
@@ -824,6 +831,7 @@ html, body {
   
   .evolution-track__container {
     padding: 0 ;
+    z-index: 50;
   }
 }
 
@@ -1104,21 +1112,26 @@ html body #root .main-layout:has(.ipoupei-sidebar--collapsed) .main-layout__cont
 .trilha-colapsada .evolution-track__component {
   opacity: 0;
   pointer-events: none;
+  z-index: 50;
 }
 .evolution-track__container {
   transition: height 0.3s ease, padding 0.3s ease;
   overflow: hidden;
   height: auto;
   padding: 0.75rem 1rem;
+  z-index: 50;
+  
 }
 
 .trilha-colapsada {
   height: 50px !important;
   padding: 0 !important;
+  z-index: 50;
 }
 
 .trilha-colapsada .evolution-track__component {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s ease;
+  z-index: 50;
 }

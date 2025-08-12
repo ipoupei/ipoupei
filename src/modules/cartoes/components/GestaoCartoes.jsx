@@ -37,8 +37,9 @@ import VisualizacaoConsolidada from './GestaoCartoes/VisualizacaoConsolidada';
 import VisualizacaoDetalhada from './GestaoCartoes/VisualizacaoDetalhada';
 import ModalConfirmacaoSimples from './GestaoCartoes/ModalConfirmacaoSimples';
 
-// ✅ STYLES
-import '@modules/transacoes/styles/TransacoesPage.css';
+// Styles
+import '@shared/styles/PrincipalArquivoDeClasses.css';
+
 import '../styles/GestaoCartoes.css';
 
 const GestaoCartoes = () => {
@@ -500,20 +501,31 @@ const GestaoCartoes = () => {
   // ✅ LOADING STATE
   const isLoading = loadingStates.cartoes || loadingData || loadingOperations;
 
-  if (isLoading && cartoes.length === 0) {
-    return (
-      <div className="gestao-cartoes">
-        <div className="gestao-cartoes__loading">
-          <div className="skeleton skeleton--header"></div>
-          <div className="skeleton-grid">
-            <div className="skeleton skeleton--card"></div>
-            <div className="skeleton skeleton--card"></div>
-            <div className="skeleton skeleton--card"></div>
-          </div>
+if (isLoading && cartoes.length === 0) {
+  return (
+    <div className="ip_flex_coluna ip_gap_4 ip_p_4">
+      <div className="ip_loading_container">
+        <div className="ip_loading_spinner" />
+        <p className="ip_loading_texto">Carregando cartões...</p>
+      </div>
+      
+      <div className="ip_grid_responsivo_cards">
+        <div className="ip_card_medio ip_estado_inativo">
+          <div className="ip_loading_spinner_pequeno ip_mb_3" />
+          <div className="ip_texto_principal">Carregando...</div>
+        </div>
+        <div className="ip_card_medio ip_estado_inativo">
+          <div className="ip_loading_spinner_pequeno ip_mb_3" />
+          <div className="ip_texto_principal">Carregando...</div>
+        </div>
+        <div className="ip_card_medio ip_estado_inativo">
+          <div className="ip_loading_spinner_pequeno ip_mb_3" />
+          <div className="ip_texto_principal">Carregando...</div>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   // ✅ RENDERIZAÇÃO CONDICIONAL
   if (visualizacao === 'consolidada') {
@@ -530,25 +542,24 @@ const GestaoCartoes = () => {
       </>
     );
   }
-
   if (!cartaoSelecionado) {
     return (
-      <div className="gestao-cartoes">
-        <div className="gestao-cartoes__error">
-          <div className="error-state">
-            <AlertTriangle className="error-state__icon" />
-            <h3 className="error-state__title">Cartão não encontrado</h3>
-            <p className="error-state__description">
-              Não foi possível carregar os detalhes do cartão selecionado.
-            </p>
-            <button 
-              className="error-state__button"
-              onClick={handleVoltarConsolidada}
-            >
-              <ArrowLeft className="icon" />
-              Voltar à lista
-            </button>
+      <div className="ip_flex_coluna ip_gap_4 ip_p_4">
+        <div className="ip_estado_vazio">
+          <div className="ip_estado_vazio_icone">
+            <AlertTriangle />
           </div>
+          <h3 className="ip_estado_vazio_titulo">Cartão não encontrado</h3>
+          <p className="ip_estado_vazio_descricao">
+            Não foi possível carregar os detalhes do cartão selecionado.
+          </p>
+          <button 
+            className="ip_botao_azul ip_botao_medio ip_flex ip_gap_2"
+            onClick={handleVoltarConsolidada}
+          >
+            <ArrowLeft className="icon" />
+            Voltar à lista
+          </button>
         </div>
       </div>
     );

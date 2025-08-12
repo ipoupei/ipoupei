@@ -155,7 +155,7 @@ export const useCartoesData = () => {
           updated_at
         `)
         .eq('usuario_id', user.id)
-        .eq('ativo', true)
+        //.eq('ativo', true)
         .order('nome');
 
       if (cartoesError) throw cartoesError;
@@ -212,7 +212,7 @@ export const useCartoesData = () => {
         .from('cartoes')
         .select('id, limite, dia_vencimento')
         .eq('usuario_id', user.id)
-        .eq('ativo', true);
+        //.eq('ativo', true);
 
       if (!cartoes?.length) {
         return {

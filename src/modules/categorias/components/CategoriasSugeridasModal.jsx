@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { X, Plus, Check, Eye, ChevronDown, ChevronRight } from 'lucide-react';
 import useCategorias from '@modules/categorias/hooks/useCategorias';
-import '@modules/categorias/styles/CategoriasSugeridasModal.css';
+import '@shared/styles/PrincipalArquivoDeClasses.css';
 
 // Dados das categorias sugeridas completas
 const categoriasSugeridasData = {
@@ -168,8 +168,10 @@ const categoriasSugeridasData = {
 };
 
 /**
- * Modal de Categorias Sugeridas - Versão refatorada seguindo padrões iPoupei
- * Utiliza arquivo CSS separado conforme documentação técnica
+ * Modal de Categorias Sugeridas - REFATORADO COM CLASSES iPOUPEI
+ * ✅ Usa classes padronizadas do PrincipalArquivoDeClasses.css
+ * ✅ Mantém estrutura e funcionalidade existentes
+ * ✅ Interface consistente com outros modais
  */
 const CategoriasSugeridasModal = ({ isOpen, onClose }) => {
   console.log('🎯 CategoriasSugeridasModal renderizado:', { isOpen });
@@ -446,72 +448,129 @@ const CategoriasSugeridasModal = ({ isOpen, onClose }) => {
     const expandida = categoriasExpandidas[categoria.id] || false;
 
     return (
-      <div key={categoria.id} className="category-item">
-        <div className="category-row">
+      <div key={categoria.id} className="ip_card_pequeno ip_mb_2">
+        <div className="ip_flex" style={{ alignItems: 'center', gap: '12px' }}>
           <button
             onClick={() => toggleExpansao(categoria.id)}
-            className="expand-button"
+            className="ip_botao_icone_pequeno"
             aria-label={`${expandida ? 'Recolher' : 'Expandir'} categoria ${categoria.nome}`}
+            style={{ flexShrink: 0 }}
           >
             {expandida ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </button>
 
           <div 
-            className="category-icon"
-            style={{ backgroundColor: categoria.cor }}
+            className="ip_icone_item"
+            style={{ 
+              backgroundColor: categoria.cor,
+              width: '36px',
+              height: '36px',
+              fontSize: '16px',
+              flexShrink: 0
+            }}
             aria-hidden="true"
           >
             {categoria.icone}
           </div>
 
-          <div className="category-info">
-            <div className="category-name">{categoria.nome}</div>
-            <div className="category-count">
+          <div className="ip_flex ip_flex_coluna" style={{ flex: 1, minWidth: 0 }}>
+            <div className="ip_texto_principal">{categoria.nome}</div>
+            <div className="ip_texto_secundario">
               {categoria.subcategorias?.length || 0} subcategorias
             </div>
           </div>
 
-          <div className="category-status">
+          <div className="ip_flex ip_gap_2" style={{ alignItems: 'center', flexShrink: 0 }}>
             {categoriaExiste && (
-              <span className="exists-badge">Já existe</span>
+              <span className="ip_badge_amarelo" style={{ fontSize: '11px', padding: '4px 8px' }}>
+                Já existe
+              </span>
             )}
             
-            <div className="checkbox-wrapper">
+            <label 
+              style={{ 
+                position: 'relative', 
+                cursor: categoriaExiste ? 'not-allowed' : 'pointer',
+                display: 'block'
+              }}
+            >
               <input
                 type="checkbox"
-                checked={categoriaSelecionada || categoriaExiste} // ✅ ADICIONAR: || categoriaExiste
+                checked={categoriaSelecionada || categoriaExiste}
                 onChange={() => toggleCategoria(categoria.id, categoria)}
                 disabled={categoriaExiste}
-                className="category-checkbox"
+                className="ip_sr_only"
                 aria-label={`Selecionar categoria ${categoria.nome}`}
               />
-              <div className="checkbox-custom"></div>
-            </div>
+              <div 
+                className={`ip_botao_icone_pequeno ${(categoriaSelecionada || categoriaExiste) ? 'ip_estado_selecionado' : ''}`}
+                style={{ 
+                  backgroundColor: 'white',
+                  color: (categoriaSelecionada || categoriaExiste) ? '#059669' : 'transparent',
+                  opacity: categoriaExiste ? 0.6 : 1,
+                  width: '32px',
+                  height: '32px',
+                  border: '2px solid',
+                  borderColor: (categoriaSelecionada || categoriaExiste) ? '#059669' : 'var(--ip-cinza-500)',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                }}
+              >
+                {(categoriaSelecionada || categoriaExiste) && <Check size={14} />}
+              </div>
+            </label>
           </div>
         </div>
 
         {expandida && categoria.subcategorias && (
-          <div className="subcategories-list">
+          <div className="ip_mt_3" style={{ paddingLeft: '60px' }}>
             {categoria.subcategorias.map((subcategoria, index) => {
               const key = `${categoria.id}_${index}`;
               const subcategoriaExiste = subcategoriaJaExiste(subcategoria.nome);
               const subcategoriaSelecionada = subcategoriasSelecionadas[key] || false;
 
               return (
-                <div key={index} className="subcategory-item">
-                  <span className="subcategory-name">{subcategoria.nome}</span>
+                <div key={index} className="ip_flex ip_mb_2" style={{ alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div className="ip_flex ip_gap_2" style={{ alignItems: 'center', flex: 1 }}>
+                    <span className="ip_texto_secundario" style={{ fontSize: '13px' }}>
+                      ↳ {subcategoria.nome}
+                    </span>
+                    {subcategoriaExiste && (
+                      <span className="ip_badge_amarelo" style={{ fontSize: '10px', padding: '2px 6px' }}>
+                        Já existe
+                      </span>
+                    )}
+                  </div>
                   
-                  <div className="checkbox-wrapper">
+                  <label 
+                    style={{ 
+                      cursor: subcategoriaExiste ? 'not-allowed' : 'pointer',
+                      display: 'block'
+                    }}
+                  >
                     <input
                       type="checkbox"
-                      checked={subcategoriaSelecionada || subcategoriaExiste} // ✅ ADICIONAR: || subcategoriaExiste
+                      checked={subcategoriaSelecionada || subcategoriaExiste}
                       onChange={() => toggleSubcategoria(categoria.id, index, subcategoria)}
                       disabled={subcategoriaExiste}
-                      className="subcategory-checkbox"
+                      className="ip_sr_only"
                       aria-label={`Selecionar subcategoria ${subcategoria.nome}`}
                     />
-                    <div className="checkbox-custom"></div>
-                  </div>
+                    <div 
+                      className={`ip_botao_icone_pequeno ${(subcategoriaSelecionada || subcategoriaExiste) ? 'ip_estado_selecionado' : ''}`}
+                      style={{ 
+                        width: '24px',
+                        height: '24px',
+                        backgroundColor: 'white',
+                        color: (subcategoriaSelecionada || subcategoriaExiste) ? '#059669' : 'transparent',
+                        opacity: subcategoriaExiste ? 0.6 : 1,
+                        border: '2px solid',
+                        borderColor: (subcategoriaSelecionada || subcategoriaExiste) ? '#059669' : 'var(--ip-cinza-500)',
+                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                      }}
+                    >
+                      {(subcategoriaSelecionada || subcategoriaExiste) && <Check size={12} />}
+                    </div>
+                  </label>
                 </div>
               );
             })}
@@ -529,54 +588,67 @@ const CategoriasSugeridasModal = ({ isOpen, onClose }) => {
   console.log('✅ Renderizando modal completo');
 
   return (
-    <div className="modal-overlay categorias-sugeridas-modal" data-modal="categorias-sugeridas">
-      <div className="modal-container">
-        {/* Header Simples seguindo padrão iPoupei */}
-        <div className="modal-header-simple">
-          <div className="modal-header-simple-content">
-            <Plus size={20} />
-            <h2>Importar Categorias Sugeridas</h2>
+    <div className="ip_modal_fundo" style={{ zIndex: 1100 }}>
+      <div className="ip_modal_medio">
+        {/* Header seguindo padrão iPoupei */}
+        <div className="ip_modal_header ip_header_azul">
+          <div className="ip_flex ip_gap_3">
+            <div className="ip_icone_item">
+              <Plus size={24} />
+            </div>
+            <div>
+              <h2 className="ip_modal_titulo">Importar Categorias Sugeridas</h2>
+              <p className="ip_modal_subtitulo">
+                Selecione abaixo
+              </p>
+            </div>
           </div>
           <button 
             onClick={onClose} 
-            className="modal-close-simple"
+            className="ip_modal_close"
             aria-label="Fechar modal"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
         {/* Feedback Messages */}
         {feedback.show && (
-          <div className={`feedback-message ${feedback.type}`}>
+          <div className={`ip_mensagem_feedback ${feedback.type} ip_mb_0`}>
+            {feedback.type === 'success' && '✅'} 
+            {feedback.type === 'error' && '❌'} 
+            {feedback.type === 'warning' && '⚠️'} 
             {feedback.message}
           </div>
         )}
 
-        {/* Info Box */}
-        <div className="modal-info-box">
-          <Eye size={16} />
-          <span>Selecione as categorias e subcategorias que deseja adicionar ao seu sistema</span>
-        </div>
+
 
         {/* Content */}
-        <div className="modal-body-simple">
+        <div className="ip_modal_content">
           {loading ? (
-            <div className="loading-container">
-              <div className="loading-spinner"></div>
-              <p className="loading-text">Carregando suas categorias...</p>
+            <div className="ip_loading_container">
+              <div className="ip_loading_spinner"></div>
+              <p className="ip_loading_texto">Carregando suas categorias...</p>
             </div>
           ) : (
             <>
               {/* Seção Despesas */}
-              <div className="section-wrapper">
-                <div className="section-header-simple">
-                  <div className="section-indicator"></div>
-                  <div className="section-icon">💸</div>
-                  <h3>Categorias de Despesas</h3>
+              <div className="ip_mb_4">
+                <div className="ip_header_secundario ip_mb_3">
+                  <div className="ip_flex ip_gap_2" style={{ alignItems: 'center' }}>
+                    <div style={{ 
+                      width: '4px', 
+                      height: '20px', 
+                      backgroundColor: 'var(--ip-cor-despesas)', 
+                      borderRadius: '2px' 
+                    }}></div>
+                    <div style={{ fontSize: '18px' }}>💸</div>
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>Categorias de Despesas</h3>
+                  </div>
                 </div>
 
-                <div className="categories-container">
+                <div>
                   {categoriasSugeridasData.despesas.map(categoria => 
                     renderCategoriaItem(categoria, 'despesas')
                   )}
@@ -584,14 +656,21 @@ const CategoriasSugeridasModal = ({ isOpen, onClose }) => {
               </div>
 
               {/* Seção Receitas */}
-              <div className="section-wrapper">
-                <div className="section-header-simple">
-                  <div className="section-indicator section-indicator-receitas"></div>
-                  <div className="section-icon">💰</div>
-                  <h3>Categorias de Receitas</h3>
+              <div className="ip_mb_4">
+                <div className="ip_header_secundario ip_mb_3">
+                  <div className="ip_flex ip_gap_2" style={{ alignItems: 'center' }}>
+                    <div style={{ 
+                      width: '4px', 
+                      height: '20px', 
+                      backgroundColor: 'var(--ip-cor-receitas)', 
+                      borderRadius: '2px' 
+                    }}></div>
+                    <div style={{ fontSize: '18px' }}>💰</div>
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>Categorias de Receitas</h3>
+                  </div>
                 </div>
 
-                <div className="categories-container">
+                <div>
                   {categoriasSugeridasData.receitas.map(categoria => 
                     renderCategoriaItem(categoria, 'receitas')
                   )}
@@ -602,28 +681,28 @@ const CategoriasSugeridasModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Footer seguindo padrão iPoupei */}
-        <div className="modal-footer-simple">
-          <div className="selection-counter">
+        <div className="ip_modal_footer">
+          <div className="ip_flex ip_gap_2" style={{ alignItems: 'center' }}>
             <Check size={16} />
             <span>{contarSelecionados()} itens selecionados</span>
           </div>
           
-          <div className="footer-actions">
+          <div className="ip_flex ip_gap_3">
             <button 
               onClick={onClose} 
-              className="btn-cancel-simple"
+              className="ip_botao_base ip_botao_cinza"
               disabled={importando}
             >
               Cancelar
             </button>
             <button 
               onClick={handleImportar} 
-              className="btn-primary-simple"
+              className="ip_botao_base ip_botao_azul"
               disabled={contarSelecionados() === 0 || importando}
             >
               {importando ? (
                 <>
-                  <div className="btn-spinner"></div>
+                  <span className="ip_loading_spinner_pequeno"></span>
                   Importando...
                 </>
               ) : (

@@ -31,7 +31,7 @@ import InputMoney from '@shared/components/ui/InputMoney';
 const DespesasModalEdit = ({ isOpen, onClose, onSave, transacaoEditando }) => {
   const { user } = useAuthStore();
   const { showNotification } = useUIStore();
-  const { updateGrupoValor, isParceladaOuRecorrente } = useTransactions();
+  const { updateGrupoValor, isParceladaOuRecorrente, updateTransacao } = useTransactions();
   const [dadosOriginais, setDadosOriginais] = useState({
   categoria: '',
   subcategoria: ''
@@ -837,13 +837,11 @@ const resetForm = useCallback(() => {
 
     console.log('📝 Atualizando transação com dados:', dadosAtualizacao);
 
-    const { error } = await supabase
-      .from('transacoes')
-      .update(dadosAtualizacao)
-      .eq('id', transacaoEditando.id)
-      .eq('usuario_id', user.id);
+    const resultado = await updateTransacao(transacaoEditando.id, dadosAtualizacao);
 
-    if (error) throw error;
+    if (!resultado.success) {
+      throw new Error(resultado.error || 'Erro ao atualizar transação');
+    }
 
     showNotification('Despesa atualizada com sucesso!', 'success');
     return true;
