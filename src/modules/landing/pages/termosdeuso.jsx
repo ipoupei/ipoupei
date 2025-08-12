@@ -39,6 +39,8 @@ const TermosDeUso = () => {
     }
   };
 
+  
+
   return (
     <div className="legal-page">
       {/* Header */}
