@@ -9,6 +9,15 @@ import {
 import { formatCurrency } from '@shared/utils/formatCurrency';
 import { formatarMesPortugues, obterStatusUtilizacao, obterStatusVencimento } from '../../utils/cartoesUtils';
 
+
+
+
+function parseDateAsLocal(dateString) {
+  const [year, month, day] = dateString.split('T')[0].split('-');
+  return new Date(+year, month - 1, +day);
+}
+
+
 const VisualizacaoDetalhada = ({
   cartaoSelecionado,
   cartaoProcessado,
@@ -282,7 +291,7 @@ const ListaTransacoes = ({
                   <div className="transacao-item__meta">
                    <span className="transacao-item__data">
                     {(transacao.data_exibicao || transacao.data) ? 
-                      new Date(transacao.data_exibicao || transacao.data).toLocaleDateString('pt-BR', { 
+                      parseDateAsLocal(transacao.data_exibicao || transacao.data).toLocaleDateString('pt-BR', { 
                         day: '2-digit', 
                         month: '2-digit' 
                       }) : 'Data'}
@@ -355,13 +364,13 @@ const ListaTransacoes = ({
                     <div className="parcela-item__info">
                       <span className="parcela-item__numero">{parcela.parcela_atual || `${idx + 1}`}</span>
                       <span className="parcela-item__separador">•</span>
-                      <span className="parcela-item__data">
-                        {(parcela.data_exibicao || parcela.data) ? 
-                          new Date(parcela.data_exibicao || parcela.data).toLocaleDateString('pt-BR', { 
-                            day: '2-digit', 
-                            month: '2-digit' 
-                          }) : 'Data'}
-                      </span>
+                        <span className="parcela-item__data">
+                          {(parcela.data_exibicao || parcela.data) ? 
+                            parseDateAsLocal(parcela.data_exibicao || parcela.data).toLocaleDateString('pt-BR', { 
+                              day: '2-digit', 
+                              month: '2-digit' 
+                            }) : 'Data'}
+                        </span>
                     </div>
                     <div className="parcela-item__valores">
                       <span className="parcela-item__valor">

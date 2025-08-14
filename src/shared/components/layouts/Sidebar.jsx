@@ -423,8 +423,7 @@ const Sidebar = ({
     isMobileOpen && 'ipoupei-sidebar--mobile-open',
     !isMobileOpen && window.innerWidth < 768 && 'ipoupei-sidebar--mobile-hidden'
   ].filter(Boolean).join(' ');
-
-  // ========== RENDER ==========
+// ========== RENDER ==========
   return (
     <>
       {/* Overlay para mobile */}
@@ -439,7 +438,7 @@ const Sidebar = ({
       {/* Sidebar */}
       <aside className={sidebarClasses} role="navigation" aria-label="Menu principal">
         
-        {/* ========== HEADER ========== */}
+        {/* ========== HEADER REFATORADO ========== */}
         <div className="ipoupei-sidebar__header">
           <div className="ipoupei-sidebar__brand">
             <div className="ipoupei-sidebar__logo" aria-label="Logo iPoupei">
@@ -457,18 +456,9 @@ const Sidebar = ({
             )}
           </div>
 
-          <div className="ipoupei-sidebar__controls">
-            {onToggleCollapse && (
-              <button 
-                className="ipoupei-sidebar__control-btn ipoupei-sidebar__control-btn--collapse" 
-                onClick={onToggleCollapse}
-                aria-label={isCollapsed ? "Expandir sidebar" : "Recolher sidebar"}
-              >
-                {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-              </button>
-            )}
-            
-            {onMobileClose && (
+          {/* CONTROLES MOBILE - APENAS QUANDO NÃO COLAPSADO */}
+          {!isCollapsed && onMobileClose && (
+            <div className="ipoupei-sidebar__controls">
               <button 
                 className="ipoupei-sidebar__control-btn ipoupei-sidebar__control-btn--close" 
                 onClick={onMobileClose}
@@ -476,8 +466,20 @@ const Sidebar = ({
               >
                 <X size={16} />
               </button>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* BOTÃO DE COLAPSO - CANTO INFERIOR DIREITO DO HEADER */}
+          {onToggleCollapse && (
+            <button 
+              className="ipoupei-sidebar__toggle-btn" 
+              onClick={onToggleCollapse}
+              aria-label={isCollapsed ? "Expandir sidebar" : "Recolher sidebar"}
+              title={isCollapsed ? "Expandir sidebar" : "Recolher sidebar"}
+            >
+              {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+            </button>
+          )}
         </div>
 
         {/* ========== PERFIL USUÁRIO ========== */}
@@ -554,7 +556,6 @@ const Sidebar = ({
         </div>
       </aside>
     </>
-  );
-};
+  );};
 
 export default Sidebar;

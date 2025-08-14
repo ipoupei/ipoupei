@@ -37,13 +37,7 @@ const useUserContas = (userId) => {
             banco,
             cor,
             icone,
-            ativo,
-            cartoes (
-              id,
-              nome,
-              bandeira,
-              limite
-            )
+            ativo
           `)
           .eq('usuario_id', userId)
           .eq('ativo', true)
@@ -55,7 +49,7 @@ const useUserContas = (userId) => {
         const contasFormatadas = data.map(conta => ({
           id: conta.id,
           nome: conta.nome,
-          tipo: conta.cartoes && conta.cartoes.length > 0 ? 'cartao' : conta.tipo,
+          tipo: conta.tipo,
           banco: conta.banco,
           cor: conta.cor,
           icone: conta.icone
@@ -306,7 +300,7 @@ const ContaAnalysisPage = () => {
               <option value="">Selecione uma conta</option>
               {contas.map(conta => (
                 <option key={conta.id} value={conta.id}>
-                  {conta.nome} - {conta.banco}
+                  {conta.nome} - {conta.banco || 'Sem banco'}
                 </option>
               ))}
             </select>
@@ -340,17 +334,17 @@ const ContaAnalysisPage = () => {
           <div>
             <div className="ip_flex ip_gap_3" style={{ marginBottom: '16px' }}>
               <div className="ip_icone_item" style={{ background: conta.cor || '#008080' }}>
-                {conta.isCartao ? <CreditCard size={20} /> : <Banknote size={20} />}
+                {conta.tipo === 'cartao' ? <CreditCard size={20} /> : <Banknote size={20} />}
               </div>
               <div className="ip_info_item">
                 <h2 className="ip_nome_item">{conta.nome}</h2>
-                <p className="ip_tipo_item">{conta.tipo} • {conta.banco}</p>
+                <p className="ip_tipo_item">{conta.tipo} • {conta.banco || 'Sem banco'}</p>
               </div>
             </div>
             <div className="ip_flex ip_gap_4">
               <div className="ip_info_item">
                 <span style={{ fontSize: '14px', color: '#666' }}>
-                  {conta.isCartao ? 'Fatura Atual' : 'Saldo Atual'}
+                  {conta.tipo === 'cartao' ? 'Fatura Atual' : 'Saldo Atual'}
                 </span>
                 <span className="ip_valor_destaque" style={{ color: '#008080' }}>
                   {formatCurrency(conta.saldoAtual)}
@@ -358,9 +352,9 @@ const ContaAnalysisPage = () => {
               </div>
               <div className="ip_flex ip_flex_coluna ip_gap_2">
                 <span className="ip_badge_azul">
-                  D+30: {formatCurrency(projecao.projecao30dias)}
+                  D+30: {formatCurrency(projecao?.projecao30dias)}
                 </span>
-                {conta.isCartao && conta.limite && (
+                {conta.tipo === 'cartao' && conta.limite && (
                   <span className="ip_badge_amarelo">
                     Limite: {formatCurrency(conta.limite)}
                   </span>
@@ -376,10 +370,10 @@ const ContaAnalysisPage = () => {
               </div>
               <div className="ip_conteudo_estatistica">
                 <div className="ip_valor_estatistica">
-                  {formatCurrency(resumoPeriodo.totalEntradas)}
+                  {formatCurrency(resumoPeriodo?.totalEntradas)}
                 </div>
                 <div className="ip_label_estatistica">
-                  {conta.isCartao ? 'Compras no Período' : 'Entradas no Período'}
+                  {conta.tipo === 'cartao' ? 'Compras no Período' : 'Entradas no Período'}
                 </div>
               </div>
             </div>
@@ -389,10 +383,10 @@ const ContaAnalysisPage = () => {
               </div>
               <div className="ip_conteudo_estatistica">
                 <div className="ip_valor_estatistica">
-                  {formatCurrency(resumoPeriodo.totalSaidas)}
+                  {formatCurrency(resumoPeriodo?.totalSaidas)}
                 </div>
                 <div className="ip_label_estatistica">
-                  {conta.isCartao ? 'Pagamentos' : 'Saídas no Período'}
+                  {conta.tipo === 'cartao' ? 'Pagamentos' : 'Saídas no Período'}
                 </div>
               </div>
             </div>
@@ -401,8 +395,8 @@ const ContaAnalysisPage = () => {
                 <Target size={20} />
               </div>
               <div className="ip_conteudo_estatistica">
-                <div className={`ip_valor_estatistica ${resumoPeriodo.variacao >= 0 ? 'positivo' : 'negativo'}`}>
-                  {formatCurrency(resumoPeriodo.variacao)}
+                <div className={`ip_valor_estatistica ${resumoPeriodo?.variacao >= 0 ? 'positivo' : 'negativo'}`}>
+                  {formatCurrency(resumoPeriodo?.variacao)}
                 </div>
                 <div className="ip_label_estatistica">
                   Variação no Período
@@ -454,7 +448,7 @@ const ContaAnalysisPage = () => {
                   </p>
                   <div className="ip_flex" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                     <span className="ip_valor_verde" style={{ fontSize: '16px' }}>
-                      {showSaldos ? insight.valor : '••••••'}
+                      {showSaldos ? formatCurrency(insight.valor) : '••••••'}
                     </span>
                     <button className="ip_botao_azul ip_botao_pequeno ip_flex ip_gap_1">
                       {insight.cta}
@@ -477,7 +471,7 @@ const ContaAnalysisPage = () => {
             </h3>
             <p style={{ color: '#666', fontSize: '14px', margin: '0', lineHeight: '1.5' }}>
               Se nada mudar, em 15 dias você deve estar com <strong>
-                {formatCurrency(projecao.projecao15dias)}
+                {formatCurrency(projecao?.projecao15dias)}
               </strong>
             </p>
           </div>
@@ -490,13 +484,13 @@ const ContaAnalysisPage = () => {
         <div className="ip_card_pequeno" style={{ background: '#fafafa' }}>
           <div className="ip_flex" style={{ justifyContent: 'space-between', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #e0e0e0' }}>
             <span className="ip_badge_azul" style={{ fontSize: '12px' }}>
-              D+7: {formatCurrency(projecao.projecao7dias)}
+              D+7: {formatCurrency(projecao?.projecao7dias)}
             </span>
             <span className="ip_badge_azul" style={{ fontSize: '12px' }}>
-              D+15: {formatCurrency(projecao.projecao15dias)}
+              D+15: {formatCurrency(projecao?.projecao15dias)}
             </span>
             <span className="ip_badge_azul" style={{ fontSize: '12px' }}>
-              D+30: {formatCurrency(projecao.projecao30dias)}
+              D+30: {formatCurrency(projecao?.projecao30dias)}
             </span>
           </div>
           
@@ -505,7 +499,7 @@ const ContaAnalysisPage = () => {
               Próximos eventos
             </h4>
             <div className="ip_flex ip_flex_coluna ip_gap_2">
-              {proximosEventos.map((evento, index) => {
+              {proximosEventos && proximosEventos.map((evento, index) => {
                 const borderColor = evento.tipo === 'entrada' ? '#006400' :
                                   evento.tipo === 'saida' ? '#dc3545' :
                                   evento.tipo === 'fatura' ? '#ff9800' : '#008080';
@@ -562,21 +556,21 @@ const ContaAnalysisPage = () => {
                     dataKey="entradas" 
                     stroke="#006400" 
                     strokeWidth={3}
-                    name={conta?.isCartao ? "Compras" : "Entradas"}
+                    name={conta.tipo === 'cartao' ? "Compras" : "Entradas"}
                   />
                   <Line 
                     type="monotone" 
                     dataKey="saidas" 
                     stroke="#DC3545" 
                     strokeWidth={3}
-                    name={conta?.isCartao ? "Pagamentos" : "Saídas"}
+                    name={conta.tipo === 'cartao' ? "Pagamentos" : "Saídas"}
                   />
                   <Line 
                     type="monotone" 
                     dataKey="saldo" 
                     stroke="#008080" 
                     strokeWidth={3}
-                    name={conta?.isCartao ? "Fatura" : "Saldo"}
+                    name={conta.tipo === 'cartao' ? "Fatura" : "Saldo"}
                   />
                 </>
               )}
@@ -668,7 +662,7 @@ const ContaAnalysisPage = () => {
             </div>
           </div>
           
-          {transacoesRecentes.map((transacao) => (
+          {transacoesRecentes && transacoesRecentes.map((transacao) => (
             <div key={transacao.id} className="ip_tabela_linha">
               <div className="ip_tabela_celula" style={{
                 display: 'grid',
