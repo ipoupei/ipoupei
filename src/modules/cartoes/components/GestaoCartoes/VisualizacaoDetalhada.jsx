@@ -282,20 +282,52 @@ const ListaTransacoes = ({
           <div key={`transacao-${transacao.id}`} className="transacao-item">
             <div className="transacao-item__content">
               <div className="transacao-item__info">
-                <div 
-                  className="transacao-item__cor"
-                  style={{ backgroundColor: transacao.categoria_cor || '#6B7280' }}
-                ></div>
+                
                 <div className="transacao-item__detalhes">
-                  <p className="transacao-item__descricao">{transacao.descricao || 'Transação'}</p>
-                  <div className="transacao-item__meta">
-                   <span className="transacao-item__data">
-                    {(transacao.data_exibicao || transacao.data) ? 
-                      parseDateAsLocal(transacao.data_exibicao || transacao.data).toLocaleDateString('pt-BR', { 
-                        day: '2-digit', 
-                        month: '2-digit' 
-                      }) : 'Data'}
-                  </span>
+                    <p className="transacao-item__descricao">{transacao.descricao || 'Transação'}</p>
+                    
+                    {/* ✅ NOVA SEÇÃO: Categoria e Subcategoria */}
+                    <div className="transacao-item__categoria" style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      marginBottom: '4px'
+                    }}>
+                      <span 
+                        className="ip_indicador_cor_pequeno"
+                        style={{ 
+                          backgroundColor: transacao.categoria_cor || '#6B7280',
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          flexShrink: 0
+                        }}
+                      />
+                      <span style={{ 
+                        fontSize: '0.75rem', 
+                        color: 'var(--ip-cinza-600)',
+                        fontWeight: '500'
+                      }}>
+                        {transacao.categoria_nome || 'Sem categoria'}
+                        {transacao.subcategoria_nome && (
+                          <span style={{ 
+                            color: 'var(--ip-cinza-500)',
+                            fontWeight: '400'
+                          }}>
+                            {' • '}{transacao.subcategoria_nome}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="transacao-item__meta">
+                      <span className="transacao-item__data">
+                        {(transacao.data_exibicao || transacao.data) ? 
+                          parseDateAsLocal(transacao.data_exibicao || transacao.data).toLocaleDateString('pt-BR', { 
+                            day: '2-digit', 
+                            month: '2-digit' 
+                          }) : 'Data'}
+                      </span>
                     {transacao.parcela_atual && transacao.total_parcelas && (
                       <>
                         <span className="transacao-item__separador">•</span>
@@ -364,13 +396,42 @@ const ListaTransacoes = ({
                     <div className="parcela-item__info">
                       <span className="parcela-item__numero">{parcela.parcela_atual || `${idx + 1}`}</span>
                       <span className="parcela-item__separador">•</span>
-                        <span className="parcela-item__data">
-                          {(parcela.data_exibicao || parcela.data) ? 
-                            parseDateAsLocal(parcela.data_exibicao || parcela.data).toLocaleDateString('pt-BR', { 
-                              day: '2-digit', 
-                              month: '2-digit' 
-                            }) : 'Data'}
-                        </span>
+                      <span className="parcela-item__data">
+                        {(parcela.data_exibicao || parcela.data) ? 
+                          parseDateAsLocal(parcela.data_exibicao || parcela.data).toLocaleDateString('pt-BR', { 
+                            day: '2-digit', 
+                            month: '2-digit' 
+                          }) : 'Data'}
+                      </span>
+                      
+                      {/* ✅ NOVA SEÇÃO: Categoria da parcela (se diferente da principal) */}
+                      {(parcela.categoria_nome && parcela.categoria_nome !== transacao.categoria_nome) && (
+                        <>
+                          <span className="parcela-item__separador">•</span>
+                          <div style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            <span 
+                              style={{ 
+                                backgroundColor: parcela.categoria_cor || transacao.categoria_cor || '#6B7280',
+                                width: '6px',
+                                height: '6px',
+                                borderRadius: '50%',
+                                display: 'inline-block'
+                              }}
+                            />
+                            <span style={{ 
+                              fontSize: '0.65rem', 
+                              color: 'var(--ip-cinza-500)',
+                              fontWeight: '500'
+                            }}>
+                              {parcela.categoria_nome}
+                            </span>
+                          </div>
+                        </>
+                      )}
                     </div>
                     <div className="parcela-item__valores">
                       <span className="parcela-item__valor">
